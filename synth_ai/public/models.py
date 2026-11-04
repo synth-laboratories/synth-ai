@@ -38,11 +38,10 @@ class ErrorDetail(_Response):
 
 
 class ErrorBody(BaseModel):
-    # The contract says additionalProperties: false, but the core also sends a
-    # top-level ``outcome`` (e.g. on 422 launch refusals); read it, tolerate others.
+    # Swarms routes send SwarmsErrorBody (error + outcome); other routes send error only.
     model_config = ConfigDict(extra="allow", frozen=True)
     error: ErrorDetail
-    outcome: str | None = None
+    outcome: str | None = None  # Swarms routes: not_accepted | unknown
 
 
 # Account
@@ -156,24 +155,34 @@ class LaunchRequest(_Request):
     profile_overrides: dict[str, Any] | None = None
 
 
-class RunControlSummary(_Response):
+class ControlRef(_Response):
     operation_id: str
-    command: Literal["cancel", "pause", "resume"]
-    state: Literal["accepted", "applied", "quiesced", "refused"]
+    command: str  # cancel | pause | resume; unknown values forwarded
+    state: str  # accepted | applied | quiesced | refused; unknown values forwarded
 
 
-class RunFailure(_Response):
-    code: str
-    retryable: bool
-    problem_id: str | None = None
+class ControlReceipt(_Response):
+    operation_id: str
+    resource_id: str
+    state: str
+    reason: str
+    execution_closed: bool
+    accounting_final: bool
+    cleanup_complete: bool
+    command: str | None = None
 
 
 TERMINAL_STATES = frozenset({"completed", "partial", "failed", "cancelled"})
 
 
 class RunSnapshot(_Response):
+    metadata: dict[str, Any]
     run_id: str
     project_id: str
+    labels: dict[str, str] | None
+    labels_revision: int
+    objectives: list[Any] | None
+    guidance_coverage: list[Any] | None
     state: str
     model: str
     provider: str
@@ -181,50 +190,59 @@ class RunSnapshot(_Response):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
-    labels: dict[str, str] | None = None
-    labels_revision: int | None = None
-    control: RunControlSummary | None = None
-    paused_at: datetime | None = None
-    resume_by: datetime | None = None
-    deadline_at: datetime | None = None
-    pause_count: int | None = None
-    failure: RunFailure | None = None
-    objectives: list[dict[str, Any]] | None = None
-    problems: list[dict[str, Any]] | None = None
-    status_facets: dict[str, Any] | None = None
-    method: dict[str, Any] | None = None
+    problems: list[Any] | None
+    problems_observed: bool
+    control: ControlRef | None = None
+    method: Any = None
+    failure: Any = None
 
     @property
     def terminal(self) -> bool:
         return self.state in TERMINAL_STATES
 
+    @property
+    def failure_code(self) -> str | None:
+        if isinstance(self.failure, dict) and isinstance(self.failure.get("code"), str):
+            return self.failure["code"]
+        return None
 
-class RunPage(_Response):
-    runs: list[RunSnapshot]
-    next_cursor: str | None = None
+
+class _Page(_Response):
+    metadata: dict[str, Any]
+    next_cursor: str | None
+    complete: bool
+
+
+class RunPage(_Page):
+    items: list[RunSnapshot]
 
 
 class RunEvent(_Response):
+    event_id: str
+    run_id: str
     sequence: int = Field(ge=0)
     kind: str
-    at: datetime
-    data: dict[str, Any] | None = None
+    original_kind: str
+    usage: Any
+    observed_at: datetime
+    approval_id: str | None
 
 
-class RunEventPage(_Response):
-    events: list[RunEvent]
-    next_after: int | None = None
+class EventPage(_Page):
+    items: list[RunEvent]
+    resume_cursor: str | None
 
 
 class RunOutput(_Response):
+    run_id: str
     output_id: str
-    kind: str
-    digest_sha256: str | None = None
-    size_bytes: int | None = None
+    state: str
+    reference: dict[str, str] | None
+    filename: str
 
 
-class RunOutputList(_Response):
-    outputs: list[RunOutput]
+class OutputPage(_Page):
+    items: list[RunOutput]
 
 
 class RunResult(_Response):

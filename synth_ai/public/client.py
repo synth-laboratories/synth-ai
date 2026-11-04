@@ -31,15 +31,16 @@ from .models import (
     Balance,
     CheckoutRequest,
     CheckoutSession,
+    ControlReceipt,
     ErrorDetail,
+    EventPage,
     LaunchRequest,
     Limits,
     Money,
+    OutputPage,
     PlanCatalog,
-    RunControlSummary,
     RunEvent,
-    RunEventPage,
-    RunOutputList,
+    RunOutput,
     RunPage,
     RunResult,
     RunSnapshot,
@@ -166,11 +167,10 @@ def project_or_refuse(project_id: str | None) -> str:
 
 
 def run_failure(closed: RunSnapshot) -> RunFailedError:
-    failure = closed.failure
     return RunFailedError(
         0,
         ErrorDetail(
-            code=failure.code if failure else "run_failed",
+            code=closed.failure_code or "run_failed",
             service=SERVICE,
             stage="swarms.run",
             cause=closed.run_id,
@@ -223,7 +223,7 @@ class Swarms:
         closed = self.wait(run.run_id, timeout_seconds=timeout_seconds, poll_seconds=poll_seconds)
         if closed.state == "failed":
             raise run_failure(closed)
-        return RunResult(run=closed, outputs=self.outputs(closed.run_id).outputs)
+        return RunResult(run=closed, outputs=self.outputs(closed.run_id).items)
 
     def launch(
         self,
@@ -268,42 +268,41 @@ class Swarms:
                                    kind=WaitTimeoutError)
             self._t.sleep(poll_seconds)
 
-    def events(self, run_id: str, *, after: int | None = None,
-               limit: int | None = None) -> RunEventPage:
+    def events(self, run_id: str, *, cursor: str | None = None,
+               limit: int | None = None) -> EventPage:
+        """One page of events after ``cursor`` (a previous ``next_cursor``/``resume_cursor``)."""
         return self._t.json(
-            RunEventPage, "GET", f"{RUNS_PATH}/{run_id}/events",
-            stage="swarms.events", params={"after": after, "limit": limit},
+            EventPage, "GET", f"{RUNS_PATH}/{run_id}/events",
+            stage="swarms.events", params={"cursor": cursor, "limit": limit},
         )
 
-    def iter_events(self, run_id: str, *, after: int | None = None) -> Iterator[RunEvent]:
-        """Every event currently available after ``after``, following pages."""
-        cursor = after
+    def iter_events(self, run_id: str, *, cursor: str | None = None) -> Iterator[RunEvent]:
+        """Every event currently available after ``cursor``, following ``next_cursor``."""
         while True:
-            page = self.events(run_id, after=cursor)
-            yield from page.events
-            if page.next_after is None or not page.events:
+            page = self.events(run_id, cursor=cursor)
+            yield from page.items
+            if page.complete or page.next_cursor is None:
                 return
-            cursor = page.next_after
+            cursor = page.next_cursor
 
-    def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlSummary:
+    def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> ControlReceipt:
         return self._t.json(
-            RunControlSummary, "POST", f"{RUNS_PATH}/{run_id}/cancel",
+            ControlReceipt, "POST", f"{RUNS_PATH}/{run_id}/cancel",
             stage="swarms.cancel", idempotency_key=idempotency(idempotency_key),
         )
 
-    def outputs(self, run_id: str) -> RunOutputList:
-        return self._t.json(RunOutputList, "GET", f"{RUNS_PATH}/{run_id}/outputs",
+    def outputs(self, run_id: str) -> OutputPage:
+        return self._t.json(OutputPage, "GET", f"{RUNS_PATH}/{run_id}/outputs",
                             stage="swarms.outputs")
 
-    def output_content(self, run_id: str, output_id: str) -> bytes:
-        return self._t.send(
-            "GET", f"{RUNS_PATH}/{run_id}/outputs/{output_id}/content",
-            stage="swarms.output_content",
-        ).content
+    def output(self, run_id: str, output_id: str) -> RunOutput:
+        return self._t.json(RunOutput, "GET", f"{RUNS_PATH}/{run_id}/outputs/{output_id}",
+                            stage="swarms.output")
 
-    def list(self, *, cursor: str | None = None, limit: int | None = None) -> RunPage:
+    def list(self, *, cursor: str | None = None, limit: int | None = None,
+             project_id: str | None = None) -> RunPage:
         return self._t.json(RunPage, "GET", RUNS_PATH, stage="swarms.list",
-                            params={"cursor": cursor, "limit": limit})
+                            params={"cursor": cursor, "limit": limit, "project_id": project_id})
 
 
 class Account:

@@ -22,7 +22,7 @@ with SynthClient() as client:
     result = client.swarms.run("Compare retrieval methods for legal search", budget="5.00")
     print(result.run.state)
     for output in result.outputs:
-        print(output.output_id, output.kind)
+        print(output.output_id, output.filename)
 ```
 
 `swarms.run` launches a run, waits for it to close and returns its outputs.
@@ -32,10 +32,10 @@ The same steps one at a time:
 
 ```python
 run = client.swarms.launch("Compare retrieval methods", budget="5.00")
-client.swarms.events(run.run_id, after=0)
+client.swarms.events(run.run_id)
 closed = client.swarms.wait(run.run_id, timeout_seconds=3600)
 outputs = client.swarms.outputs(run.run_id)
-data = client.swarms.output_content(run.run_id, outputs.outputs[0].output_id)
+record = client.swarms.output(run.run_id, outputs.items[0].output_id)
 client.swarms.list(limit=20)
 client.swarms.cancel(run.run_id)
 ```
@@ -55,7 +55,7 @@ client.billing.checkout(credit_cents=2000)
 
 ```sh
 synth swarms run "Compare retrieval methods" --budget 5.00
-synth swarms launch|get|wait|events|cancel|outputs|list
+synth swarms launch|get|wait|events|cancel|outputs|output|list
 synth account
 synth billing balance
 synth billing plans
@@ -67,7 +67,8 @@ Every refusal is `{"error": {code, message, service, stage, upstream_status, cau
 and raises a subclass of `synth_ai.public.errors.SwarmsAPIError`:
 `InvalidRequestError`, `UnauthenticatedError`, `PaymentRequiredError`,
 `ForbiddenError`, `NotFoundError`, `ConflictError`, `RateLimitedError`,
-`UpstreamUnavailableError`, `ServerError`. `swarms.run` raises `RunFailedError`
+`UpstreamUnavailableError`, `ServerError`; Swarms refusals also carry
+`outcome` (`not_accepted` or `unknown`). `swarms.run` raises `RunFailedError`
 when a run fails.
 
 ## MCP

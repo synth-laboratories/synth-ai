@@ -76,7 +76,7 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
         mock.patch.object(cls, name, autospec=True)
         for cls, names in (
             (Swarms, ("run", "launch", "get", "wait", "events", "iter_events", "cancel", "outputs",
-                      "output_content", "list")),
+                      "output", "list")),
             (Account, ("get", "keys")),
             (Billing, ("balance", "plans", "checkout")),
         )

@@ -17,7 +17,7 @@ from .models import ErrorBody, ErrorDetail
 class SwarmsAPIError(SynthError):
     """A typed refusal from the Synth API."""
 
-    def __init__(self, status: int, error: ErrorDetail) -> None:
+    def __init__(self, status: int, error: ErrorDetail, *, outcome: str | None = None) -> None:
         text = error.message or error.code
         super().__init__(
             f"{error.code}: {text} (service={error.service}, stage={error.stage}, status={status})",
@@ -30,6 +30,8 @@ class SwarmsAPIError(SynthError):
         )
         self.http_status = status
         self.error = error
+        # Swarms routes: ``not_accepted`` (safe to retry) or ``unknown``.
+        self.outcome = outcome
 
     @property
     def message(self) -> str | None:
@@ -58,6 +60,11 @@ class NotFoundError(SwarmsAPIError):
 
 class ConflictError(SwarmsAPIError):
     """409: idempotency or state conflict."""
+
+
+class RunNotOrchestraAuthorityError(ConflictError):
+    """409 ``run_not_orchestra_authority``: a run imported from the legacy backend
+    has no event history in the core."""
 
 
 class RateLimitedError(SwarmsAPIError):
@@ -103,7 +110,14 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 }
 
 
-def error_class(status: int) -> type[SwarmsAPIError]:
+_BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "run_not_orchestra_authority": RunNotOrchestraAuthorityError,
+}
+
+
+def error_class(status: int, code: str | None = None) -> type[SwarmsAPIError]:
+    if code is not None and code in _BY_CODE:
+        return _BY_CODE[code]
     if status in _BY_STATUS:
         return _BY_STATUS[status]
     if status >= 500:
@@ -133,4 +147,5 @@ def raise_for_response(response: httpx.Response, *, stage: str) -> None:
                 cause=type(error).__name__,
             ),
         ) from None
-    raise error_class(response.status_code)(response.status_code, body.error)
+    kind = error_class(response.status_code, body.error.code)
+    raise kind(response.status_code, body.error, outcome=body.outcome)

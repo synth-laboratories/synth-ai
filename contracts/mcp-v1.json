@@ -61,15 +61,10 @@
       "operation": "swarms.run",
       "output_schema": {
         "$defs": {
-          "RunControlSummary": {
+          "ControlRef": {
             "additionalProperties": true,
             "properties": {
               "command": {
-                "enum": [
-                  "cancel",
-                  "pause",
-                  "resume"
-                ],
                 "title": "Command",
                 "type": "string"
               },
@@ -78,12 +73,6 @@
                 "type": "string"
               },
               "state": {
-                "enum": [
-                  "accepted",
-                  "applied",
-                  "quiesced",
-                  "refused"
-                ],
                 "title": "State",
                 "type": "string"
               }
@@ -93,79 +82,49 @@
               "command",
               "state"
             ],
-            "title": "RunControlSummary",
-            "type": "object"
-          },
-          "RunFailure": {
-            "additionalProperties": true,
-            "properties": {
-              "code": {
-                "title": "Code",
-                "type": "string"
-              },
-              "problem_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Problem Id"
-              },
-              "retryable": {
-                "title": "Retryable",
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "retryable"
-            ],
-            "title": "RunFailure",
+            "title": "ControlRef",
             "type": "object"
           },
           "RunOutput": {
             "additionalProperties": true,
             "properties": {
-              "digest_sha256": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Digest Sha256"
-              },
-              "kind": {
-                "title": "Kind",
+              "filename": {
+                "title": "Filename",
                 "type": "string"
               },
               "output_id": {
                 "title": "Output Id",
                 "type": "string"
               },
-              "size_bytes": {
+              "reference": {
                 "anyOf": [
                   {
-                    "type": "integer"
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "title": "Size Bytes"
+                "title": "Reference"
+              },
+              "run_id": {
+                "title": "Run Id",
+                "type": "string"
+              },
+              "state": {
+                "title": "State",
+                "type": "string"
               }
             },
             "required": [
+              "run_id",
               "output_id",
-              "kind"
+              "state",
+              "reference",
+              "filename"
             ],
             "title": "RunOutput",
             "type": "object"
@@ -184,41 +143,33 @@
               "control": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/RunControlSummary"
+                    "$ref": "#/$defs/ControlRef"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "default": null
-              },
-              "deadline_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Deadline At"
               },
               "execution_closed": {
                 "title": "Execution Closed",
                 "type": "boolean"
               },
               "failure": {
+                "default": null,
+                "title": "Failure"
+              },
+              "guidance_coverage": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/RunFailure"
+                    "items": {},
+                    "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "title": "Guidance Coverage"
               },
               "labels": {
                 "anyOf": [
@@ -232,31 +183,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Labels"
               },
               "labels_revision": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Labels Revision"
+                "title": "Labels Revision",
+                "type": "integer"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "title": "Metadata",
+                "type": "object"
               },
               "method": {
-                "anyOf": [
-                  {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
                 "default": null,
                 "title": "Method"
               },
@@ -267,59 +205,30 @@
               "objectives": {
                 "anyOf": [
                   {
-                    "items": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
+                    "items": {},
                     "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Objectives"
-              },
-              "pause_count": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Pause Count"
-              },
-              "paused_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Paused At"
               },
               "problems": {
                 "anyOf": [
                   {
-                    "items": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
+                    "items": {},
                     "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Problems"
+              },
+              "problems_observed": {
+                "title": "Problems Observed",
+                "type": "boolean"
               },
               "project_id": {
                 "title": "Project Id",
@@ -333,19 +242,6 @@
                 "title": "Result Available",
                 "type": "boolean"
               },
-              "resume_by": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Resume By"
-              },
               "run_id": {
                 "title": "Run Id",
                 "type": "string"
@@ -353,31 +249,25 @@
               "state": {
                 "title": "State",
                 "type": "string"
-              },
-              "status_facets": {
-                "anyOf": [
-                  {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Status Facets"
               }
             },
             "required": [
+              "metadata",
               "run_id",
               "project_id",
+              "labels",
+              "labels_revision",
+              "objectives",
+              "guidance_coverage",
               "state",
               "model",
               "provider",
               "result_available",
               "execution_closed",
               "accounting_final",
-              "cleanup_complete"
+              "cleanup_complete",
+              "problems",
+              "problems_observed"
             ],
             "title": "RunSnapshot",
             "type": "object"
@@ -464,15 +354,10 @@
       "operation": "swarms.launch",
       "output_schema": {
         "$defs": {
-          "RunControlSummary": {
+          "ControlRef": {
             "additionalProperties": true,
             "properties": {
               "command": {
-                "enum": [
-                  "cancel",
-                  "pause",
-                  "resume"
-                ],
                 "title": "Command",
                 "type": "string"
               },
@@ -481,12 +366,6 @@
                 "type": "string"
               },
               "state": {
-                "enum": [
-                  "accepted",
-                  "applied",
-                  "quiesced",
-                  "refused"
-                ],
                 "title": "State",
                 "type": "string"
               }
@@ -496,38 +375,7 @@
               "command",
               "state"
             ],
-            "title": "RunControlSummary",
-            "type": "object"
-          },
-          "RunFailure": {
-            "additionalProperties": true,
-            "properties": {
-              "code": {
-                "title": "Code",
-                "type": "string"
-              },
-              "problem_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Problem Id"
-              },
-              "retryable": {
-                "title": "Retryable",
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "retryable"
-            ],
-            "title": "RunFailure",
+            "title": "ControlRef",
             "type": "object"
           }
         },
@@ -544,41 +392,33 @@
           "control": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunControlSummary"
+                "$ref": "#/$defs/ControlRef"
               },
               {
                 "type": "null"
               }
             ],
             "default": null
-          },
-          "deadline_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Deadline At"
           },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
           },
           "failure": {
+            "default": null,
+            "title": "Failure"
+          },
+          "guidance_coverage": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunFailure"
+                "items": {},
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null
+            "title": "Guidance Coverage"
           },
           "labels": {
             "anyOf": [
@@ -592,31 +432,18 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Labels"
           },
           "labels_revision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Labels Revision"
+            "title": "Labels Revision",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
           },
           "method": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "default": null,
             "title": "Method"
           },
@@ -627,59 +454,30 @@
           "objectives": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Objectives"
-          },
-          "pause_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Pause Count"
-          },
-          "paused_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Paused At"
           },
           "problems": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Problems"
+          },
+          "problems_observed": {
+            "title": "Problems Observed",
+            "type": "boolean"
           },
           "project_id": {
             "title": "Project Id",
@@ -693,19 +491,6 @@
             "title": "Result Available",
             "type": "boolean"
           },
-          "resume_by": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Resume By"
-          },
           "run_id": {
             "title": "Run Id",
             "type": "string"
@@ -713,31 +498,25 @@
           "state": {
             "title": "State",
             "type": "string"
-          },
-          "status_facets": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Status Facets"
           }
         },
         "required": [
+          "metadata",
           "run_id",
           "project_id",
+          "labels",
+          "labels_revision",
+          "objectives",
+          "guidance_coverage",
           "state",
           "model",
           "provider",
           "result_available",
           "execution_closed",
           "accounting_final",
-          "cleanup_complete"
+          "cleanup_complete",
+          "problems",
+          "problems_observed"
         ],
         "title": "RunSnapshot",
         "type": "object"
@@ -770,15 +549,10 @@
       "operation": "swarms.get",
       "output_schema": {
         "$defs": {
-          "RunControlSummary": {
+          "ControlRef": {
             "additionalProperties": true,
             "properties": {
               "command": {
-                "enum": [
-                  "cancel",
-                  "pause",
-                  "resume"
-                ],
                 "title": "Command",
                 "type": "string"
               },
@@ -787,12 +561,6 @@
                 "type": "string"
               },
               "state": {
-                "enum": [
-                  "accepted",
-                  "applied",
-                  "quiesced",
-                  "refused"
-                ],
                 "title": "State",
                 "type": "string"
               }
@@ -802,38 +570,7 @@
               "command",
               "state"
             ],
-            "title": "RunControlSummary",
-            "type": "object"
-          },
-          "RunFailure": {
-            "additionalProperties": true,
-            "properties": {
-              "code": {
-                "title": "Code",
-                "type": "string"
-              },
-              "problem_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Problem Id"
-              },
-              "retryable": {
-                "title": "Retryable",
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "retryable"
-            ],
-            "title": "RunFailure",
+            "title": "ControlRef",
             "type": "object"
           }
         },
@@ -850,41 +587,33 @@
           "control": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunControlSummary"
+                "$ref": "#/$defs/ControlRef"
               },
               {
                 "type": "null"
               }
             ],
             "default": null
-          },
-          "deadline_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Deadline At"
           },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
           },
           "failure": {
+            "default": null,
+            "title": "Failure"
+          },
+          "guidance_coverage": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunFailure"
+                "items": {},
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null
+            "title": "Guidance Coverage"
           },
           "labels": {
             "anyOf": [
@@ -898,31 +627,18 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Labels"
           },
           "labels_revision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Labels Revision"
+            "title": "Labels Revision",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
           },
           "method": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "default": null,
             "title": "Method"
           },
@@ -933,59 +649,30 @@
           "objectives": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Objectives"
-          },
-          "pause_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Pause Count"
-          },
-          "paused_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Paused At"
           },
           "problems": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Problems"
+          },
+          "problems_observed": {
+            "title": "Problems Observed",
+            "type": "boolean"
           },
           "project_id": {
             "title": "Project Id",
@@ -999,19 +686,6 @@
             "title": "Result Available",
             "type": "boolean"
           },
-          "resume_by": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Resume By"
-          },
           "run_id": {
             "title": "Run Id",
             "type": "string"
@@ -1019,31 +693,25 @@
           "state": {
             "title": "State",
             "type": "string"
-          },
-          "status_facets": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Status Facets"
           }
         },
         "required": [
+          "metadata",
           "run_id",
           "project_id",
+          "labels",
+          "labels_revision",
+          "objectives",
+          "guidance_coverage",
           "state",
           "model",
           "provider",
           "result_available",
           "execution_closed",
           "accounting_final",
-          "cleanup_complete"
+          "cleanup_complete",
+          "problems",
+          "problems_observed"
         ],
         "title": "RunSnapshot",
         "type": "object"
@@ -1090,15 +758,10 @@
       "operation": "swarms.wait",
       "output_schema": {
         "$defs": {
-          "RunControlSummary": {
+          "ControlRef": {
             "additionalProperties": true,
             "properties": {
               "command": {
-                "enum": [
-                  "cancel",
-                  "pause",
-                  "resume"
-                ],
                 "title": "Command",
                 "type": "string"
               },
@@ -1107,12 +770,6 @@
                 "type": "string"
               },
               "state": {
-                "enum": [
-                  "accepted",
-                  "applied",
-                  "quiesced",
-                  "refused"
-                ],
                 "title": "State",
                 "type": "string"
               }
@@ -1122,38 +779,7 @@
               "command",
               "state"
             ],
-            "title": "RunControlSummary",
-            "type": "object"
-          },
-          "RunFailure": {
-            "additionalProperties": true,
-            "properties": {
-              "code": {
-                "title": "Code",
-                "type": "string"
-              },
-              "problem_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Problem Id"
-              },
-              "retryable": {
-                "title": "Retryable",
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "retryable"
-            ],
-            "title": "RunFailure",
+            "title": "ControlRef",
             "type": "object"
           }
         },
@@ -1170,41 +796,33 @@
           "control": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunControlSummary"
+                "$ref": "#/$defs/ControlRef"
               },
               {
                 "type": "null"
               }
             ],
             "default": null
-          },
-          "deadline_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Deadline At"
           },
           "execution_closed": {
             "title": "Execution Closed",
             "type": "boolean"
           },
           "failure": {
+            "default": null,
+            "title": "Failure"
+          },
+          "guidance_coverage": {
             "anyOf": [
               {
-                "$ref": "#/$defs/RunFailure"
+                "items": {},
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null
+            "title": "Guidance Coverage"
           },
           "labels": {
             "anyOf": [
@@ -1218,31 +836,18 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Labels"
           },
           "labels_revision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Labels Revision"
+            "title": "Labels Revision",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
           },
           "method": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "default": null,
             "title": "Method"
           },
@@ -1253,59 +858,30 @@
           "objectives": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Objectives"
-          },
-          "pause_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Pause Count"
-          },
-          "paused_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Paused At"
           },
           "problems": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Problems"
+          },
+          "problems_observed": {
+            "title": "Problems Observed",
+            "type": "boolean"
           },
           "project_id": {
             "title": "Project Id",
@@ -1319,19 +895,6 @@
             "title": "Result Available",
             "type": "boolean"
           },
-          "resume_by": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Resume By"
-          },
           "run_id": {
             "title": "Run Id",
             "type": "string"
@@ -1339,31 +902,25 @@
           "state": {
             "title": "State",
             "type": "string"
-          },
-          "status_facets": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Status Facets"
           }
         },
         "required": [
+          "metadata",
           "run_id",
           "project_id",
+          "labels",
+          "labels_revision",
+          "objectives",
+          "guidance_coverage",
           "state",
           "model",
           "provider",
           "result_available",
           "execution_closed",
           "accounting_final",
-          "cleanup_complete"
+          "cleanup_complete",
+          "problems",
+          "problems_observed"
         ],
         "title": "RunSnapshot",
         "type": "object"
@@ -1371,28 +928,28 @@
       "required_scope": "swarms:read"
     },
     {
-      "description": "Read ordered run events after a sequence.",
+      "description": "Read one page of ordered run events after a cursor.",
       "idempotent": true,
       "input_schema": {
         "additionalProperties": false,
         "properties": {
-          "after": {
+          "cursor": {
             "anyOf": [
               {
-                "minimum": 0,
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
             "default": null,
-            "title": "After"
+            "description": "next_cursor or resume_cursor",
+            "title": "Cursor"
           },
           "limit": {
             "anyOf": [
               {
-                "maximum": 500,
+                "maximum": 200,
                 "minimum": 1,
                 "type": "integer"
               },
@@ -1426,38 +983,56 @@
           "RunEvent": {
             "additionalProperties": true,
             "properties": {
-              "at": {
-                "format": "date-time",
-                "title": "At",
-                "type": "string"
-              },
-              "data": {
+              "approval_id": {
                 "anyOf": [
                   {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "type": "string"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "title": "Data"
+                "title": "Approval Id"
+              },
+              "event_id": {
+                "title": "Event Id",
+                "type": "string"
               },
               "kind": {
                 "title": "Kind",
+                "type": "string"
+              },
+              "observed_at": {
+                "format": "date-time",
+                "title": "Observed At",
+                "type": "string"
+              },
+              "original_kind": {
+                "title": "Original Kind",
+                "type": "string"
+              },
+              "run_id": {
+                "title": "Run Id",
                 "type": "string"
               },
               "sequence": {
                 "minimum": 0,
                 "title": "Sequence",
                 "type": "integer"
+              },
+              "usage": {
+                "title": "Usage"
               }
             },
             "required": [
+              "event_id",
+              "run_id",
               "sequence",
               "kind",
-              "at"
+              "original_kind",
+              "usage",
+              "observed_at",
+              "approval_id"
             ],
             "title": "RunEvent",
             "type": "object"
@@ -1465,30 +1040,53 @@
         },
         "additionalProperties": true,
         "properties": {
-          "events": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "items": {
             "items": {
               "$ref": "#/$defs/RunEvent"
             },
-            "title": "Events",
+            "title": "Items",
             "type": "array"
           },
-          "next_after": {
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "next_cursor": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
-            "title": "Next After"
+            "title": "Next Cursor"
+          },
+          "resume_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Cursor"
           }
         },
         "required": [
-          "events"
+          "metadata",
+          "next_cursor",
+          "complete",
+          "items",
+          "resume_cursor"
         ],
-        "title": "RunEventPage",
+        "title": "EventPage",
         "type": "object"
       },
       "required_scope": "swarms:read"
@@ -1533,36 +1131,57 @@
       "output_schema": {
         "additionalProperties": true,
         "properties": {
+          "accounting_final": {
+            "title": "Accounting Final",
+            "type": "boolean"
+          },
+          "cleanup_complete": {
+            "title": "Cleanup Complete",
+            "type": "boolean"
+          },
           "command": {
-            "enum": [
-              "cancel",
-              "pause",
-              "resume"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Command",
-            "type": "string"
+            "default": null,
+            "title": "Command"
+          },
+          "execution_closed": {
+            "title": "Execution Closed",
+            "type": "boolean"
           },
           "operation_id": {
             "title": "Operation Id",
             "type": "string"
           },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
           "state": {
-            "enum": [
-              "accepted",
-              "applied",
-              "quiesced",
-              "refused"
-            ],
             "title": "State",
             "type": "string"
           }
         },
         "required": [
           "operation_id",
-          "command",
-          "state"
+          "resource_id",
+          "state",
+          "reason",
+          "execution_closed",
+          "accounting_final",
+          "cleanup_complete"
         ],
-        "title": "RunControlSummary",
+        "title": "ControlReceipt",
         "type": "object"
       },
       "required_scope": "swarms:control"
@@ -1596,42 +1215,43 @@
           "RunOutput": {
             "additionalProperties": true,
             "properties": {
-              "digest_sha256": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Digest Sha256"
-              },
-              "kind": {
-                "title": "Kind",
+              "filename": {
+                "title": "Filename",
                 "type": "string"
               },
               "output_id": {
                 "title": "Output Id",
                 "type": "string"
               },
-              "size_bytes": {
+              "reference": {
                 "anyOf": [
                   {
-                    "type": "integer"
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
-                "title": "Size Bytes"
+                "title": "Reference"
+              },
+              "run_id": {
+                "title": "Run Id",
+                "type": "string"
+              },
+              "state": {
+                "title": "State",
+                "type": "string"
               }
             },
             "required": [
+              "run_id",
               "output_id",
-              "kind"
+              "state",
+              "reference",
+              "filename"
             ],
             "title": "RunOutput",
             "type": "object"
@@ -1639,18 +1259,117 @@
         },
         "additionalProperties": true,
         "properties": {
-          "outputs": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "items": {
             "items": {
               "$ref": "#/$defs/RunOutput"
             },
-            "title": "Outputs",
+            "title": "Items",
             "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "required": [
-          "outputs"
+          "metadata",
+          "next_cursor",
+          "complete",
+          "items"
         ],
-        "title": "RunOutputList",
+        "title": "OutputPage",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
+      "description": "Read one output record.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "output_id"
+        ],
+        "title": "OutputRef",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_output",
+      "operation": "swarms.output",
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "output_id": {
+            "title": "Output Id",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "output_id",
+          "state",
+          "reference",
+          "filename"
+        ],
+        "title": "RunOutput",
         "type": "object"
       },
       "required_scope": "swarms:read"
@@ -1676,7 +1395,7 @@
           "limit": {
             "anyOf": [
               {
-                "maximum": 100,
+                "maximum": 200,
                 "minimum": 1,
                 "type": "integer"
               },
@@ -1686,6 +1405,18 @@
             ],
             "default": null,
             "title": "Limit"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
           }
         },
         "title": "ListArgs",
@@ -1698,15 +1429,10 @@
       "operation": "swarms.list",
       "output_schema": {
         "$defs": {
-          "RunControlSummary": {
+          "ControlRef": {
             "additionalProperties": true,
             "properties": {
               "command": {
-                "enum": [
-                  "cancel",
-                  "pause",
-                  "resume"
-                ],
                 "title": "Command",
                 "type": "string"
               },
@@ -1715,12 +1441,6 @@
                 "type": "string"
               },
               "state": {
-                "enum": [
-                  "accepted",
-                  "applied",
-                  "quiesced",
-                  "refused"
-                ],
                 "title": "State",
                 "type": "string"
               }
@@ -1730,38 +1450,7 @@
               "command",
               "state"
             ],
-            "title": "RunControlSummary",
-            "type": "object"
-          },
-          "RunFailure": {
-            "additionalProperties": true,
-            "properties": {
-              "code": {
-                "title": "Code",
-                "type": "string"
-              },
-              "problem_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Problem Id"
-              },
-              "retryable": {
-                "title": "Retryable",
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "retryable"
-            ],
-            "title": "RunFailure",
+            "title": "ControlRef",
             "type": "object"
           },
           "RunSnapshot": {
@@ -1778,41 +1467,33 @@
               "control": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/RunControlSummary"
+                    "$ref": "#/$defs/ControlRef"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "default": null
-              },
-              "deadline_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Deadline At"
               },
               "execution_closed": {
                 "title": "Execution Closed",
                 "type": "boolean"
               },
               "failure": {
+                "default": null,
+                "title": "Failure"
+              },
+              "guidance_coverage": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/RunFailure"
+                    "items": {},
+                    "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "title": "Guidance Coverage"
               },
               "labels": {
                 "anyOf": [
@@ -1826,31 +1507,18 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Labels"
               },
               "labels_revision": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Labels Revision"
+                "title": "Labels Revision",
+                "type": "integer"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "title": "Metadata",
+                "type": "object"
               },
               "method": {
-                "anyOf": [
-                  {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
                 "default": null,
                 "title": "Method"
               },
@@ -1861,59 +1529,30 @@
               "objectives": {
                 "anyOf": [
                   {
-                    "items": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
+                    "items": {},
                     "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Objectives"
-              },
-              "pause_count": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Pause Count"
-              },
-              "paused_at": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Paused At"
               },
               "problems": {
                 "anyOf": [
                   {
-                    "items": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
+                    "items": {},
                     "type": "array"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "title": "Problems"
+              },
+              "problems_observed": {
+                "title": "Problems Observed",
+                "type": "boolean"
               },
               "project_id": {
                 "title": "Project Id",
@@ -1927,19 +1566,6 @@
                 "title": "Result Available",
                 "type": "boolean"
               },
-              "resume_by": {
-                "anyOf": [
-                  {
-                    "format": "date-time",
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Resume By"
-              },
               "run_id": {
                 "title": "Run Id",
                 "type": "string"
@@ -1947,31 +1573,25 @@
               "state": {
                 "title": "State",
                 "type": "string"
-              },
-              "status_facets": {
-                "anyOf": [
-                  {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Status Facets"
               }
             },
             "required": [
+              "metadata",
               "run_id",
               "project_id",
+              "labels",
+              "labels_revision",
+              "objectives",
+              "guidance_coverage",
               "state",
               "model",
               "provider",
               "result_available",
               "execution_closed",
               "accounting_final",
-              "cleanup_complete"
+              "cleanup_complete",
+              "problems",
+              "problems_observed"
             ],
             "title": "RunSnapshot",
             "type": "object"
@@ -1979,6 +1599,22 @@
         },
         "additionalProperties": true,
         "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/RunSnapshot"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
           "next_cursor": {
             "anyOf": [
               {
@@ -1988,19 +1624,14 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Next Cursor"
-          },
-          "runs": {
-            "items": {
-              "$ref": "#/$defs/RunSnapshot"
-            },
-            "title": "Runs",
-            "type": "array"
           }
         },
         "required": [
-          "runs"
+          "metadata",
+          "next_cursor",
+          "complete",
+          "items"
         ],
         "title": "RunPage",
         "type": "object"

@@ -64,9 +64,12 @@ def keyed() -> int:
             value = call()
         except SwarmsAPIError as error:
             print(f"{name} refused status={error.http_status} code={error.error.code} "
-                  f"stage={error.error.stage}")
+                  f"stage={error.error.stage} outcome={error.outcome}")
             continue
-        print(f"{name} ok type={type(value).__name__}")
+        detail = ""
+        if name == "swarms.list":
+            detail = f" items={len(value.items)} complete={value.complete}"  # type: ignore[attr-defined]
+        print(f"{name} ok type={type(value).__name__}{detail}")
     transport.close()
     return 0
 

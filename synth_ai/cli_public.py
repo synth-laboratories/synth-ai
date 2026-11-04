@@ -55,6 +55,11 @@ def _swarms(group: argparse._SubParsersAction) -> None:
     swarms.choices["cancel"].set_defaults(handler=lambda c, a: c.swarms.cancel(a.run_id))
     swarms.choices["outputs"].set_defaults(handler=lambda c, a: c.swarms.outputs(a.run_id))
 
+    output = swarms.add_parser("output")
+    output.add_argument("run_id")
+    output.add_argument("output_id")
+    output.set_defaults(handler=lambda c, a: c.swarms.output(a.run_id, a.output_id))
+
     wait = swarms.add_parser("wait")
     wait.add_argument("run_id")
     wait.add_argument("--timeout", type=float, metavar="SECONDS")
@@ -62,15 +67,17 @@ def _swarms(group: argparse._SubParsersAction) -> None:
 
     events = swarms.add_parser("events")
     events.add_argument("run_id")
-    events.add_argument("--after", type=int)
+    events.add_argument("--cursor", help="next_cursor or resume_cursor of a previous page")
     events.add_argument("--limit", type=int)
     events.set_defaults(handler=lambda c, a: c.swarms.events(
-        a.run_id, after=a.after, limit=a.limit))
+        a.run_id, cursor=a.cursor, limit=a.limit))
 
     listing = swarms.add_parser("list")
     listing.add_argument("--cursor")
     listing.add_argument("--limit", type=int)
-    listing.set_defaults(handler=lambda c, a: c.swarms.list(cursor=a.cursor, limit=a.limit))
+    listing.add_argument("--project-id")
+    listing.set_defaults(handler=lambda c, a: c.swarms.list(
+        cursor=a.cursor, limit=a.limit, project_id=a.project_id))
 
 
 def _account(group: argparse._SubParsersAction) -> None:

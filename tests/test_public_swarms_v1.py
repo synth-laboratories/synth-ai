@@ -29,7 +29,25 @@ RUN = {
     "execution_closed": False,
     "accounting_final": False,
     "cleanup_complete": False,
+    "metadata": {},
+    "labels": None,
+    "labels_revision": 1,
+    "objectives": None,
+    "guidance_coverage": None,
+    "problems": None,
+    "problems_observed": False,
 }
+PAGE = {"metadata": {}}
+
+
+def event(sequence: int) -> dict:
+    return {"event_id": f"e{sequence}", "run_id": "run_1", "sequence": sequence,
+            "kind": "task.started", "original_kind": "task.started", "usage": None,
+            "observed_at": "2026-11-04T09:00:00Z", "approval_id": None}
+
+
+OUTPUT = {"run_id": "run_1", "output_id": "o1", "state": "available",
+          "reference": {"content_ref": "ref"}, "filename": "report.md"}
 ACCOUNT = {
     "org": {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -67,7 +85,7 @@ class Contract:
         if path == "/api/v1/swarms/runs" and method == "POST":
             assert request.headers["Idempotency-Key"]
             assert request.headers["Authorization"] == f"Bearer {KEY}"
-            return httpx.Response(201, json=RUN)
+            return httpx.Response(200, json=RUN)
         if path == "/api/v1/swarms/runs/run_1" and method == "GET":
             self.polls -= 1
             if self.polls > 0:
@@ -75,11 +93,40 @@ class Contract:
             closed = {**RUN, "state": self.final_state, "execution_closed": True}
             if self.final_state == "failed":
                 closed["failure"] = {"code": "task_failed", "retryable": False}
+                closed["control"] = {"operation_id": "op", "command": "cancel", "state": "applied"}
             return httpx.Response(200, json=closed)
         if path == "/api/v1/swarms/runs/run_1/outputs":
             return httpx.Response(
-                200, json={"outputs": [{"output_id": "o1", "kind": "report", "size_bytes": 3}]}
+                200, json={**PAGE, "next_cursor": None, "complete": True, "items": [OUTPUT]}
             )
+        if path == "/api/v1/swarms/runs/run_1/outputs/o1":
+            return httpx.Response(200, json=OUTPUT)
+        if path == "/api/v1/swarms/runs" and method == "GET":
+            cursor = request.url.params.get("cursor")
+            assert request.url.params.get("project_id") in (None, "proj_1")
+            if cursor is None:
+                return httpx.Response(200, json={**PAGE, "next_cursor": "c1", "complete": False,
+                                                 "items": [RUN]})
+            return httpx.Response(200, json={**PAGE, "next_cursor": None, "complete": True,
+                                             "items": []})
+        if path == "/api/v1/swarms/runs/run_1/events":
+            cursor = request.url.params.get("cursor")
+            if cursor is None:
+                return httpx.Response(200, json={**PAGE, "next_cursor": "s1", "complete": False,
+                                                 "resume_cursor": "s1", "items": [event(0)]})
+            if cursor == "s1":
+                return httpx.Response(200, json={**PAGE, "next_cursor": None, "complete": True,
+                                                 "resume_cursor": "s2", "items": [event(1)]})
+            return httpx.Response(200, json={**PAGE, "next_cursor": None, "complete": True,
+                                             "resume_cursor": cursor, "items": []})
+        if path == "/api/v1/swarms/runs/legacy_1/events":
+            return httpx.Response(409, json={"error": {"code": "run_not_orchestra_authority",
+                "service": "synth-backend", "stage": "swarms"}, "outcome": "not_accepted"})
+        if path == "/api/v1/swarms/runs/run_1/cancel" and method == "POST":
+            assert request.headers["Idempotency-Key"] and not request.content
+            return httpx.Response(200, json={"operation_id": "op", "resource_id": "run_1",
+                "state": "accepted", "command": "cancel", "reason": "requested",
+                "execution_closed": False, "accounting_final": False, "cleanup_complete": False})
         if path == "/api/v1/account":
             return httpx.Response(200, json=ACCOUNT)
         if path == "/v1/billing/plans":
@@ -131,6 +178,35 @@ def test_run_failed_raises_typed_error() -> None:
     assert caught.value.error.code == "task_failed"
 
 
+def test_runs_pages_events_outputs_and_cancel() -> None:
+    with make_client(Contract()) as client:
+        first = client.swarms.list(limit=1, project_id="proj_1")
+        assert ([r.run_id for r in first.items], first.next_cursor, first.complete) == (
+            ["run_1"], "c1", False)
+        last = client.swarms.list(cursor=first.next_cursor)
+        assert (last.items, last.next_cursor, last.complete) == ([], None, True)
+        page = client.swarms.events("run_1")
+        assert ([e.sequence for e in page.items], page.resume_cursor) == ([0], "s1")
+        assert [e.event_id for e in client.swarms.iter_events("run_1")] == ["e0", "e1"]
+        later = client.swarms.events("run_1", cursor="s2")
+        assert (later.items, later.resume_cursor, later.complete) == ([], "s2", True)
+        outputs = client.swarms.outputs("run_1")
+        assert outputs.complete and outputs.items[0].filename == "report.md"
+        record = client.swarms.output("run_1", "o1")
+        assert (record.state, record.reference) == ("available", {"content_ref": "ref"})
+        receipt = client.swarms.cancel("run_1")
+        assert (receipt.resource_id, receipt.state, receipt.command) == (
+            "run_1", "accepted", "cancel")
+
+
+def test_legacy_run_refuses_events_typed() -> None:
+    with make_client(Contract()) as client:
+        with pytest.raises(errors.RunNotOrchestraAuthorityError) as caught:
+            client.swarms.events("legacy_1")
+    assert isinstance(caught.value, errors.ConflictError)
+    assert (caught.value.http_status, caught.value.outcome) == (409, "not_accepted")
+
+
 def test_money_usd_exact() -> None:
     assert Money.usd("100").model_dump() == {"currency": "USD", "coefficient": 1, "exponent": 2}
     assert Money.usd(0).coefficient == 0
@@ -177,6 +253,7 @@ def test_error_body_with_outcome_is_typed() -> None:
         with pytest.raises(errors.InvalidRequestError) as caught:
             client.swarms.launch("x", 1)
     assert caught.value.error.code == "invalid_launch_request"
+    assert caught.value.outcome == "not_accepted"
 
 
 def test_malformed_error_body() -> None:
@@ -260,7 +337,8 @@ def test_mcp_catalog_public_only() -> None:
 
     assert [tool.name for tool in TOOLS] == [
         "swarms_run", "swarms_launch", "swarms_get", "swarms_wait", "swarms_events",
-        "swarms_cancel", "swarms_outputs", "swarms_list", "account_get", "billing_balance",
+        "swarms_cancel", "swarms_outputs", "swarms_output", "swarms_list", "account_get",
+        "billing_balance",
         "billing_plans",
     ]
     assert {tool_product(tool.name) for tool in TOOLS} <= set(PUBLIC_PRODUCTS)

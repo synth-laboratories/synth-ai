@@ -15,10 +15,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from synth_ai.public.models import (
     Account,
     Balance,
+    ControlReceipt,
+    EventPage,
+    OutputPage,
     PlanCatalog,
-    RunControlSummary,
-    RunEventPage,
-    RunOutputList,
+    RunOutput,
     RunPage,
     RunResult,
     RunSnapshot,
@@ -66,8 +67,12 @@ class WaitArgs(RunRef):
 
 
 class EventsArgs(RunRef):
-    after: int | None = Field(default=None, ge=0)
-    limit: int | None = Field(default=None, ge=1, le=500)
+    cursor: str | None = Field(default=None, description="next_cursor or resume_cursor")
+    limit: int | None = Field(default=None, ge=1, le=200)
+
+
+class OutputRef(RunRef):
+    output_id: str = Field(min_length=1)
 
 
 class CancelArgs(RunRef):
@@ -76,7 +81,8 @@ class CancelArgs(RunRef):
 
 class ListArgs(_Args):
     cursor: str | None = None
-    limit: int | None = Field(default=None, ge=1, le=100)
+    limit: int | None = Field(default=None, ge=1, le=200)
+    project_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,12 +120,12 @@ class PublicTool(Generic[RequestT, ResultT]):
 
     def validate_result(self, result: JsonObject) -> JsonObject:
         parsed = self.result.model_validate_json(JSON_OBJECT.dump_json(result))
-        return JSON_OBJECT.validate_json(parsed.model_dump_json(exclude_none=True))
+        return JSON_OBJECT.validate_json(parsed.model_dump_json())
 
     async def invoke(self, client: AsyncSynthClient, arguments: JsonObject) -> JsonObject:
         parsed = self.request.model_validate_json(JSON_OBJECT.dump_json(arguments))
         result = await self.execute(client, parsed)
-        return JSON_OBJECT.validate_json(result.model_dump_json(exclude_none=True))
+        return JSON_OBJECT.validate_json(result.model_dump_json())
 
 
 async def _run(c: AsyncSynthClient, a: RunArgs) -> RunResult:
@@ -142,20 +148,24 @@ async def _wait(c: AsyncSynthClient, a: WaitArgs) -> RunSnapshot:
     return await c.swarms.wait(a.run_id, timeout_seconds=a.timeout_seconds)
 
 
-async def _events(c: AsyncSynthClient, a: EventsArgs) -> RunEventPage:
-    return await c.swarms.events(a.run_id, after=a.after, limit=a.limit)
+async def _events(c: AsyncSynthClient, a: EventsArgs) -> EventPage:
+    return await c.swarms.events(a.run_id, cursor=a.cursor, limit=a.limit)
 
 
-async def _cancel(c: AsyncSynthClient, a: CancelArgs) -> RunControlSummary:
+async def _cancel(c: AsyncSynthClient, a: CancelArgs) -> ControlReceipt:
     return await c.swarms.cancel(a.run_id, idempotency_key=a.idempotency_key)
 
 
-async def _outputs(c: AsyncSynthClient, a: RunRef) -> RunOutputList:
+async def _outputs(c: AsyncSynthClient, a: RunRef) -> OutputPage:
     return await c.swarms.outputs(a.run_id)
 
 
+async def _output(c: AsyncSynthClient, a: OutputRef) -> RunOutput:
+    return await c.swarms.output(a.run_id, a.output_id)
+
+
 async def _list(c: AsyncSynthClient, a: ListArgs) -> RunPage:
-    return await c.swarms.list(cursor=a.cursor, limit=a.limit)
+    return await c.swarms.list(cursor=a.cursor, limit=a.limit, project_id=a.project_id)
 
 
 async def _account(c: AsyncSynthClient, a: NoArgs) -> Account:
@@ -180,12 +190,14 @@ PUBLIC_TOOLS: tuple[PublicTool, ...] = (
                RunSnapshot, _get),
     PublicTool("swarms_wait", "swarms.wait", "Wait until a run closes.", "swarms:read",
                WaitArgs, RunSnapshot, _wait),
-    PublicTool("swarms_events", "swarms.events", "Read ordered run events after a sequence.",
-               "swarms:read", EventsArgs, RunEventPage, _events),
+    PublicTool("swarms_events", "swarms.events", "Read one page of ordered run events after a "
+               "cursor.", "swarms:read", EventsArgs, EventPage, _events),
     PublicTool("swarms_cancel", "swarms.cancel", "Cancel a run.", "swarms:control", CancelArgs,
-               RunControlSummary, _cancel, mutates=True),
+               ControlReceipt, _cancel, mutates=True),
     PublicTool("swarms_outputs", "swarms.outputs", "List a run's outputs.", "swarms:read",
-               RunRef, RunOutputList, _outputs),
+               RunRef, OutputPage, _outputs),
+    PublicTool("swarms_output", "swarms.output", "Read one output record.", "swarms:read",
+               OutputRef, RunOutput, _output),
     PublicTool("swarms_list", "swarms.list", "List runs, newest first.", "swarms:read",
                ListArgs, RunPage, _list),
     PublicTool("account_get", "account.get", "Read the caller's org, principal and limits.",

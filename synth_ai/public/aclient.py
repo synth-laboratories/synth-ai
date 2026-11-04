@@ -40,15 +40,16 @@ from .models import (
     Balance,
     CheckoutRequest,
     CheckoutSession,
+    ControlReceipt,
     ErrorDetail,
+    EventPage,
     LaunchRequest,
     Limits,
     Money,
+    OutputPage,
     PlanCatalog,
-    RunControlSummary,
     RunEvent,
-    RunEventPage,
-    RunOutputList,
+    RunOutput,
     RunPage,
     RunResult,
     RunSnapshot,
@@ -179,7 +180,7 @@ class AsyncSwarms:
         )
         if closed.state == "failed":
             raise run_failure(closed)
-        return RunResult(run=closed, outputs=(await self.outputs(closed.run_id)).outputs)
+        return RunResult(run=closed, outputs=(await self.outputs(closed.run_id)).items)
 
     async def launch(
         self,
@@ -222,43 +223,44 @@ class AsyncSwarms:
                                    kind=WaitTimeoutError)
             await self._t.sleep(poll_seconds)
 
-    async def events(self, run_id: str, *, after: int | None = None,
-                     limit: int | None = None) -> RunEventPage:
+    async def events(self, run_id: str, *, cursor: str | None = None,
+                     limit: int | None = None) -> EventPage:
+        """One page of events after ``cursor`` (a previous ``next_cursor``/``resume_cursor``)."""
         return await self._t.json(
-            RunEventPage, "GET", f"{RUNS_PATH}/{run_id}/events",
-            stage="swarms.events", params={"after": after, "limit": limit},
+            EventPage, "GET", f"{RUNS_PATH}/{run_id}/events",
+            stage="swarms.events", params={"cursor": cursor, "limit": limit},
         )
 
-    async def iter_events(self, run_id: str, *, after: int | None = None) -> AsyncIterator[RunEvent]:
-        cursor = after
+    async def iter_events(
+        self, run_id: str, *, cursor: str | None = None
+    ) -> AsyncIterator[RunEvent]:
+        """Every event currently available after ``cursor``, following ``next_cursor``."""
         while True:
-            page = await self.events(run_id, after=cursor)
-            for event in page.events:
+            page = await self.events(run_id, cursor=cursor)
+            for event in page.items:
                 yield event
-            if page.next_after is None or not page.events:
+            if page.complete or page.next_cursor is None:
                 return
-            cursor = page.next_after
+            cursor = page.next_cursor
 
-    async def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlSummary:
+    async def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> ControlReceipt:
         return await self._t.json(
-            RunControlSummary, "POST", f"{RUNS_PATH}/{run_id}/cancel",
+            ControlReceipt, "POST", f"{RUNS_PATH}/{run_id}/cancel",
             stage="swarms.cancel", idempotency_key=idempotency(idempotency_key),
         )
 
-    async def outputs(self, run_id: str) -> RunOutputList:
-        return await self._t.json(RunOutputList, "GET", f"{RUNS_PATH}/{run_id}/outputs",
+    async def outputs(self, run_id: str) -> OutputPage:
+        return await self._t.json(OutputPage, "GET", f"{RUNS_PATH}/{run_id}/outputs",
                                   stage="swarms.outputs")
 
-    async def output_content(self, run_id: str, output_id: str) -> bytes:
-        response = await self._t.send(
-            "GET", f"{RUNS_PATH}/{run_id}/outputs/{output_id}/content",
-            stage="swarms.output_content",
-        )
-        return response.content
+    async def output(self, run_id: str, output_id: str) -> RunOutput:
+        return await self._t.json(RunOutput, "GET", f"{RUNS_PATH}/{run_id}/outputs/{output_id}",
+                            stage="swarms.output")
 
-    async def list(self, *, cursor: str | None = None, limit: int | None = None) -> RunPage:
+    async def list(self, *, cursor: str | None = None, limit: int | None = None,
+             project_id: str | None = None) -> RunPage:
         return await self._t.json(RunPage, "GET", RUNS_PATH, stage="swarms.list",
-                                  params={"cursor": cursor, "limit": limit})
+                            params={"cursor": cursor, "limit": limit, "project_id": project_id})
 
 
 class AsyncAccount:
