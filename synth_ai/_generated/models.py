@@ -490,7 +490,7 @@ class RunEvent(BaseModel):
     kind: str
     original_kind: str
     usage: Any
-    observed_at: str
+    observed_at: str | None
     approval_id: str | None
 
 

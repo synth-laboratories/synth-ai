@@ -3350,7 +3350,9 @@ components:
         usage:
           description: Usage facet or null.
         observed_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
         approval_id:
           type:
