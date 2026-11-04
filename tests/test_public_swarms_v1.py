@@ -392,7 +392,7 @@ def test_cli_run_streams_events_with_resume_and_saves_outputs(
     )
     assert code == 0, capsys.readouterr().err
     launch = json.loads(server.requests[0].content)
-    assert launch["program"] == {"family": {"id": "swarms.general", "version": 1}}
+    assert launch["program"] == {"id": "swarms.general", "version": "1"}
     assert launch["message"] == "Compare retrieval methods"
     records = [json.loads(line) for line in lines]
     assert records[0] == {"run_id": "run_1", "state": "queued"}
@@ -451,7 +451,8 @@ def test_mcp_catalog_public_only() -> None:
     assert [tool.name for tool in TOOLS] == [
         "swarms_run", "swarms_run_launch", "swarms_run_get", "swarms_run_wait",
         "swarms_run_events", "swarms_run_cancel", "swarms_run_outputs", "swarms_run_output_get",
-        "swarms_runs_list", "account_get", "account_billing_balance", "account_billing_history",
+        "swarms_runs_list", "swarms_project_create", "swarms_project_get", "swarms_families_list",
+        "account_get", "account_billing_balance", "account_billing_history",
         "account_billing_plans",
     ]
     assert {tool_product(tool.name) for tool in TOOLS} <= set(PUBLIC_PRODUCTS)
@@ -460,6 +461,40 @@ def test_mcp_catalog_public_only() -> None:
     assert "swarms_create" not in BY_NAME and "swarms_create" in ALL_BY_NAME
     assert BY_NAME["swarms_run"].paid and BY_NAME["swarms_run"].mutates
     assert not BY_NAME["account_billing_plans"].keyed
+
+
+def test_projects_and_families_follow_the_contract() -> None:
+    seen: list[tuple[str, str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content) if request.content else None
+        seen.append((request.method, request.url.path, body))
+        if request.url.path.endswith("/families"):
+            return httpx.Response(200, json={"families": [{
+                "id": "swarms.general", "version": "1", "summary": "s",
+                "research_binding": "none", "required_actor_types": ["worker"]}]})
+        return httpx.Response(200, json={"project_id": "proj_1", "name": "n",
+                                         "launch_enabled": True, "metadata": {}})
+
+    with make_client(handler) as client:
+        created = client.swarms.create_project("n", objective="o", idempotency_key="k")
+        fetched = client.swarms.project("proj_1")
+        families = client.swarms.families()
+    assert created.launch_enabled and fetched.project_id == "proj_1"
+    assert families.families[0].version == "1"
+    assert seen == [
+        ("POST", "/api/v1/swarms/projects", {"name": "n", "objective": "o"}),
+        ("GET", "/api/v1/swarms/projects/proj_1", None),
+        ("GET", "/api/v1/swarms/families", None),
+    ]
+
+
+def test_checkout_takes_exactly_one_of_plan_pack_credit() -> None:
+    from synth_ai.public.models import CheckoutRequest
+
+    assert CheckoutRequest(pack_id="credits.10").pack_id == "credits.10"
+    with pytest.raises(ValueError):
+        CheckoutRequest(plan_id="standard.monthly", pack_id="credits.10")
 
 
 def test_hosted_scopes_are_the_contract_scopes() -> None:

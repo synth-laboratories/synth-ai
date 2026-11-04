@@ -1639,6 +1639,216 @@
       "required_scope": "swarms:read"
     },
     {
+      "description": "Create a launch-enabled project.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Idempotency Key"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Objective"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectCreateArgs",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": true,
+      "name": "swarms_project_create",
+      "operation": "swarms.create_project",
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "launch_enabled": {
+            "title": "Launch Enabled",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "name",
+          "launch_enabled",
+          "metadata"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "required_scope": "swarms:write"
+    },
+    {
+      "description": "Read one project.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRef",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_project_get",
+      "operation": "swarms.project",
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "launch_enabled": {
+            "title": "Launch Enabled",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "name",
+          "launch_enabled",
+          "metadata"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
+      "description": "List the launchable program families.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "NoArgs",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "swarms_families_list",
+      "operation": "swarms.families",
+      "output_schema": {
+        "$defs": {
+          "Family": {
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "required_actor_types": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Required Actor Types",
+                "type": "array"
+              },
+              "research_binding": {
+                "title": "Research Binding",
+                "type": "string"
+              },
+              "summary": {
+                "title": "Summary",
+                "type": "string"
+              },
+              "version": {
+                "title": "Version",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "summary",
+              "research_binding",
+              "required_actor_types"
+            ],
+            "title": "Family",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "families": {
+            "items": {
+              "$ref": "#/$defs/Family"
+            },
+            "title": "Families",
+            "type": "array"
+          }
+        },
+        "required": [
+          "families"
+        ],
+        "title": "FamilyList",
+        "type": "object"
+      },
+      "required_scope": "swarms:read"
+    },
+    {
       "description": "Read the caller's org, principal and limits.",
       "idempotent": true,
       "input_schema": {
@@ -2023,6 +2233,32 @@
                   }
                 ],
                 "title": "Hold Kind"
+              },
+              "refund": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Refund"
+              },
+              "usage": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Usage"
               }
             },
             "required": [
@@ -2088,6 +2324,18 @@
           "Plan": {
             "additionalProperties": true,
             "properties": {
+              "checkout_available": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Checkout Available"
+              },
               "interval": {
                 "anyOf": [
                   {
@@ -2115,6 +2363,30 @@
               "price_cents": {
                 "title": "Price Cents",
                 "type": "integer"
+              },
+              "price_lookup_key": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Price Lookup Key"
+              },
+              "price_state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Price State"
               },
               "weekly_included_microcents": {
                 "title": "Weekly Included Microcents",
@@ -2144,6 +2416,19 @@
           "policy_version": {
             "title": "Policy Version",
             "type": "string"
+          },
+          "price_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Price Checked At"
           }
         },
         "required": [

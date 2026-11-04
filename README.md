@@ -58,6 +58,7 @@ client.billing.checkout(credit_cents=2000)
 synth swarms run --program swarms.general@1 --task ./bundle --budget 5.00 --out ./outputs
 synth swarms run --attach RUN_ID --cursor RESUME_CURSOR
 synth swarms launch|status|wait|events|cancel|outputs|output|list
+synth swarms create-project NAME | project PROJECT_ID | families
 synth account
 synth billing balance|history|plans
 ```

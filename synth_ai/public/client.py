@@ -35,11 +35,14 @@ from .models import (
     ControlReceipt,
     ErrorDetail,
     EventPage,
+    FamilyList,
     LaunchRequest,
     Limits,
     Money,
     OutputPage,
     PlanCatalog,
+    Project,
+    ProjectCreateRequest,
     RunEvent,
     RunOutput,
     RunPage,
@@ -53,6 +56,8 @@ SERVICE = "synth-ai"
 # Route constants. Swarms and account keep the legacy /api/v1 prefixes; billing is
 # served by the core at /v1/billing/* (coordinator correction 2026-11-04).
 RUNS_PATH = "/api/v1/swarms/runs"
+PROJECTS_PATH = "/api/v1/swarms/projects"
+FAMILIES_PATH = "/api/v1/swarms/families"
 ACCOUNT_PATH = "/api/v1/account"
 API_KEYS_PATH = "/v1/api-keys"
 BILLING_PATH = "/v1/billing"
@@ -339,6 +344,23 @@ class Swarms:
                             params={"cursor": cursor, "limit": limit, "project_id": project_id})
 
 
+    def create_project(self, name: str, *, objective: str | None = None,
+                       template: str | None = None,
+                       idempotency_key: str | None = None) -> Project:
+        """Create a launch-enabled project; a replayed idempotency key returns the same one."""
+        request = ProjectCreateRequest(name=name, objective=objective, template=template)
+        return self._t.json(Project, "POST", PROJECTS_PATH, stage="swarms.create_project",
+                            body=request, idempotency_key=idempotency(idempotency_key))
+
+    def project(self, project_id: str) -> Project:
+        return self._t.json(Project, "GET", f"{PROJECTS_PATH}/{project_id}",
+                            stage="swarms.project")
+
+    def families(self) -> FamilyList:
+        """The launchable program families (``program={"family": {id, version}}``)."""
+        return self._t.json(FamilyList, "GET", FAMILIES_PATH, stage="swarms.families")
+
+
 class Account:
     """``client.account``: the caller's org, principal, limits and keys."""
 
@@ -376,9 +398,9 @@ class Billing:
         return self._t.json(PlanCatalog, "GET", f"{BILLING_PATH}/plans", stage="billing.plans",
                             authenticated=False)
 
-    def checkout(self, *, plan_id: str | None = None,
+    def checkout(self, *, plan_id: str | None = None, pack_id: str | None = None,
                  credit_cents: int | None = None) -> CheckoutSession:
         """Hosted checkout for a plan or a custom credit amount (exactly one)."""
-        body = CheckoutRequest(plan_id=plan_id, credit_cents=credit_cents)
+        body = CheckoutRequest(plan_id=plan_id, pack_id=pack_id, credit_cents=credit_cents)
         return self._t.json(CheckoutSession, "POST", f"{BILLING_PATH}/checkout",
                             stage="billing.checkout", body=body)

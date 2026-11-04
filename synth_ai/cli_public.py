@@ -36,11 +36,14 @@ PROGRAM = re.compile(r"^(?P<id>[A-Za-z0-9_.-]{1,128})@(?P<version>[1-9][0-9]{0,9
 
 
 def parse_program(value: str) -> dict[str, Any]:
-    """``swarms.general@1`` -> the launch ``program`` object ``{"family": {id, version}}``."""
+    """``swarms.general@1`` -> the launch ``program`` object ``{"id", "version"}``.
+
+    The core decodes ``program`` as ``{id, version}`` with a string version (the
+    ``version`` of ``GET /api/v1/swarms/families``)."""
     match = PROGRAM.fullmatch(value)
     if match is None:
         raise argparse.ArgumentTypeError("program must look like FAMILY@VERSION")
-    return {"family": {"id": match["id"], "version": int(match["version"])}}
+    return {"id": match["id"], "version": match["version"]}
 
 
 def read_task(path: str) -> str:
@@ -176,6 +179,18 @@ def _swarms(group: argparse._SubParsersAction) -> None:
     listing.add_argument("--project-id")
     listing.set_defaults(handler=lambda c, a: c.swarms.list(
         cursor=a.cursor, limit=a.limit, project_id=a.project_id))
+
+    create = swarms.add_parser("create-project", help="create a launch-enabled project")
+    create.add_argument("name")
+    create.add_argument("--objective")
+    create.set_defaults(handler=lambda c, a: c.swarms.create_project(a.name, objective=a.objective))
+
+    project = swarms.add_parser("project", help="read one project")
+    project.add_argument("project_id")
+    project.set_defaults(handler=lambda c, a: c.swarms.project(a.project_id))
+
+    swarms.add_parser("families", help="list launchable program families").set_defaults(
+        handler=lambda c, a: c.swarms.families())
 
 
 def _account(group: argparse._SubParsersAction) -> None:

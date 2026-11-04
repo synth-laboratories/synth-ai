@@ -11,6 +11,7 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 - `synth` CLI: `swarms run|launch|get|wait|events|cancel|outputs|list`, `account`, `billing balance|plans`, plus `login`, `logout` and `auth status`. `synth-ai` runs the same CLI.
 - The MCP catalog (local and hosted) lists only Swarms, account and billing tools, one per CLI verb, named as the core's hosted MCP names them (`swarms_run_launch`, `swarms_run_get`, `account_billing_balance`, ...); `docs/mcp-tools.md` is generated from the catalog.
 - `synth swarms run --program FAMILY@VERSION --task BUNDLE --budget USD` launches, streams events by cursor (resume with `--attach RUN --cursor C`) and saves output records; `synth billing history`; `client.billing.history()`; `client.swarms.follow()`.
+- Projects and families: `client.swarms.create_project(name)`, `project(id)`, `families()` (CLI `synth swarms create-project|project|families`, MCP `swarms_project_create`, `swarms_project_get`, `swarms_families_list`). Launch `program` is `{id, version}` with the string version `families()` returns. `billing.checkout(pack_id=)` takes credit packs `credits.10|25|100`; plans carry `price_state` and `checkout_available`.
 - Index, Forge, Mnemosyne, Menagerie and Tunnels are no longer part of the public client, CLI or MCP catalog (`synth_ai.products.PUBLIC_PRODUCTS`). `SynthClient.anonymous()` is removed.
 - `SYNTH_API_BASE_URL` is the canonical API origin setting; `SYNTH_API_URL` and `SYNTH_BACKEND_URL` are deprecated aliases.
 

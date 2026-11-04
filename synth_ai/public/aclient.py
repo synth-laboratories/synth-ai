@@ -19,6 +19,8 @@ from .client import (
     BILLING_PATH,
     DEFAULT_POLL_SECONDS,
     DEFAULT_TIMEOUT_SECONDS,
+    FAMILIES_PATH,
+    PROJECTS_PATH,
     RUNS_PATH,
     SERVICE,
     default_limits,
@@ -44,11 +46,14 @@ from .models import (
     ControlReceipt,
     ErrorDetail,
     EventPage,
+    FamilyList,
     LaunchRequest,
     Limits,
     Money,
     OutputPage,
     PlanCatalog,
+    Project,
+    ProjectCreateRequest,
     RunEvent,
     RunOutput,
     RunPage,
@@ -264,6 +269,23 @@ class AsyncSwarms:
                             params={"cursor": cursor, "limit": limit, "project_id": project_id})
 
 
+    async def create_project(self, name: str, *, objective: str | None = None,
+                       template: str | None = None,
+                       idempotency_key: str | None = None) -> Project:
+        """Create a launch-enabled project; a replayed idempotency key returns the same one."""
+        request = ProjectCreateRequest(name=name, objective=objective, template=template)
+        return await self._t.json(Project, "POST", PROJECTS_PATH, stage="swarms.create_project",
+                            body=request, idempotency_key=idempotency(idempotency_key))
+
+    async def project(self, project_id: str) -> Project:
+        return await self._t.json(Project, "GET", f"{PROJECTS_PATH}/{project_id}",
+                            stage="swarms.project")
+
+    async def families(self) -> FamilyList:
+        """The launchable program families (``program={"family": {id, version}}``)."""
+        return await self._t.json(FamilyList, "GET", FAMILIES_PATH, stage="swarms.families")
+
+
 class AsyncAccount:
     def __init__(self, transport: AsyncPublicTransport) -> None:
         self._t = transport
@@ -297,8 +319,8 @@ class AsyncBilling:
         return await self._t.json(PlanCatalog, "GET", f"{BILLING_PATH}/plans",
                                   stage="billing.plans", authenticated=False)
 
-    async def checkout(self, *, plan_id: str | None = None,
+    async def checkout(self, *, plan_id: str | None = None, pack_id: str | None = None,
                        credit_cents: int | None = None) -> CheckoutSession:
-        body = CheckoutRequest(plan_id=plan_id, credit_cents=credit_cents)
+        body = CheckoutRequest(plan_id=plan_id, pack_id=pack_id, credit_cents=credit_cents)
         return await self._t.json(CheckoutSession, "POST", f"{BILLING_PATH}/checkout",
                                   stage="billing.checkout", body=body)

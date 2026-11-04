@@ -18,8 +18,10 @@ from synth_ai.public.models import (
     BillingHistoryPage,
     ControlReceipt,
     EventPage,
+    FamilyList,
     OutputPage,
     PlanCatalog,
+    Project,
     RunOutput,
     RunPage,
     RunResult,
@@ -78,6 +80,16 @@ class OutputRef(RunRef):
 
 class CancelArgs(RunRef):
     idempotency_key: str | None = Field(default=None, max_length=128)
+
+
+class ProjectCreateArgs(_Args):
+    name: str = Field(min_length=1, max_length=256)
+    objective: str | None = Field(default=None, max_length=8192)
+    idempotency_key: str | None = Field(default=None, max_length=128)
+
+
+class ProjectRef(_Args):
+    project_id: str = Field(min_length=1, max_length=128)
 
 
 class HistoryArgs(_Args):
@@ -182,6 +194,19 @@ async def _balance(c: AsyncSynthClient, a: NoArgs) -> Balance:
     return await c.billing.balance()
 
 
+async def _create_project(c: AsyncSynthClient, a: ProjectCreateArgs) -> Project:
+    return await c.swarms.create_project(a.name, objective=a.objective,
+                                         idempotency_key=a.idempotency_key)
+
+
+async def _project(c: AsyncSynthClient, a: ProjectRef) -> Project:
+    return await c.swarms.project(a.project_id)
+
+
+async def _families(c: AsyncSynthClient, a: NoArgs) -> FamilyList:
+    return await c.swarms.families()
+
+
 async def _history(c: AsyncSynthClient, a: HistoryArgs) -> BillingHistoryPage:
     return await c.billing.history(cursor=a.cursor, limit=a.limit)
 
@@ -210,6 +235,13 @@ PUBLIC_TOOLS: tuple[PublicTool, ...] = (
                OutputRef, RunOutput, _output),
     PublicTool("swarms_runs_list", "swarms.list", "List runs, newest first.", "swarms:read",
                ListArgs, RunPage, _list),
+    PublicTool("swarms_project_create", "swarms.create_project", "Create a launch-enabled "
+               "project.", "swarms:write", ProjectCreateArgs, Project, _create_project,
+               mutates=True),
+    PublicTool("swarms_project_get", "swarms.project", "Read one project.", "swarms:read",
+               ProjectRef, Project, _project),
+    PublicTool("swarms_families_list", "swarms.families", "List the launchable program "
+               "families.", "swarms:read", NoArgs, FamilyList, _families),
     PublicTool("account_get", "account.get", "Read the caller's org, principal and limits.",
                None, NoArgs, Account, _account),
     PublicTool("account_billing_balance", "billing.balance", "Read the wallet balance in microcents.",

@@ -271,11 +271,42 @@ class Plan(_Response):
     price_cents: int
     weekly_included_microcents: int
     interval: str | None = None
+    price_lookup_key: str | None = None
+    # not_applicable | inline | present | missing | ambiguous | invalid | lookup_failed | not_configured
+    price_state: str | None = None
+    checkout_available: bool | None = None
 
 
 class PlanCatalog(_Response):
     policy_version: str
     plans: list[Plan]
+    price_checked_at: datetime | None = None
+
+
+class ProjectCreateRequest(_Request):
+    name: str = Field(min_length=1, max_length=256)
+    template: str | None = None
+    objective: str | None = Field(default=None, max_length=8192)
+    code_validation: dict[str, Any] | None = None
+
+
+class Project(_Response):
+    project_id: str
+    name: str
+    launch_enabled: bool
+    metadata: dict[str, Any]
+
+
+class Family(_Response):
+    id: str
+    version: str
+    summary: str
+    research_binding: str
+    required_actor_types: list[str]
+
+
+class FamilyList(_Response):
+    families: list[Family]
 
 
 class BillingHistoryEntry(_Response):
@@ -287,6 +318,8 @@ class BillingHistoryEntry(_Response):
     hold_kind: str | None
     expires_at: datetime | None
     created_at: datetime
+    refund: dict[str, Any] | None = None
+    usage: dict[str, Any] | None = None
 
 
 class BillingHistoryPage(_Response):
@@ -301,12 +334,14 @@ MAX_CREDIT_CENTS = 1_000_000
 
 class CheckoutRequest(_Request):
     plan_id: str | None = None
+    pack_id: Literal["credits.10", "credits.25", "credits.100"] | None = None
     credit_cents: int | None = Field(default=None, ge=MIN_CREDIT_CENTS, le=MAX_CREDIT_CENTS)
 
     @model_validator(mode="after")
     def _exactly_one(self) -> CheckoutRequest:
-        if (self.plan_id is None) == (self.credit_cents is None):
-            raise ValueError("checkout takes exactly one of plan_id or credit_cents")
+        chosen = [v for v in (self.plan_id, self.pack_id, self.credit_cents) if v is not None]
+        if len(chosen) != 1:
+            raise ValueError("checkout takes exactly one of plan_id, pack_id or credit_cents")
         return self
 
 
