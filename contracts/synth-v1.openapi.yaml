@@ -1,0 +1,4482 @@
+openapi: 3.1.0
+info:
+  title: Synth API
+  version: 1.0.0
+  description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own protocols.
+    Source implementation and deployment qualification are tracked separately.
+  license:
+    name: Proprietary
+    url: https://usesynth.ai/terms
+servers:
+- url: https://api.usesynth.ai
+security:
+- apiKey: []
+- clerkSession: []
+tags:
+- name: account
+  description: Account
+- name: api-keys
+  description: Api Keys
+- name: billing
+  description: Billing
+- name: families
+  description: Families
+- name: projects
+  description: Projects
+- name: runs
+  description: Runs
+- name: mcp
+  description: Mcp
+paths:
+  /v1/account:
+    get:
+      tags:
+      - account
+      operationId: getAccount
+      x-synth-status: implemented
+      summary: The caller's org, principal and limits.
+      responses:
+        '200':
+          description: Account.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+              example:
+                org:
+                  id: 00000000-0000-4000-8000-000000000001
+                  name: example
+                  personal: false
+                  plan: example
+                  access_tier: example
+                  created_at: '2026-11-04T18:00:00Z'
+                principal:
+                  org_id: 00000000-0000-4000-8000-000000000001
+                  credential_kind: api_key
+                  credential_purpose: personal
+                  principal_class: example
+                  scopes: []
+                  permissions: []
+                  authorization_version: 1
+                  access_tier: example
+                limits: []
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '304':
+          description: Representation unchanged.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/account
+      x-synth-source: core/internal/public/account/http.go
+      x-synth-scope: account:read
+      parameters:
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      x-synth-mcp-name: account_get
+  /v1/api-keys:
+    get:
+      tags:
+      - api-keys
+      operationId: listApiKeys
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/api-keys
+      summary: List the caller's personal and automation keys (session only).
+      security:
+      - clerkSession: []
+      parameters:
+      - name: purpose
+        in: query
+        schema:
+          type: string
+          enum:
+          - personal
+          - automation
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Keys, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/apikeys/http.go
+      x-synth-scope: account:read
+    post:
+      tags:
+      - api-keys
+      operationId: createApiKey
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/api-keys
+      summary: Mint a key. The secret is returned once (session only).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintApiKeyRequest'
+      responses:
+        '201':
+          description: Minted key with its one-time secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MintedApiKey'
+              example:
+                key_id: key_AAAAAAAAAAAAAAAAAAAAAA
+                prefix: sk_live_
+                last4: example
+                key_type: example
+                is_active: false
+                purpose: personal
+                name: example
+                scopes: []
+                authorization_version: 1
+                rotation_family_id: key_AAAAAAAAAAAAAAAAAAAAAA
+                key: sk_test_000000000000000000000000000000000000000000000000
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/apikeys/http.go
+      x-synth-scope: account:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/api-keys/{key_id}:
+    delete:
+      tags:
+      - api-keys
+      operationId: revokeApiKey
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/api-keys/{key_id}
+      summary: Revoke a key (idempotent, session only).
+      security:
+      - clerkSession: []
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/KeyId'
+      responses:
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '204':
+          description: Key revoked.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/apikeys/http.go
+      x-synth-scope: account:write
+    patch:
+      tags:
+      - api-keys
+      operationId: updateApiKey
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/api-keys/{key_id}
+      summary: Replace a key's scopes (optimistic on authorization_version, session only).
+      security:
+      - clerkSession: []
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/KeyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - scopes
+              - expected_version
+              properties:
+                scopes:
+                  type: array
+                  maxItems: 32
+                  uniqueItems: true
+                  items:
+                    $ref: '#/components/schemas/Scope'
+                expected_version:
+                  type: integer
+                  minimum: 1
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+      responses:
+        '200':
+          description: Updated key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+              example:
+                key_id: key_AAAAAAAAAAAAAAAAAAAAAA
+                prefix: sk_live_
+                last4: example
+                key_type: example
+                is_active: false
+                purpose: personal
+                name: example
+                scopes: []
+                authorization_version: 1
+                rotation_family_id: key_AAAAAAAAAAAAAAAAAAAAAA
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/apikeys/http.go
+      x-synth-scope: account:write
+  /v1/api-keys/{key_id}/rotate:
+    post:
+      tags:
+      - api-keys
+      operationId: rotateApiKey
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/api-keys/{key_id}/rotate
+      summary: Revoke a key and mint its replacement in the same rotation family (session only).
+      security:
+      - clerkSession: []
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/KeyId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Replacement key with its one-time secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MintedApiKey'
+              example:
+                key_id: key_AAAAAAAAAAAAAAAAAAAAAA
+                prefix: sk_live_
+                last4: example
+                key_type: example
+                is_active: false
+                purpose: personal
+                name: example
+                scopes: []
+                authorization_version: 1
+                rotation_family_id: key_AAAAAAAAAAAAAAAAAAAAAA
+                key: sk_test_000000000000000000000000000000000000000000000000
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/apikeys/http.go
+      x-synth-scope: account:write
+  /.well-known/oauth-authorization-server:
+    get:
+      tags:
+      - mcp
+      operationId: getOAuthServerMetadata
+      x-synth-status: implemented
+      x-synth-legacy-path: /.well-known/oauth-authorization-server
+      summary: RFC 8414 authorization server metadata for hosted MCP.
+      security: []
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthServerMetadata'
+              example:
+                issuer: https://api.usesynth.ai/
+                authorization_endpoint: https://api.usesynth.ai/mcp/oauth/authorize
+                token_endpoint: https://api.usesynth.ai/mcp/oauth/token
+                registration_endpoint: https://api.usesynth.ai/mcp/oauth/register
+                revocation_endpoint: https://api.usesynth.ai/mcp/oauth/revoke
+                response_types_supported:
+                - code
+                grant_types_supported:
+                - authorization_code
+                - refresh_token
+                code_challenge_methods_supported:
+                - S256
+                token_endpoint_auth_methods_supported:
+                - none
+                revocation_endpoint_auth_methods_supported:
+                - none
+                scopes_supported:
+                - synth:read
+                authorization_response_iss_parameter_supported: true
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /.well-known/oauth-protected-resource/mcp:
+    get:
+      tags:
+      - mcp
+      operationId: getMcpResourceMetadata
+      x-synth-status: implemented
+      x-synth-legacy-path: /.well-known/oauth-protected-resource/mcp
+      summary: RFC 9728 protected resource metadata for /mcp.
+      security: []
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthResourceMetadata'
+              example:
+                resource: https://api.usesynth.ai/mcp
+                authorization_servers:
+                - https://api.usesynth.ai/
+                bearer_methods_supported:
+                - header
+                scopes_supported:
+                - synth:read
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/register:
+    post:
+      tags:
+      - mcp
+      operationId: registerOAuthClient
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/register
+      summary: RFC 7591 dynamic registration of a public (PKCE) client.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthClientRegistration'
+      responses:
+        '201':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthClient'
+              example:
+                client_id: synth_client_example
+                client_name: Synth CLI
+                redirect_uris:
+                - http://127.0.0.1:8765/callback
+                grant_types:
+                - authorization_code
+                - refresh_token
+                response_types:
+                - code
+                token_endpoint_auth_method: none
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/authorize:
+    get:
+      tags:
+      - mcp
+      operationId: authorizeOAuth
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/authorize
+      summary: Store an authorization request and redirect (303) to the console consent page.
+      security: []
+      responses:
+        '303':
+          description: Redirect to console consent.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              required: true
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+      parameters:
+      - name: client_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: redirect_uri
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: response_type
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: code_challenge
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: code_challenge_method
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: resource
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+  /mcp/oauth/request:
+    get:
+      tags:
+      - mcp
+      operationId: readOAuthRequest
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/request
+      summary: Pending authorization request shown on the consent page.
+      security: []
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthConsentRequest'
+              example:
+                client_id: synth_client_example
+                client_name: Synth CLI
+                scopes:
+                - synth:read
+                resource: https://api.usesynth.ai/mcp
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+      parameters:
+      - name: request
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 128
+  /mcp/oauth/consent:
+    post:
+      tags:
+      - mcp
+      operationId: decideOAuthConsent
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/consent
+      summary: Approve or deny a request (console origin, Clerk session only).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthConsentDecision'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthConsentResult'
+              example:
+                redirect_uri: http://127.0.0.1:8765/callback?code=example&state=example
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/token:
+    post:
+      tags:
+      - mcp
+      operationId: exchangeOAuthToken
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/token
+      summary: authorization_code (PKCE S256) and refresh_token grants; rotation with reuse detection.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthTokenRequest'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthToken'
+              example:
+                access_token: example
+                token_type: Bearer
+                expires_in: 3600
+                scope: synth:read
+                refresh_token: example
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/revoke:
+    post:
+      tags:
+      - mcp
+      operationId: revokeOAuthToken
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/revoke
+      summary: RFC 7009 revocation; revokes the whole grant family.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthRevocationRequest'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthRevoked'
+              example: {}
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp:
+    post:
+      tags:
+      - mcp
+      operationId: mcpJsonRpc
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp
+      summary: Streamable-HTTP MCP (JSON-RPC 2.0) - initialize, ping, tools/list, tools/call over the Swarms and
+        account tools.
+      security:
+      - apiKey: []
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/McpRequest'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpResponse'
+              example:
+                jsonrpc: '2.0'
+                id: 1
+                result: {}
+        '401':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpResponse'
+              example:
+                jsonrpc: '2.0'
+                id: null
+                error:
+                  code: -32600
+                  message: Authentication required.
+        default:
+          description: Transport or origin refusal.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/McpResponse'
+                - $ref: '#/components/schemas/OAuthError'
+                - type: object
+                  properties:
+                    detail:
+                      type: string
+                  required:
+                  - detail
+                  additionalProperties: false
+              example:
+                detail: Origin not allowed
+        '202':
+          description: Notification accepted; no response body.
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+    get:
+      operationId: getMcpTransport
+      summary: getMcpTransport
+      tags:
+      - mcp
+      x-synth-status: implemented
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+      x-synth-legacy-path: /mcp
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpTransport'
+              example:
+                name: synth-swarms
+                transport: streamable-http
+                endpoint: /mcp
+                protocol_version: '2025-11-25'
+                oauth:
+                  resource: https://api.usesynth.ai/mcp
+                  authorization_servers:
+                  - https://api.usesynth.ai
+        '401':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpResponse'
+              example:
+                jsonrpc: '2.0'
+                id: null
+                error:
+                  code: -32600
+                  message: Authentication required.
+        default:
+          description: Transport or origin refusal.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/McpResponse'
+                - $ref: '#/components/schemas/OAuthError'
+                - type: object
+                  properties:
+                    detail:
+                      type: string
+                  required:
+                  - detail
+                  additionalProperties: false
+              example:
+                detail: Origin not allowed
+    delete:
+      operationId: deleteMcpSession
+      summary: deleteMcpSession
+      tags:
+      - mcp
+      x-synth-status: implemented
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/routes.go
+      x-synth-legacy-path: /mcp
+      responses:
+        '204':
+          description: Session deleted.
+        '400':
+          description: Session ID missing.
+        '404':
+          description: Session not found.
+        '503':
+          description: Session store unavailable.
+        '401':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpResponse'
+              example:
+                jsonrpc: '2.0'
+                id: null
+                error:
+                  code: -32600
+                  message: Authentication required.
+        default:
+          description: Transport or origin refusal.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/McpResponse'
+                - $ref: '#/components/schemas/OAuthError'
+                - type: object
+                  properties:
+                    detail:
+                      type: string
+                  required:
+                  - detail
+                  additionalProperties: false
+              example:
+                detail: Origin not allowed
+  /v1/runs:
+    get:
+      tags:
+      - runs
+      operationId: listRuns
+      summary: The caller's runs, newest first.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - name: project_id
+        in: query
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      - name: state
+        in: query
+        schema:
+          type: string
+      - name: created_after
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: One page of runs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs
+      x-synth-mcp-name: swarms_runs_list
+    post:
+      tags:
+      - runs
+      operationId: createRun
+      summary: Launch a run.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:run
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchRequest'
+      responses:
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '202':
+          description: Admitted run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSnapshot'
+              example:
+                metadata: {}
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                labels: {}
+                labels_revision: 1
+                objectives: []
+                guidance_coverage: []
+                state: queued
+                model: example
+                provider: example
+                result_available: false
+                execution_closed: false
+                accounting_final: false
+                cleanup_complete: false
+                problems: []
+                problems_observed: false
+                created_at: '2026-11-04T18:00:00Z'
+                started_at: '2026-11-04T18:00:00Z'
+                closed_at: '2026-11-04T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs
+      x-synth-mcp-name: swarms_run_launch
+  /v1/runs/{run_id}:
+    get:
+      tags:
+      - runs
+      operationId: getRun
+      summary: One run snapshot.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Run snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSnapshot'
+              example:
+                metadata: {}
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                labels: {}
+                labels_revision: 1
+                objectives: []
+                guidance_coverage: []
+                state: queued
+                model: example
+                provider: example
+                result_available: false
+                execution_closed: false
+                accounting_final: false
+                cleanup_complete: false
+                problems: []
+                problems_observed: false
+                created_at: '2026-11-04T18:00:00Z'
+                started_at: '2026-11-04T18:00:00Z'
+                closed_at: '2026-11-04T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '304':
+          description: Representation unchanged.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}
+      x-synth-mcp-name: swarms_run_get
+  /v1/runs/{run_id}/events:
+    get:
+      tags:
+      - runs
+      operationId: listRunEvents
+      summary: Ordered run events, one cursor page at a time.
+      description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes SSE after
+        a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling later events. Only native
+        runs are exposed.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      - name: Last-Event-ID
+        in: header
+        description: Nonnegative sequence of the last received SSE event.
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+      responses:
+        '200':
+          description: One page of events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+              example:
+                has_more: false
+                items: []
+                resume_cursor: example
+            text/event-stream:
+              schema:
+                type: string
+              example: 'id: 1
+
+                event: event
+
+                data: {"sequence":1}
+
+
+                '
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/events
+      x-synth-mcp-name: swarms_run_events
+  /v1/runs/{run_id}/cancel:
+    post:
+      tags:
+      - runs
+      operationId: cancelRun
+      summary: Cancel a run.
+      description: The body must be empty (`422 control_body_must_be_empty`).
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:control
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/cancel
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '202':
+          description: Control receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSnapshot'
+              example:
+                metadata: {}
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                labels: {}
+                labels_revision: 1
+                objectives: []
+                guidance_coverage: []
+                state: queued
+                model: example
+                provider: example
+                result_available: false
+                execution_closed: false
+                accounting_final: false
+                cleanup_complete: false
+                problems: []
+                problems_observed: false
+                created_at: '2026-11-04T18:00:00Z'
+                started_at: '2026-11-04T18:00:00Z'
+                closed_at: '2026-11-04T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-mcp-name: swarms_run_cancel
+  /v1/runs/{run_id}/outputs:
+    get:
+      tags:
+      - runs
+      operationId: listRunOutputs
+      summary: A run's outputs.
+      description: Published outputs for a native run, paginated by cursor.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: All outputs (`complete` is always true).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutputPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/outputs
+      x-synth-mcp-name: swarms_run_outputs
+  /v1/runs/{run_id}/outputs/{output_id}:
+    get:
+      tags:
+      - runs
+      operationId: getRunOutput
+      summary: One output record.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - name: output_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/OutId'
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Output record (`404 output_not_found` when absent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunOutput'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                output_id: out_AAAAAAAAAAAAAAAAAAAAAA
+                state: available
+                reference:
+                  content_ref: '...'
+                filename: example
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '304':
+          description: Representation unchanged.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/outputs/{output_id}
+      x-synth-mcp-name: swarms_run_output_get
+  /v1/runs/{run_id}/outputs/{output_id}/content:
+    get:
+      tags:
+      - runs
+      operationId: getRunOutputContent
+      summary: The output's bytes at the revision and digest read from its record.
+      description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox CSP). `422
+        output_revision_required` unless exactly `revision_id` and `digest_sha256` are given; `409 output_revision_changed`
+        when they no longer name the published revision; `404 output_not_found`.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      - name: output_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/OutId'
+      - name: revision_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: digest_sha256
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      responses:
+        '200':
+          description: Output bytes; `ETag` and `X-Synth-Content-SHA256` carry the digest.
+          headers:
+            X-Synth-Content-SHA256:
+              $ref: '#/components/headers/X-Synth-Content-SHA256'
+            X-Synth-Output-Revision:
+              $ref: '#/components/headers/X-Synth-Output-Revision'
+            Content-Disposition:
+              $ref: '#/components/headers/Content-Disposition'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/outputs/{output_id}/content
+  /v1/projects:
+    post:
+      tags:
+      - projects
+      operationId: createProject
+      summary: Create a Swarms project (launch-enabled).
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/projects/http.go
+      x-synth-scope: swarms:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        '201':
+          description: The project (a replayed Idempotency-Key returns the same project).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                name: example
+                launch_enabled: false
+                metadata: {}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/projects
+      x-synth-mcp-name: swarms_project_create
+    get:
+      tags:
+      - projects
+      operationId: listProjects
+      summary: List projects, newest first.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/projects/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of runs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_projects_list
+  /v1/projects/{project_id}:
+    get:
+      tags:
+      - projects
+      operationId: getProject
+      summary: One project of the caller's organization.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/projects/http.go
+      x-synth-scope: swarms:read
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Project (`404 project_not_found` when absent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+              example:
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                name: example
+                launch_enabled: false
+                metadata: {}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '304':
+          description: Representation unchanged.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/projects/{project_id}
+      x-synth-mcp-name: swarms_project_get
+  /v1/families:
+    get:
+      tags:
+      - families
+      operationId: listFamilies
+      summary: The launchable program families (GA set, swarms.general@1).
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      x-synth-scope: swarms:read
+      responses:
+        '200':
+          description: Family list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyList'
+              example:
+                families: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /api/v1/swarms/families
+      parameters: []
+      x-synth-mcp-name: swarms_families_list
+  /v1/billing/plans:
+    get:
+      tags:
+      - billing
+      operationId: listPlans
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      security: []
+      summary: The code-constant plan catalog (public) with each plan's live Stripe price state.
+      description: 'price_state is read from Stripe by lookup key (cached 60 s; a failed lookup is not cached).
+
+        checkout_available is true only when POST /v1/billing/checkout can succeed for that plan:
+
+        consoles grey out checkout otherwise.
+
+        '
+      responses:
+        '200':
+          description: Plans.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanCatalog'
+              example:
+                policy_version: example
+                plans: []
+                price_checked_at: '2026-11-04T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/plans
+      x-synth-scope: ''
+      parameters: []
+  /v1/billing/balance:
+    get:
+      tags:
+      - billing
+      operationId: getBalance
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      x-synth-scope: account:billing:read
+      summary: Wallet position of the caller's org in integer microcents (1 USD = 10^8).
+      responses:
+        '200':
+          description: Balance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Balance'
+              example:
+                org_id: 00000000-0000-4000-8000-000000000001
+                ledger:
+                  amount: '5.00'
+                  currency: USD
+                held:
+                  amount: '5.00'
+                  currency: USD
+                headroom:
+                  amount: '5.00'
+                  currency: USD
+                available:
+                  amount: '5.00'
+                  currency: USD
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/balance
+      parameters: []
+      x-synth-mcp-name: account_billing_balance
+  /v1/billing/history:
+    get:
+      tags:
+      - billing
+      operationId: listBillingHistory
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      x-synth-scope: account:billing:read
+      summary: Balance movements of the caller's org (ledger entries), newest first, cursor-paged.
+      description: 'Each item is one append-only ledger entry: grants (weekly included usage, purchases,
+
+        promotions, operator credits), holds and releases, settlements, refunds, clawbacks and
+
+        restores. `delta_microcents` moves the ledger; `held_delta_microcents` moves held value.
+
+        Refusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail names the
+        parameter).
+
+        '
+      parameters:
+      - name: cause
+        in: query
+        required: false
+        description: Comma list of ledger causes; unknown causes answer 422 invalid_history_filter.
+        schema:
+          type: string
+          examples:
+          - settle,refund
+      - name: run_id
+        in: query
+        required: false
+        description: Entries of one run (hold or charged usage).
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - name: since
+        in: query
+        required: false
+        description: created_at >= since (RFC3339).
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        required: false
+        description: created_at < until (RFC3339); must follow since.
+        schema:
+          type: string
+          format: date-time
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingHistoryPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/history
+  /v1/billing/invoices:
+    get:
+      tags:
+      - billing
+      operationId: listInvoices
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      x-synth-scope: account:billing:read
+      summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger, newest first.
+      description: 'One row per month that has ledger entries. Movements are sums of entry deltas by kind:
+
+        purchases (purchased grants), allowance (included grants), credits (promotional and operator grants),
+
+        conversion (legacy carry-over grants), charges (settlements, negative), refunds (Stripe/operator refunds
+
+        and clawbacks), adjustments and expirations. `closing_ledger_microcents` = opening + the month''s deltas;
+
+        the latest closing equals the balance''s `ledger_microcents`. `unspent_returned_microcents` is held value
+
+        returned to available by cancel/failure refunds (it moves held, not the ledger). Usage columns sum the
+
+        month''s charged usage lines. Refusal: `invalid_limit` (422) when `months` is outside 1..36.
+
+        '
+      parameters:
+      - name: months
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 36
+          default: 12
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Statements, newest month first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingStatementPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/invoices
+  /v1/billing/checkout:
+    post:
+      tags:
+      - billing
+      operationId: createCheckout
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      x-synth-scope: account:billing:read
+      summary: Create a hosted Stripe Checkout session for a plan or a custom credit amount.
+      description: 'Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),
+
+        `pack_id` (a credit pack: `credits.10` $10, `credits.25` $25, `credits.100` $100; priced inline)
+
+        or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown`
+        (422),
+
+        `plan_not_purchasable` (422), `malformed_request` (422), `config_missing` (503, names the variable), `stripe_price_missing`
+        (503, names the lookup key),
+
+        `stripe_checkout_failed` (502, `upstream_kind: stripe`).
+
+        '
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Hosted checkout session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutSession'
+              example:
+                session_id: example
+                url: https://api.usesynth.ai/example
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/checkout
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /mcp/oauth/grants:
+    get:
+      tags:
+      - mcp
+      operationId: listOAuthGrants
+      summary: listOAuthGrants
+      security:
+      - clerkSession: []
+      x-synth-status: implemented
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/grants.go
+      x-synth-legacy-path: /v1/account/oauth-grants
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthGrants'
+              example:
+                grants: []
+                visibility: own
+                viewer_role: owner
+                observed_at: '2026-11-04T00:00:00Z'
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolFault'
+              example:
+                error:
+                  code: session_required
+        '403':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolFault'
+              example:
+                error:
+                  code: session_required
+  /mcp/oauth/grants/{grant_id}:
+    delete:
+      tags:
+      - mcp
+      operationId: revokeOAuthGrant
+      summary: revokeOAuthGrant
+      security:
+      - clerkSession: []
+      x-synth-status: implemented
+      x-synth-scope: protocol
+      x-synth-source: core/internal/mcpoauth/grants.go
+      x-synth-legacy-path: /v1/account/oauth-grants
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthGrantRevoked'
+              example:
+                grant_id: 00000000-0000-4000-8000-000000000001
+                status: revoked
+                outcome: revoked
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolFault'
+              example:
+                error:
+                  code: session_required
+        '403':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolFault'
+              example:
+                error:
+                  code: session_required
+      parameters:
+      - in: path
+        name: grant_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: Bearer sk_live_ or sk_test_ API key.
+    clerkSession:
+      type: apiKey
+      in: header
+      name: X-Clerk-Session-Token
+  parameters:
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/RunId'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Required on creating and charging POSTs. Scoped to the caller and operation for 24 hours; body
+        mismatch returns 422 idempotency_key_reused.
+      schema:
+        type: string
+        maxLength: 128
+        minLength: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Opaque next_cursor from the preceding page.
+  responses:
+    Problem:
+      description: internal error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/internal_error
+            title: internal error
+            status: 500
+            detail: internal error
+            instance: urn:request:example
+            code: internal_error
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+    AuthenticationRequired:
+      description: authentication required
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/authentication_required
+            title: authentication required
+            status: 401
+            detail: authentication required
+            instance: urn:request:example
+            code: authentication_required
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    InsufficientScope:
+      description: insufficient scope
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/insufficient_scope
+            title: insufficient scope
+            status: 403
+            detail: insufficient scope
+            instance: urn:request:example
+            code: insufficient_scope
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    InvalidRequest:
+      description: invalid request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/invalid_request
+            title: invalid request
+            status: 422
+            detail: invalid request
+            instance: urn:request:example
+            code: invalid_request
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    RateLimitExceeded:
+      description: rate limit exceeded
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/rate_limit_exceeded
+            title: rate limit exceeded
+            status: 429
+            detail: rate limit exceeded
+            instance: urn:request:example
+            code: rate_limit_exceeded
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+    ServiceUnavailable:
+      description: service unavailable
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/service_unavailable
+            title: service unavailable
+            status: 503
+            detail: service unavailable
+            instance: urn:request:example
+            code: service_unavailable
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    IdempotencyKeyReused:
+      description: idempotency key reused
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/idempotency_key_reused
+            title: idempotency key reused
+            status: 422
+            detail: idempotency key reused
+            instance: urn:request:example
+            code: idempotency_key_reused
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    ResourceNotFound:
+      description: resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/resource_not_found
+            title: resource not found
+            status: 404
+            detail: resource not found
+            instance: urn:request:example
+            code: resource_not_found
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+  schemas:
+    Limit:
+      type: object
+      required:
+      - resource
+      - metric
+      - window
+      - cap
+      properties:
+        resource:
+          type: string
+          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 5, max 50, internal -1, credits/free
+            1), included_usage.'
+        metric:
+          type: string
+        window:
+          type: string
+        cap:
+          type: number
+          description: -1 means uncapped.
+    Org:
+      type: object
+      required:
+      - id
+      - name
+      - personal
+      - plan
+      - access_tier
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        clerk_org_id:
+          type:
+          - string
+          - 'null'
+        name:
+          type: string
+        personal:
+          type: boolean
+        plan:
+          type: string
+        access_tier:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Principal:
+      type: object
+      required:
+      - org_id
+      - credential_kind
+      - credential_purpose
+      - principal_class
+      - scopes
+      - permissions
+      - authorization_version
+      - access_tier
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        credential_kind:
+          type: string
+          enum:
+          - api_key
+          - session
+        credential_id:
+          type: string
+        credential_purpose:
+          type: string
+          enum:
+          - personal
+          - automation
+          - legacy
+        principal_class:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        authorization_version:
+          type: integer
+          minimum: 1
+        org_role:
+          type: string
+          enum:
+          - owner
+          - admin
+          - member
+        access_tier:
+          type: string
+    Account:
+      type: object
+      required:
+      - org
+      - principal
+      - limits
+      properties:
+        org:
+          $ref: '#/components/schemas/Org'
+        principal:
+          $ref: '#/components/schemas/Principal'
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Limit'
+    Scope:
+      type: string
+      enum:
+      - account:billing:read
+      - account:read
+      - account:usage:read
+      - swarms:control
+      - swarms:read
+      - swarms:run
+      - swarms:write
+      - account:write
+      - account:billing:write
+    ApiKey:
+      type: object
+      required:
+      - key_id
+      - prefix
+      - last4
+      - key_type
+      - is_active
+      - purpose
+      - name
+      - scopes
+      - authorization_version
+      - rotation_family_id
+      properties:
+        key_id:
+          $ref: '#/components/schemas/KeyId'
+        prefix:
+          type: string
+          description: Visible prefix; imported inventory can retain its historical prefix.
+        last4:
+          type: string
+        key_type:
+          type: string
+        is_active:
+          type: boolean
+        purpose:
+          type: string
+          enum:
+          - personal
+          - automation
+        name:
+          type:
+          - string
+          - 'null'
+        scopes:
+          type: array
+          items:
+            type: string
+        authorization_version:
+          type: integer
+          minimum: 1
+        rotation_family_id:
+          oneOf:
+          - $ref: '#/components/schemas/KeyId'
+          - type: 'null'
+        created_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        last_used_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    MintedApiKey:
+      allOf:
+      - $ref: '#/components/schemas/ApiKey'
+      - type: object
+        required:
+        - key
+        properties:
+          key:
+            type: string
+            pattern: ^sk_(live|test)_[0-9a-f]{48}$
+    MintApiKeyRequest:
+      type: object
+      additionalProperties: false
+      description: Automation keys require name, scopes, expires_at (at most one year) and request_id. One active
+        personal key per user and org.
+      properties:
+        purpose:
+          type: string
+          enum:
+          - personal
+          - automation
+          default: personal
+        name:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 128
+        scopes:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Scope'
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        request_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    Money:
+      type: object
+      additionalProperties: false
+      required:
+      - amount
+      - currency
+      properties:
+        amount:
+          type: string
+          pattern: ^-?(0|[1-9][0-9]*)(\.[0-9]{1,12})?$
+          examples:
+          - '5.00'
+        currency:
+          type: string
+          const: USD
+    Limits:
+      type: object
+      required:
+      - maximum_charge
+      - wall_time_seconds
+      - maximum_tasks
+      - maximum_parallel_tasks
+      description: maximum_charge is required; explicit null requests operator-funded local execution. maximum_parallel_tasks
+        cannot exceed maximum_tasks.
+      properties:
+        maximum_charge:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        wall_time_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+        maximum_tasks:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        maximum_parallel_tasks:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    ProjectCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        template:
+          type: string
+        objective:
+          type: string
+          maxLength: 8192
+        code_validation:
+          type: object
+          additionalProperties: true
+    Project:
+      type: object
+      required:
+      - project_id
+      - name
+      - launch_enabled
+      - metadata
+      properties:
+        project_id:
+          $ref: '#/components/schemas/ProjId'
+        name:
+          type: string
+        launch_enabled:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+    Family:
+      type: object
+      required:
+      - id
+      - version
+      - summary
+      - research_binding
+      - required_actor_types
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        summary:
+          type: string
+        research_binding:
+          type: string
+        required_actor_types:
+          type: array
+          items:
+            type: string
+    FamilyList:
+      type: object
+      required:
+      - families
+      properties:
+        families:
+          type: array
+          items:
+            $ref: '#/components/schemas/Family'
+    LaunchRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - project_id
+      - limits
+      properties:
+        message:
+          type:
+          - string
+          - 'null'
+          minLength: 1
+          maxLength: 8192
+        project_id:
+          $ref: '#/components/schemas/ProjId'
+        limits:
+          $ref: '#/components/schemas/Limits'
+        inputs:
+          type:
+          - object
+          - 'null'
+          properties:
+            files:
+              type: array
+              maxItems: 32
+              items:
+                type: object
+                required:
+                - file_id
+                - revision_id
+                - project_id
+                - digest_sha256
+                properties:
+                  file_id:
+                    type: string
+                  revision_id:
+                    type: string
+                  project_id:
+                    $ref: '#/components/schemas/ProjId'
+                  digest_sha256:
+                    type: string
+                    pattern: ^[0-9a-f]{64}$
+        providers:
+          type:
+          - object
+          - 'null'
+        models:
+          type:
+          - object
+          - 'null'
+        method:
+          type:
+          - object
+          - 'null'
+        program:
+          type: object
+          properties:
+            id:
+              type: string
+            version:
+              type: string
+          required:
+          - id
+          additionalProperties: false
+        profile_overrides:
+          $ref: '#/components/schemas/ProfileOverrides'
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+    ControlRef:
+      type: object
+      required:
+      - operation_id
+      - command
+      - state
+      properties:
+        operation_id:
+          type: string
+        command:
+          type: string
+          examples:
+          - cancel
+          - pause
+          - resume
+        state:
+          type: string
+          examples:
+          - accepted
+          - applied
+          - quiesced
+          - refused
+    RunSnapshot:
+      type: object
+      required:
+      - metadata
+      - run_id
+      - project_id
+      - labels
+      - labels_revision
+      - objectives
+      - guidance_coverage
+      - state
+      - model
+      - provider
+      - result_available
+      - execution_closed
+      - accounting_final
+      - cleanup_complete
+      - problems
+      - problems_observed
+      - created_at
+      - started_at
+      - closed_at
+      properties:
+        metadata:
+          type: object
+          additionalProperties: true
+        method:
+          description: Open method projection or null.
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        project_id:
+          $ref: '#/components/schemas/ProjId'
+        labels:
+          type:
+          - object
+          - 'null'
+          additionalProperties:
+            type: string
+        labels_revision:
+          type: integer
+        objectives:
+          type:
+          - array
+          - 'null'
+          items: {}
+        guidance_coverage:
+          type:
+          - array
+          - 'null'
+          items: {}
+        state:
+          type: string
+          description: Known values listed; unknown values are forwarded verbatim.
+          examples:
+          - queued
+          - running
+          - pausing
+          - paused
+          - cancelling
+          - completed
+          - partial
+          - failed
+          - cancelled
+        model:
+          type: string
+        provider:
+          type: string
+        result_available:
+          type: boolean
+        execution_closed:
+          type: boolean
+        accounting_final:
+          type: boolean
+        cleanup_complete:
+          type: boolean
+        control:
+          $ref: '#/components/schemas/ControlRef'
+        problems:
+          type:
+          - array
+          - 'null'
+          items: {}
+        problems_observed:
+          type: boolean
+        failure:
+          description: Open failure projection or null.
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        closed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        profile_overrides:
+          $ref: '#/components/schemas/ProfileOverrideReadback'
+    PageFields:
+      type: object
+      required:
+      - has_more
+      properties:
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+          minLength: 1
+    RunPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/RunSnapshot'
+    RunEvent:
+      type: object
+      required:
+      - event_id
+      - run_id
+      - sequence
+      - kind
+      - original_kind
+      - usage
+      - observed_at
+      - approval_id
+      properties:
+        event_id:
+          $ref: '#/components/schemas/EvtId'
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        sequence:
+          type: integer
+          minimum: 0
+        kind:
+          type: string
+        original_kind:
+          type: string
+        usage:
+          description: Usage facet or null.
+        observed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        approval_id:
+          type:
+          - string
+          - 'null'
+    EventPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        - resume_cursor
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/RunEvent'
+          resume_cursor:
+            type:
+            - string
+            - 'null'
+    RunOutput:
+      type: object
+      required:
+      - run_id
+      - output_id
+      - state
+      - reference
+      - filename
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        output_id:
+          $ref: '#/components/schemas/OutId'
+        state:
+          type: string
+          examples:
+          - available
+        reference:
+          type:
+          - object
+          - 'null'
+          additionalProperties:
+            type: string
+          examples:
+          - content_ref: '...'
+        filename:
+          type: string
+    OutputPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/RunOutput'
+    Plan:
+      type: object
+      required:
+      - plan_id
+      - name
+      - kind
+      - price
+      - weekly_included
+      - price_state
+      - checkout_available
+      properties:
+        plan_id:
+          type: string
+          examples:
+          - free
+          - standard.monthly
+          - max.monthly
+          - credits.custom
+          - internal
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - free
+          - recurring
+          - credit_pack
+          - internal
+        interval:
+          type: string
+          description: Present for recurring plans.
+          examples:
+          - month
+        price_lookup_key:
+          type: string
+          description: Stripe price lookup key (recurring plans).
+          examples:
+          - synth_standard_monthly
+        price_state:
+          type: string
+          enum:
+          - not_applicable
+          - inline
+          - present
+          - missing
+          - ambiguous
+          - invalid
+          - lookup_failed
+          - not_configured
+          description: Live Stripe price state; inline = credit packs priced per checkout.
+        checkout_available:
+          type: boolean
+        price:
+          $ref: '#/components/schemas/Money'
+        weekly_included:
+          $ref: '#/components/schemas/Money'
+    PlanCatalog:
+      type: object
+      required:
+      - policy_version
+      - plans
+      - price_checked_at
+      properties:
+        policy_version:
+          type: string
+        price_checked_at:
+          type: string
+          format: date-time
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+    Balance:
+      type: object
+      required:
+      - org_id
+      - ledger
+      - held
+      - headroom
+      - available
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        ledger:
+          $ref: '#/components/schemas/Money'
+        held:
+          $ref: '#/components/schemas/Money'
+        headroom:
+          $ref: '#/components/schemas/Money'
+        available:
+          $ref: '#/components/schemas/Money'
+    BillingHistoryEntry:
+      type: object
+      required:
+      - entry_id
+      - cause
+      - delta
+      - held_delta
+      - funding_class
+      - hold_kind
+      - expires_at
+      - created_at
+      properties:
+        entry_id:
+          type: string
+        cause:
+          type: string
+          enum:
+          - grant
+          - hold
+          - settle
+          - release
+          - refund
+          - clawback
+          - adjustment
+          - expire
+          - conversion
+          - restore
+        funding_class:
+          type:
+          - string
+          - 'null'
+          enum:
+          - included
+          - purchased
+          - promotional
+          - operator
+          - null
+        hold_kind:
+          type:
+          - string
+          - 'null'
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        refund:
+          description: Unspent-hold refund of a canceled/failed run (cause refund with a typed refund_cause); null
+            otherwise.
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RefundDetail'
+        usage:
+          description: Usage behind this charge (usage and charge are first class); null for movements without metered
+            usage.
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/ChargeUsage'
+        delta:
+          $ref: '#/components/schemas/Money'
+        held_delta:
+          $ref: '#/components/schemas/Money'
+    RefundDetail:
+      type: object
+      required:
+      - refund_cause
+      - run_id
+      - held
+      - charged
+      - refunded
+      - run_usage
+      properties:
+        refund_cause:
+          type: string
+          enum:
+          - run_canceled
+          - run_failed
+          - run_expired
+          - launch_failed
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        run_usage:
+          description: The run's settled usage (tokens, compute) when its settlement is recorded.
+          oneOf:
+          - type: 'null'
+          - type: object
+            properties:
+              input_tokens:
+                type: integer
+              cached_input_tokens:
+                type: integer
+              output_tokens:
+                type: integer
+              reasoning_tokens:
+                type: integer
+              compute:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    quantity:
+                      type: number
+                    unit:
+                      type: string
+        held:
+          $ref: '#/components/schemas/Money'
+        charged:
+          $ref: '#/components/schemas/Money'
+        refunded:
+          $ref: '#/components/schemas/Money'
+    ChargeUsage:
+      type: object
+      required:
+      - run_id
+      - kind
+      - ref
+      - charge
+      - units
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        kind:
+          type: string
+          enum:
+          - gateway
+          - rollout
+          - other
+        ref:
+          type: string
+          description: Gateway receipt id or usage fact id.
+        units:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+              minimum: 0
+            cached_input_tokens:
+              type: integer
+              minimum: 0
+            output_tokens:
+              type: integer
+              minimum: 0
+            reasoning_tokens:
+              type: integer
+              minimum: 0
+            meter_kind:
+              type: string
+              examples:
+              - container_pool_wall_seconds
+            quantity:
+              type: number
+              minimum: 0
+            quantity_unit:
+              type: string
+              examples:
+              - second
+        charge:
+          $ref: '#/components/schemas/Money'
+    BillingStatementPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/BillingStatement'
+    BillingStatement:
+      type: object
+      additionalProperties: false
+      required:
+      - month
+      - period_start
+      - period_end
+      - entries
+      - opening_ledger
+      - purchases
+      - allowance
+      - credits
+      - conversion
+      - charges
+      - refunds
+      - adjustments
+      - expirations
+      - closing_ledger
+      - unspent_returned
+      - usage_input_tokens
+      - usage_output_tokens
+      - usage_charge
+      properties:
+        month:
+          type: string
+          pattern: ^[0-9]{4}-[0-9]{2}$
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        entries:
+          type: integer
+          minimum: 1
+        usage_input_tokens:
+          type: integer
+          format: int64
+        usage_output_tokens:
+          type: integer
+          format: int64
+        opening_ledger:
+          $ref: '#/components/schemas/Money'
+        purchases:
+          $ref: '#/components/schemas/Money'
+        allowance:
+          $ref: '#/components/schemas/Money'
+        credits:
+          $ref: '#/components/schemas/Money'
+        conversion:
+          $ref: '#/components/schemas/Money'
+        charges:
+          $ref: '#/components/schemas/Money'
+        refunds:
+          $ref: '#/components/schemas/Money'
+        adjustments:
+          $ref: '#/components/schemas/Money'
+        expirations:
+          $ref: '#/components/schemas/Money'
+        closing_ledger:
+          $ref: '#/components/schemas/Money'
+        unspent_returned:
+          $ref: '#/components/schemas/Money'
+        usage_charge:
+          $ref: '#/components/schemas/Money'
+    BillingHistoryPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/BillingHistoryEntry'
+    CheckoutRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        plan_id:
+          type: string
+        pack_id:
+          type: string
+          enum:
+          - credits.10
+          - credits.25
+          - credits.100
+        credit:
+          $ref: '#/components/schemas/Money'
+    CheckoutSession:
+      type: object
+      required:
+      - session_id
+      - url
+      properties:
+        session_id:
+          type: string
+        url:
+          type: string
+          format: uri
+    Problem:
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      - instance
+      - code
+      - service
+      - stage
+      - outcome
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+        service:
+          type: string
+        stage:
+          type: string
+        upstream_status:
+          type: integer
+        cause:
+          type: string
+        outcome:
+          type: string
+          enum:
+          - not_accepted
+          - unknown
+    RunId:
+      type: string
+      pattern: ^run_[A-Za-z0-9_-]{22}$
+      examples:
+      - run_AAAAAAAAAAAAAAAAAAAAAA
+    ProjId:
+      type: string
+      pattern: ^proj_[A-Za-z0-9_-]{22}$
+      examples:
+      - proj_AAAAAAAAAAAAAAAAAAAAAA
+    KeyId:
+      type: string
+      pattern: ^key_[A-Za-z0-9_-]{22}$
+      examples:
+      - key_AAAAAAAAAAAAAAAAAAAAAA
+    OutId:
+      type: string
+      pattern: ^out_[A-Za-z0-9_-]{22}$
+      examples:
+      - out_AAAAAAAAAAAAAAAAAAAAAA
+    EvtId:
+      type: string
+      pattern: ^evt_[A-Za-z0-9_-]{22}$
+      examples:
+      - evt_AAAAAAAAAAAAAAAAAAAAAA
+    ProjectPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/Project'
+    ApiKeyPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required:
+        - items
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/ApiKey'
+    OAuthServerMetadata:
+      type: object
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        registration_endpoint:
+          type: string
+          format: uri
+        revocation_endpoint:
+          type: string
+          format: uri
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        revocation_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        authorization_response_iss_parameter_supported:
+          type: boolean
+      required:
+      - issuer
+      - authorization_endpoint
+      - token_endpoint
+      - registration_endpoint
+      - revocation_endpoint
+      - response_types_supported
+      - grant_types_supported
+      - code_challenge_methods_supported
+      - token_endpoint_auth_methods_supported
+      - revocation_endpoint_auth_methods_supported
+      - scopes_supported
+      - authorization_response_iss_parameter_supported
+      additionalProperties: true
+    OAuthResourceMetadata:
+      type: object
+      properties:
+        resource:
+          type: string
+          format: uri
+        authorization_servers:
+          type: array
+          items:
+            type: string
+            format: uri
+        bearer_methods_supported:
+          type: array
+          items:
+            type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+      required:
+      - resource
+      - authorization_servers
+      - bearer_methods_supported
+      - scopes_supported
+      additionalProperties: true
+    OAuthError:
+      type: object
+      properties:
+        error:
+          type: string
+        error_description:
+          type: string
+        error_uri:
+          type: string
+          format: uri
+      required:
+      - error
+      additionalProperties: true
+    OAuthClientRegistration:
+      type: object
+      properties:
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 10
+        grant_types:
+          type: array
+          items:
+            type: string
+            enum:
+            - authorization_code
+            - refresh_token
+        response_types:
+          type: array
+          items:
+            const: code
+            type: string
+        token_endpoint_auth_method:
+          const: none
+          type: string
+      required:
+      - redirect_uris
+      additionalProperties: false
+    OAuthClient:
+      type: object
+      properties:
+        client_id:
+          type: string
+        client_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 10
+        grant_types:
+          type: array
+          items:
+            type: string
+            enum:
+            - authorization_code
+            - refresh_token
+        response_types:
+          type: array
+          items:
+            const: code
+            type: string
+        token_endpoint_auth_method:
+          const: none
+          type: string
+      required:
+      - client_id
+      - client_name
+      - redirect_uris
+      - grant_types
+      - response_types
+      - token_endpoint_auth_method
+      additionalProperties: false
+    OAuthConsentRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+        client_name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        resource:
+          type: string
+          format: uri
+      required:
+      - client_id
+      - client_name
+      - scopes
+      - resource
+      additionalProperties: false
+    OAuthConsentDecision:
+      type: object
+      properties:
+        request:
+          type: string
+          minLength: 32
+          maxLength: 128
+        approve:
+          type: boolean
+      required:
+      - request
+      - approve
+      additionalProperties: false
+    OAuthConsentResult:
+      type: object
+      properties:
+        redirect_uri:
+          type: string
+          format: uri
+      required:
+      - redirect_uri
+      additionalProperties: false
+    OAuthToken:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+          minimum: 1
+        scope:
+          type: string
+        refresh_token:
+          type: string
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - scope
+      additionalProperties: false
+    OAuthTokenRequest:
+      type: object
+      properties:
+        grant_type:
+          type: string
+          enum:
+          - authorization_code
+          - refresh_token
+        client_id:
+          type: string
+        code:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+        code_verifier:
+          type: string
+        refresh_token:
+          type: string
+        resource:
+          type: string
+          format: uri
+      required:
+      - grant_type
+      - client_id
+      additionalProperties: false
+    OAuthRevocationRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        client_id:
+          type: string
+        token_type_hint:
+          type: string
+      required:
+      - token
+      - client_id
+      additionalProperties: false
+    OAuthRevoked:
+      type: object
+      properties: {}
+      required: []
+      additionalProperties: false
+    McpRequest:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          const: '2.0'
+        id:
+          type:
+          - string
+          - integer
+          - 'null'
+        method:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+      required:
+      - jsonrpc
+      - method
+      additionalProperties: false
+    McpError:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data: {}
+      required:
+      - code
+      - message
+      additionalProperties: false
+    McpResponse:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          const: '2.0'
+        id:
+          type:
+          - string
+          - integer
+          - 'null'
+        result: {}
+        error:
+          $ref: '#/components/schemas/McpError'
+      required:
+      - jsonrpc
+      - id
+      additionalProperties: false
+      oneOf:
+      - required:
+        - result
+        not:
+          required:
+          - error
+          properties:
+            error: {}
+        properties:
+          result: {}
+      - required:
+        - error
+        not:
+          required:
+          - result
+          properties:
+            result: {}
+        properties:
+          error: {}
+    McpTransport:
+      type: object
+      properties:
+        name:
+          type: string
+        transport:
+          type: string
+        endpoint:
+          type: string
+        protocol_version:
+          type: string
+        oauth:
+          type: object
+          properties:
+            resource:
+              type: string
+              format: uri
+            authorization_servers:
+              type: array
+              items:
+                type: string
+                format: uri
+          required:
+          - resource
+          - authorization_servers
+          additionalProperties: false
+      required:
+      - name
+      - transport
+      - endpoint
+      - protocol_version
+      - oauth
+      additionalProperties: false
+    OAuthGrant:
+      type: object
+      properties:
+        grant_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+        client_name:
+          type:
+          - string
+          - 'null'
+        scopes:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        status:
+          type: string
+          enum:
+          - active
+          - expired
+          - revoked
+        owner_user_id:
+          type: string
+        owned_by_viewer:
+          type: boolean
+      required:
+      - grant_id
+      - client_id
+      - client_name
+      - scopes
+      - created_at
+      - last_used_at
+      - expires_at
+      - revoked_at
+      - status
+      - owner_user_id
+      - owned_by_viewer
+      additionalProperties: false
+    OAuthGrants:
+      type: object
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: '#/components/schemas/OAuthGrant'
+        visibility:
+          type: string
+        viewer_role:
+          type: string
+        observed_at:
+          type: string
+          format: date-time
+      required:
+      - grants
+      - visibility
+      - viewer_role
+      - observed_at
+      additionalProperties: false
+    OAuthGrantRevoked:
+      type: object
+      properties:
+        grant_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: revoked
+        outcome:
+          type: string
+          enum:
+          - revoked
+          - already_revoked
+      required:
+      - grant_id
+      - status
+      - outcome
+      additionalProperties: false
+    ProtocolFault:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            service:
+              type: string
+            stage:
+              type: string
+          required:
+          - code
+          additionalProperties: true
+      required:
+      - error
+      additionalProperties: false
+    ProfileChoice:
+      type: object
+      properties:
+        canonical_model:
+          type: string
+        effort:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          - xhigh
+      required: []
+      additionalProperties: false
+    ProfileOverrides:
+      type: object
+      properties:
+        launch:
+          $ref: '#/components/schemas/ProfileChoice'
+        roles:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProfileChoice'
+      required: []
+      additionalProperties: false
+    ResolvedActor:
+      type: object
+      properties:
+        actor_id:
+          type: string
+        actor_type:
+          type: string
+        base_profile_digest:
+          type: string
+        profile_digest:
+          type: string
+        canonical_model:
+          type: string
+        effort:
+          type: string
+        model_source:
+          type: string
+        effort_source:
+          type: string
+        evaluated:
+          type: boolean
+      required:
+      - actor_id
+      - actor_type
+      - base_profile_digest
+      - profile_digest
+      - canonical_model
+      - effort
+      - model_source
+      - effort_source
+      - evaluated
+      additionalProperties: false
+    OverrideResolution:
+      type: object
+      properties:
+        schema_version:
+          type: string
+        declaration_digest:
+          type: string
+        request_digest:
+          type: string
+        actors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedActor'
+        evaluated_system_changed:
+          type: boolean
+      required:
+      - schema_version
+      - declaration_digest
+      - request_digest
+      - actors
+      - evaluated_system_changed
+      additionalProperties: false
+    ProfileOverrideReadback:
+      type: object
+      properties:
+        requested:
+          $ref: '#/components/schemas/ProfileOverrides'
+        resolution:
+          $ref: '#/components/schemas/OverrideResolution'
+      required:
+      - requested
+      - resolution
+      additionalProperties: false
+  headers:
+    Cache-Control:
+      schema:
+        type: string
+        const: no-store
+    X-Request-Id:
+      schema:
+        type: string
+    RateLimit-Limit:
+      schema:
+        type: string
+    RateLimit-Remaining:
+      schema:
+        type: string
+    RateLimit-Reset:
+      schema:
+        type: string
+    Retry-After:
+      schema:
+        type: integer
+        minimum: 1
+    X-Synth-Content-SHA256:
+      schema:
+        type: string
+    X-Synth-Output-Revision:
+      schema:
+        type: string
+    Content-Disposition:
+      schema:
+        type: string
