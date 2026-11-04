@@ -17,3 +17,4 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_project_get | getProject | swarms:read |
 | swarms_families_list | listFamilies | swarms:read |
 | account_billing_balance | getBalance | account:billing:read |
+| inference_session_create | createInferenceSession | swarms:run |
