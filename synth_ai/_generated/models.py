@@ -216,6 +216,8 @@ class Org(BaseModel):
 
 OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 
+OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
+
 
 class PageFields(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -255,6 +257,10 @@ class Problem(BaseModel):
 
 class ProfileChoice(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    preset: (
+        Literal["hosted.openrouter_zdr_us", "hosted.openai_direct", "test.codex_pool"] | None
+    ) = None
+    upstream_model: Literal["gpt-6-luna", "openai/gpt-6-luna"] | None = None
     canonical_model: str | None = None
     effort: Literal["low", "medium", "high", "xhigh"] | None = None
 
@@ -277,6 +283,8 @@ class ProtocolFault(BaseModel):
 
 class ResolvedActor(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    provider_preset: str | None = None
+    provider_source: str | None = None
     actor_id: str
     actor_type: str
     base_profile_digest: str
@@ -383,7 +391,7 @@ class FamilyList(BaseModel):
 class InferenceSessionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     project_id: ProjId
-    preset: Literal["hosted.openrouter_zdr_us"]
+    preset: Literal["hosted.openrouter_zdr_us", "hosted.openai_direct", "test.codex_pool"]
     budget: Money
     ttl: Annotated[int, Field(ge=60, le=86400)]
 
@@ -451,6 +459,16 @@ class OverrideResolution(BaseModel):
     request_digest: str
     actors: list[ResolvedActor]
     evaluated_system_changed: bool
+
+
+class OwnerResourceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    plugin: Literal["rhodes.pool", "forge.research"]
+    version: Literal[1] | None = None
+    roles: list[Literal["planner", "worker", "reviewer", "run_assessor"]]
+    limits: OwnerResourceLimits
+    role_limits: dict[str, OwnerResourceLimits] | None = None
+    selection: dict[str, Any]
 
 
 class Plan(BaseModel):
@@ -589,6 +607,7 @@ class LaunchRequest(BaseModel):
     method: dict[str, Any] | None = None
     program: dict[str, Any] | None = None
     profile_overrides: ProfileOverrides | None = None
+    resources: list[OwnerResourceRequest] | None = None
     labels: dict[str, str] | None = None
 
 
@@ -706,6 +725,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MintedApiKey": MintedApiKey,
     "OAuthGrants": OAuthGrants,
     "OverrideResolution": OverrideResolution,
+    "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
     "ProfileOverrides": ProfileOverrides,
     "Project": Project,
