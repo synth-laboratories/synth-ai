@@ -1,4 +1,4 @@
-"""Bounded live qualification; explicit --execute, $0.20 aggregate run caps.
+"""Bounded live qualification; explicit --execute, $0.30 aggregate reservation caps.
 
 Reads SYNTH_API_KEY / SYNTH_API_BASE_URL. Optional SYNTH_CLERK_SESSION_TOKEN
 qualifies positive session-only key CRUD; otherwise verifies their scoped-key refusal.
@@ -25,17 +25,53 @@ from synth_ai._generated.operations import OPERATIONS
 from synth_ai.errors import SwarmsAPIError
 
 
+def require_successful_run(snapshot):
+    if snapshot.state != "completed":
+        raise RuntimeError("first run did not complete successfully: " + snapshot.state)
+
+
+async def qualify_inference(client, project_id, receipt, save):
+    if receipt.get("inference", {}).get("replay_verified"):
+        return
+    receipt.setdefault("inference_key", "public-sdk-inference:" + str(uuid4()))
+    save()
+    options = dict(
+        project_id=project_id, budget="0.10", ttl=60, idempotency_key=receipt["inference_key"]
+    )
+    session = await client.inference.session(**options)
+    replay = await client.inference.session(**options)
+    if session != replay:
+        raise RuntimeError("inference idempotent replay changed the session")
+    if session.model != "gpt-6-luna" or session.max_output_tokens <= 0:
+        raise RuntimeError("inference catalogue admission differs")
+    receipt["inference"] = {
+        "replay_verified": True,
+        "expires_at": session.expires_at,
+        "model": session.model,
+        "max_output_tokens": session.max_output_tokens,
+        "public_revoke_served": False,
+        "expiry_cleanup": "pending owner proof",
+        "cleanup_complete": False,
+    }
+    receipt["operations"]["createInferenceSession"] = {"status": "passed"}
+    save()
+
+
 async def run(output: Path, resume: bool = False) -> None:
     receipt = {
-        "schema": "synth.public-sdk.smoke.v1",
+        "schema": "synth.public-sdk.smoke.v2",
         "base_url": os.environ["SYNTH_API_BASE_URL"],
-        "aggregate_maximum_usd": "0.20",
+        "aggregate_maximum_usd": "0.30",
         "operations": {},
         "runs": [],
         "complete": False,
     }
     if resume:
         receipt = json.loads(output.read_text())
+        if receipt.get("schema") != "synth.public-sdk.smoke.v2":
+            raise ValueError(
+                "receipt predates the inference reservation; retain it and use a new v2 receipt"
+            )
         if receipt["base_url"] != os.environ["SYNTH_API_BASE_URL"]:
             raise ValueError("cannot resume against a different API")
         if len(receipt["runs"]) > 2:
@@ -195,6 +231,8 @@ async def run(output: Path, resume: bool = False) -> None:
         await call(client, "getProject", path={"project_id": project.project_id})
         await call(client, "listProjects", query={"limit": 1})
 
+        await qualify_inference(client, project.project_id, receipt, save)
+
         async def launch(message, index):
             if len(receipt["runs"]) > index:
                 return receipt["runs"][index]["run_id"]
@@ -258,7 +296,7 @@ async def run(output: Path, resume: bool = False) -> None:
             "Create a file hello.txt containing exactly hello and publish it as the task output.", 0
         )
         try:
-            await closed(first)
+            require_successful_run(await closed(first))
             await call(client, "listRuns", query={"project_id": project.project_id, "limit": 1})
             await call(client, "listRunEvents", path={"run_id": first}, query={"limit": 100})
             async with asyncio.timeout(15):
@@ -311,10 +349,13 @@ async def run(output: Path, resume: bool = False) -> None:
             body={"pack_id": "credits.10"},
             idempotency_key=receipt["checkout_key"],
         )
-        receipt["complete"] = (
+        receipt["api_complete"] = (
             not receipt["failures"]
             and set(receipt["operations"]) == set(OPERATIONS)
             and all(item.get("cleanup_complete") for item in receipt["runs"])
+        )
+        receipt["complete"] = receipt["api_complete"] and receipt["inference"].get(
+            "cleanup_complete", False
         )
         save()
         if not receipt["complete"]:
