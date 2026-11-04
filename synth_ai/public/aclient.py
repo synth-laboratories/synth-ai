@@ -38,6 +38,7 @@ from .models import (
 from .models import (
     ApiKeyList,
     Balance,
+    BillingHistoryPage,
     CheckoutRequest,
     CheckoutSession,
     ControlReceipt,
@@ -285,6 +286,12 @@ class AsyncBilling:
     async def balance(self) -> Balance:
         return await self._t.json(Balance, "GET", f"{BILLING_PATH}/balance",
                                   stage="billing.balance")
+
+    async def history(self, *, cursor: str | None = None,
+                      limit: int | None = None) -> BillingHistoryPage:
+        """Ledger entries, newest first; pass ``next_cursor`` for the next page."""
+        return await self._t.json(BillingHistoryPage, "GET", f"{BILLING_PATH}/history",
+                            stage="billing.history", params={"cursor": cursor, "limit": limit})
 
     async def plans(self) -> PlanCatalog:
         return await self._t.json(PlanCatalog, "GET", f"{BILLING_PATH}/plans",

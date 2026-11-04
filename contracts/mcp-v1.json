@@ -350,7 +350,7 @@
       "keyed": true,
       "may_charge": true,
       "mutates": true,
-      "name": "swarms_launch",
+      "name": "swarms_run_launch",
       "operation": "swarms.launch",
       "output_schema": {
         "$defs": {
@@ -545,7 +545,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_get",
+      "name": "swarms_run_get",
       "operation": "swarms.get",
       "output_schema": {
         "$defs": {
@@ -754,7 +754,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_wait",
+      "name": "swarms_run_wait",
       "operation": "swarms.wait",
       "output_schema": {
         "$defs": {
@@ -976,7 +976,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_events",
+      "name": "swarms_run_events",
       "operation": "swarms.events",
       "output_schema": {
         "$defs": {
@@ -1126,7 +1126,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": true,
-      "name": "swarms_cancel",
+      "name": "swarms_run_cancel",
       "operation": "swarms.cancel",
       "output_schema": {
         "additionalProperties": true,
@@ -1208,7 +1208,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_outputs",
+      "name": "swarms_run_outputs",
       "operation": "swarms.outputs",
       "output_schema": {
         "$defs": {
@@ -1326,7 +1326,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_output",
+      "name": "swarms_run_output_get",
       "operation": "swarms.output",
       "output_schema": {
         "additionalProperties": true,
@@ -1425,7 +1425,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "swarms_list",
+      "name": "swarms_runs_list",
       "operation": "swarms.list",
       "output_schema": {
         "$defs": {
@@ -1880,7 +1880,7 @@
       "keyed": true,
       "may_charge": false,
       "mutates": false,
-      "name": "billing_balance",
+      "name": "account_billing_balance",
       "operation": "billing.balance",
       "output_schema": {
         "additionalProperties": true,
@@ -1924,6 +1924,152 @@
       "required_scope": "account:billing:read"
     },
     {
+      "description": "List balance movements (ledger entries), newest first.",
+      "idempotent": true,
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cursor"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 200,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          }
+        },
+        "title": "HistoryArgs",
+        "type": "object"
+      },
+      "keyed": true,
+      "may_charge": false,
+      "mutates": false,
+      "name": "account_billing_history",
+      "operation": "billing.history",
+      "output_schema": {
+        "$defs": {
+          "BillingHistoryEntry": {
+            "additionalProperties": true,
+            "properties": {
+              "cause": {
+                "title": "Cause",
+                "type": "string"
+              },
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "delta_microcents": {
+                "title": "Delta Microcents",
+                "type": "integer"
+              },
+              "entry_id": {
+                "title": "Entry Id",
+                "type": "string"
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Expires At"
+              },
+              "funding_class": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Funding Class"
+              },
+              "held_delta_microcents": {
+                "title": "Held Delta Microcents",
+                "type": "integer"
+              },
+              "hold_kind": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Hold Kind"
+              }
+            },
+            "required": [
+              "entry_id",
+              "cause",
+              "delta_microcents",
+              "held_delta_microcents",
+              "funding_class",
+              "hold_kind",
+              "expires_at",
+              "created_at"
+            ],
+            "title": "BillingHistoryEntry",
+            "type": "object"
+          }
+        },
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/BillingHistoryEntry"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "BillingHistoryPage",
+        "type": "object"
+      },
+      "required_scope": "account:billing:read"
+    },
+    {
       "description": "List plans.",
       "idempotent": true,
       "input_schema": {
@@ -1935,7 +2081,7 @@
       "keyed": false,
       "may_charge": false,
       "mutates": false,
-      "name": "billing_plans",
+      "name": "account_billing_plans",
       "operation": "billing.plans",
       "output_schema": {
         "$defs": {

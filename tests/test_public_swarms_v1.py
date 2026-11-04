@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -140,6 +141,14 @@ class Contract:
             return httpx.Response(200, json={"org_id": "o", "ledger_microcents": 10,
                 "held_microcents": 2, "headroom_microcents": 0, "available_microcents": 8,
                 "available_usd_cents": 0})
+        if path == "/v1/billing/history":
+            if request.url.params.get("cursor") == "bad":
+                return httpx.Response(422, json={"error": {"code": "invalid_cursor",
+                    "service": "synth-backend", "stage": "billing_history"}})
+            return httpx.Response(200, json={"next_cursor": None, "items": [{
+                "entry_id": "le_1", "cause": "grant", "delta_microcents": 1_000_000_000,
+                "held_delta_microcents": 0, "funding_class": "included", "hold_kind": None,
+                "expires_at": None, "created_at": "2026-11-04T09:00:00Z"}]})
         if path == "/v1/billing/checkout" and method == "POST":
             body = json.loads(request.content)
             assert body in ({"plan_id": "standard.monthly"}, {"credit_cents": 500})
@@ -172,9 +181,8 @@ def test_run_one_call_happy_path() -> None:
 
 
 def test_run_failed_raises_typed_error() -> None:
-    with make_client(Contract(final_state="failed")) as client:
-        with pytest.raises(errors.RunFailedError) as caught:
-            client.swarms.run("x", 1, poll_seconds=0)
+    with make_client(Contract(final_state="failed")) as client, pytest.raises(errors.RunFailedError) as caught:
+        client.swarms.run("x", 1, poll_seconds=0)
     assert caught.value.error.code == "task_failed"
 
 
@@ -200,9 +208,8 @@ def test_runs_pages_events_outputs_and_cancel() -> None:
 
 
 def test_legacy_run_refuses_events_typed() -> None:
-    with make_client(Contract()) as client:
-        with pytest.raises(errors.RunNotOrchestraAuthorityError) as caught:
-            client.swarms.events("legacy_1")
+    with make_client(Contract()) as client, pytest.raises(errors.RunNotOrchestraAuthorityError) as caught:
+        client.swarms.events("legacy_1")
     assert isinstance(caught.value, errors.ConflictError)
     assert (caught.value.http_status, caught.value.outcome) == (409, "not_accepted")
 
@@ -234,9 +241,8 @@ def test_money_usd_exact() -> None:
 def test_error_code_mapping(status: int, kind: type[errors.SwarmsAPIError]) -> None:
     body = {"error": {"code": f"code_{status}", "message": "Refused.", "service": "synth-backend",
                       "stage": "admission", "upstream_status": 503, "cause": "typed_cause"}}
-    with make_client(lambda _r: httpx.Response(status, json=body)) as client:
-        with pytest.raises(kind) as caught:
-            client.swarms.get("run_1")
+    with make_client(lambda _r: httpx.Response(status, json=body)) as client, pytest.raises(kind) as caught:
+        client.swarms.get("run_1")
     error = caught.value
     assert isinstance(error, errors.SwarmsAPIError)
     assert error.http_status == status
@@ -249,17 +255,15 @@ def test_error_code_mapping(status: int, kind: type[errors.SwarmsAPIError]) -> N
 def test_error_body_with_outcome_is_typed() -> None:
     body = {"error": {"code": "invalid_launch_request", "service": "synth-backend",
                       "stage": "swarms"}, "outcome": "not_accepted"}
-    with make_client(lambda _r: httpx.Response(422, json=body)) as client:
-        with pytest.raises(errors.InvalidRequestError) as caught:
-            client.swarms.launch("x", 1)
+    with make_client(lambda _r: httpx.Response(422, json=body)) as client, pytest.raises(errors.InvalidRequestError) as caught:
+        client.swarms.launch("x", 1)
     assert caught.value.error.code == "invalid_launch_request"
     assert caught.value.outcome == "not_accepted"
 
 
 def test_malformed_error_body() -> None:
-    with make_client(lambda _r: httpx.Response(500, text="<html>")) as client:
-        with pytest.raises(errors.MalformedErrorResponseError) as caught:
-            client.account.get()
+    with make_client(lambda _r: httpx.Response(500, text="<html>")) as client, pytest.raises(errors.MalformedErrorResponseError) as caught:
+        client.account.get()
     assert caught.value.error.upstream_status == 500
 
 
@@ -267,9 +271,8 @@ def test_transport_failure() -> None:
     def boom(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused", request=request)
 
-    with make_client(boom) as client:
-        with pytest.raises(errors.TransportFailureError) as caught:
-            client.swarms.list()
+    with make_client(boom) as client, pytest.raises(errors.TransportFailureError) as caught:
+        client.swarms.list()
     assert caught.value.error.code == "transport_failed"
 
 
@@ -315,6 +318,116 @@ def test_cli_registers_only_public_products() -> None:
         "swarms", "account", "billing", "login", "logout", "auth"}
 
 
+def test_cli_verbs_and_mcp_tools_are_one_to_one() -> None:
+    from synth_ai.mcp.catalog import TOOLS
+    from synth_ai.surface import VERBS
+
+    assert cli_public.registered_verbs() == {verb.cli for verb in VERBS}
+    assert [verb.tool for verb in VERBS] == [tool.name for tool in TOOLS]
+    hosted_on_staging = {  # tools/list on staging /mcp, 2026-11-04
+        "account_billing_balance", "account_get", "swarms_run_cancel", "swarms_run_events",
+        "swarms_run_get", "swarms_run_launch", "swarms_run_output_get", "swarms_run_outputs",
+        "swarms_runs_list"}
+    assert {verb.tool for verb in VERBS if verb.hosted} == hosted_on_staging
+
+
+def test_catalog_doc_is_generated() -> None:
+    from pathlib import Path
+
+    from synth_ai.mcp.catalog_doc import render
+
+    path = Path(__file__).resolve().parents[1] / "docs/mcp-tools.md"
+    assert path.read_text() == render()
+
+
+def test_billing_history_and_single_attempt_on_4xx(capsys: pytest.CaptureFixture[str]) -> None:
+    server = Contract()
+
+    def factory() -> SynthClient:
+        return make_client(server)
+
+    assert cli_public.main(["billing", "history", "--limit", "5"], client_factory=factory) == 0
+    page = json.loads(capsys.readouterr().out)
+    assert page["items"][0]["cause"] == "grant"
+    before = len(server.requests)
+    assert cli_public.main(["billing", "history", "--cursor", "bad"],
+                           client_factory=factory) == 1
+    assert len(server.requests) == before + 1  # no retry on 4xx
+    refusal = json.loads(capsys.readouterr().err)
+    assert (refusal["error"]["code"], refusal["status"], refusal["outcome"]) == (
+        "invalid_cursor", 422, None)
+
+
+def test_cli_error_display_carries_outcome(capsys: pytest.CaptureFixture[str]) -> None:
+    body = {"error": {"code": "zero_charge_launch_unavailable", "service": "synth-backend",
+                      "stage": "swarms"}, "outcome": "not_accepted"}
+
+    def factory() -> SynthClient:
+        return make_client(lambda _r: httpx.Response(409, json=body))
+
+    assert cli_public.main(["swarms", "launch", "x", "--budget", "0"],
+                           client_factory=factory) == 1
+    refusal = json.loads(capsys.readouterr().err)
+    assert (refusal["error"]["code"], refusal["outcome"], refusal["status"]) == (
+        "zero_charge_launch_unavailable", "not_accepted", 409)
+
+
+def test_cli_run_streams_events_with_resume_and_saves_outputs(
+    tmp_path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    server = Contract(polls_until_done=1)
+    task = tmp_path / "bundle"
+    task.mkdir()
+    (task / "task.md").write_text("Compare retrieval methods")
+    out = tmp_path / "out"
+    lines: list[str] = []
+
+    def factory() -> SynthClient:
+        return make_client(server)
+
+    code = cli_public.main(
+        ["swarms", "run", "--program", "swarms.general@1", "--task", str(task),
+         "--budget", "2.50", "--out", str(out)],
+        client_factory=factory, emit=lines.append,
+    )
+    assert code == 0, capsys.readouterr().err
+    launch = json.loads(server.requests[0].content)
+    assert launch["program"] == {"family": {"id": "swarms.general", "version": 1}}
+    assert launch["message"] == "Compare retrieval methods"
+    records = [json.loads(line) for line in lines]
+    assert records[0] == {"run_id": "run_1", "state": "queued"}
+    assert [r["event_id"] for r in records if "event_id" in r] == ["e0", "e1"]
+    assert [r["resume_cursor"] for r in records if "resume_cursor" in r] == ["s1", "s2", "s2"]
+    cursors = [r.url.params.get("cursor") for r in server.requests if r.url.path.endswith("/events")]
+    assert cursors == [None, "s1", "s2"]
+    assert json.loads((out / "o1.json").read_text())["filename"] == "report.md"
+    assert records[-1]["state"] == "completed"
+
+
+def test_cli_run_attach_resumes_from_cursor() -> None:
+    server = Contract(polls_until_done=1)
+    lines: list[str] = []
+    assert cli_public.main(["swarms", "run", "--attach", "run_1", "--cursor", "s2"],
+                           client_factory=lambda: make_client(server), emit=lines.append) == 0
+    assert not any(r.method == "POST" for r in server.requests)
+    cursors = [r.url.params.get("cursor") for r in server.requests if r.url.path.endswith("/events")]
+    assert cursors == ["s2", "s2"]
+
+
+def test_task_bundle_and_program_parsing(tmp_path) -> None:
+    (tmp_path / "task.md").write_text("Do it")
+    assert cli_public.read_task(str(tmp_path)) == "Do it"
+    (tmp_path / "data.csv").write_text("a,b")
+    with pytest.raises(errors.SwarmsAPIError) as caught:
+        cli_public.read_task(str(tmp_path))
+    assert caught.value.error.code == "task_inputs_unsupported"
+    with pytest.raises(errors.SwarmsAPIError) as missing:
+        cli_public.read_task(str(tmp_path / "data.csv.missing"))
+    assert missing.value.error.code == "task_unreadable"
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_public.parse_program("swarms.general")
+
+
 def test_cli_smoke(capsys: pytest.CaptureFixture[str]) -> None:
     server = Contract(polls_until_done=1)
 
@@ -323,11 +436,11 @@ def test_cli_smoke(capsys: pytest.CaptureFixture[str]) -> None:
 
     assert cli_public.main(["swarms", "run", "hello", "--budget", "1"],
                            client_factory=factory) == 0
-    assert '"state": "completed"' in capsys.readouterr().out
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["state"] == "completed"
     assert cli_public.main(["account"], client_factory=factory) == 0
-    assert '"plan": "free"' in capsys.readouterr().out
+    assert json.loads(capsys.readouterr().out)["org"]["plan"] == "free"
     assert cli_public.main(["billing", "plans"], client_factory=factory) == 0
-    assert cli_public.main(["swarms", "get", "missing"], client_factory=factory) == 1
+    assert cli_public.main(["swarms", "status", "missing"], client_factory=factory) == 1
     assert json.loads(capsys.readouterr().err)["error"]["code"] == "not_found"
 
 
@@ -336,17 +449,17 @@ def test_mcp_catalog_public_only() -> None:
     from synth_ai.products import tool_product
 
     assert [tool.name for tool in TOOLS] == [
-        "swarms_run", "swarms_launch", "swarms_get", "swarms_wait", "swarms_events",
-        "swarms_cancel", "swarms_outputs", "swarms_output", "swarms_list", "account_get",
-        "billing_balance",
-        "billing_plans",
+        "swarms_run", "swarms_run_launch", "swarms_run_get", "swarms_run_wait",
+        "swarms_run_events", "swarms_run_cancel", "swarms_run_outputs", "swarms_run_output_get",
+        "swarms_runs_list", "account_get", "account_billing_balance", "account_billing_history",
+        "account_billing_plans",
     ]
     assert {tool_product(tool.name) for tool in TOOLS} <= set(PUBLIC_PRODUCTS)
     assert len(ALL_TOOLS) == 95
     assert "index_search" not in BY_NAME and "forge_project_get" not in BY_NAME
     assert "swarms_create" not in BY_NAME and "swarms_create" in ALL_BY_NAME
     assert BY_NAME["swarms_run"].paid and BY_NAME["swarms_run"].mutates
-    assert not BY_NAME["billing_plans"].keyed
+    assert not BY_NAME["account_billing_plans"].keyed
 
 
 def test_hosted_scopes_are_the_contract_scopes() -> None:
@@ -404,7 +517,7 @@ def test_mcp_swarms_run_through_public_client() -> None:
             assert not result.isError
             assert result.structuredContent["run"]["state"] == "completed"
             missing = CallToolRequest(method="tools/call", params=CallToolRequestParams(
-                name="swarms_get", arguments={"run_id": "missing"}))
+                name="swarms_run_get", arguments={"run_id": "missing"}))
             refused = (await server.request_handlers[CallToolRequest](missing)).root
             assert refused.isError
 

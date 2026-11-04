@@ -29,6 +29,7 @@ from .models import (
 from .models import (
     ApiKeyList,
     Balance,
+    BillingHistoryPage,
     CheckoutRequest,
     CheckoutSession,
     ControlReceipt,
@@ -285,6 +286,39 @@ class Swarms:
                 return
             cursor = page.next_cursor
 
+    def follow(
+        self,
+        run_id: str,
+        *,
+        cursor: str | None = None,
+        poll_seconds: float = DEFAULT_POLL_SECONDS,
+        timeout_seconds: float | None = None,
+    ) -> Iterator[EventPage]:
+        """Stream event pages until the run closes, resuming from ``cursor``.
+
+        Each yielded page's ``resume_cursor`` is the point to resume from after an
+        interruption. The stream ends after the first complete page read once the
+        run is terminal or its execution is closed."""
+        deadline = None if timeout_seconds is None else self._t.clock() + timeout_seconds
+        closed = False
+        while True:
+            page = self.events(run_id, cursor=cursor)
+            yield page
+            if not page.complete and page.next_cursor is not None:
+                cursor = page.next_cursor
+                continue
+            cursor = page.resume_cursor or cursor
+            if closed:
+                return
+            snapshot = self.get(run_id)
+            if snapshot.terminal or snapshot.execution_closed:
+                closed = True  # one more read drains events written before close
+                continue
+            if deadline is not None and self._t.clock() >= deadline:
+                raise client_error("wait_timeout", "swarms.follow", cause=run_id,
+                                   kind=WaitTimeoutError)
+            self._t.sleep(poll_seconds)
+
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> ControlReceipt:
         return self._t.json(
             ControlReceipt, "POST", f"{RUNS_PATH}/{run_id}/cancel",
@@ -331,6 +365,12 @@ class Billing:
 
     def balance(self) -> Balance:
         return self._t.json(Balance, "GET", f"{BILLING_PATH}/balance", stage="billing.balance")
+
+    def history(self, *, cursor: str | None = None,
+                limit: int | None = None) -> BillingHistoryPage:
+        """Ledger entries, newest first; pass ``next_cursor`` for the next page."""
+        return self._t.json(BillingHistoryPage, "GET", f"{BILLING_PATH}/history",
+                            stage="billing.history", params={"cursor": cursor, "limit": limit})
 
     def plans(self) -> PlanCatalog:
         return self._t.json(PlanCatalog, "GET", f"{BILLING_PATH}/plans", stage="billing.plans",

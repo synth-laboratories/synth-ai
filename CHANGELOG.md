@@ -9,7 +9,8 @@ Swarms adds the `code_native` project template with typed `CodeValidation` in sy
 - Swarms is the public product. `SynthClient` exposes `swarms`, `account` and `billing` against the Swarms v1 contract, plus `repos`, `links` and `artifacts`. `client.swarms.run(message, budget)` launches, waits and returns outputs; `launch`, `get`, `wait`, `events`/`iter_events` (cursor pages with `resume_cursor`), `cancel` (control receipt), `outputs`, `output` (JSON output records) and `list` (`items`/`next_cursor`/`complete`) are the individual steps. `client.account.get()`/`keys()` and `client.billing.balance()`/`plans()`/`checkout(plan_id=|credit_cents=)` use `/v1/billing/*`.
 - One error shape, `{error:{code,message,service,stage,upstream_status,cause}}`, raised as `synth_ai.public.errors.SwarmsAPIError` subclasses chosen by HTTP status.
 - `synth` CLI: `swarms run|launch|get|wait|events|cancel|outputs|list`, `account`, `billing balance|plans`, plus `login`, `logout` and `auth status`. `synth-ai` runs the same CLI.
-- The MCP catalog (local and hosted) lists only Swarms and account tools.
+- The MCP catalog (local and hosted) lists only Swarms, account and billing tools, one per CLI verb, named as the core's hosted MCP names them (`swarms_run_launch`, `swarms_run_get`, `account_billing_balance`, ...); `docs/mcp-tools.md` is generated from the catalog.
+- `synth swarms run --program FAMILY@VERSION --task BUNDLE --budget USD` launches, streams events by cursor (resume with `--attach RUN --cursor C`) and saves output records; `synth billing history`; `client.billing.history()`; `client.swarms.follow()`.
 - Index, Forge, Mnemosyne, Menagerie and Tunnels are no longer part of the public client, CLI or MCP catalog (`synth_ai.products.PUBLIC_PRODUCTS`). `SynthClient.anonymous()` is removed.
 - `SYNTH_API_BASE_URL` is the canonical API origin setting; `SYNTH_API_URL` and `SYNTH_BACKEND_URL` are deprecated aliases.
 

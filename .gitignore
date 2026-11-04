@@ -261,5 +261,8 @@ SDK_0230_*
 !docs/
 docs/*
 !docs/swarms.md
+!docs/mcp.md
+!docs/mcp-tools.md
+!docs/legacy/
 !CHANGELOG-ARCHIVE.md
 !synth_ai/sdk/forge/skills/forge-research/SKILL.md

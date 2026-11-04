@@ -278,6 +278,22 @@ class PlanCatalog(_Response):
     plans: list[Plan]
 
 
+class BillingHistoryEntry(_Response):
+    entry_id: str
+    cause: str  # grant | hold | settle | release | refund | clawback | adjustment | expire | ...
+    delta_microcents: int
+    held_delta_microcents: int
+    funding_class: str | None
+    hold_kind: str | None
+    expires_at: datetime | None
+    created_at: datetime
+
+
+class BillingHistoryPage(_Response):
+    items: list[BillingHistoryEntry]
+    next_cursor: str | None
+
+
 # The core decodes checkout bodies strictly: exactly one of plan_id or credit_cents.
 MIN_CREDIT_CENTS = 500
 MAX_CREDIT_CENTS = 1_000_000

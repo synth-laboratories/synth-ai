@@ -41,6 +41,19 @@ output rows.
 or when execution closes. A wait timeout raises `WaitTimeoutError` and leaves the
 run going. `run` raises `RunFailedError` for a failed run.
 
+## Following a run
+
+```python
+run = client.swarms.launch("Compare retrieval methods", budget="5.00")
+for page in client.swarms.follow(run.run_id):
+    for event in page.items:
+        print(event.sequence, event.kind)
+    resume = page.resume_cursor
+```
+
+`follow` streams event pages until the run closes; pass `cursor=resume` to pick
+up after an interruption.
+
 ## Limits
 
 `budget` sets `limits.maximum_charge`. Pass `limits` for the other bounds:

@@ -15,7 +15,6 @@ import uuid
 from collections.abc import Callable
 
 import httpx
-
 from synth_ai.public.client import Account, Billing, PublicTransport, Swarms
 from synth_ai.public.errors import SwarmsAPIError
 from synth_ai.public.models import Limits, Money
@@ -48,16 +47,22 @@ def keyed() -> int:
         return 2
     transport = PublicTransport(base_url(), api_key=key)
     swarms, account, billing = Swarms(transport), Account(transport), Billing(transport)
-    zero = Limits(maximum_charge=Money.usd(0), wall_time_seconds=60, maximum_tasks=1,
-                  maximum_parallel_tasks=1)
     project = os.environ.get("SYNTH_PROJECT_ID", "smoke-project")
+    program = {"family": {"id": "swarms.general", "version": 1}}
+    capped = Limits(maximum_charge=Money.usd("0.01"), wall_time_seconds=60, maximum_tasks=1,
+                    maximum_parallel_tasks=1)
     calls: list[tuple[str, Callable[[], object]]] = [
         ("account.get", account.get),
         ("billing.balance", billing.balance),
+        ("billing.history", lambda: billing.history(limit=5)),
         ("billing.plans", billing.plans),
         ("swarms.list", lambda: swarms.list(limit=1)),
-        ("swarms.launch", lambda: swarms.launch(
-            "smoke", project_id=project, limits=zero, idempotency_key=str(uuid.uuid4()))),
+        ("swarms.status(unknown run)", lambda: swarms.get("run_smoke_absent")),
+        ("swarms.events(unknown run)", lambda: swarms.events("run_smoke_absent")),
+        ("swarms.outputs(unknown run)", lambda: swarms.outputs("run_smoke_absent")),
+        ("swarms.launch(program swarms.general@1, cap $0.01, 1 task)", lambda: swarms.launch(
+            "smoke", project_id=project, limits=capped, program=program,
+            idempotency_key=str(uuid.uuid4()))),
     ]
     for name, call in calls:
         try:
@@ -67,8 +72,10 @@ def keyed() -> int:
                   f"stage={error.error.stage} outcome={error.outcome}")
             continue
         detail = ""
-        if name == "swarms.list":
-            detail = f" items={len(value.items)} complete={value.complete}"  # type: ignore[attr-defined]
+        if name == "swarms.list" or name == "billing.history":
+            detail = f" items={len(value.items)}"  # type: ignore[attr-defined]
+        if name.startswith("swarms.launch"):
+            detail = f" run_id_present={bool(value.run_id)} state={value.state}"  # type: ignore[attr-defined]
         print(f"{name} ok type={type(value).__name__}{detail}")
     transport.close()
     return 0

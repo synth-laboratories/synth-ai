@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from synth_ai.public.models import (
     Account,
     Balance,
+    BillingHistoryPage,
     ControlReceipt,
     EventPage,
     OutputPage,
@@ -77,6 +78,11 @@ class OutputRef(RunRef):
 
 class CancelArgs(RunRef):
     idempotency_key: str | None = Field(default=None, max_length=128)
+
+
+class HistoryArgs(_Args):
+    cursor: str | None = None
+    limit: int | None = Field(default=None, ge=1, le=200)
 
 
 class ListArgs(_Args):
@@ -176,6 +182,10 @@ async def _balance(c: AsyncSynthClient, a: NoArgs) -> Balance:
     return await c.billing.balance()
 
 
+async def _history(c: AsyncSynthClient, a: HistoryArgs) -> BillingHistoryPage:
+    return await c.billing.history(cursor=a.cursor, limit=a.limit)
+
+
 async def _plans(c: AsyncSynthClient, a: NoArgs) -> PlanCatalog:
     return await c.billing.plans()
 
@@ -184,27 +194,30 @@ PUBLIC_TOOLS: tuple[PublicTool, ...] = (
     PublicTool("swarms_run", "swarms.run", "Launch a Swarms run within a USD budget, wait for it "
                "to close and return its outputs.", "swarms:run", RunArgs, RunResult, _run,
                mutates=True, paid=True),
-    PublicTool("swarms_launch", "swarms.launch", "Launch a Swarms run within a USD budget.",
+    PublicTool("swarms_run_launch", "swarms.launch", "Launch a Swarms run within a USD budget.",
                "swarms:run", LaunchArgs, RunSnapshot, _launch, mutates=True, paid=True),
-    PublicTool("swarms_get", "swarms.get", "Read a run snapshot.", "swarms:read", RunRef,
+    PublicTool("swarms_run_get", "swarms.get", "Read a run snapshot.", "swarms:read", RunRef,
                RunSnapshot, _get),
-    PublicTool("swarms_wait", "swarms.wait", "Wait until a run closes.", "swarms:read",
+    PublicTool("swarms_run_wait", "swarms.wait", "Wait until a run closes.", "swarms:read",
                WaitArgs, RunSnapshot, _wait),
-    PublicTool("swarms_events", "swarms.events", "Read one page of ordered run events after a "
+    PublicTool("swarms_run_events", "swarms.events", "Read one page of ordered run events after a "
                "cursor.", "swarms:read", EventsArgs, EventPage, _events),
-    PublicTool("swarms_cancel", "swarms.cancel", "Cancel a run.", "swarms:control", CancelArgs,
+    PublicTool("swarms_run_cancel", "swarms.cancel", "Cancel a run.", "swarms:control", CancelArgs,
                ControlReceipt, _cancel, mutates=True),
-    PublicTool("swarms_outputs", "swarms.outputs", "List a run's outputs.", "swarms:read",
+    PublicTool("swarms_run_outputs", "swarms.outputs", "List a run's outputs.", "swarms:read",
                RunRef, OutputPage, _outputs),
-    PublicTool("swarms_output", "swarms.output", "Read one output record.", "swarms:read",
+    PublicTool("swarms_run_output_get", "swarms.output", "Read one output record.", "swarms:read",
                OutputRef, RunOutput, _output),
-    PublicTool("swarms_list", "swarms.list", "List runs, newest first.", "swarms:read",
+    PublicTool("swarms_runs_list", "swarms.list", "List runs, newest first.", "swarms:read",
                ListArgs, RunPage, _list),
     PublicTool("account_get", "account.get", "Read the caller's org, principal and limits.",
                None, NoArgs, Account, _account),
-    PublicTool("billing_balance", "billing.balance", "Read the wallet balance in microcents.",
+    PublicTool("account_billing_balance", "billing.balance", "Read the wallet balance in microcents.",
                "account:billing:read", NoArgs, Balance, _balance),
-    PublicTool("billing_plans", "billing.plans", "List plans.", None, NoArgs, PlanCatalog,
+    PublicTool("account_billing_history", "billing.history", "List balance movements (ledger "
+               "entries), newest first.", "account:billing:read", HistoryArgs,
+               BillingHistoryPage, _history),
+    PublicTool("account_billing_plans", "billing.plans", "List plans.", None, NoArgs, PlanCatalog,
                _plans, keyed=False),
 )
 

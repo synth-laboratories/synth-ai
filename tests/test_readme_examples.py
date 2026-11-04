@@ -16,10 +16,10 @@ import httpx
 import pytest
 from synth_ai import SynthClient
 from synth_ai.options import ClientOptions
+from synth_ai.public.client import Account, Billing, Swarms
 from synth_ai.sdk.core.artifacts import Artifacts
 from synth_ai.sdk.index.client import IndexClient
 from synth_ai.sdk.swarms.client import Projects, SwarmsClient
-from synth_ai.public.client import Account, Billing, Swarms
 from synth_ai.sdk.swarms.run import SwarmRun
 from synth_ai.types.refs import ExactReference
 
@@ -75,10 +75,10 @@ def test_example_compiles_and_binds_to_real_signatures(label, source, tmp_path, 
     public = [
         mock.patch.object(cls, name, autospec=True)
         for cls, names in (
-            (Swarms, ("run", "launch", "get", "wait", "events", "iter_events", "cancel", "outputs",
+            (Swarms, ("run", "launch", "get", "wait", "events", "iter_events", "follow", "cancel", "outputs",
                       "output", "list")),
             (Account, ("get", "keys")),
-            (Billing, ("balance", "plans", "checkout")),
+            (Billing, ("balance", "history", "plans", "checkout")),
         )
         for name in names
     ]

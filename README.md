@@ -46,6 +46,7 @@ client.swarms.cancel(run.run_id)
 client.account.get()       # org, principal, limits
 client.account.keys()      # API keys (session credential)
 client.billing.balance()   # integer microcents
+client.billing.history(limit=50)
 client.billing.plans()
 client.billing.checkout(plan_id="standard.monthly")
 client.billing.checkout(credit_cents=2000)
@@ -54,12 +55,16 @@ client.billing.checkout(credit_cents=2000)
 ## CLI
 
 ```sh
-synth swarms run "Compare retrieval methods" --budget 5.00
-synth swarms launch|get|wait|events|cancel|outputs|output|list
+synth swarms run --program swarms.general@1 --task ./bundle --budget 5.00 --out ./outputs
+synth swarms run --attach RUN_ID --cursor RESUME_CURSOR
+synth swarms launch|status|wait|events|cancel|outputs|output|list
 synth account
-synth billing balance
-synth billing plans
+synth billing balance|history|plans
 ```
+
+`swarms run` prints events as JSON lines with a `resume_cursor` per page. A task
+bundle is a text file or a directory holding `task.md`. Refusals print one JSON
+line on stderr with `error`, `outcome` and `status`.
 
 ## Errors
 
