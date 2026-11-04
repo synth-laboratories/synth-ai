@@ -9,7 +9,8 @@ Do not create `v0.26.0` before approval.
    `twine check`, package-size checks and fresh-venv install smoke.
 3. Run `scripts/smoke.py` against staging; retain redacted statuses. Verify the
    console uses the same contract and its sustained gateway acceptance passed.
-4. Merge the clean tree into dev, then main by ordinary merges. Preserve the
+4. Merge the clean tree into dev, then promote through staging and main using
+   the repository-required promotion branches and pull requests. Preserve the
    `legacy/0.24.0` and `legacy/dev-20261104` history tags.
 5. After owner GO and production parity, tag the qualified commit `v0.26.0`.
    The tag workflow builds qualified bytes and publishes through the protected
