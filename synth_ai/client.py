@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ._blocking import Runner
-from ._sync import AccountClient, BillingClient, SwarmsClient
+from ._sync import AccountClient, BillingClient, InferenceClient, SwarmsClient
 from .aclient import AsyncSynthClient
 
 
@@ -16,6 +16,7 @@ class SynthClient:
         self.swarms = SwarmsClient(self._runner, self._async.swarms)
         self.account = AccountClient(self._runner, self._async.account)
         self.billing = BillingClient(self._runner, self._async.billing)
+        self.inference = InferenceClient(self._runner, self._async.inference)
 
     def close(self) -> None:
         if self._runner.closed:

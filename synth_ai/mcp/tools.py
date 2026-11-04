@@ -140,6 +140,18 @@ TOOLS: list[dict[str, Any]] = [
                                             "enum": ["low", "medium", "high", "xhigh"],
                                             "type": "string",
                                         },
+                                        "preset": {
+                                            "enum": [
+                                                "hosted.openrouter_zdr_us",
+                                                "hosted.openai_direct",
+                                                "test.codex_pool",
+                                            ],
+                                            "type": "string",
+                                        },
+                                        "upstream_model": {
+                                            "enum": ["gpt-6-luna", "openai/gpt-6-luna"],
+                                            "type": "string",
+                                        },
                                     },
                                     "required": [],
                                     "type": "object",
@@ -151,6 +163,18 @@ TOOLS: list[dict[str, Any]] = [
                                             "canonical_model": {"type": "string"},
                                             "effort": {
                                                 "enum": ["low", "medium", "high", "xhigh"],
+                                                "type": "string",
+                                            },
+                                            "preset": {
+                                                "enum": [
+                                                    "hosted.openrouter_zdr_us",
+                                                    "hosted.openai_direct",
+                                                    "test.codex_pool",
+                                                ],
+                                                "type": "string",
+                                            },
+                                            "upstream_model": {
+                                                "enum": ["gpt-6-luna", "openai/gpt-6-luna"],
                                                 "type": "string",
                                             },
                                         },
@@ -175,6 +199,132 @@ TOOLS: list[dict[str, Any]] = [
                             "type": "string",
                         },
                         "providers": {"type": ["object", "null"]},
+                        "resources": {
+                            "items": {
+                                "additionalProperties": False,
+                                "oneOf": [
+                                    {
+                                        "properties": {
+                                            "limits": {
+                                                "propertyNames": {
+                                                    "enum": ["spend_micros", "rollouts"]
+                                                },
+                                                "required": ["spend_micros", "rollouts"],
+                                            },
+                                            "plugin": {"const": "rhodes.pool"},
+                                            "selection": {
+                                                "additionalProperties": False,
+                                                "properties": {
+                                                    "pool_ids": {
+                                                        "items": {
+                                                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                                                            "type": "string",
+                                                        },
+                                                        "maxItems": 8,
+                                                        "minItems": 1,
+                                                        "type": "array",
+                                                        "uniqueItems": True,
+                                                    }
+                                                },
+                                                "required": ["pool_ids"],
+                                            },
+                                        }
+                                    },
+                                    {
+                                        "properties": {
+                                            "limits": {
+                                                "propertyNames": {
+                                                    "enum": ["spend_micros", "calls"]
+                                                },
+                                                "required": ["spend_micros", "calls"],
+                                            },
+                                            "plugin": {"const": "forge.research"},
+                                            "selection": {
+                                                "additionalProperties": False,
+                                                "properties": {
+                                                    "project_ids": {
+                                                        "items": {
+                                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                                                            "type": "string",
+                                                        },
+                                                        "maxItems": 8,
+                                                        "minItems": 1,
+                                                        "type": "array",
+                                                        "uniqueItems": True,
+                                                    }
+                                                },
+                                                "required": ["project_ids"],
+                                            },
+                                        }
+                                    },
+                                ],
+                                "properties": {
+                                    "limits": {
+                                        "additionalProperties": {
+                                            "maximum": 9223372036854775807,
+                                            "minimum": 0,
+                                            "type": "integer",
+                                        },
+                                        "maxProperties": 2,
+                                        "minProperties": 1,
+                                        "propertyNames": {
+                                            "enum": ["spend_micros", "rollouts", "calls"]
+                                        },
+                                        "type": "object",
+                                    },
+                                    "plugin": {
+                                        "enum": ["rhodes.pool", "forge.research"],
+                                        "type": "string",
+                                    },
+                                    "role_limits": {
+                                        "additionalProperties": {
+                                            "additionalProperties": {
+                                                "maximum": 9223372036854775807,
+                                                "minimum": 0,
+                                                "type": "integer",
+                                            },
+                                            "maxProperties": 2,
+                                            "minProperties": 1,
+                                            "propertyNames": {
+                                                "enum": ["spend_micros", "rollouts", "calls"]
+                                            },
+                                            "type": "object",
+                                        },
+                                        "maxProperties": 4,
+                                        "propertyNames": {
+                                            "enum": [
+                                                "planner",
+                                                "worker",
+                                                "reviewer",
+                                                "run_assessor",
+                                            ]
+                                        },
+                                        "type": "object",
+                                    },
+                                    "roles": {
+                                        "items": {
+                                            "enum": [
+                                                "planner",
+                                                "worker",
+                                                "reviewer",
+                                                "run_assessor",
+                                            ],
+                                            "type": "string",
+                                        },
+                                        "maxItems": 4,
+                                        "minItems": 1,
+                                        "type": "array",
+                                        "uniqueItems": True,
+                                    },
+                                    "selection": {"type": "object"},
+                                    "version": {"const": 1, "default": 1, "type": "integer"},
+                                },
+                                "required": ["plugin", "roles", "limits", "selection"],
+                                "type": "object",
+                            },
+                            "maxItems": 8,
+                            "type": "array",
+                        },
                     },
                     "required": ["project_id", "limits"],
                     "type": "object",
@@ -369,5 +519,53 @@ TOOLS: list[dict[str, Any]] = [
         "name": "account_billing_balance",
         "operationId": "getBalance",
         "scope": "account:billing:read",
+    },
+    {
+        "description": "Create a project-scoped, budget-admitted inference session.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "budget": {
+                            "additionalProperties": False,
+                            "properties": {
+                                "amount": {
+                                    "examples": ["5.00"],
+                                    "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                                    "type": "string",
+                                },
+                                "currency": {"const": "USD", "type": "string"},
+                            },
+                            "required": ["amount", "currency"],
+                            "type": "object",
+                        },
+                        "preset": {
+                            "enum": [
+                                "hosted.openrouter_zdr_us",
+                                "hosted.openai_direct",
+                                "test.codex_pool",
+                            ],
+                            "type": "string",
+                        },
+                        "project_id": {
+                            "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
+                            "pattern": "^proj_[A-Za-z0-9_-]{22}$",
+                            "type": "string",
+                        },
+                        "ttl": {"maximum": 86400, "minimum": 60, "type": "integer"},
+                    },
+                    "required": ["project_id", "preset", "budget", "ttl"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+            },
+            "required": ["body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "inference_session_create",
+        "operationId": "createInferenceSession",
+        "scope": "swarms:run",
     },
 ]

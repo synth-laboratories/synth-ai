@@ -11,6 +11,7 @@ from ._transport import Transport
 from .account import AsyncAccount
 from .auth import credentials
 from .billing import AsyncBilling
+from .inference import AsyncInference
 from .swarms import AsyncSwarms
 
 
@@ -32,6 +33,9 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarms(self._transport, project_id or os.getenv("SYNTH_PROJECT_ID"))
         self.account = AsyncAccount(self._transport)
         self.billing = AsyncBilling(self._transport)
+        self.inference = AsyncInference(
+            self._transport, project_id or os.getenv("SYNTH_PROJECT_ID")
+        )
 
     async def close(self) -> None:
         await self._transport.close()
