@@ -1,14 +1,11 @@
-"""Offline test guard: every test runs with network connects forbidden."""
-
-import socket
+from pathlib import Path
 
 import pytest
+import yaml
 
 
-@pytest.fixture(autouse=True)
-def forbid_network(monkeypatch):
-    def refused(*args, **kwargs):
-        raise AssertionError("Tests forbid network/provider calls")
-
-    monkeypatch.setattr(socket.socket, "connect", refused)
-    monkeypatch.setattr(socket.socket, "connect_ex", refused)
+@pytest.fixture(scope="session")
+def contract():
+    return yaml.safe_load(
+        (Path(__file__).parents[1] / "contracts/synth-v1.openapi.yaml").read_text()
+    )

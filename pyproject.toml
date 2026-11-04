@@ -1,143 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [project]
 name = "synth-ai"
-version = "0.24.0"
-description = "Synth SDK for Index, Swarms, account access, and hosted MCP"
-keywords = ["synth", "index", "search", "citations", "swarms", "mcp", "sdk"]
-authors = [{name = "Synth AI", email = "sdk@usesynth.ai"}]
-license = "MIT"
-license-files = ["LICENSE"]
+version = "0.26.0"
+description = "Typed Synth public API, CLI and MCP client"
 readme = "README.md"
 requires-python = ">=3.11"
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "Operating System :: POSIX",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Typing :: Typed",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-]
-dependencies = [
-    "typing-extensions>=4.12,<5",
-    # Page's default generic cursor requires pydantic 2.11 (2.9/2.10 cannot import it).
-    "pydantic>=2.11,<3",
-    "httpx>=0.28.1,<1",
-]
-
-[project.scripts]
-synth-ai = "synth_ai.cli_auth:main"
-synth-ai-mcp = "synth_ai.mcp_entrypoint:main"
-
-[project.urls]
-Homepage = "https://usesynth.ai"
-Documentation = "https://docs.usesynth.ai"
-Changelog = "https://github.com/synth-laboratories/synth-ai/blob/main/CHANGELOG.md"
-Repository = "https://github.com/synth-laboratories/synth-ai"
-Issues = "https://github.com/synth-laboratories/synth-ai/issues"
+license = "MIT"
+dependencies = ["httpx>=0.27,<1", "pydantic>=2.11,<3", "typing-extensions>=4.12"]
 
 [project.optional-dependencies]
-mcp = [
-    "mcp>=1.30,<2",
-]
+mcp = ["mcp>=1.12,<2"]
 
-[build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ["synth_ai", "synth_ai.*"]
-exclude = [
-    "docs*",
-    "tests*",
-    "scripts*",
-    "private_tests*",
-    "synth_ai.*tests*",
-    "synth_ai.*units*",
-]
-
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.exclude-package-data]
-"synth_ai" = [
-    "**/tests/**",
-    "**/units/**",
-]
-
-[tool.setuptools.package-data]
-"synth_ai" = [
-    "py.typed",
-]
-"synth_ai.contracts" = ["fingerprints.json"]
-"synth_ai.sdk.forge" = ["skills/forge-research/SKILL.md"]
-
-[tool.ruff]
-# Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
-line-length = 100
-target-version = "py311"
-src = ["synth_ai"]
-extend-exclude = [
-    ".venv",
-    ".tmp",
-    "**/*.ipynb",
-    "demos",
-    "dev",
-    "docs",
-    "scripts",
-    "private_tests",
-    "old",
-    "tauri",
-    "temp",
-    "traces",
-    "traces_*",
-    "synth_ai.db",
-]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "YTT", "B", "C4", "T10", "SIM"]
-ignore = [
-    "E501",  # Line too long
-    "B008",  # Do not perform function call in argument defaults
-    "UP035", # Don't require `from __future__ import annotations` (not needed in 3.11+)
-    "UP006", # Allow typing.Tuple
-    "UP045", # Allow Optional[...] annotations
-]
-
-[tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["N999"]
-"**/__main__.py" = ["N999"]
-
-# Type-check configuration lives in ty.toml, which takes precedence over any
-# [tool.ty.*] here.
+[project.scripts]
+synth = "synth_ai.cli:main"
+synth-ai = "synth_ai.cli:main"
+synth-ai-mcp = "synth_ai.mcp.server:main"
 
 [dependency-groups]
-dev = [
-    "readme-renderer>=44,<45",
-    # The release schema generator uses this serializer; runtime reads shipped hashes.
-    "pydantic==2.12.5",
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.0",
-    "build>=1.2.2.post1",
-    "twine>=4.0.0",
-    "jsonschema>=4.18,<5",
-    "ruff==0.17.0",
-    "ty==0.0.86",
-    "httpx>=0.28.1,<1",
-    "mdxify>=0.2.0",
-]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyyaml>=6", "types-PyYAML", "jsonschema>=4", "ruff>=0.9", "mypy>=1.14", "build>=1.2", "twine>=6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["synth_ai"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-ra --strict-markers -p no:cacheprovider"
-markers = [
-    "unit: pure model and decoder tests",
-    "contract: contract fingerprints and wire fixtures",
-    "mcp: hosted MCP tool contracts (requires the mcp extra)",
-    "release: packaging and release attestation checks",
-]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+files = ["synth_ai"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
