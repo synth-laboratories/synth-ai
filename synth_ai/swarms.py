@@ -19,6 +19,8 @@ from ._generated.models import (
     RunEvent,
     RunOutput,
     RunPage,
+    RunReport,
+    RunSandboxes,
     RunSnapshot,
 )
 from ._transport import Transport
@@ -192,6 +194,14 @@ class AsyncSwarms:
                 query={"revision_id": revision_id, "digest_sha256": digest_sha256},
             ),
         )
+
+    async def sandboxes(self, run_id: str) -> RunSandboxes:
+        return await self._transport.request(
+            "getRunSandboxes", RunSandboxes, path={"run_id": run_id}
+        )
+
+    async def report(self, run_id: str) -> RunReport:
+        return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
     async def create_project(
         self,

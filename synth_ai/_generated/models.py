@@ -5,6 +5,13 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
+class AccountTerms(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    version: str
+    accepted_at: str
+
+
 CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 
@@ -297,6 +304,29 @@ class ResolvedActor(BaseModel):
 
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
 
+
+class RunReportRollout(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    rollout_id: str
+    status: str
+    seed: int
+    reward: float | None = None
+    refusal: str | None = None
+    duration_ms: int | None = None
+
+
+class SandboxImage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "resolved", "not_applicable", "unobserved"]
+    digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")] | None = None
+
+
+class SandboxMoment(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "observed", "not_recorded", "not_applicable", "unobserved"]
+    at: str | None = None
+
+
 Scope: TypeAlias = Literal[
     "account:billing:read",
     "account:read",
@@ -311,11 +341,26 @@ Scope: TypeAlias = Literal[
 ]
 
 
+class TermsAcceptance(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    version: str
+    accepted_at: str
+    accepted_by: str
+    org_id: str
+
+
+class TermsAcceptanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    version: Annotated[str, Field(min_length=1, max_length=64)]
+    accepted_at: str
+
+
 class Account(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     org: Org
     principal: Principal
     limits: list[Limit]
+    terms: AccountTerms | None = None
 
 
 class ApiKey(BaseModel):
@@ -545,6 +590,21 @@ class RunEvent(BaseModel):
     approval_id: str | None
 
 
+class RunModelUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    provider: str
+    model: str
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
 class RunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     run_id: RunId
@@ -552,6 +612,88 @@ class RunOutput(BaseModel):
     state: str
     reference: dict[str, str] | None
     filename: str
+
+
+class RunReward(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["scored", "not_scored", "no_rollouts", "unobserved"]
+    best: float | None = None
+    rollouts: list[RunReportRollout]
+
+
+class RunRoleUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    role: Literal["planner", "worker", "reviewer", "other"]
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
+class RunSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+
+
+class RunSettlementSummary(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "settled", "refused"]
+    refusal: str | None = None
+    total: Money | None = None
+    gateway: Money | None = None
+    rollout: Money | None = None
+    other: Money | None = None
+
+
+class RunTimings(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    created_at: str
+    closed: SandboxMoment
+    accounting_final: SandboxMoment
+    executing_ms: int | None = None
+    settling_ms: int | None = None
+
+
+class RunUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
 
 
 class UpdateApiKeyRequest(BaseModel):
@@ -704,6 +846,44 @@ class ProjectPage(BaseModel):
     items: list[Project]
 
 
+class RunReportSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+    usage: RunUsage
+    time_to_ready_ms: int | None = None
+    lifetime_ms: int | None = None
+
+
+class RunSandboxes(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    items: list[RunSandbox]
+
+
 class UsageRecordPage(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     has_more: bool
@@ -730,6 +910,21 @@ class BillingHistoryPage(BaseModel):
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
     items: list[BillingHistoryEntry]
+
+
+class RunReport(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    run_id: RunId
+    settlement: RunSettlementSummary
+    attribution: Literal["pending", "attributed", "not_recorded"]
+    by_model: list[RunModelUsage]
+    by_role: list[RunRoleUsage]
+    sandboxes: list[RunReportSandbox]
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    unattributed: RunUsage
+    sandbox_compute: Literal["not_metered", "metered"]
+    reward: RunReward
+    timings: RunTimings
 
 
 class RunSnapshot(BaseModel):
@@ -767,6 +962,7 @@ class RunPage(BaseModel):
 
 
 MODELS: dict[str, type[BaseModel]] = {
+    "AccountTerms": AccountTerms,
     "ControlRef": ControlRef,
     "Family": Family,
     "Limit": Limit,
@@ -797,6 +993,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProjectCreateRequest": ProjectCreateRequest,
     "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
+    "RunReportRollout": RunReportRollout,
+    "SandboxImage": SandboxImage,
+    "SandboxMoment": SandboxMoment,
+    "TermsAcceptance": TermsAcceptance,
+    "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "Account": Account,
     "ApiKey": ApiKey,
     "Balance": Balance,
@@ -819,7 +1020,14 @@ MODELS: dict[str, type[BaseModel]] = {
     "Project": Project,
     "RefundDetail": RefundDetail,
     "RunEvent": RunEvent,
+    "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
+    "RunReward": RunReward,
+    "RunRoleUsage": RunRoleUsage,
+    "RunSandbox": RunSandbox,
+    "RunSettlementSummary": RunSettlementSummary,
+    "RunTimings": RunTimings,
+    "RunUsage": RunUsage,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "UsageDayBucket": UsageDayBucket,
     "UsageKeyBucket": UsageKeyBucket,
@@ -835,9 +1043,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
     "ProjectPage": ProjectPage,
+    "RunReportSandbox": RunReportSandbox,
+    "RunSandboxes": RunSandboxes,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,
+    "RunReport": RunReport,
     "RunSnapshot": RunSnapshot,
     "RunPage": RunPage,
 }

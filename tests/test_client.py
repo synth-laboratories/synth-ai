@@ -159,3 +159,47 @@ def test_retry_wait_is_bounded():
     assert retry_delay("61", 0) is None
     assert retry_delay("0", 0) == 0
     assert retry_delay("garbage", 0) is None
+
+
+async def test_sandboxes_and_report_read_the_contract_examples(contract):
+    paths = contract["paths"]
+    sandboxes = paths["/v1/runs/{run_id}/sandboxes"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["example"]
+    report = paths["/v1/runs/{run_id}/report"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["example"]
+    seen = []
+
+    def handle(request):
+        seen.append(request.url.path)
+        body = sandboxes if request.url.path.endswith("/sandboxes") else report
+        return httpx.Response(200, json=body)
+
+    async with AsyncSynthClient(
+        "fixture",
+        base_url="https://example.test",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handle)),
+    ) as client:
+        listed = await client.swarms.sandboxes("run_ABEiM0RVZneImaq7zN3u_w")
+        read = await client.swarms.report("run_ABEiM0RVZneImaq7zN3u_w")
+    assert seen == [
+        "/v1/runs/run_ABEiM0RVZneImaq7zN3u_w/sandboxes",
+        "/v1/runs/run_ABEiM0RVZneImaq7zN3u_w/report",
+    ]
+    assert listed.teardown == sandboxes["teardown"]
+    assert read.sandbox_compute == "not_metered"
+    assert read.settlement.total.amount == "0.147061330000"
+
+
+def test_public_surface_keeps_internal_names_off_the_new_reads(contract):
+    text = json.dumps(
+        [
+            contract["paths"]["/v1/runs/{run_id}/sandboxes"],
+            contract["paths"]["/v1/runs/{run_id}/report"],
+            contract["components"]["schemas"]["RunSandbox"],
+            contract["components"]["schemas"]["RunReport"],
+        ]
+    ).lower()
+    for name in ("forge", "lease", "agents:", "secret"):
+        assert name not in text

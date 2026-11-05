@@ -11,7 +11,8 @@ from synth_ai.cli import COMMANDS, parser
 
 def test_cli_product_operation_inventory():
     declared = {oid for commands in COMMANDS.values() for oid in commands.values()}
-    assert declared | {"createRun"} == set(OPERATIONS)
+    # acceptTerms records a legal acceptance, so the CLI offers no verb for it.
+    assert declared | {"createRun", "acceptTerms"} == set(OPERATIONS)
     for group in COMMANDS:
         result = subprocess.run(
             [sys.executable, "-m", "synth_ai.cli", group, "--help"],

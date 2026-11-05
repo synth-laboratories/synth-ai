@@ -16,6 +16,18 @@ class Operation(TypedDict):
 
 
 OPERATIONS: dict[str, Operation] = {
+    "acceptTerms": {
+        "auth": True,
+        "binary": False,
+        "idempotent": True,
+        "method": "POST",
+        "path": "/v1/account/terms-acceptance",
+        "path_params": [],
+        "query_params": [],
+        "request_model": "TermsAcceptanceRequest",
+        "response_model": "TermsAcceptance",
+        "scope": "account:write",
+    },
     "cancelRun": {
         "auth": True,
         "binary": False,
@@ -158,6 +170,30 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["revision_id", "digest_sha256"],
         "request_model": None,
         "response_model": None,
+        "scope": "swarms:read",
+    },
+    "getRunReport": {
+        "auth": True,
+        "binary": False,
+        "idempotent": False,
+        "method": "GET",
+        "path": "/v1/runs/{run_id}/report",
+        "path_params": ["run_id"],
+        "query_params": [],
+        "request_model": None,
+        "response_model": "RunReport",
+        "scope": "swarms:read",
+    },
+    "getRunSandboxes": {
+        "auth": True,
+        "binary": False,
+        "idempotent": False,
+        "method": "GET",
+        "path": "/v1/runs/{run_id}/sandboxes",
+        "path_params": ["run_id"],
+        "query_params": [],
+        "request_model": None,
+        "response_model": "RunSandboxes",
         "scope": "swarms:read",
     },
     "getUsageSummary": {

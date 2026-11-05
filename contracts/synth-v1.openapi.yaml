@@ -125,6 +125,97 @@ paths:
         schema:
           type: string
       x-synth-mcp-name: account_get
+  /v1/account/terms-acceptance:
+    post:
+      tags:
+      - account
+      operationId: acceptTerms
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/account/terms-acceptance
+      summary: Record the org's acceptance of a terms version (idempotent per version).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsAcceptanceRequest'
+      responses:
+        '201':
+          description: Acceptance recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptance'
+              example:
+                version: '2026-11-04'
+                accepted_at: '2026-11-04T18:00:00Z'
+                accepted_by: user:00000000-0000-4000-8000-000000000002
+                org_id: 00000000-0000-4000-8000-000000000001
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '200':
+          description: This version was already accepted for the org; the first record is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptance'
+              example:
+                version: '2026-11-04'
+                accepted_at: '2026-11-04T18:00:00Z'
+                accepted_by: user:00000000-0000-4000-8000-000000000002
+                org_id: 00000000-0000-4000-8000-000000000001
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/TermsVersionUnknown'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/account/http.go
+      x-synth-scope: account:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
   /v1/api-keys:
     get:
       tags:
@@ -1162,6 +1253,10 @@ paths:
       - runs
       operationId: createRun
       summary: Launch a run.
+      description: 'Problem codes on 503: launch_refund_unavailable (Orchestra refused the launch and the hold
+        refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
+        program release could not be persisted). In both cases the run is failed with accounting_final=false
+        and the reconciler settles it later.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:run
@@ -1347,7 +1442,11 @@ paths:
       summary: Ordered run events, one cursor page at a time.
       description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes
         SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling
-        later events. Only native runs are exposed.'
+        later events. Only native runs are exposed. SSE streams are re-authorized while open; when the
+        credential, org membership or scope is revoked the server sends a final `event: error` whose data
+        is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must
+        re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code
+        streaming_unavailable means the server cannot re-authorize streams.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -1509,6 +1608,210 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-mcp-name: swarms_run_cancel
+  /v1/runs/{run_id}/sandboxes:
+    get:
+      tags:
+      - runs
+      operationId: getRunSandboxes
+      summary: The sandboxes a run used, and whether they are gone.
+      description: 'One record per admitted actor execution: role, provider, lifecycle state, image digest,
+        requested CPU and memory, and created, ready and destroyed times. `teardown` is the run-level answer:
+        `complete` only when execution is closed and every sandbox is verified gone. `unobserved` means at
+        least one record could not be established; it never means absent.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/sandboxes.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Every admitted execution's sandbox record, in attempt order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSandboxes'
+              example:
+                teardown: complete
+                items:
+                - sandbox_id: sbx_ABEiM0RVZneImaq7zN3u_w
+                  role: planner
+                  provider_kind: docker
+                  state: destroyed
+                  image:
+                    status: resolved
+                    digest: sha256:a284bea5b02dc49cad36ac485b8fa87916840277c0cbed6b3c387dcdad566356
+                  cpu_millis: 2000
+                  memory_bytes: 2147483648
+                  created:
+                    status: observed
+                    at: '2026-11-05T12:22:49Z'
+                  ready:
+                    status: observed
+                    at: '2026-11-05T12:22:58Z'
+                  destroyed:
+                    status: observed
+                    at: '2026-11-05T12:25:27Z'
+                  observation: current
+                  observed_at: '2026-11-05T12:25:30Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_sandboxes
+  /v1/runs/{run_id}/report:
+    get:
+      tags:
+      - runs
+      operationId: getRunReport
+      summary: End-of-run charge, tokens, reward and timings.
+      description: 'Charge and tokens per provider and model, per actor role and per sandbox, with the run''s
+        rollouts and timings. Every amount is a sum of settlement lines, so the parts reach the settled total.
+        Before settlement, `settlement.status` is `pending` and the breakdowns are empty; a run settled before
+        attribution was kept has `attribution: not_recorded`. `sandbox_compute: not_metered` means sandboxes
+        carry no charge at all, which is not a zero cost.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/report.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The run's report as far as it is known.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunReport'
+              example:
+                run_id: run_ABEiM0RVZneImaq7zN3u_w
+                settlement:
+                  status: settled
+                  total: {amount: '0.147061330000', currency: USD}
+                  gateway: {amount: '0.147061330000', currency: USD}
+                  rollout: {amount: '0.000000000000', currency: USD}
+                  other: {amount: '0.000000000000', currency: USD}
+                attribution: attributed
+                by_model:
+                - provider: openai
+                  model: gpt-6-luna
+                  calls: 56
+                  failed_calls: 0
+                  charge: {amount: '0.147061330000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 3399786
+                  cached_input_tokens: 3100000
+                  output_tokens: 21000
+                  reasoning_tokens: 4000
+                  model_time_ms: 182000
+                by_role: []
+                sandboxes: []
+                teardown: complete
+                unattributed:
+                  calls: 0
+                  failed_calls: 0
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 0
+                  cached_input_tokens: 0
+                  output_tokens: 0
+                  reasoning_tokens: 0
+                  model_time_ms: 0
+                sandbox_compute: not_metered
+                reward:
+                  status: scored
+                  best: 2.0
+                  rollouts:
+                  - rollout_id: cpr_example
+                    status: completed
+                    seed: 0
+                    reward: 2.0
+                    duration_ms: 41000
+                timings:
+                  created_at: '2026-11-05T12:22:49Z'
+                  closed: {status: observed, at: '2026-11-05T12:25:30Z'}
+                  accounting_final: {status: observed, at: '2026-11-05T12:25:45Z'}
+                  executing_ms: 161000
+                  settling_ms: 15000
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_report
   /v1/runs/{run_id}/outputs:
     get:
       tags:
@@ -3075,7 +3378,8 @@ components:
         Retry-After:
           $ref: '#/components/headers/Retry-After'
     ServiceUnavailable:
-      description: service unavailable
+      description: 'service unavailable. Specific codes: streaming_unavailable (listRunEvents SSE),
+        launch_refund_unavailable and launch_release_unavailable (createRun).'
       content:
         application/problem+json:
           schema:
@@ -3087,6 +3391,33 @@ components:
             detail: service unavailable
             instance: urn:request:example
             code: service_unavailable
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    TermsVersionUnknown:
+      description: The terms version is not one the server publishes.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/terms_version_unknown
+            title: terms version unknown
+            status: 400
+            detail: The terms version is not one the server publishes.
+            instance: urn:request:example
+            code: terms_version_unknown
             service: synth-backend
             stage: public
             outcome: not_accepted
@@ -3272,6 +3603,58 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Limit'
+        terms:
+          description: The org's most recently recorded terms acceptance, or null when none is recorded.
+          oneOf:
+          - $ref: '#/components/schemas/AccountTerms'
+          - type: 'null'
+    AccountTerms:
+      type: object
+      required:
+      - version
+      - accepted_at
+      properties:
+        version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+    TermsAcceptanceRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      - accepted_at
+      properties:
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          examples:
+          - '2026-11-04'
+        accepted_at:
+          type: string
+          format: date-time
+          description: When the user accepted, ISO-8601 UTC. Recorded as claimed; the server also keeps its own time.
+    TermsAcceptance:
+      type: object
+      required:
+      - version
+      - accepted_at
+      - accepted_by
+      - org_id
+      properties:
+        version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+          description: The accepting principal, user:<id> for a signed-in user or credential:<id> otherwise.
+        org_id:
+          type: string
+          format: uuid
     Scope:
       type: string
       enum:
@@ -3731,6 +4114,7 @@ components:
           type: boolean
         accounting_final:
           type: boolean
+          description: True only once settlement has closed the run's books; releasing a hold does not flip it.
         cleanup_complete:
           type: boolean
         control:
@@ -3743,7 +4127,8 @@ components:
         problems_observed:
           type: boolean
         failure:
-          description: Open failure projection or null.
+          description: 'Open failure projection or null. Reasons include launch_not_dispatched (the worker found a
+            queued run that never reached Orchestra; the hold was refunded).'
         created_at:
           type: string
           format: date-time
@@ -3830,6 +4215,437 @@ components:
             type:
             - string
             - 'null'
+    SandboxMoment:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          description: pending has not happened yet. not_recorded happened but no time was kept. not_applicable
+            never happens for this sandbox. unobserved could not be read.
+          enum:
+          - pending
+          - observed
+          - not_recorded
+          - not_applicable
+          - unobserved
+        at:
+          type: string
+          format: date-time
+          description: Present only when status is observed.
+    SandboxImage:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - pending
+          - resolved
+          - not_applicable
+          - unobserved
+        digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          description: Present only when status is resolved.
+    RunSandbox:
+      type: object
+      required:
+      - sandbox_id
+      - role
+      - provider_kind
+      - state
+      - image
+      - cpu_millis
+      - memory_bytes
+      - created
+      - ready
+      - destroyed
+      - observation
+      properties:
+        sandbox_id:
+          type: string
+          pattern: ^sbx_[A-Za-z0-9_-]{22}$
+        role:
+          type: string
+          enum:
+          - planner
+          - worker
+          - reviewer
+          - other
+        provider_kind:
+          type: string
+          enum:
+          - docker
+          - daytona
+          - exe_dev
+          - unobserved
+        state:
+          type: string
+          description: pending has no provider session yet. requested awaits a box. created has a box whose
+            environment is not ready. ready serves turns. stopping has destruction requested. retained was
+            deliberately kept past its session. destroyed has verified absence. never_allocated and
+            never_created had no box. never_started left a box object that is owed a reap, so it is not
+            absent. not_requested ran without a sandbox. unobserved could not be read.
+          enum:
+          - pending
+          - requested
+          - created
+          - ready
+          - stopping
+          - retained
+          - destroyed
+          - never_allocated
+          - never_started
+          - never_created
+          - not_requested
+          - unobserved
+        image:
+          $ref: '#/components/schemas/SandboxImage'
+        cpu_millis:
+          type: integer
+          minimum: 0
+          description: CPU requested for the sandbox, in thousandths of a core.
+        memory_bytes:
+          type: integer
+          minimum: 0
+          description: Memory requested for the sandbox.
+        created:
+          $ref: '#/components/schemas/SandboxMoment'
+        ready:
+          $ref: '#/components/schemas/SandboxMoment'
+        destroyed:
+          $ref: '#/components/schemas/SandboxMoment'
+        observation:
+          type: string
+          description: current answered on this read or is final. unavailable could not be read, so the record
+            is the last one retained. contradicted reported a state moving backwards, which was refused, so the
+            record keeps the last legal state.
+          enum:
+          - current
+          - unavailable
+          - contradicted
+        observed_at:
+          type: string
+          format: date-time
+          description: When the source last answered. Absent only when state is unobserved.
+    RunSandboxes:
+      type: object
+      required:
+      - teardown
+      - items
+      properties:
+        teardown:
+          type: string
+          description: complete has execution closed and every sandbox verified gone. pending has a live sandbox,
+            or the run can still create one. residual has only never_started objects left, owed a reap. unobserved
+            has at least one record that could not be established.
+          enum:
+          - complete
+          - pending
+          - residual
+          - unobserved
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSandbox'
+    RunUsage:
+      type: object
+      description: A sum over a run's model calls. charge excludes subsidized calls, reported in subsidized.
+      required:
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunModelUsage:
+      type: object
+      required:
+      - provider
+      - model
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunRoleUsage:
+      type: object
+      required:
+      - role
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        role:
+          type: string
+          enum:
+          - planner
+          - worker
+          - reviewer
+          - other
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunReportSandbox:
+      allOf:
+      - $ref: '#/components/schemas/RunSandbox'
+      - type: object
+        required:
+        - usage
+        properties:
+          usage:
+            $ref: '#/components/schemas/RunUsage'
+          time_to_ready_ms:
+            type: integer
+            description: Present only when created and ready were both observed.
+          lifetime_ms:
+            type: integer
+            description: Present only when created and destroyed were both observed.
+    RunReportRollout:
+      type: object
+      required:
+      - rollout_id
+      - status
+      - seed
+      properties:
+        rollout_id:
+          type: string
+        status:
+          type: string
+        seed:
+          type: integer
+        reward:
+          type: number
+          description: Present only when the rollout was scored.
+        refusal:
+          type: string
+          description: Typed code of a rollout that was not scored, when it has one.
+        duration_ms:
+          type: integer
+          description: Present only when a start and an end were both recorded.
+    RunReward:
+      type: object
+      required:
+      - status
+      - rollouts
+      properties:
+        status:
+          type: string
+          description: scored has at least one scored rollout. not_scored ran rollouts and none scored. no_rollouts
+            ran none. unobserved could not read them, which does not mean there were none.
+          enum:
+          - scored
+          - not_scored
+          - no_rollouts
+          - unobserved
+        best:
+          type: number
+          description: The highest scored reward. Present only when status is scored.
+        rollouts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunReportRollout'
+    RunSettlementSummary:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          description: refused means the worker refused to settle and will retry; it is not a final charge.
+          enum:
+          - pending
+          - settled
+          - refused
+        refusal:
+          type: string
+          description: Present only when status is refused.
+        total:
+          $ref: '#/components/schemas/Money'
+        gateway:
+          $ref: '#/components/schemas/Money'
+        rollout:
+          $ref: '#/components/schemas/Money'
+        other:
+          $ref: '#/components/schemas/Money'
+    RunTimings:
+      type: object
+      required:
+      - created_at
+      - closed
+      - accounting_final
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        closed:
+          $ref: '#/components/schemas/SandboxMoment'
+        accounting_final:
+          $ref: '#/components/schemas/SandboxMoment'
+        executing_ms:
+          type: integer
+          description: Created to closed. Present once closed.
+        settling_ms:
+          type: integer
+          description: Closed to accounting final. Present once accounting is final.
+    RunReport:
+      type: object
+      required:
+      - run_id
+      - settlement
+      - attribution
+      - by_model
+      - by_role
+      - sandboxes
+      - teardown
+      - unattributed
+      - sandbox_compute
+      - reward
+      - timings
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        settlement:
+          $ref: '#/components/schemas/RunSettlementSummary'
+        attribution:
+          type: string
+          description: pending waits for settlement. not_recorded settled before attribution was kept, so the total
+            is final and the breakdown does not exist.
+          enum:
+          - pending
+          - attributed
+          - not_recorded
+        by_model:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunModelUsage'
+        by_role:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunRoleUsage'
+        sandboxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunReportSandbox'
+        teardown:
+          type: string
+          enum:
+          - complete
+          - pending
+          - residual
+          - unobserved
+        unattributed:
+          $ref: '#/components/schemas/RunUsage'
+        sandbox_compute:
+          type: string
+          description: not_metered means sandboxes carry no charge at all, which is not a zero cost.
+          enum:
+          - not_metered
+          - metered
+        reward:
+          $ref: '#/components/schemas/RunReward'
+        timings:
+          $ref: '#/components/schemas/RunTimings'
     RunOutput:
       type: object
       required:

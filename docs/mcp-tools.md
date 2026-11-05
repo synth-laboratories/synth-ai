@@ -10,6 +10,8 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_get | getRun | swarms:read |
 | swarms_run_events | listRunEvents | swarms:read |
 | swarms_run_cancel | cancelRun | swarms:control |
+| swarms_run_sandboxes | getRunSandboxes | swarms:read |
+| swarms_run_report | getRunReport | swarms:read |
 | swarms_run_outputs | listRunOutputs | swarms:read |
 | swarms_run_output_get | getRunOutput | swarms:read |
 | swarms_project_create | createProject | swarms:write |

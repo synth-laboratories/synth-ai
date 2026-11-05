@@ -1,7 +1,7 @@
 # Swarms
 
 `SynthClient().swarms` exposes launch, run, get, wait, cancel, list, events,
-iter_events, follow, outputs, output, output_content, create_project, project,
+iter_events, follow, sandboxes, report, outputs, output, output_content, create_project, project,
 projects and families. `AsyncSynthClient` exposes the same methods with `await`;
 its iter_events and follow methods are async iterators.
 
@@ -64,3 +64,9 @@ field.
 `synth swarms watch RUN_ID --timeout 600` emits JSON events followed by the
 terminal run snapshot. A failed run exits 1; completed and cancelled runs exit 0.
 The timeout bounds both streaming and final polling, and does not cancel the run.
+
+`sandboxes(run_id)` lists each actor's sandbox: role, provider kind, typed state, image
+digest, CPU, memory, and created, ready and destroyed times, with `teardown` for the run.
+`report(run_id)` is the end-of-run read: charge and tokens per model, role and sandbox,
+reward, and timings. `sandbox_compute: not_metered` means no charge exists, which is not
+a zero cost. `unobserved` means Synth could not read the fact, not that it is absent.

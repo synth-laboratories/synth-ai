@@ -274,6 +274,8 @@ async def run(output: Path, resume: bool = False) -> None:
             async with asyncio.timeout(15):
                 async for _ in client.swarms.follow(first):
                     pass
+            await call(client, "getRunSandboxes", path={"run_id": first})
+            await call(client, "getRunReport", path={"run_id": first})
             outputs = await call(client, "listRunOutputs", path={"run_id": first})
             if not outputs.items:
                 raise RuntimeError("first run produced no output; content gate is unverified")

@@ -125,6 +125,12 @@ class SwarmsClient:
             )
         )
 
+    def sandboxes(self, run_id: str) -> RunSandboxes:
+        return self._runner.call(self._async.sandboxes(run_id))
+
+    def report(self, run_id: str) -> RunReport:
+        return self._runner.call(self._async.report(run_id))
+
     def create_project(
         self,
         name: str,

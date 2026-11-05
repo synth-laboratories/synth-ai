@@ -366,6 +366,42 @@ TOOLS: list[dict[str, Any]] = [
         "scope": "swarms:control",
     },
     {
+        "description": "The sandboxes a run used, and whether they are gone.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_sandboxes",
+        "operationId": "getRunSandboxes",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "End-of-run charge, tokens, reward and timings.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_report",
+        "operationId": "getRunReport",
+        "scope": "swarms:read",
+    },
+    {
         "description": "A run's outputs.",
         "inputSchema": {
             "additionalProperties": False,

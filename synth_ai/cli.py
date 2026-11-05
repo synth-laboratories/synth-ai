@@ -23,6 +23,8 @@ COMMANDS: dict[str, dict[str, str]] = {
         "list": "listRuns",
         "events": "listRunEvents",
         "cancel": "cancelRun",
+        "sandboxes": "getRunSandboxes",
+        "report": "getRunReport",
         "outputs": "listRunOutputs",
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
