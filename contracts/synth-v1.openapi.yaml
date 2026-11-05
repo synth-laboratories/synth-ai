@@ -19,6 +19,10 @@ tags:
   description: Api Keys
 - name: billing
   description: Billing
+- name: usage
+  description: Usage
+- name: limits
+  description: Limits
 - name: families
   description: Families
 - name: projects
@@ -527,11 +531,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthServerMetadata'
               example:
-                issuer: https://api.usesynth.ai/
-                authorization_endpoint: https://api.usesynth.ai/mcp/oauth/authorize
-                token_endpoint: https://api.usesynth.ai/mcp/oauth/token
-                registration_endpoint: https://api.usesynth.ai/mcp/oauth/register
-                revocation_endpoint: https://api.usesynth.ai/mcp/oauth/revoke
+                issuer: https://mcp.usesynth.ai/
+                authorization_endpoint: https://mcp.usesynth.ai/mcp/oauth/authorize
+                token_endpoint: https://mcp.usesynth.ai/mcp/oauth/token
+                registration_endpoint: https://mcp.usesynth.ai/mcp/oauth/register
+                revocation_endpoint: https://mcp.usesynth.ai/mcp/oauth/revoke
                 response_types_supported:
                 - code
                 grant_types_supported:
@@ -581,9 +585,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthResourceMetadata'
               example:
-                resource: https://api.usesynth.ai/mcp
+                resource: https://mcp.usesynth.ai/mcp
                 authorization_servers:
-                - https://api.usesynth.ai/
+                - https://mcp.usesynth.ai/
                 bearer_methods_supported:
                 - header
                 scopes_supported:
@@ -755,7 +759,7 @@ paths:
                 client_name: Synth CLI
                 scopes:
                 - synth:read
-                resource: https://api.usesynth.ai/mcp
+                resource: https://mcp.usesynth.ai/mcp
         '400':
           description: Protocol response.
           content:
@@ -996,9 +1000,9 @@ paths:
                 endpoint: /mcp
                 protocol_version: '2025-11-25'
                 oauth:
-                  resource: https://api.usesynth.ai/mcp
+                  resource: https://mcp.usesynth.ai/mcp
                   authorization_servers:
-                  - https://api.usesynth.ai
+                  - https://mcp.usesynth.ai
         '401':
           description: Protocol response.
           content:
@@ -1171,7 +1175,7 @@ paths:
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '403':
-          $ref: '#/components/responses/InsufficientScope'
+          $ref: '#/components/responses/LaunchForbidden'
         '422':
           $ref: '#/components/responses/IdempotencyKeyReused'
         '429':
@@ -1767,7 +1771,7 @@ paths:
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '403':
-          $ref: '#/components/responses/InsufficientScope'
+          $ref: '#/components/responses/LaunchForbidden'
         '422':
           $ref: '#/components/responses/IdempotencyKeyReused'
         '429':
@@ -2025,6 +2029,272 @@ paths:
       x-synth-legacy-path: /api/v1/swarms/families
       parameters: []
       x-synth-mcp-name: swarms_families_list
+  /v1/usage/summary:
+    get:
+      tags:
+      - usage
+      operationId: getUsageSummary
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/usage/http.go
+      x-synth-scope: account:usage:read
+      summary: Rollup of the caller's settled charge-usage rows by day, source, project and key.
+      description: |
+        A projection of settled `billing.charge_usage` rows, not a separate meter: `total` equals the sum of
+        `GET /v1/usage/records` over the same window. `data_through` is the newest settled row in the window
+        (null when there is none) and `observed_at` is when this answer was read. `pending` is the org's live
+        unsettled holds at `observed_at`; it is not limited to the window. `by_source.sessions` is usage from
+        sessions outside a run, and `by_source.unattributed` means attribution is unknown, not "not a run".
+        Refusals: `invalid_filter` (422) on an unparsable time, `usage_window_invalid` (422) when `until` is not
+        after `since` or the window exceeds 366 days.
+      parameters:
+      - name: since
+        in: query
+        required: false
+        description: Inclusive RFC 3339 start. Defaults to the start of the current UTC month.
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        required: false
+        description: Exclusive RFC 3339 end. Defaults to now.
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Usage rollup.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummary'
+              example:
+                since: '2026-11-01T00:00:00Z'
+                until: '2026-11-04T00:00:00Z'
+                observed_at: '2026-11-04T00:00:00Z'
+                data_through: null
+                total:
+                  charge: {amount: '0.00', currency: USD}
+                  input_tokens: 0
+                  output_tokens: 0
+                  records: 0
+                pending:
+                  count: 0
+                  amount: {amount: '0.00', currency: USD}
+                by_source:
+                  runs:
+                    charge: {amount: '0.00', currency: USD}
+                    input_tokens: 0
+                    output_tokens: 0
+                    records: 0
+                  sessions:
+                    charge: {amount: '0.00', currency: USD}
+                    input_tokens: 0
+                    output_tokens: 0
+                    records: 0
+                  unattributed:
+                    charge: {amount: '0.00', currency: USD}
+                    input_tokens: 0
+                    output_tokens: 0
+                    records: 0
+                by_day: []
+                by_project: []
+                by_key: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/usage/summary
+  /v1/usage/records:
+    get:
+      tags:
+      - usage
+      operationId: listUsageRecords
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/usage/http.go
+      x-synth-scope: account:usage:read
+      summary: Cursor page of the settled charge-usage rows behind the usage summary, newest first.
+      description: |
+        The same rows and window as `GET /v1/usage/summary`. Resend the same filters with `next_cursor`.
+        `run_id` is null when the record has no run. Refusals: `invalid_filter`, `usage_window_invalid` and
+        `invalid_cursor` (422).
+      parameters:
+      - name: since
+        in: query
+        required: false
+        description: Inclusive RFC 3339 start. Defaults to the start of the current UTC month.
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        required: false
+        description: Exclusive RFC 3339 end. Defaults to now.
+        schema:
+          type: string
+          format: date-time
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Usage records, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageRecordPage'
+              example:
+                has_more: false
+                items: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/usage/records
+  /v1/limits:
+    get:
+      tags:
+      - limits
+      operationId: listLimits
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/limits/http.go
+      x-synth-scope: account:limits:read
+      summary: The caller's plan limits with current use and reset times.
+      description: |
+        Plan limits, the concurrent Swarms run cap and the public API rate limit. `cap` is null when the limit is
+        unbounded. `current` is null when core has no exact measure for that row. `reset_at` is null when core defines
+        no reset for that row, such as concurrency.
+      responses:
+        '200':
+          description: Limits.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LimitList'
+              example:
+                plan: free
+                observed_at: '2026-11-04T00:00:00Z'
+                items:
+                - resource: swarm_run
+                  metric: concurrent_runs
+                  window: active
+                  cap: 1
+                  current: 0
+                  reset_at: null
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/limits
   /v1/billing/plans:
     get:
       tags:
@@ -2267,11 +2537,11 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/billing/history
-  /v1/billing/invoices:
+  /v1/billing/statements:
     get:
       tags:
       - billing
-      operationId: listInvoices
+      operationId: listStatements
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       x-synth-scope: account:billing:read
@@ -2356,7 +2626,86 @@ paths:
           $ref: '#/components/responses/Problem'
         '504':
           $ref: '#/components/responses/Problem'
-      x-synth-legacy-path: /v1/billing/invoices
+      x-synth-legacy-path: /v1/billing/statements
+  /v1/billing/checkouts/{id}:
+    get:
+      tags:
+      - billing
+      operationId: getCheckout
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/http.go
+      x-synth-scope: account:billing:read
+      summary: Read one Checkout attempt of the caller's org.
+      description: |
+        The attempt row is recorded before Stripe is called, and its id is the Stripe idempotency key, so a checkout
+        that lost its response stays readable. `state` is `pending` until Stripe answers, then `open`, then `completed`
+        or `expired` from the Stripe webhook; `failed` means Stripe refused the session. Credits appear in the balance
+        only from the webhook. Refusals: `invalid_id` (422), `checkout_not_found` (404).
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CheckoutId'
+      responses:
+        '200':
+          description: Checkout attempt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutAttempt'
+              example:
+                checkout_id: chk_AAAAAAAAQACAAAAAAAAAAQ
+                state: open
+                kind: credits
+                session_id: cs_test_example
+                url: https://checkout.stripe.com/c/pay/cs_test_example
+                amount: {amount: '25.00', currency: USD}
+                failure_code: null
+                created_at: '2026-11-04T00:00:00Z'
+                completed_at: null
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/checkouts/{id}
   /v1/billing/checkout:
     post:
       tags:
@@ -2364,7 +2713,7 @@ paths:
       operationId: createCheckout
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:read
+      x-synth-scope: account:billing:write
       summary: Create a hosted Stripe Checkout session for a plan or a custom credit amount.
       description: 'Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),
 
@@ -2373,7 +2722,7 @@ paths:
         or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown`
         (422),
 
-        `plan_not_purchasable` (422), `malformed_request` (422), `config_missing` (503, names the variable),
+        `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org has a live subscription), `config_missing` (503, names the variable),
         `stripe_price_missing` (503, names the lookup key),
 
         `stripe_checkout_failed` (502, `upstream_kind: stripe`).
@@ -2393,6 +2742,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckoutSession'
               example:
+                checkout_id: chk_AAAAAAAAQACAAAAAAAAAAQ
                 session_id: example
                 url: https://api.usesynth.ai/example
           headers:
@@ -2600,6 +2950,33 @@ components:
             code: authentication_required
             service: synth-backend
             stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    LaunchForbidden:
+      description: 'insufficient_scope, or launch_requires_sdk_or_mcp when the caller is a signed-in session. Runs and projects are created through the SDK or MCP.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/launch_requires_sdk_or_mcp
+            title: launch requires sdk or mcp
+            status: 403
+            detail: Runs and projects are created through the SDK or MCP, not a signed-in session.
+            instance: urn:request:example
+            code: launch_requires_sdk_or_mcp
+            service: synth-backend
+            stage: authorize
             outcome: not_accepted
       headers:
         X-Request-Id:
@@ -2847,6 +3224,7 @@ components:
           enum:
           - api_key
           - session
+          - oauth
         credential_id:
           type: string
         credential_purpose:
@@ -2855,6 +3233,7 @@ components:
           - personal
           - automation
           - legacy
+          - oauth
         principal_class:
           type: string
         scopes:
@@ -3561,6 +3940,11 @@ components:
           $ref: '#/components/schemas/Money'
         weekly_included:
           $ref: '#/components/schemas/Money'
+        limits:
+          type: array
+          description: Per-resource caps for this plan. A cap of -1 means no cap.
+          items:
+            $ref: '#/components/schemas/Limit'
     PlanCatalog:
       type: object
       required:
@@ -3859,17 +4243,242 @@ components:
           - credits.100
         credit:
           $ref: '#/components/schemas/Money'
+    CheckoutId:
+      type: string
+      pattern: ^chk_[A-Za-z0-9_-]{22}$
     CheckoutSession:
       type: object
       required:
+      - checkout_id
       - session_id
       - url
       properties:
+        checkout_id:
+          $ref: '#/components/schemas/CheckoutId'
         session_id:
           type: string
         url:
           type: string
           format: uri
+    CheckoutAttempt:
+      type: object
+      additionalProperties: false
+      required: [checkout_id, state, kind, session_id, url, amount, failure_code, created_at, completed_at]
+      properties:
+        checkout_id:
+          $ref: '#/components/schemas/CheckoutId'
+        state:
+          type: string
+          enum: [pending, open, completed, expired, failed]
+        kind:
+          type: string
+          enum: [credits, subscription]
+        session_id:
+          type: [string, 'null']
+        url:
+          type: [string, 'null']
+          format: uri
+        amount:
+          description: Null for a subscription, whose price Stripe owns.
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        failure_code:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+    UsageTotals:
+      type: object
+      required: [charge, input_tokens, output_tokens, records]
+      properties:
+        charge:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        output_tokens:
+          type: integer
+          format: int64
+          minimum: 0
+        records:
+          type: integer
+          minimum: 0
+    UsageDayBucket:
+      allOf:
+      - $ref: '#/components/schemas/UsageTotals'
+      - type: object
+        required: [day]
+        properties:
+          day:
+            type: string
+            format: date
+    UsageProjectBucket:
+      allOf:
+      - $ref: '#/components/schemas/UsageTotals'
+      - type: object
+        required: [project_id]
+        properties:
+          project_id:
+            description: Null when the usage has no project.
+            type: [string, 'null']
+            pattern: ^proj_[A-Za-z0-9_-]{22}$
+    UsageKeyBucket:
+      allOf:
+      - $ref: '#/components/schemas/UsageTotals'
+      - type: object
+        required: [key_id]
+        properties:
+          key_id:
+            description: Null when the initiating key is unknown.
+            type: [string, 'null']
+            pattern: ^key_[A-Za-z0-9_-]{22}$
+    UsageSummary:
+      type: object
+      additionalProperties: false
+      required: [since, until, observed_at, data_through, total, pending, by_source, by_day, by_project, by_key]
+      properties:
+        since:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        observed_at:
+          type: string
+          format: date-time
+        data_through:
+          type: [string, 'null']
+          format: date-time
+        total:
+          $ref: '#/components/schemas/UsageTotals'
+        pending:
+          type: object
+          additionalProperties: false
+          required: [count, amount]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+            amount:
+              $ref: '#/components/schemas/Money'
+        by_source:
+          type: object
+          additionalProperties: false
+          required: [runs, sessions, unattributed]
+          properties:
+            runs:
+              $ref: '#/components/schemas/UsageTotals'
+            sessions:
+              $ref: '#/components/schemas/UsageTotals'
+            unattributed:
+              $ref: '#/components/schemas/UsageTotals'
+        by_day:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageDayBucket'
+        by_project:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageProjectBucket'
+        by_key:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageKeyBucket'
+    UsageRecord:
+      type: object
+      additionalProperties: false
+      required: [record_id, run_id, session_kind, kind, provider, preset, program_pattern, actor_kind, key_id, input_tokens, cached_input_tokens, output_tokens, reasoning_tokens, charge, created_at]
+      properties:
+        record_id:
+          type: string
+        run_id:
+          oneOf:
+          - $ref: '#/components/schemas/RunId'
+          - type: 'null'
+        session_kind:
+          type: string
+          enum: [run, session, unknown]
+        kind:
+          type: string
+          enum: [gateway, rollout, other]
+        provider:
+          type: string
+        preset:
+          type: string
+        program_pattern:
+          type: string
+        actor_kind:
+          type: string
+        key_id:
+          type: [string, 'null']
+          pattern: ^key_[A-Za-z0-9_-]{22}$
+        input_tokens:
+          type: [integer, 'null']
+          format: int64
+        cached_input_tokens:
+          type: [integer, 'null']
+          format: int64
+        output_tokens:
+          type: [integer, 'null']
+          format: int64
+        reasoning_tokens:
+          type: [integer, 'null']
+          format: int64
+        charge:
+          $ref: '#/components/schemas/Money'
+        created_at:
+          type: string
+          format: date-time
+    UsageRecordPage:
+      allOf:
+      - $ref: '#/components/schemas/PageFields'
+      - type: object
+        required: [items]
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/UsageRecord'
+    LimitRow:
+      type: object
+      additionalProperties: false
+      required: [resource, metric, window, cap, current, reset_at]
+      properties:
+        resource:
+          type: string
+          description: container_pool, swarm_run, agent_codex, sandbox, openrouter, included_usage or public_api.
+        metric:
+          type: string
+        window:
+          type: string
+        cap:
+          type: [number, 'null']
+          description: Null when the limit is unbounded.
+        current:
+          type: [number, 'null']
+          description: Null when core has no exact measure for this row.
+        reset_at:
+          type: [string, 'null']
+          format: date-time
+    LimitList:
+      type: object
+      additionalProperties: false
+      required: [plan, observed_at, items]
+      properties:
+        plan:
+          type: string
+        observed_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LimitRow'
     Problem:
       type: object
       required:

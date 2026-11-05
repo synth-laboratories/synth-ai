@@ -8,6 +8,7 @@ from ._generated.models import (
     Balance,
     BillingHistoryPage,
     BillingStatementPage,
+    CheckoutAttempt,
     CheckoutSession,
     PlanCatalog,
 )
@@ -47,9 +48,18 @@ class AsyncBilling:
             },
         )
 
-    async def invoices(self, *, cursor: str | None = None, limit: int = 20) -> BillingStatementPage:
+    async def statements(
+        self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
+    ) -> BillingStatementPage:
         return await self._transport.request(
-            "listInvoices", BillingStatementPage, query={"cursor": cursor, "limit": limit}
+            "listStatements",
+            BillingStatementPage,
+            query={"months": months, "cursor": cursor, "limit": limit},
+        )
+
+    async def checkout_status(self, checkout_id: str) -> CheckoutAttempt:
+        return await self._transport.request(
+            "getCheckout", CheckoutAttempt, path={"id": checkout_id}
         )
 
     async def checkout(

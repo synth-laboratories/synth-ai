@@ -146,7 +146,7 @@ async def test_sse_resume_and_close(contract):
 
 
 def test_cli_inventory_and_task(tmp_path):
-    assert parser().parse_args(["billing", "invoices"]).operation == "listInvoices"
+    assert parser().parse_args(["billing", "statements"]).operation == "listStatements"
     assert parser().parse_args(["api-keys", "rotate", "key_x"]).operation == "rotateApiKey"
     (tmp_path / "task.md").write_text("Task text")
     assert read_task(str(tmp_path)) == "Task text"

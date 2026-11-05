@@ -42,10 +42,13 @@ COMMANDS: dict[str, dict[str, str]] = {
     "billing": {
         "balance": "getBalance",
         "history": "listBillingHistory",
-        "invoices": "listInvoices",
+        "statements": "listStatements",
         "plans": "listPlans",
         "checkout": "createCheckout",
+        "checkout-status": "getCheckout",
     },
+    "usage": {"summary": "getUsageSummary", "records": "listUsageRecords"},
+    "limits": {"list": "listLimits"},
 }
 
 

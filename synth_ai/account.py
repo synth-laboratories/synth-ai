@@ -5,7 +5,15 @@ from __future__ import annotations
 import builtins
 from typing import Any
 
-from ._generated.models import Account, ApiKey, ApiKeyPage, MintedApiKey
+from ._generated.models import (
+    Account,
+    ApiKey,
+    ApiKeyPage,
+    LimitList,
+    MintedApiKey,
+    UsageRecordPage,
+    UsageSummary,
+)
 from ._transport import Transport
 
 
@@ -56,3 +64,34 @@ class AsyncAccount:
 
     async def get(self) -> Account:
         return await self._transport.request("getAccount", Account)
+
+    async def usage_summary(
+        self, *, since: str | None = None, until: str | None = None
+    ) -> UsageSummary:
+        return await self._transport.request(
+            "getUsageSummary", UsageSummary, query={"since": since, "until": until}
+        )
+
+    async def usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> UsageRecordPage:
+        return await self._transport.request(
+            "listUsageRecords",
+            UsageRecordPage,
+            query={
+                "since": since,
+                "until": until,
+                "run_id": run_id,
+                "cursor": cursor,
+                "limit": limit,
+            },
+        )
+
+    async def limits(self) -> LimitList:
+        return await self._transport.request("listLimits", LimitList)

@@ -5,11 +5,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class CheckoutSession(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    session_id: str
-    url: str
+CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 
 class ControlRef(BaseModel):
@@ -40,6 +36,16 @@ class Limit(BaseModel):
     metric: str
     window: str
     cap: float
+
+
+class LimitRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    resource: str
+    metric: str
+    window: str
+    cap: float | None
+    current: float | None
+    reset_at: str | None
 
 
 class McpError(BaseModel):
@@ -220,9 +226,9 @@ class Principal(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     org_id: str
     user_id: str | None = None
-    credential_kind: Literal["api_key", "session"]
+    credential_kind: Literal["api_key", "session", "oauth"]
     credential_id: str | None = None
-    credential_purpose: Literal["personal", "automation", "legacy"]
+    credential_purpose: Literal["personal", "automation", "legacy", "oauth"]
     principal_class: str
     scopes: list[str]
     permissions: list[str]
@@ -367,6 +373,19 @@ class ChargeUsage(BaseModel):
     charge: Money
 
 
+class CheckoutAttempt(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    checkout_id: CheckoutId
+    state: Literal["pending", "open", "completed", "expired", "failed"]
+    kind: Literal["credits", "subscription"]
+    session_id: str | None
+    url: str | None
+    amount: Money | None
+    failure_code: str | None
+    created_at: str
+    completed_at: str | None
+
+
 class CheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     plan_id: str | None = None
@@ -374,9 +393,23 @@ class CheckoutRequest(BaseModel):
     credit: Money | None = None
 
 
+class CheckoutSession(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    checkout_id: CheckoutId
+    session_id: str
+    url: str
+
+
 class FamilyList(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     families: list[Family]
+
+
+class LimitList(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    plan: str
+    observed_at: str
+    items: list[LimitRow]
 
 
 class Limits(BaseModel):
@@ -474,6 +507,7 @@ class Plan(BaseModel):
     checkout_available: bool
     price: Money
     weekly_included: Money
+    limits: list[Limit] | None = None
 
 
 class ProfileOverrides(BaseModel):
@@ -526,6 +560,69 @@ class UpdateApiKeyRequest(BaseModel):
     scopes: list[Scope]
     expected_version: Annotated[int, Field(ge=1)]
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+
+
+class UsageDayBucket(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
+    day: str
+
+
+class UsageKeyBucket(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
+    key_id: (
+        Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
+        | Annotated[None, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
+    )
+
+
+class UsageProjectBucket(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
+    project_id: (
+        Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
+        | Annotated[None, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
+    )
+
+
+class UsageRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    record_id: str
+    run_id: RunId | None
+    session_kind: Literal["run", "session", "unknown"]
+    kind: Literal["gateway", "rollout", "other"]
+    provider: str
+    preset: str
+    program_pattern: str
+    actor_kind: str
+    key_id: (
+        Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
+        | Annotated[None, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
+    )
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    output_tokens: int | None
+    reasoning_tokens: int | None
+    charge: Money
+    created_at: str
+
+
+class UsageTotals(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
 
 
 class ApiKeyPage(BaseModel):
@@ -621,6 +718,27 @@ class ProjectPage(BaseModel):
     items: list[Project]
 
 
+class UsageRecordPage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    has_more: bool
+    next_cursor: Annotated[str, Field(min_length=1)] | None = None
+    items: list[UsageRecord]
+
+
+class UsageSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    since: str
+    until: str
+    observed_at: str
+    data_through: str | None
+    total: UsageTotals
+    pending: dict[str, Any]
+    by_source: dict[str, Any]
+    by_day: list[UsageDayBucket]
+    by_project: list[UsageProjectBucket]
+    by_key: list[UsageKeyBucket]
+
+
 class BillingHistoryPage(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     has_more: bool
@@ -663,10 +781,10 @@ class RunPage(BaseModel):
 
 
 MODELS: dict[str, type[BaseModel]] = {
-    "CheckoutSession": CheckoutSession,
     "ControlRef": ControlRef,
     "Family": Family,
     "Limit": Limit,
+    "LimitRow": LimitRow,
     "McpError": McpError,
     "McpRequest": McpRequest,
     "McpTransport": McpTransport,
@@ -698,8 +816,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "Balance": Balance,
     "BillingStatement": BillingStatement,
     "ChargeUsage": ChargeUsage,
+    "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
+    "CheckoutSession": CheckoutSession,
     "FamilyList": FamilyList,
+    "LimitList": LimitList,
     "Limits": Limits,
     "McpResponse": McpResponse,
     "MintApiKeyRequest": MintApiKeyRequest,
@@ -714,6 +835,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunEvent": RunEvent,
     "RunOutput": RunOutput,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
+    "UsageDayBucket": UsageDayBucket,
+    "UsageKeyBucket": UsageKeyBucket,
+    "UsageProjectBucket": UsageProjectBucket,
+    "UsageRecord": UsageRecord,
+    "UsageTotals": UsageTotals,
     "ApiKeyPage": ApiKeyPage,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
@@ -723,6 +849,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
     "ProjectPage": ProjectPage,
+    "UsageRecordPage": UsageRecordPage,
+    "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,
     "RunSnapshot": RunSnapshot,
     "RunPage": RunPage,

@@ -197,6 +197,27 @@ class AccountClient:
     def get(self) -> Account:
         return self._runner.call(self._async.get())
 
+    def usage_summary(self, *, since: str | None = None, until: str | None = None) -> UsageSummary:
+        return self._runner.call(self._async.usage_summary(since=since, until=until))
+
+    def usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> UsageRecordPage:
+        return self._runner.call(
+            self._async.usage_records(
+                since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
+            )
+        )
+
+    def limits(self) -> LimitList:
+        return self._runner.call(self._async.limits())
+
 
 class BillingClient:
     def __init__(self, runner: Runner, source: AsyncBilling) -> None:
@@ -225,8 +246,13 @@ class BillingClient:
             )
         )
 
-    def invoices(self, *, cursor: str | None = None, limit: int = 20) -> BillingStatementPage:
-        return self._runner.call(self._async.invoices(cursor=cursor, limit=limit))
+    def statements(
+        self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
+    ) -> BillingStatementPage:
+        return self._runner.call(self._async.statements(months=months, cursor=cursor, limit=limit))
+
+    def checkout_status(self, checkout_id: str) -> CheckoutAttempt:
+        return self._runner.call(self._async.checkout_status(checkout_id))
 
     def checkout(
         self,
