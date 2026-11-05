@@ -211,7 +211,7 @@ TOOLS: list[dict[str, Any]] = [
                                                 },
                                                 "required": ["spend_micros", "rollouts"],
                                             },
-                                            "plugin": {"const": "rhodes.pool"},
+                                            "plugin": {"const": "pool"},
                                             "selection": {
                                                 "additionalProperties": False,
                                                 "properties": {
@@ -245,7 +245,7 @@ TOOLS: list[dict[str, Any]] = [
                                         },
                                         "type": "object",
                                     },
-                                    "plugin": {"enum": ["rhodes.pool"], "type": "string"},
+                                    "plugin": {"enum": ["pool"], "type": "string"},
                                     "role_limits": {
                                         "additionalProperties": {
                                             "additionalProperties": {
@@ -364,6 +364,42 @@ TOOLS: list[dict[str, Any]] = [
         "name": "swarms_run_cancel",
         "operationId": "cancelRun",
         "scope": "swarms:control",
+    },
+    {
+        "description": "The sandboxes a run used, and whether they are gone.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_sandboxes",
+        "operationId": "getRunSandboxes",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "End-of-run charge, tokens, reward and timings.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_report",
+        "operationId": "getRunReport",
+        "scope": "swarms:read",
     },
     {
         "description": "A run's outputs.",
@@ -489,5 +525,64 @@ TOOLS: list[dict[str, Any]] = [
         "name": "account_billing_balance",
         "operationId": "getBalance",
         "scope": "account:billing:read",
+    },
+    {
+        "description": "Upload a text, Markdown or JSON file (up to 32 KiB inline).",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "content": {"maxLength": 32768, "type": "string"},
+                        "media_type": {
+                            "enum": ["text/plain", "text/markdown", "application/json"],
+                            "type": "string",
+                        },
+                        "name": {"maxLength": 256, "minLength": 1, "type": "string"},
+                    },
+                    "required": ["name", "media_type", "content"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "project_id": {
+                    "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^proj_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["project_id", "body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "swarms_upload_file",
+        "operationId": "uploadFile",
+        "scope": "swarms:write",
+    },
+    {
+        "description": "Replace run labels with a revision check.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "expected_revision": {"minimum": 1, "type": "integer"},
+                        "labels": {"additionalProperties": {"type": "string"}, "type": "object"},
+                    },
+                    "required": ["labels", "expected_revision"],
+                    "type": "object",
+                },
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id", "body"],
+            "type": "object",
+        },
+        "name": "swarms_run_labels_update",
+        "operationId": "updateRunLabels",
+        "scope": "swarms:write",
     },
 ]

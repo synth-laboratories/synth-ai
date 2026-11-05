@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import time
 from collections.abc import AsyncIterator
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 from ._generated.models import (
     EventPage,
@@ -15,11 +18,15 @@ from ._generated.models import (
     Money,
     OutputPage,
     Project,
+    ProjectFile,
+    ProjectFilePage,
     ProjectPage,
     RunEvent,
+    RunLabels,
     RunOutput,
     RunPage,
     RunSnapshot,
+    Upload,
 )
 from ._transport import Transport
 from .errors import RunFailedError, WaitTimeoutError
@@ -92,6 +99,124 @@ class AsyncSwarms:
     ) -> RunSnapshot:
         created = await self.launch(message, **launch)
         return await self.wait(created.run_id, timeout=timeout, poll_interval=poll_interval)
+
+    async def upload_file(
+        self,
+        filename: str,
+        *,
+        project_id: str | None = None,
+        media_type: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ProjectFile:
+        project_id = project_id or self.project_id
+        if not project_id:
+            raise ValueError("project_id or SYNTH_PROJECT_ID is required")
+        source = Path(filename)
+        formats = {
+            ".txt": "text/plain",
+            ".md": "text/markdown",
+            ".markdown": "text/markdown",
+            ".json": "application/json",
+        }
+        media = media_type or formats.get(source.suffix.lower())
+        if media not in {"text/plain", "text/markdown", "application/json"}:
+            raise ValueError("Supported formats: text/plain, text/markdown, application/json")
+        with source.open("rb") as stream:
+            content = stream.read((32 << 20) + 1)
+        if len(content) > 32 << 20:
+            raise ValueError("File exceeds the 32 MiB limit")
+        key = idempotency_key or str(uuid4())
+        upload = await self.prepare_upload(
+            project_id,
+            name=source.name,
+            media_type=media,
+            size_bytes=len(content),
+            digest_sha256=hashlib.sha256(content).hexdigest(),
+            idempotency_key=key,
+        )
+        if upload.put is None:
+            raise ValueError("Upload response has no PUT grant")
+        await self._transport.put_upload(upload.put, content, idempotency_key=key)
+        finalized = await self.finalize_upload(upload.upload_id, idempotency_key=key)
+        return finalized.file
+
+    async def upload_text(
+        self,
+        content: str,
+        *,
+        name: str = "task.md",
+        media_type: str = "text/markdown",
+        project_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ProjectFile:
+        project_id = project_id or self.project_id
+        if not project_id:
+            raise ValueError("project_id or SYNTH_PROJECT_ID is required")
+        return await self._transport.request(
+            "uploadFile",
+            ProjectFile,
+            path={"project_id": project_id},
+            body={"name": name, "media_type": media_type, "content": content},
+            idempotency_key=idempotency_key,
+        )
+
+    async def prepare_upload(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        media_type: str,
+        size_bytes: int,
+        digest_sha256: str,
+        idempotency_key: str | None = None,
+    ) -> Upload:
+        return await self._transport.request(
+            "createUpload",
+            Upload,
+            path={"project_id": project_id},
+            body={
+                "name": name,
+                "media_type": media_type,
+                "size_bytes": size_bytes,
+                "digest_sha256": digest_sha256,
+            },
+            idempotency_key=idempotency_key,
+        )
+
+    async def finalize_upload(
+        self, upload_id: str, *, idempotency_key: str | None = None
+    ) -> Upload:
+        return await self._transport.request(
+            "finalizeUpload", Upload, path={"upload_id": upload_id}, idempotency_key=idempotency_key
+        )
+
+    async def upload(self, upload_id: str) -> Upload:
+        return await self._transport.request("getUpload", Upload, path={"upload_id": upload_id})
+
+    async def files(
+        self, project_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> ProjectFilePage:
+        return await self._transport.request(
+            "listProjectFiles",
+            ProjectFilePage,
+            path={"project_id": project_id},
+            query={"cursor": cursor, "limit": limit},
+        )
+
+    async def file(self, project_id: str, file_id: str) -> ProjectFile:
+        return await self._transport.request(
+            "getProjectFile", ProjectFile, path={"project_id": project_id, "file_id": file_id}
+        )
+
+    async def update_labels(
+        self, run_id: str, labels: dict[str, str], *, expected_revision: int
+    ) -> RunLabels:
+        return await self._transport.request(
+            "updateRunLabels",
+            RunLabels,
+            path={"run_id": run_id},
+            body={"labels": labels, "expected_revision": expected_revision},
+        )
 
     async def get(self, run_id: str) -> RunSnapshot:
         return await self._transport.request("getRun", RunSnapshot, path={"run_id": run_id})

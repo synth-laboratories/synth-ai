@@ -90,16 +90,10 @@ async def test_every_operation_on_wire(contract, oid):
             assert result is None
 
 
-def test_hosted_mcp_name_scope_and_argument_parity():
-    hosted = json.loads((ROOT / "contracts/hosted-mcp-tools.json").read_text())
-    import tomllib
-
-    assert (
-        hosted["source_commit"]
-        == tomllib.loads((ROOT / "contracts/SOURCE.toml").read_text())["commit"]
-    )
+def test_generated_mcp_name_scope_and_argument_parity():
+    hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 13
+    assert len(by_name) == len(hosted["tools"]) == 17
     for tool in hosted["tools"]:
         local = by_name.pop(tool["name"])
         assert local["inputSchema"] == tool["inputSchema"]
@@ -109,9 +103,17 @@ def test_hosted_mcp_name_scope_and_argument_parity():
 
 def test_a_nullable_constrained_field_accepts_null():
     """A pattern must apply only to the string arm; pydantic raises on null when it reaches the validator."""
-    bucket = {"charge": {"amount": "0", "currency": "USD"}, "input_tokens": 0, "output_tokens": 0, "records": 0}
+    bucket = {
+        "charge": {"amount": "0", "currency": "USD"},
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "records": 0,
+    }
     assert MODELS["UsageKeyBucket"].model_validate({**bucket, "key_id": None}).key_id is None
-    assert MODELS["UsageProjectBucket"].model_validate({**bucket, "project_id": None}).project_id is None
+    assert (
+        MODELS["UsageProjectBucket"].model_validate({**bucket, "project_id": None}).project_id
+        is None
+    )
 
 
 def test_generated_models_never_constrain_null():

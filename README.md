@@ -22,3 +22,22 @@ Set `SYNTH_API_KEY` and optionally `SYNTH_API_BASE_URL` and `SYNTH_PROJECT_ID`.
 
 `pip install synth-ai[mcp]` adds the `synth-ai-mcp` stdio server.
 Use `synth --help` for the CLI and `synth login` for browser authorization.
+
+Upload a task file and include its immutable reference at launch:
+
+```python
+with SynthClient() as client:
+    project = client.swarms.create_project(name="File task")
+    file = client.swarms.upload_file("task.md", project_id=project.project_id)
+    run = client.swarms.run(
+        "Follow the uploaded task", project_id=project.project_id, budget="0.10",
+        inputs={"files": [{key: getattr(file, key) for key in
+            ("file_id", "revision_id", "project_id", "digest_sha256")}]},
+    )
+```
+
+Uploads accept UTF-8 text, Markdown and JSON, at most 32 MiB per file and per
+launch, with at most 32 references. `upload_text` and MCP `swarms_upload_file`
+accept up to 32 KiB inline. `synth swarms upload task.md --project-id <id>` uses
+the full upload protocol. Pool resources use the public selector `pool`.
+`update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.

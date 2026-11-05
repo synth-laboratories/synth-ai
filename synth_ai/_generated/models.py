@@ -304,6 +304,53 @@ class ResolvedActor(BaseModel):
 
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
 
+
+class RunLabels(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    labels: dict[str, str]
+    revision: Annotated[int, Field(ge=0)]
+
+
+class RunLabelsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    labels: dict[str, str]
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
+class RunProgram(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    program: dict[str, Any]
+
+
+class RunReportRollout(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    rollout_id: str
+    status: str
+    seed: int
+    reward: float | None = None
+    refusal: str | None = None
+    duration_ms: int | None = None
+
+
+class RunTaskPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    items: list[dict[str, Any]]
+    has_more: bool
+    next_cursor: str | None = None
+
+
+class SandboxImage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "resolved", "not_applicable", "unobserved"]
+    digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")] | None = None
+
+
+class SandboxMoment(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "observed", "not_recorded", "not_applicable", "unobserved"]
+    at: str | None = None
+
+
 Scope: TypeAlias = Literal[
     "account:billing:read",
     "account:read",
@@ -330,6 +377,35 @@ class TermsAcceptanceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     version: Annotated[str, Field(min_length=1, max_length=64)]
     accepted_at: str
+
+
+class UploadCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=256)]
+    media_type: Literal["text/plain", "text/markdown", "application/json"]
+    size_bytes: Annotated[int, Field(ge=0, le=33554432)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
+class UploadFileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=256)]
+    media_type: Literal["text/plain", "text/markdown", "application/json"]
+    content: Annotated[str, Field(max_length=32768)]
+
+
+class UsageExport(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    export_id: str
+    state: Literal["queued", "running", "completed", "failed"]
+    download_url: str | None = None
+
+
+class UsageExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    since: str
+    until: str
+    format: Literal["csv"]
 
 
 class Account(BaseModel):
@@ -500,7 +576,7 @@ class OverrideResolution(BaseModel):
 
 class OwnerResourceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    plugin: Literal["rhodes.pool"]
+    plugin: Literal["pool"]
     version: Literal[1] | None = None
     roles: list[Literal["planner", "worker", "reviewer", "run_assessor"]]
     limits: OwnerResourceLimits
@@ -545,6 +621,18 @@ class Project(BaseModel):
     metadata: dict[str, Any]
 
 
+class ProjectFile(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    file_id: str
+    revision_id: str
+    project_id: ProjId
+    name: str
+    media_type: str
+    size_bytes: Annotated[int, Field(ge=0)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    created_at: str
+
+
 class RefundDetail(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     refund_cause: Literal["run_canceled", "run_failed", "run_expired", "launch_failed"]
@@ -553,6 +641,12 @@ class RefundDetail(BaseModel):
     held: Money
     charged: Money
     refunded: Money
+
+
+class RunConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    run_id: RunId
+    configuration: dict[str, Any]
 
 
 class RunEvent(BaseModel):
@@ -567,6 +661,21 @@ class RunEvent(BaseModel):
     approval_id: str | None
 
 
+class RunModelUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    provider: str
+    model: str
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
 class RunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     run_id: RunId
@@ -574,6 +683,88 @@ class RunOutput(BaseModel):
     state: str
     reference: dict[str, str] | None
     filename: str
+
+
+class RunReward(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["scored", "not_scored", "no_rollouts", "unobserved"]
+    best: float | None = None
+    rollouts: list[RunReportRollout]
+
+
+class RunRoleUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    role: Literal["planner", "worker", "reviewer", "other"]
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
+class RunSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+
+
+class RunSettlementSummary(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "settled", "refused"]
+    refusal: str | None = None
+    total: Money | None = None
+    gateway: Money | None = None
+    rollout: Money | None = None
+    other: Money | None = None
+
+
+class RunTimings(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    created_at: str
+    closed: SandboxMoment
+    accounting_final: SandboxMoment
+    executing_ms: int | None = None
+    settling_ms: int | None = None
+
+
+class RunUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
 
 
 class UpdateApiKeyRequest(BaseModel):
@@ -719,11 +910,64 @@ class ProfileOverrideReadback(BaseModel):
     resolution: OverrideResolution
 
 
+class ProjectFilePage(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    items: list[ProjectFile]
+    has_more: bool
+    next_cursor: str | None = None
+
+
 class ProjectPage(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
     items: list[Project]
+
+
+class RunReportSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+    usage: RunUsage
+    time_to_ready_ms: int | None = None
+    lifetime_ms: int | None = None
+
+
+class RunSandboxes(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    items: list[RunSandbox]
+
+
+class Upload(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    upload_id: str
+    state: Literal["pending", "committed"]
+    file: ProjectFile
+    put: dict[str, Any] | None = None
 
 
 class UsageRecordPage(BaseModel):
@@ -752,6 +996,21 @@ class BillingHistoryPage(BaseModel):
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
     items: list[BillingHistoryEntry]
+
+
+class RunReport(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    run_id: RunId
+    settlement: RunSettlementSummary
+    attribution: Literal["pending", "attributed", "not_recorded"]
+    by_model: list[RunModelUsage]
+    by_role: list[RunRoleUsage]
+    sandboxes: list[RunReportSandbox]
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    unattributed: RunUsage
+    sandbox_compute: Literal["not_metered", "metered"]
+    reward: RunReward
+    timings: RunTimings
 
 
 class RunSnapshot(BaseModel):
@@ -820,8 +1079,19 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProjectCreateRequest": ProjectCreateRequest,
     "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
+    "RunLabels": RunLabels,
+    "RunLabelsRequest": RunLabelsRequest,
+    "RunProgram": RunProgram,
+    "RunReportRollout": RunReportRollout,
+    "RunTaskPage": RunTaskPage,
+    "SandboxImage": SandboxImage,
+    "SandboxMoment": SandboxMoment,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
+    "UploadCreateRequest": UploadCreateRequest,
+    "UploadFileRequest": UploadFileRequest,
+    "UsageExport": UsageExport,
+    "UsageExportRequest": UsageExportRequest,
     "Account": Account,
     "ApiKey": ApiKey,
     "Balance": Balance,
@@ -842,9 +1112,18 @@ MODELS: dict[str, type[BaseModel]] = {
     "Plan": Plan,
     "ProfileOverrides": ProfileOverrides,
     "Project": Project,
+    "ProjectFile": ProjectFile,
     "RefundDetail": RefundDetail,
+    "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
+    "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
+    "RunReward": RunReward,
+    "RunRoleUsage": RunRoleUsage,
+    "RunSandbox": RunSandbox,
+    "RunSettlementSummary": RunSettlementSummary,
+    "RunTimings": RunTimings,
+    "RunUsage": RunUsage,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "UsageDayBucket": UsageDayBucket,
     "UsageKeyBucket": UsageKeyBucket,
@@ -859,10 +1138,15 @@ MODELS: dict[str, type[BaseModel]] = {
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
+    "ProjectFilePage": ProjectFilePage,
     "ProjectPage": ProjectPage,
+    "RunReportSandbox": RunReportSandbox,
+    "RunSandboxes": RunSandboxes,
+    "Upload": Upload,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,
+    "RunReport": RunReport,
     "RunSnapshot": RunSnapshot,
     "RunPage": RunPage,
 }

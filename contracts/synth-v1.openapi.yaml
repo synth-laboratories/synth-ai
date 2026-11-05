@@ -1253,7 +1253,7 @@ paths:
       - runs
       operationId: createRun
       summary: Launch a run.
-      description: 'Problem codes on 503: launch_refund_unavailable (Orchestra refused the launch and the hold
+      description: 'Problem codes on 503: launch_refund_unavailable (The execution service refused the launch and the hold
         refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
         program release could not be persisted). In both cases the run is failed with accounting_final=false
         and the reconciler settles it later.'
@@ -1608,6 +1608,210 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-mcp-name: swarms_run_cancel
+  /v1/runs/{run_id}/sandboxes:
+    get:
+      tags:
+      - runs
+      operationId: getRunSandboxes
+      summary: The sandboxes a run used, and whether they are gone.
+      description: 'One record per admitted actor execution: role, provider, lifecycle state, image digest,
+        requested CPU and memory, and created, ready and destroyed times. `teardown` is the run-level answer:
+        `complete` only when execution is closed and every sandbox is verified gone. `unobserved` means at
+        least one record could not be established; it never means absent.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/sandboxes.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Every admitted execution's sandbox record, in attempt order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunSandboxes'
+              example:
+                teardown: complete
+                items:
+                - sandbox_id: sbx_ABEiM0RVZneImaq7zN3u_w
+                  role: planner
+                  provider_kind: docker
+                  state: destroyed
+                  image:
+                    status: resolved
+                    digest: sha256:a284bea5b02dc49cad36ac485b8fa87916840277c0cbed6b3c387dcdad566356
+                  cpu_millis: 2000
+                  memory_bytes: 2147483648
+                  created:
+                    status: observed
+                    at: '2026-11-05T12:22:49Z'
+                  ready:
+                    status: observed
+                    at: '2026-11-05T12:22:58Z'
+                  destroyed:
+                    status: observed
+                    at: '2026-11-05T12:25:27Z'
+                  observation: current
+                  observed_at: '2026-11-05T12:25:30Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_sandboxes
+  /v1/runs/{run_id}/report:
+    get:
+      tags:
+      - runs
+      operationId: getRunReport
+      summary: End-of-run charge, tokens, reward and timings.
+      description: 'Charge and tokens per provider and model, per actor role and per sandbox, with the run''s
+        rollouts and timings. Every amount is a sum of settlement lines, so the parts reach the settled total.
+        Before settlement, `settlement.status` is `pending` and the breakdowns are empty; a run settled before
+        attribution was kept has `attribution: not_recorded`. `sandbox_compute: not_metered` means sandboxes
+        carry no charge at all, which is not a zero cost.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/report.go
+      x-synth-scope: swarms:read
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The run's report as far as it is known.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunReport'
+              example:
+                run_id: run_ABEiM0RVZneImaq7zN3u_w
+                settlement:
+                  status: settled
+                  total: {amount: '0.147061330000', currency: USD}
+                  gateway: {amount: '0.147061330000', currency: USD}
+                  rollout: {amount: '0.000000000000', currency: USD}
+                  other: {amount: '0.000000000000', currency: USD}
+                attribution: attributed
+                by_model:
+                - provider: openai
+                  model: gpt-6-luna
+                  calls: 56
+                  failed_calls: 0
+                  charge: {amount: '0.147061330000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 3399786
+                  cached_input_tokens: 3100000
+                  output_tokens: 21000
+                  reasoning_tokens: 4000
+                  model_time_ms: 182000
+                by_role: []
+                sandboxes: []
+                teardown: complete
+                unattributed:
+                  calls: 0
+                  failed_calls: 0
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 0
+                  cached_input_tokens: 0
+                  output_tokens: 0
+                  reasoning_tokens: 0
+                  model_time_ms: 0
+                sandbox_compute: not_metered
+                reward:
+                  status: scored
+                  best: 2.0
+                  rollouts:
+                  - rollout_id: cpr_example
+                    status: completed
+                    seed: 0
+                    reward: 2.0
+                    duration_ms: 41000
+                timings:
+                  created_at: '2026-11-05T12:22:49Z'
+                  closed: {status: observed, at: '2026-11-05T12:25:30Z'}
+                  accounting_final: {status: observed, at: '2026-11-05T12:25:45Z'}
+                  executing_ms: 161000
+                  settling_ms: 15000
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_report
   /v1/runs/{run_id}/outputs:
     get:
       tags:
@@ -2978,6 +3182,438 @@ paths:
         schema:
           type: string
           format: uuid
+  /v1/projects/{project_id}/uploads:
+    post:
+      tags:
+      - swarms
+      operationId: createUpload
+      summary: Prepare an immutable file upload.
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:write
+      x-synth-legacy-path: null
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Prepare an immutable file upload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Upload'
+              example: &id001
+                upload_id: upl_AAAAAAAAAAAAAAAAAAAAAA
+                state: pending
+                file: &id003
+                  file_id: fil_AAAAAAAAAAAAAAAAAAAAAA
+                  revision_id: rev_AAAAAAAAAAAAAAAAAAAAAA
+                  project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                  name: task.md
+                  media_type: text/markdown
+                  size_bytes: 1
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  created_at: '2026-11-05T00:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadCreateRequest'
+  /v1/uploads/{upload_id}:
+    get:
+      tags:
+      - swarms
+      operationId: getUpload
+      summary: Read an upload.
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: upload_id
+        in: path
+        required: true
+        schema: &id002
+          type: string
+      responses:
+        '200':
+          description: Read an upload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Upload'
+              example: *id001
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/uploads/{upload_id}/finalize:
+    post:
+      tags:
+      - swarms
+      operationId: finalizeUpload
+      summary: Scan and finalize an upload.
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:write
+      x-synth-legacy-path: null
+      parameters:
+      - name: upload_id
+        in: path
+        required: true
+        schema: *id002
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Scan and finalize an upload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Upload'
+              example: *id001
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/projects/{project_id}/files:
+    post:
+      tags: [swarms]
+      operationId: uploadFile
+      summary: Upload a text, Markdown or JSON file (up to 32 KiB inline).
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:write
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_upload_file
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, media_type, content]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 256}
+                media_type: {type: string, enum: [text/plain, text/markdown, application/json]}
+                content: {type: string, maxLength: 32768}
+      responses:
+        '201':
+          description: A finalized immutable file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectFile'
+              example:
+                file_id: fil_AAAAAAAAAAAAAAAAAAAAAA
+                revision_id: rev_AAAAAAAAAAAAAAAAAAAAAA
+                project_id: proj_AAAAAAAAAAAAAAAAAAAAAA
+                name: task.md
+                media_type: text/markdown
+                size_bytes: 1
+                digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                created_at: '2026-11-05T00:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags:
+      - swarms
+      operationId: listProjectFiles
+      summary: List finalized project files.
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: List finalized project files.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectFilePage'
+              example:
+                items: []
+                has_more: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/projects/{project_id}/files/{file_id}:
+    get:
+      tags:
+      - swarms
+      operationId: getProjectFile
+      summary: Read a finalized file manifest.
+      x-synth-status: implemented
+      x-synth-owner: W1-uploads
+      x-synth-source: core/internal/public/files/http.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/ProjId'
+      - name: file_id
+        in: path
+        required: true
+        schema: *id002
+      responses:
+        '200':
+          description: Read a finalized file manifest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectFile'
+              example: *id003
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/usage/exports:
+    post:
+      tags:
+      - usage
+      operationId: createUsageExport
+      summary: Export settled usage records.
+      x-synth-status: planned
+      x-synth-owner: W2-console
+      x-synth-source: core/internal/public/usage/exports.go
+      x-synth-scope: account:read
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Export settled usage records.
+        default:
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageExportRequest'
+  /v1/usage/exports/{export_id}:
+    get:
+      tags:
+      - usage
+      operationId: getUsageExport
+      summary: Read an export and its download link.
+      x-synth-status: planned
+      x-synth-owner: W2-console
+      x-synth-source: core/internal/public/usage/exports.go
+      x-synth-scope: account:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema: *id002
+      responses:
+        '200':
+          description: Read an export and its download link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageExport'
+              example:
+                export_id: exp_AAAAAAAAAAAAAAAAAAAAAA
+                state: queued
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/labels:
+    patch:
+      tags:
+      - swarms
+      operationId: updateRunLabels
+      summary: Replace run labels with a revision check.
+      x-synth-status: implemented
+      x-synth-owner: W1-controls
+      x-synth-mcp-name: swarms_run_labels_update
+      x-synth-source: core/internal/public/runs/labels.go
+      x-synth-scope: swarms:write
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      responses:
+        '200':
+          description: Replace run labels with a revision check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunLabels'
+              example:
+                labels: {}
+                revision: 0
+        default:
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunLabelsRequest'
+  /v1/runs/{run_id}/pause:
+    post:
+      tags:
+      - swarms
+      operationId: pauseRun
+      summary: Pause a run.
+      x-synth-status: planned
+      x-synth-owner: W1-controls
+      x-synth-source: core/internal/public/runs/controls.go
+      x-synth-scope: swarms:control
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Pause a run.
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/resume:
+    post:
+      tags:
+      - swarms
+      operationId: resumeRun
+      summary: Resume a paused run.
+      x-synth-status: planned
+      x-synth-owner: W1-controls
+      x-synth-source: core/internal/public/runs/controls.go
+      x-synth-scope: swarms:control
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Resume a paused run.
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/program:
+    get:
+      tags:
+      - swarms
+      operationId: getRunProgram
+      summary: Read the admitted program.
+      x-synth-status: planned
+      x-synth-owner: W1-controls
+      x-synth-source: core/internal/public/runs/controls.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      responses:
+        '200':
+          description: Read the admitted program.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunProgram'
+              example:
+                program:
+                  id: swarms.general
+                  version: '1'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/configuration:
+    get:
+      tags:
+      - swarms
+      operationId: getRunConfiguration
+      summary: Read the frozen run configuration.
+      x-synth-status: planned
+      x-synth-owner: W1-controls
+      x-synth-source: core/internal/public/runs/controls.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      responses:
+        '200':
+          description: Read the frozen run configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunConfiguration'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                configuration: {}
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/tasks:
+    get:
+      tags:
+      - swarms
+      operationId: listRunTasks
+      summary: List tasks from their current authority.
+      x-synth-status: planned
+      x-synth-owner: W1-controls
+      x-synth-source: core/internal/public/runs/controls.go
+      x-synth-scope: swarms:read
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: List tasks from their current authority.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunTaskPage'
+              example:
+                items: []
+                has_more: false
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     apiKey:
@@ -3761,7 +4397,7 @@ components:
       properties:
         plugin:
           type: string
-          enum: [rhodes.pool]
+          enum: [pool]
         version:
           type: integer
           const: 1
@@ -3788,7 +4424,7 @@ components:
       oneOf:
       - properties:
           plugin:
-            const: rhodes.pool
+            const: pool
           limits:
             required: [spend_micros, rollouts]
             propertyNames:
@@ -3924,7 +4560,7 @@ components:
           type: boolean
         failure:
           description: 'Open failure projection or null. Reasons include launch_not_dispatched (the worker found a
-            queued run that never reached Orchestra; the hold was refunded).'
+            queued run that never reached the execution service; the hold was refunded).'
         created_at:
           type: string
           format: date-time
@@ -4011,6 +4647,437 @@ components:
             type:
             - string
             - 'null'
+    SandboxMoment:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          description: pending has not happened yet. not_recorded happened but no time was kept. not_applicable
+            never happens for this sandbox. unobserved could not be read.
+          enum:
+          - pending
+          - observed
+          - not_recorded
+          - not_applicable
+          - unobserved
+        at:
+          type: string
+          format: date-time
+          description: Present only when status is observed.
+    SandboxImage:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - pending
+          - resolved
+          - not_applicable
+          - unobserved
+        digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          description: Present only when status is resolved.
+    RunSandbox:
+      type: object
+      required:
+      - sandbox_id
+      - role
+      - provider_kind
+      - state
+      - image
+      - cpu_millis
+      - memory_bytes
+      - created
+      - ready
+      - destroyed
+      - observation
+      properties:
+        sandbox_id:
+          type: string
+          pattern: ^sbx_[A-Za-z0-9_-]{22}$
+        role:
+          type: string
+          enum:
+          - planner
+          - worker
+          - reviewer
+          - other
+        provider_kind:
+          type: string
+          enum:
+          - docker
+          - daytona
+          - exe_dev
+          - unobserved
+        state:
+          type: string
+          description: pending has no provider session yet. requested awaits a box. created has a box whose
+            environment is not ready. ready serves turns. stopping has destruction requested. retained was
+            deliberately kept past its session. destroyed has verified absence. never_allocated and
+            never_created had no box. never_started left a box object that is owed a reap, so it is not
+            absent. not_requested ran without a sandbox. unobserved could not be read.
+          enum:
+          - pending
+          - requested
+          - created
+          - ready
+          - stopping
+          - retained
+          - destroyed
+          - never_allocated
+          - never_started
+          - never_created
+          - not_requested
+          - unobserved
+        image:
+          $ref: '#/components/schemas/SandboxImage'
+        cpu_millis:
+          type: integer
+          minimum: 0
+          description: CPU requested for the sandbox, in thousandths of a core.
+        memory_bytes:
+          type: integer
+          minimum: 0
+          description: Memory requested for the sandbox.
+        created:
+          $ref: '#/components/schemas/SandboxMoment'
+        ready:
+          $ref: '#/components/schemas/SandboxMoment'
+        destroyed:
+          $ref: '#/components/schemas/SandboxMoment'
+        observation:
+          type: string
+          description: current answered on this read or is final. unavailable could not be read, so the record
+            is the last one retained. contradicted reported a state moving backwards, which was refused, so the
+            record keeps the last legal state.
+          enum:
+          - current
+          - unavailable
+          - contradicted
+        observed_at:
+          type: string
+          format: date-time
+          description: When the source last answered. Absent only when state is unobserved.
+    RunSandboxes:
+      type: object
+      required:
+      - teardown
+      - items
+      properties:
+        teardown:
+          type: string
+          description: complete has execution closed and every sandbox verified gone. pending has a live sandbox,
+            or the run can still create one. residual has only never_started objects left, owed a reap. unobserved
+            has at least one record that could not be established.
+          enum:
+          - complete
+          - pending
+          - residual
+          - unobserved
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSandbox'
+    RunUsage:
+      type: object
+      description: A sum over a run's model calls. charge excludes subsidized calls, reported in subsidized.
+      required:
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunModelUsage:
+      type: object
+      required:
+      - provider
+      - model
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunRoleUsage:
+      type: object
+      required:
+      - role
+      - calls
+      - failed_calls
+      - charge
+      - subsidized
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_tokens
+      - model_time_ms
+      properties:
+        role:
+          type: string
+          enum:
+          - planner
+          - worker
+          - reviewer
+          - other
+        calls:
+          type: integer
+          minimum: 0
+        failed_calls:
+          type: integer
+          minimum: 0
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        input_tokens:
+          type: integer
+          minimum: 0
+          description: All input tokens, including cached_input_tokens.
+        cached_input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        reasoning_tokens:
+          type: integer
+          minimum: 0
+        model_time_ms:
+          type: integer
+          minimum: 0
+          description: Summed call latency the gateway recorded. Calls overlap, so it is not elapsed time.
+    RunReportSandbox:
+      allOf:
+      - $ref: '#/components/schemas/RunSandbox'
+      - type: object
+        required:
+        - usage
+        properties:
+          usage:
+            $ref: '#/components/schemas/RunUsage'
+          time_to_ready_ms:
+            type: integer
+            description: Present only when created and ready were both observed.
+          lifetime_ms:
+            type: integer
+            description: Present only when created and destroyed were both observed.
+    RunReportRollout:
+      type: object
+      required:
+      - rollout_id
+      - status
+      - seed
+      properties:
+        rollout_id:
+          type: string
+        status:
+          type: string
+        seed:
+          type: integer
+        reward:
+          type: number
+          description: Present only when the rollout was scored.
+        refusal:
+          type: string
+          description: Typed code of a rollout that was not scored, when it has one.
+        duration_ms:
+          type: integer
+          description: Present only when a start and an end were both recorded.
+    RunReward:
+      type: object
+      required:
+      - status
+      - rollouts
+      properties:
+        status:
+          type: string
+          description: scored has at least one scored rollout. not_scored ran rollouts and none scored. no_rollouts
+            ran none. unobserved could not read them, which does not mean there were none.
+          enum:
+          - scored
+          - not_scored
+          - no_rollouts
+          - unobserved
+        best:
+          type: number
+          description: The highest scored reward. Present only when status is scored.
+        rollouts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunReportRollout'
+    RunSettlementSummary:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          description: refused means the worker refused to settle and will retry; it is not a final charge.
+          enum:
+          - pending
+          - settled
+          - refused
+        refusal:
+          type: string
+          description: Present only when status is refused.
+        total:
+          $ref: '#/components/schemas/Money'
+        gateway:
+          $ref: '#/components/schemas/Money'
+        rollout:
+          $ref: '#/components/schemas/Money'
+        other:
+          $ref: '#/components/schemas/Money'
+    RunTimings:
+      type: object
+      required:
+      - created_at
+      - closed
+      - accounting_final
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        closed:
+          $ref: '#/components/schemas/SandboxMoment'
+        accounting_final:
+          $ref: '#/components/schemas/SandboxMoment'
+        executing_ms:
+          type: integer
+          description: Created to closed. Present once closed.
+        settling_ms:
+          type: integer
+          description: Closed to accounting final. Present once accounting is final.
+    RunReport:
+      type: object
+      required:
+      - run_id
+      - settlement
+      - attribution
+      - by_model
+      - by_role
+      - sandboxes
+      - teardown
+      - unattributed
+      - sandbox_compute
+      - reward
+      - timings
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        settlement:
+          $ref: '#/components/schemas/RunSettlementSummary'
+        attribution:
+          type: string
+          description: pending waits for settlement. not_recorded settled before attribution was kept, so the total
+            is final and the breakdown does not exist.
+          enum:
+          - pending
+          - attributed
+          - not_recorded
+        by_model:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunModelUsage'
+        by_role:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunRoleUsage'
+        sandboxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunReportSandbox'
+        teardown:
+          type: string
+          enum:
+          - complete
+          - pending
+          - residual
+          - unobserved
+        unattributed:
+          $ref: '#/components/schemas/RunUsage'
+        sandbox_compute:
+          type: string
+          description: not_metered means sandboxes carry no charge at all, which is not a zero cost.
+          enum:
+          - not_metered
+          - metered
+        reward:
+          $ref: '#/components/schemas/RunReward'
+        timings:
+          $ref: '#/components/schemas/RunTimings'
     RunOutput:
       type: object
       required:
@@ -5338,6 +6405,219 @@ components:
       - requested
       - resolution
       additionalProperties: false
+    UploadCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 256
+        media_type:
+          type: string
+          enum:
+          - text/plain
+          - text/markdown
+          - application/json
+        size_bytes:
+          type: integer
+          minimum: 0
+          maximum: 33554432
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      required:
+      - name
+      - media_type
+      - size_bytes
+      - digest_sha256
+    ProjectFile:
+      type: object
+      additionalProperties: false
+      properties:
+        file_id: &push2schema001
+          type: string
+        revision_id: *push2schema001
+        project_id:
+          $ref: '#/components/schemas/ProjId'
+        name: *push2schema001
+        media_type: *push2schema001
+        size_bytes:
+          type: integer
+          minimum: 0
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - file_id
+      - revision_id
+      - project_id
+      - name
+      - media_type
+      - size_bytes
+      - digest_sha256
+      - created_at
+    Upload:
+      type: object
+      additionalProperties: false
+      properties:
+        upload_id: *push2schema001
+        state:
+          type: string
+          enum:
+          - pending
+          - committed
+        file:
+          $ref: '#/components/schemas/ProjectFile'
+        put:
+          type: object
+          additionalProperties: false
+          properties:
+            url:
+              type: string
+              format: uri
+            headers:
+              type: object
+              additionalProperties: *push2schema001
+            expires_at:
+              type: string
+              format: date-time
+          required:
+          - url
+          - headers
+          - expires_at
+      required:
+      - upload_id
+      - state
+      - file
+    ProjectFilePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectFile'
+        has_more:
+          type: boolean
+        next_cursor: *push2schema001
+      required:
+      - items
+      - has_more
+    UsageExportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        since:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        format:
+          type: string
+          const: csv
+      required:
+      - since
+      - until
+      - format
+    UsageExport:
+      type: object
+      additionalProperties: false
+      properties:
+        export_id: *push2schema001
+        state:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+        download_url:
+          type:
+          - string
+          - 'null'
+          format: uri
+      required:
+      - export_id
+      - state
+    RunLabelsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        labels:
+          type: object
+          additionalProperties: *push2schema001
+        expected_revision:
+          type: integer
+          minimum: 1
+      required:
+      - labels
+      - expected_revision
+    RunLabels:
+      type: object
+      additionalProperties: false
+      properties:
+        labels:
+          type: object
+          additionalProperties: *push2schema001
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - labels
+      - revision
+    RunProgram:
+      type: object
+      additionalProperties: false
+      properties:
+        program:
+          type: object
+          additionalProperties: false
+          properties:
+            id: *push2schema001
+            version: *push2schema001
+          required:
+          - id
+          - version
+      required:
+      - program
+    RunConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        configuration:
+          type: object
+      required:
+      - run_id
+      - configuration
+    RunTaskPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              task_id: *push2schema001
+              state: *push2schema001
+            required:
+            - task_id
+            - state
+        has_more:
+          type: boolean
+        next_cursor: *push2schema001
+      required:
+      - items
+      - has_more
+
   headers:
     Cache-Control:
       schema:

@@ -20,6 +20,8 @@ from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
 COMMANDS: dict[str, dict[str, str]] = {
     "swarms": {
         "status": "getRun",
+        "report": "getRunReport",
+        "sandboxes": "getRunSandboxes",
         "list": "listRuns",
         "events": "listRunEvents",
         "cancel": "cancelRun",
@@ -30,6 +32,14 @@ COMMANDS: dict[str, dict[str, str]] = {
         "project": "getProject",
         "projects": "listProjects",
         "families": "listFamilies",
+        "upload-text": "uploadFile",
+        "uploads-prepare": "createUpload",
+        "uploads-get": "getUpload",
+        "uploads-finalize": "finalizeUpload",
+        "files": "listProjectFiles",
+        "file": "getProjectFile",
+        "labels": "updateRunLabels",
+        "download": "getRunOutputContent",
     },
     "account": {"get": "getAccount", "accept-terms": "acceptTerms"},
     "api-keys": {
@@ -78,6 +88,11 @@ def parser() -> argparse.ArgumentParser:
             if op["binary"]:
                 command.add_argument("--out")
         if group == "swarms":
+            upload = verbs.add_parser("upload")
+            upload.add_argument("filename")
+            upload.add_argument("--project-id")
+            upload.add_argument("--media-type")
+            upload.add_argument("--idempotency-key")
             for verb in ["launch", "run"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("message", nargs="?")
@@ -148,6 +163,15 @@ async def execute(args: argparse.Namespace) -> None:
                 emit({"saved": args.out})
             else:
                 emit(result)
+        elif args.verb == "upload":
+            emit(
+                await client.swarms.upload_file(
+                    args.filename,
+                    project_id=args.project_id,
+                    media_type=args.media_type,
+                    idempotency_key=args.idempotency_key,
+                )
+            )
         elif args.verb in {"run", "launch"}:
             message = read_task(args.task) if args.task else args.message
             program = None

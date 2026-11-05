@@ -133,6 +133,37 @@ class Transport:
                 raise SynthError("Response does not conform to " + operation_id) from error
         return None
 
+    async def put_upload(
+        self, grant: dict[str, Any], content: bytes, *, idempotency_key: str
+    ) -> None:
+        target = httpx.URL(grant["url"])
+        if (
+            target.username
+            or target.password
+            or target.fragment
+            or target.scheme not in {"https", "http"}
+            or (target.scheme == "http" and target.host not in {"localhost", "127.0.0.1", "::1"})
+        ):
+            raise SynthError("Upload grant has an invalid URL")
+        headers = grant["headers"]
+        if any(
+            name.lower() not in {"content-type", "x-amz-content-sha256", "if-none-match"}
+            for name in headers
+        ):
+            raise SynthError("Upload grant has unsupported headers")
+        # Construct the request directly: never merge API/client headers, cookies
+        # or default authentication into a storage-origin request.
+        request = httpx.Request("PUT", target, content=content, headers=headers)
+        try:
+            response = await self.client.send(request, auth=None, follow_redirects=False)
+        except httpx.TransportError as error:
+            raise TransportFailureError(
+                local_problem("upload_transfer_failed", "uploadFile", unknown=True),
+                idempotency_key=idempotency_key,
+            ) from error
+        if response.status_code not in {200, 201, 204, 412}:
+            raise SynthError("Upload transfer refused: HTTP " + str(response.status_code))
+
     async def request(self, operation_id: str, model: type[T], **kwargs: Any) -> T:
         result = await self.invoke(operation_id, **kwargs)
         if not isinstance(result, model):

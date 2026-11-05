@@ -69,6 +69,86 @@ class SwarmsClient:
             self._async.run(message, timeout=timeout, poll_interval=poll_interval, **launch)
         )
 
+    def upload_file(
+        self,
+        filename: str,
+        *,
+        project_id: str | None = None,
+        media_type: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ProjectFile:
+        return self._runner.call(
+            self._async.upload_file(
+                filename,
+                project_id=project_id,
+                media_type=media_type,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def upload_text(
+        self,
+        content: str,
+        *,
+        name: str = "task.md",
+        media_type: str = "text/markdown",
+        project_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ProjectFile:
+        return self._runner.call(
+            self._async.upload_text(
+                content,
+                name=name,
+                media_type=media_type,
+                project_id=project_id,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def prepare_upload(
+        self,
+        project_id: str,
+        *,
+        name: str,
+        media_type: str,
+        size_bytes: int,
+        digest_sha256: str,
+        idempotency_key: str | None = None,
+    ) -> Upload:
+        return self._runner.call(
+            self._async.prepare_upload(
+                project_id,
+                name=name,
+                media_type=media_type,
+                size_bytes=size_bytes,
+                digest_sha256=digest_sha256,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def finalize_upload(self, upload_id: str, *, idempotency_key: str | None = None) -> Upload:
+        return self._runner.call(
+            self._async.finalize_upload(upload_id, idempotency_key=idempotency_key)
+        )
+
+    def upload(self, upload_id: str) -> Upload:
+        return self._runner.call(self._async.upload(upload_id))
+
+    def files(
+        self, project_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> ProjectFilePage:
+        return self._runner.call(self._async.files(project_id, cursor=cursor, limit=limit))
+
+    def file(self, project_id: str, file_id: str) -> ProjectFile:
+        return self._runner.call(self._async.file(project_id, file_id))
+
+    def update_labels(
+        self, run_id: str, labels: dict[str, str], *, expected_revision: int
+    ) -> RunLabels:
+        return self._runner.call(
+            self._async.update_labels(run_id, labels, expected_revision=expected_revision)
+        )
+
     def get(self, run_id: str) -> RunSnapshot:
         return self._runner.call(self._async.get(run_id))
 

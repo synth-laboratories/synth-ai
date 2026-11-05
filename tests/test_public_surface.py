@@ -16,10 +16,10 @@ async def test_swarms_only_public_surface(contract):
             for op in path.values()
             if isinstance(op, dict)
         )
-        == 41
+        == 57
     )
-    assert len(OPERATIONS) == 28
-    assert len(TOOLS) == 13
+    assert len(OPERATIONS) == 37
+    assert len(TOOLS) == 17
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
     assert all("inference" not in op["path"] for op in OPERATIONS.values())
@@ -33,3 +33,8 @@ async def test_swarms_only_public_surface(contract):
     )
     assert result.returncode == 2
     assert b"invalid choice" in result.stderr
+
+
+def test_planned_operations_are_not_callable():
+    assert "pauseRun" not in OPERATIONS
+    assert "createUsageExport" not in OPERATIONS

@@ -19,7 +19,7 @@ async def test_launch_exact_money_and_retry_identity(contract):
     requests = []
     resources = [
         {
-            "plugin": "rhodes.pool",
+            "plugin": "pool",
             "roles": ["worker"],
             "limits": {"spend_micros": 100000, "rollouts": 1},
             "selection": {"pool_ids": ["craftax-control"]},

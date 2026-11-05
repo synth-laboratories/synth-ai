@@ -50,6 +50,8 @@ def generate() -> dict[Path, str]:
         for method, op in item.items():
             if method not in {"get", "post", "patch", "delete"}:
                 continue
+            if op.get("x-synth-status") != "implemented":
+                continue
             oid = op["operationId"]
             parameters = [resolve(p) for p in op.get("parameters", [])]
             req = None
@@ -232,7 +234,11 @@ OPERATIONS: dict[str, Operation] = """
     expected_tools = []
     for path, item in doc["paths"].items():
         for operation in item.values():
-            if not isinstance(operation, dict) or "x-synth-mcp-name" not in operation:
+            if (
+                not isinstance(operation, dict)
+                or "x-synth-mcp-name" not in operation
+                or operation.get("x-synth-status") != "implemented"
+            ):
                 continue
             params = [resolve(p) for p in operation.get("parameters", [])]
             properties = {

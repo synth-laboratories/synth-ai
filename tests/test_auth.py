@@ -132,7 +132,14 @@ def test_production_signs_in_on_the_mcp_host_and_stores_under_the_api_base(token
     )
     monkeypatch.setattr(httpx.Client, "post", post)
     auth.save_tokens(
-        {auth.DEFAULT_BASE_URL: {"access_token": "old", "refresh_token": "r1", "client_id": "c", "expires_at": 0}}
+        {
+            auth.DEFAULT_BASE_URL: {
+                "access_token": "old",
+                "refresh_token": "r1",
+                "client_id": "c",
+                "expires_at": 0,
+            }
+        }
     )
     assert auth.credentials(auth.DEFAULT_BASE_URL) == (auth.DEFAULT_BASE_URL, "new")
     assert seen == {"url": oauth + "/mcp/oauth/token", "resource": oauth + "/mcp"}
