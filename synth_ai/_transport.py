@@ -147,7 +147,8 @@ class Transport:
             raise SynthError("Upload grant has an invalid URL")
         headers = grant["headers"]
         if any(
-            name.lower() not in {"content-type", "x-amz-content-sha256", "if-none-match"}
+            name.lower()
+            not in {"content-type", "x-amz-content-sha256", "if-none-match", "content-length"}
             for name in headers
         ):
             raise SynthError("Upload grant has unsupported headers")

@@ -43,7 +43,10 @@ async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tm
                     "file": manifest,
                     "put": {
                         "url": "https://storage.example.test/object?signature=opaque",
-                        "headers": {"content-type": "text/markdown"},
+                        "headers": {
+                            "content-type": "text/markdown",
+                            "content-length": str(len(content)),
+                        },
                         "expires_at": "2026-11-06T00:00:00Z",
                     },
                 },
