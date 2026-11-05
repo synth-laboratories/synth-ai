@@ -307,6 +307,7 @@ Scope: TypeAlias = Literal[
     "swarms:write",
     "account:write",
     "account:billing:write",
+    "account:limits:read",
 ]
 
 

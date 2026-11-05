@@ -185,7 +185,10 @@ async def run(output: Path, resume: bool = False) -> None:
         await call(client, "getBalance")
         await call(client, "listPlans")
         await call(client, "listBillingHistory", query={"limit": 1})
-        await call(client, "listInvoices", query={"limit": 1})
+        await call(client, "listStatements", query={"limit": 1})
+        await call(client, "listLimits")
+        await call(client, "getUsageSummary")
+        await call(client, "listUsageRecords", query={"limit": 1})
         await call(client, "listFamilies")
         if receipt["runs"]:
             existing = await client.swarms.get(receipt["runs"][0]["run_id"])
@@ -312,12 +315,13 @@ async def run(output: Path, resume: bool = False) -> None:
                 save()
         receipt.setdefault("checkout_key", key())
         save()
-        await call(
+        checkout = await call(
             client,
             "createCheckout",
             body={"pack_id": "credits.10"},
             idempotency_key=receipt["checkout_key"],
         )
+        await call(client, "getCheckout", path={"id": checkout.checkout_id})
         receipt["api_complete"] = (
             not receipt["failures"]
             and set(receipt["operations"]) == set(OPERATIONS)

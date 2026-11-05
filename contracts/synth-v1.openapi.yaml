@@ -3284,6 +3284,7 @@ components:
       - swarms:write
       - account:write
       - account:billing:write
+      - account:limits:read
     ApiKey:
       type: object
       required:
