@@ -323,43 +323,6 @@
                           ]
                         }
                       }
-                    },
-                    {
-                      "properties": {
-                        "limits": {
-                          "propertyNames": {
-                            "enum": [
-                              "spend_micros",
-                              "calls"
-                            ]
-                          },
-                          "required": [
-                            "spend_micros",
-                            "calls"
-                          ]
-                        },
-                        "plugin": {
-                          "const": "forge.research"
-                        },
-                        "selection": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "project_ids": {
-                              "items": {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-                                "type": "string"
-                              },
-                              "maxItems": 8,
-                              "minItems": 1,
-                              "type": "array",
-                              "uniqueItems": true
-                            }
-                          },
-                          "required": [
-                            "project_ids"
-                          ]
-                        }
-                      }
                     }
                   ],
                   "properties": {
@@ -382,8 +345,7 @@
                     },
                     "plugin": {
                       "enum": [
-                        "rhodes.pool",
-                        "forge.research"
+                        "rhodes.pool"
                       ],
                       "type": "string"
                     },

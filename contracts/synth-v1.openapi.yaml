@@ -760,6 +760,8 @@ paths:
                 scopes:
                 - synth:read
                 resource: https://mcp.usesynth.ai/mcp
+                redirect_host: claude.ai
+                verified: false
         '400':
           description: Protocol response.
           content:
@@ -3579,7 +3581,7 @@ components:
       properties:
         plugin:
           type: string
-          enum: [rhodes.pool, forge.research]
+          enum: [rhodes.pool]
         version:
           type: integer
           const: 1
@@ -3623,25 +3625,6 @@ components:
                 items:
                   type: string
                   pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'
-      - properties:
-          plugin:
-            const: forge.research
-          limits:
-            required: [spend_micros, calls]
-            propertyNames:
-              enum: [spend_micros, calls]
-          selection:
-            additionalProperties: false
-            required: [project_ids]
-            properties:
-              project_ids:
-                type: array
-                minItems: 1
-                maxItems: 8
-                uniqueItems: true
-                items:
-                  type: string
-                  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     OwnerResourceLimits:
       type: object
       minProperties: 1
@@ -4749,11 +4732,19 @@ components:
         resource:
           type: string
           format: uri
+        redirect_host:
+          type: string
+          description: Where the authorization code is sent. Show it, because client_name is chosen by the client.
+        verified:
+          type: boolean
+          description: True only for clients Synth publishes. client_name is unverified otherwise.
       required:
       - client_id
       - client_name
       - scopes
       - resource
+      - redirect_host
+      - verified
       additionalProperties: false
     OAuthConsentDecision:
       type: object

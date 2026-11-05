@@ -58,9 +58,7 @@ resources = [
 ```
 
 The core verifies ownership and freezes grants. `role_limits` can narrow a
-resource's run limits; it cannot widen them. `forge.research` uses `calls`
-and `selection.project_ids` instead of `rollouts` and `selection.pool_ids`.
-The pinned launch contract has no top-level `preset` or `max_output_tokens`
+resource's run limits; it cannot widen them. The pinned launch contract has no top-level `preset` or `max_output_tokens`
 field.
 
 `synth swarms watch RUN_ID --timeout 600` emits JSON events followed by the

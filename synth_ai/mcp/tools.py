@@ -229,34 +229,7 @@ TOOLS: list[dict[str, Any]] = [
                                                 "required": ["pool_ids"],
                                             },
                                         }
-                                    },
-                                    {
-                                        "properties": {
-                                            "limits": {
-                                                "propertyNames": {
-                                                    "enum": ["spend_micros", "calls"]
-                                                },
-                                                "required": ["spend_micros", "calls"],
-                                            },
-                                            "plugin": {"const": "forge.research"},
-                                            "selection": {
-                                                "additionalProperties": False,
-                                                "properties": {
-                                                    "project_ids": {
-                                                        "items": {
-                                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-                                                            "type": "string",
-                                                        },
-                                                        "maxItems": 8,
-                                                        "minItems": 1,
-                                                        "type": "array",
-                                                        "uniqueItems": True,
-                                                    }
-                                                },
-                                                "required": ["project_ids"],
-                                            },
-                                        }
-                                    },
+                                    }
                                 ],
                                 "properties": {
                                     "limits": {
@@ -272,10 +245,7 @@ TOOLS: list[dict[str, Any]] = [
                                         },
                                         "type": "object",
                                     },
-                                    "plugin": {
-                                        "enum": ["rhodes.pool", "forge.research"],
-                                        "type": "string",
-                                    },
+                                    "plugin": {"enum": ["rhodes.pool"], "type": "string"},
                                     "role_limits": {
                                         "additionalProperties": {
                                             "additionalProperties": {

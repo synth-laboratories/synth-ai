@@ -109,6 +109,8 @@ class OAuthConsentRequest(BaseModel):
     client_name: str
     scopes: list[str]
     resource: str
+    redirect_host: str
+    verified: bool
 
 
 class OAuthConsentResult(BaseModel):
@@ -479,7 +481,7 @@ class OverrideResolution(BaseModel):
 
 class OwnerResourceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    plugin: Literal["rhodes.pool", "forge.research"]
+    plugin: Literal["rhodes.pool"]
     version: Literal[1] | None = None
     roles: list[Literal["planner", "worker", "reviewer", "run_assessor"]]
     limits: OwnerResourceLimits
