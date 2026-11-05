@@ -190,7 +190,7 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
                     "code_challenge_method": "S256",
                     "state": state,
                     "resource": base + "/mcp",
-                    "scope": "offline_access user:org:read synth:read synth:action account:billing:read",
+                    "scope": "offline_access user:org:read synth:read synth:action account:billing:read account:billing:write",
                 }
             )
         )
