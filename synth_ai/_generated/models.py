@@ -434,11 +434,7 @@ class McpResponse(BaseModel):
 class MintApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     purpose: Literal["personal", "automation"] | None = None
-    name: (
-        Annotated[str, Field(min_length=1, max_length=128)]
-        | Annotated[None, Field(min_length=1, max_length=128)]
-        | None
-    ) = None
+    name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
     scopes: list[Scope] | None = None
     expires_at: str | None = None
     request_id: str | None = None
@@ -580,10 +576,7 @@ class UsageKeyBucket(BaseModel):
     input_tokens: Annotated[int, Field(ge=0)]
     output_tokens: Annotated[int, Field(ge=0)]
     records: Annotated[int, Field(ge=0)]
-    key_id: (
-        Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
-        | Annotated[None, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
-    )
+    key_id: Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")] | None
 
 
 class UsageProjectBucket(BaseModel):
@@ -592,10 +585,7 @@ class UsageProjectBucket(BaseModel):
     input_tokens: Annotated[int, Field(ge=0)]
     output_tokens: Annotated[int, Field(ge=0)]
     records: Annotated[int, Field(ge=0)]
-    project_id: (
-        Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
-        | Annotated[None, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
-    )
+    project_id: Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")] | None
 
 
 class UsageRecord(BaseModel):
@@ -608,10 +598,7 @@ class UsageRecord(BaseModel):
     preset: str
     program_pattern: str
     actor_kind: str
-    key_id: (
-        Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
-        | Annotated[None, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
-    )
+    key_id: Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")] | None
     input_tokens: int | None
     cached_input_tokens: int | None
     output_tokens: int | None
@@ -677,11 +664,7 @@ class EventPage(BaseModel):
 
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    message: (
-        Annotated[str, Field(min_length=1, max_length=8192)]
-        | Annotated[None, Field(min_length=1, max_length=8192)]
-        | None
-    ) = None
+    message: Annotated[str, Field(min_length=1, max_length=8192)] | None = None
     project_id: ProjId
     limits: Limits
     inputs: dict[str, Any] | None = None

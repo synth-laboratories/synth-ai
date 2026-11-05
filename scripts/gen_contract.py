@@ -115,6 +115,8 @@ def generate() -> dict[Path, str]:
             "boolean": "bool",
             "null": "None",
         }.get(typ, "Any")
+        if typ == "null":
+            return "None"  # a nullable string's pattern or length applies only to the string
         args = []
         for k, v in s.items():
             dest = {

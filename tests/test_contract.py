@@ -105,3 +105,14 @@ def test_hosted_mcp_name_scope_and_argument_parity():
         assert local["inputSchema"] == tool["inputSchema"]
         assert OPERATIONS[local["operationId"]]["scope"] == tool["scope"]
     assert not by_name
+
+
+def test_a_nullable_constrained_field_accepts_null():
+    """A pattern must apply only to the string arm; pydantic raises on null when it reaches the validator."""
+    bucket = {"charge": {"amount": "0", "currency": "USD"}, "input_tokens": 0, "output_tokens": 0, "records": 0}
+    assert MODELS["UsageKeyBucket"].model_validate({**bucket, "key_id": None}).key_id is None
+    assert MODELS["UsageProjectBucket"].model_validate({**bucket, "project_id": None}).project_id is None
+
+
+def test_generated_models_never_constrain_null():
+    assert "Annotated[None" not in (ROOT / "synth_ai/_generated/models.py").read_text()
