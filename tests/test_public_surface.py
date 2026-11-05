@@ -18,7 +18,7 @@ async def test_swarms_only_public_surface(contract):
         )
         == 57
     )
-    assert len(OPERATIONS) == 37
+    assert len(OPERATIONS) == 44
     assert len(TOOLS) == 17
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
@@ -35,6 +35,20 @@ async def test_swarms_only_public_surface(contract):
     assert b"invalid choice" in result.stderr
 
 
-def test_planned_operations_are_not_callable():
-    assert "pauseRun" not in OPERATIONS
-    assert "createUsageExport" not in OPERATIONS
+def test_only_implemented_operations_are_callable(contract):
+    planned = {
+        op["operationId"]
+        for item in contract["paths"].values()
+        for op in item.values()
+        if isinstance(op, dict) and op.get("x-synth-status") == "planned"
+    }
+    assert not planned.intersection(OPERATIONS)
+    assert {
+        "pauseRun",
+        "resumeRun",
+        "getRunProgram",
+        "getRunConfiguration",
+        "listRunTasks",
+        "createUsageExport",
+        "getUsageExport",
+    } <= OPERATIONS.keys()

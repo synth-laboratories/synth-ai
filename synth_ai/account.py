@@ -11,6 +11,7 @@ from ._generated.models import (
     ApiKeyPage,
     LimitList,
     MintedApiKey,
+    UsageExport,
     UsageRecordPage,
     UsageSummary,
 )
@@ -91,6 +92,21 @@ class AsyncAccount:
                 "cursor": cursor,
                 "limit": limit,
             },
+        )
+
+    async def export_usage(
+        self, *, since: str, until: str, idempotency_key: str | None = None
+    ) -> UsageExport:
+        return await self._transport.request(
+            "createUsageExport",
+            UsageExport,
+            body={"since": since, "until": until, "format": "csv"},
+            idempotency_key=idempotency_key,
+        )
+
+    async def usage_export(self, export_id: str) -> UsageExport:
+        return await self._transport.request(
+            "getUsageExport", UsageExport, path={"export_id": export_id}
         )
 
     async def limits(self) -> LimitList:

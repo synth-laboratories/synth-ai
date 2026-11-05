@@ -302,6 +302,18 @@ class ResolvedActor(BaseModel):
     evaluated: bool
 
 
+class RunControlReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    operation_id: str
+    resource_id: str
+    state: str
+    command: str
+    reason: str
+    execution_closed: bool
+    accounting_final: bool
+    cleanup_complete: bool
+
+
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
 
 
@@ -1079,6 +1091,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProjectCreateRequest": ProjectCreateRequest,
     "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
+    "RunControlReceipt": RunControlReceipt,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
     "RunProgram": RunProgram,

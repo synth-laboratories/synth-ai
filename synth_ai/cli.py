@@ -25,6 +25,11 @@ COMMANDS: dict[str, dict[str, str]] = {
         "list": "listRuns",
         "events": "listRunEvents",
         "cancel": "cancelRun",
+        "pause": "pauseRun",
+        "resume": "resumeRun",
+        "program": "getRunProgram",
+        "configuration": "getRunConfiguration",
+        "tasks": "listRunTasks",
         "outputs": "listRunOutputs",
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
@@ -57,7 +62,12 @@ COMMANDS: dict[str, dict[str, str]] = {
         "checkout": "createCheckout",
         "checkout-status": "getCheckout",
     },
-    "usage": {"summary": "getUsageSummary", "records": "listUsageRecords"},
+    "usage": {
+        "summary": "getUsageSummary",
+        "records": "listUsageRecords",
+        "export": "createUsageExport",
+        "export-status": "getUsageExport",
+    },
     "limits": {"list": "listLimits"},
 }
 

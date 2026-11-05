@@ -3396,7 +3396,7 @@ paths:
       - usage
       operationId: createUsageExport
       summary: Export settled usage records.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W2-console
       x-synth-source: core/internal/public/usage/exports.go
       x-synth-scope: account:read
@@ -3406,6 +3406,14 @@ paths:
       responses:
         '202':
           description: Export settled usage records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageExport'
+              example:
+                export_id: exp_AAAAAAAAAAAAAAAAAAAAAA
+                state: queued
+                download_url: null
         default:
           $ref: '#/components/responses/Problem'
       requestBody:
@@ -3420,7 +3428,7 @@ paths:
       - usage
       operationId: getUsageExport
       summary: Read an export and its download link.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W2-console
       x-synth-source: core/internal/public/usage/exports.go
       x-synth-scope: account:read
@@ -3429,7 +3437,8 @@ paths:
       - name: export_id
         in: path
         required: true
-        schema: *id002
+        schema:
+          type: string
       responses:
         '200':
           description: Read an export and its download link.
@@ -3484,7 +3493,7 @@ paths:
       - swarms
       operationId: pauseRun
       summary: Pause a run.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
       x-synth-scope: swarms:control
@@ -3499,15 +3508,30 @@ paths:
       responses:
         '202':
           description: Pause a run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunControlReceipt'
+              example:
+                operation_id: ctl_example
+                resource_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                state: accepted
+                command: pause
+                reason: pause_requested
+                execution_closed: false
+                accounting_final: false
+                cleanup_complete: false
         default:
           $ref: '#/components/responses/Problem'
+      description: The body must be empty. Acceptance acknowledges the durable command;
+        read the run to observe its current state.
   /v1/runs/{run_id}/resume:
     post:
       tags:
       - swarms
       operationId: resumeRun
       summary: Resume a paused run.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
       x-synth-scope: swarms:control
@@ -3522,15 +3546,30 @@ paths:
       responses:
         '202':
           description: Resume a paused run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunControlReceipt'
+              example:
+                operation_id: ctl_example
+                resource_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                state: accepted
+                command: resume
+                reason: resume_requested
+                execution_closed: false
+                accounting_final: false
+                cleanup_complete: false
         default:
           $ref: '#/components/responses/Problem'
+      description: The body must be empty. Acceptance acknowledges the durable command;
+        read the run to observe its current state.
   /v1/runs/{run_id}/program:
     get:
       tags:
       - swarms
       operationId: getRunProgram
       summary: Read the admitted program.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
       x-synth-scope: swarms:read
@@ -3560,7 +3599,7 @@ paths:
       - swarms
       operationId: getRunConfiguration
       summary: Read the frozen run configuration.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
       x-synth-scope: swarms:read
@@ -3589,7 +3628,7 @@ paths:
       - swarms
       operationId: listRunTasks
       summary: List tasks from their current authority.
-      x-synth-status: planned
+      x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
       x-synth-scope: swarms:read
@@ -6617,6 +6656,36 @@ components:
       required:
       - items
       - has_more
+
+    RunControlReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        operation_id:
+          type: string
+        resource_id:
+          type: string
+        state:
+          type: string
+        command:
+          type: string
+        reason:
+          type: string
+        execution_closed:
+          type: boolean
+        accounting_final:
+          type: boolean
+        cleanup_complete:
+          type: boolean
+      required:
+      - operation_id
+      - resource_id
+      - state
+      - command
+      - reason
+      - execution_closed
+      - accounting_final
+      - cleanup_complete
 
   headers:
     Cache-Control:

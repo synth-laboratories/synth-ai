@@ -21,11 +21,15 @@ from ._generated.models import (
     ProjectFile,
     ProjectFilePage,
     ProjectPage,
+    RunConfiguration,
+    RunControlReceipt,
     RunEvent,
     RunLabels,
     RunOutput,
     RunPage,
+    RunProgram,
     RunSnapshot,
+    RunTaskPage,
     Upload,
 )
 from ._transport import Transport
@@ -257,6 +261,34 @@ class AsyncSwarms:
                 "state": state,
                 "created_after": created_after,
             },
+        )
+
+    async def pause(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return await self._transport.request(
+            "pauseRun", RunControlReceipt, path={"run_id": run_id}, idempotency_key=idempotency_key
+        )
+
+    async def resume(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return await self._transport.request(
+            "resumeRun", RunControlReceipt, path={"run_id": run_id}, idempotency_key=idempotency_key
+        )
+
+    async def program(self, run_id: str) -> RunProgram:
+        return await self._transport.request("getRunProgram", RunProgram, path={"run_id": run_id})
+
+    async def configuration(self, run_id: str) -> RunConfiguration:
+        return await self._transport.request(
+            "getRunConfiguration", RunConfiguration, path={"run_id": run_id}
+        )
+
+    async def tasks(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> RunTaskPage:
+        return await self._transport.request(
+            "listRunTasks",
+            RunTaskPage,
+            path={"run_id": run_id},
+            query={"cursor": cursor, "limit": limit},
         )
 
     async def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:

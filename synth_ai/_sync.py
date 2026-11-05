@@ -176,6 +176,21 @@ class SwarmsClient:
             )
         )
 
+    def pause(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return self._runner.call(self._async.pause(run_id, idempotency_key=idempotency_key))
+
+    def resume(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return self._runner.call(self._async.resume(run_id, idempotency_key=idempotency_key))
+
+    def program(self, run_id: str) -> RunProgram:
+        return self._runner.call(self._async.program(run_id))
+
+    def configuration(self, run_id: str) -> RunConfiguration:
+        return self._runner.call(self._async.configuration(run_id))
+
+    def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
+        return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
+
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:
         return self._runner.call(self._async.cancel(run_id, idempotency_key=idempotency_key))
 
@@ -294,6 +309,16 @@ class AccountClient:
                 since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
             )
         )
+
+    def export_usage(
+        self, *, since: str, until: str, idempotency_key: str | None = None
+    ) -> UsageExport:
+        return self._runner.call(
+            self._async.export_usage(since=since, until=until, idempotency_key=idempotency_key)
+        )
+
+    def usage_export(self, export_id: str) -> UsageExport:
+        return self._runner.call(self._async.usage_export(export_id))
 
     def limits(self) -> LimitList:
         return self._runner.call(self._async.limits())
