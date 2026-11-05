@@ -125,6 +125,97 @@ paths:
         schema:
           type: string
       x-synth-mcp-name: account_get
+  /v1/account/terms-acceptance:
+    post:
+      tags:
+      - account
+      operationId: acceptTerms
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/account/terms-acceptance
+      summary: Record the org's acceptance of a terms version (idempotent per version).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsAcceptanceRequest'
+      responses:
+        '201':
+          description: Acceptance recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptance'
+              example:
+                version: '2026-11-04'
+                accepted_at: '2026-11-04T18:00:00Z'
+                accepted_by: user:00000000-0000-4000-8000-000000000002
+                org_id: 00000000-0000-4000-8000-000000000001
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '200':
+          description: This version was already accepted for the org; the first record is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsAcceptance'
+              example:
+                version: '2026-11-04'
+                accepted_at: '2026-11-04T18:00:00Z'
+                accepted_by: user:00000000-0000-4000-8000-000000000002
+                org_id: 00000000-0000-4000-8000-000000000001
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/TermsVersionUnknown'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/account/http.go
+      x-synth-scope: account:write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
   /v1/api-keys:
     get:
       tags:
@@ -1162,6 +1253,10 @@ paths:
       - runs
       operationId: createRun
       summary: Launch a run.
+      description: 'Problem codes on 503: launch_refund_unavailable (Orchestra refused the launch and the hold
+        refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
+        program release could not be persisted). In both cases the run is failed with accounting_final=false
+        and the reconciler settles it later.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:run
@@ -1347,7 +1442,11 @@ paths:
       summary: Ordered run events, one cursor page at a time.
       description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes
         SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling
-        later events. Only native runs are exposed.'
+        later events. Only native runs are exposed. SSE streams are re-authorized while open; when the
+        credential, org membership or scope is revoked the server sends a final `event: error` whose data
+        is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must
+        re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code
+        streaming_unavailable means the server cannot re-authorize streams.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -3075,7 +3174,8 @@ components:
         Retry-After:
           $ref: '#/components/headers/Retry-After'
     ServiceUnavailable:
-      description: service unavailable
+      description: 'service unavailable. Specific codes: streaming_unavailable (listRunEvents SSE),
+        launch_refund_unavailable and launch_release_unavailable (createRun).'
       content:
         application/problem+json:
           schema:
@@ -3087,6 +3187,33 @@ components:
             detail: service unavailable
             instance: urn:request:example
             code: service_unavailable
+            service: synth-backend
+            stage: public
+            outcome: not_accepted
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/X-Request-Id'
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        Cache-Control:
+          $ref: '#/components/headers/Cache-Control'
+    TermsVersionUnknown:
+      description: The terms version is not one the server publishes.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://docs.usesynth.ai/errors/terms_version_unknown
+            title: terms version unknown
+            status: 400
+            detail: The terms version is not one the server publishes.
+            instance: urn:request:example
+            code: terms_version_unknown
             service: synth-backend
             stage: public
             outcome: not_accepted
@@ -3272,6 +3399,58 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Limit'
+        terms:
+          description: The org's most recently recorded terms acceptance, or null when none is recorded.
+          oneOf:
+          - $ref: '#/components/schemas/AccountTerms'
+          - type: 'null'
+    AccountTerms:
+      type: object
+      required:
+      - version
+      - accepted_at
+      properties:
+        version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+    TermsAcceptanceRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      - accepted_at
+      properties:
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          examples:
+          - '2026-11-04'
+        accepted_at:
+          type: string
+          format: date-time
+          description: When the user accepted, ISO-8601 UTC. Recorded as claimed; the server also keeps its own time.
+    TermsAcceptance:
+      type: object
+      required:
+      - version
+      - accepted_at
+      - accepted_by
+      - org_id
+      properties:
+        version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        accepted_by:
+          type: string
+          description: The accepting principal, user:<id> for a signed-in user or credential:<id> otherwise.
+        org_id:
+          type: string
+          format: uuid
     Scope:
       type: string
       enum:
@@ -3731,6 +3910,7 @@ components:
           type: boolean
         accounting_final:
           type: boolean
+          description: True only once settlement has closed the run's books; releasing a hold does not flip it.
         cleanup_complete:
           type: boolean
         control:
@@ -3743,7 +3923,8 @@ components:
         problems_observed:
           type: boolean
         failure:
-          description: Open failure projection or null.
+          description: 'Open failure projection or null. Reasons include launch_not_dispatched (the worker found a
+            queued run that never reached Orchestra; the hold was refunded).'
         created_at:
           type: string
           format: date-time

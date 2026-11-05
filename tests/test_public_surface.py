@@ -16,9 +16,9 @@ async def test_swarms_only_public_surface(contract):
             for op in path.values()
             if isinstance(op, dict)
         )
-        == 40
+        == 41
     )
-    assert len(OPERATIONS) == 27
+    assert len(OPERATIONS) == 28
     assert len(TOOLS) == 13
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None

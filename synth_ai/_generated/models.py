@@ -5,6 +5,13 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
+class AccountTerms(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    version: str
+    accepted_at: str
+
+
 CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 
@@ -311,11 +318,26 @@ Scope: TypeAlias = Literal[
 ]
 
 
+class TermsAcceptance(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    version: str
+    accepted_at: str
+    accepted_by: str
+    org_id: str
+
+
+class TermsAcceptanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    version: Annotated[str, Field(min_length=1, max_length=64)]
+    accepted_at: str
+
+
 class Account(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     org: Org
     principal: Principal
     limits: list[Limit]
+    terms: AccountTerms | None = None
 
 
 class ApiKey(BaseModel):
@@ -767,6 +789,7 @@ class RunPage(BaseModel):
 
 
 MODELS: dict[str, type[BaseModel]] = {
+    "AccountTerms": AccountTerms,
     "ControlRef": ControlRef,
     "Family": Family,
     "Limit": Limit,
@@ -797,6 +820,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProjectCreateRequest": ProjectCreateRequest,
     "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
+    "TermsAcceptance": TermsAcceptance,
+    "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "Account": Account,
     "ApiKey": ApiKey,
     "Balance": Balance,

@@ -31,7 +31,7 @@ COMMANDS: dict[str, dict[str, str]] = {
         "projects": "listProjects",
         "families": "listFamilies",
     },
-    "account": {"get": "getAccount"},
+    "account": {"get": "getAccount", "accept-terms": "acceptTerms"},
     "api-keys": {
         "list": "listApiKeys",
         "mint": "createApiKey",

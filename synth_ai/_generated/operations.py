@@ -16,6 +16,18 @@ class Operation(TypedDict):
 
 
 OPERATIONS: dict[str, Operation] = {
+    "acceptTerms": {
+        "auth": True,
+        "binary": False,
+        "idempotent": True,
+        "method": "POST",
+        "path": "/v1/account/terms-acceptance",
+        "path_params": [],
+        "query_params": [],
+        "request_model": "TermsAcceptanceRequest",
+        "response_model": "TermsAcceptance",
+        "scope": "account:write",
+    },
     "cancelRun": {
         "auth": True,
         "binary": False,
