@@ -1178,6 +1178,7 @@ paths:
       - runs
       operationId: listRuns
       summary: The caller's runs, newest first.
+      description: Each run's state is its last recorded state. Read a single run for live pause state.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -3628,6 +3629,7 @@ paths:
       - swarms
       operationId: listRunTasks
       summary: List tasks from their current authority.
+      description: Each page reads current tasks and states. A cursor stays valid while the run advances, but pages are not a snapshot, so a task added during paging can be missing until a fresh listing.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
@@ -6580,6 +6582,11 @@ components:
           - string
           - 'null'
           format: uri
+        failure_code:
+          type:
+          - string
+          - 'null'
+          description: Why a failed export stopped. Null unless state is failed. One of usage_export_too_large, usage_export_render_failed, usage_export_snapshot_failed, usage_export_storage_failed, usage_export_storage_unconfigured, usage_export_attempts_exhausted.
       required:
       - export_id
       - state

@@ -411,6 +411,7 @@ class UsageExport(BaseModel):
     export_id: str
     state: Literal["queued", "running", "completed", "failed"]
     download_url: str | None = None
+    failure_code: str | None = None
 
 
 class UsageExportRequest(BaseModel):
