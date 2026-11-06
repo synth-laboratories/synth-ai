@@ -7,7 +7,7 @@ from synth_ai import AsyncSynthClient, SynthClient
 
 
 @pytest.mark.parametrize("synchronous", [False, True])
-async def test_seven_public_operations_through_typed_clients(contract, synchronous):
+async def test_public_operations_through_typed_clients(contract, synchronous):
     calls = []
     operations = {}
     for path, item in contract["paths"].items():
@@ -19,6 +19,8 @@ async def test_seven_public_operations_through_typed_clients(contract, synchrono
         "resumeRun",
         "getRunProgram",
         "getRunConfiguration",
+        "getRunSandboxes",
+        "getRunReport",
         "listRunTasks",
         "createUsageExport",
         "getUsageExport",
@@ -56,6 +58,8 @@ async def test_seven_public_operations_through_typed_clients(contract, synchrono
                 client.swarms.resume(run_id, idempotency_key="resumeRun")
                 client.swarms.program(run_id)
                 client.swarms.configuration(run_id)
+                client.swarms.sandboxes(run_id)
+                client.swarms.report(run_id)
                 client.swarms.tasks(run_id, limit=1)
                 client.account.export_usage(
                     since="2026-11-01T00:00:00Z",
@@ -69,6 +73,8 @@ async def test_seven_public_operations_through_typed_clients(contract, synchrono
                 await client.swarms.resume(run_id, idempotency_key="resumeRun")
                 await client.swarms.program(run_id)
                 await client.swarms.configuration(run_id)
+                await client.swarms.sandboxes(run_id)
+                await client.swarms.report(run_id)
                 await client.swarms.tasks(run_id, limit=1)
                 await client.account.export_usage(
                     since="2026-11-01T00:00:00Z",

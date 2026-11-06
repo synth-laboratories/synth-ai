@@ -28,6 +28,8 @@ from ._generated.models import (
     RunOutput,
     RunPage,
     RunProgram,
+    RunReport,
+    RunSandboxes,
     RunSnapshot,
     RunTaskPage,
     Upload,
@@ -280,6 +282,12 @@ class AsyncSwarms:
         return await self._transport.request(
             "getRunConfiguration", RunConfiguration, path={"run_id": run_id}
         )
+
+    async def sandboxes(self, run_id: str) -> RunSandboxes:
+        return await self._transport.request("getRunSandboxes", RunSandboxes, path={"run_id": run_id})
+
+    async def report(self, run_id: str) -> RunReport:
+        return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
     async def tasks(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20

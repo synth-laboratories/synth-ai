@@ -188,6 +188,12 @@ class SwarmsClient:
     def configuration(self, run_id: str) -> RunConfiguration:
         return self._runner.call(self._async.configuration(run_id))
 
+    def sandboxes(self, run_id: str) -> RunSandboxes:
+        return self._runner.call(self._async.sandboxes(run_id))
+
+    def report(self, run_id: str) -> RunReport:
+        return self._runner.call(self._async.report(run_id))
+
     def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
         return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
 
