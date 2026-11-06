@@ -998,6 +998,7 @@ class UsageSummary(BaseModel):
     data_through: str | None
     total: UsageTotals
     pending: dict[str, Any]
+    settling: dict[str, Any]
     by_source: dict[str, Any]
     by_day: list[UsageDayBucket]
     by_project: list[UsageProjectBucket]

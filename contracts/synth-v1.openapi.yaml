@@ -2387,6 +2387,9 @@ paths:
                 pending:
                   count: 0
                   amount: {amount: '0.00', currency: USD}
+                settling:
+                  count: 0
+                  amount: {amount: '0.00', currency: USD}
                 by_source:
                   runs:
                     charge: {amount: '0.00', currency: USD}
@@ -5613,7 +5616,7 @@ components:
     UsageSummary:
       type: object
       additionalProperties: false
-      required: [since, until, observed_at, data_through, total, pending, by_source, by_day, by_project, by_key]
+      required: [since, until, observed_at, data_through, total, pending, settling, by_source, by_day, by_project, by_key]
       properties:
         since:
           type: string
@@ -5630,6 +5633,16 @@ components:
         total:
           $ref: '#/components/schemas/UsageTotals'
         pending:
+          type: object
+          additionalProperties: false
+          required: [count, amount]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+            amount:
+              $ref: '#/components/schemas/Money'
+        settling:
           type: object
           additionalProperties: false
           required: [count, amount]
