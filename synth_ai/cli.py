@@ -109,7 +109,12 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("--task")
                 command.add_argument("--project-id")
                 command.add_argument("--budget", required=True)
-                command.add_argument("--program")
+                selection = command.add_mutually_exclusive_group()
+                selection.add_argument("--program")
+                selection.add_argument(
+                    "--method", choices=["status-quo", "fork-flush", "forgetting"]
+                )
+                command.add_argument("--method-overrides", help="JSON research parameter object")
                 command.add_argument("--idempotency-key")
                 command.add_argument("--timeout", type=float, default=600)
             command = verbs.add_parser("wait")
@@ -190,11 +195,26 @@ async def execute(args: argparse.Namespace) -> None:
                 if not separator or not name or not version:
                     raise ValueError("program must be FAMILY@VERSION")
                 program = {"id": name, "version": version}
+            method: dict[str, Any] | None = None
+            if args.method in {"fork-flush", "forgetting"}:
+                release = {
+                    "fork-flush": "research.fork_flush@1",
+                    "forgetting": "research.forgetting@1",
+                }[args.method]
+                method = {"release": release}
+                if args.method_overrides:
+                    overrides = json.loads(args.method_overrides)
+                    if not isinstance(overrides, dict):
+                        raise ValueError("method overrides must be a JSON object")
+                    method["overrides"] = overrides
+            elif args.method_overrides:
+                raise ValueError("method overrides require fork-flush or forgetting")
             created = await client.swarms.launch(
                 message,
                 project_id=args.project_id,
                 budget=args.budget,
                 program=program,
+                method=method,
                 idempotency_key=args.idempotency_key,
             )
             emit(created)

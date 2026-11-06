@@ -94,3 +94,50 @@ def test_watch_streams_then_reports_terminal_state(contract, state, exit_code):
     rows = [json.loads(line) for line in result.stdout.splitlines()]
     assert rows[0]["sequence"] == 1
     assert rows[-1]["state"] == state
+
+
+@pytest.mark.parametrize("method,release,overrides", [
+    ("status-quo", None, None),
+    ("fork-flush", "research.fork_flush@1", {"branches": 2}),
+    ("forgetting", "research.forgetting@1", {"peers": 2}),
+])
+def test_launch_method_reaches_http_contract(contract, method, release, overrides):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+
+    snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            payload = json.dumps(snapshot).encode()
+            self.send_response(201)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    worker = Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    args = [sys.executable, "-m", "synth_ai.cli", "--base-url",
+            f"http://127.0.0.1:{server.server_port}", "swarms", "launch", "Improve policy",
+            "--project-id", snapshot["project_id"], "--budget", "2.00", "--method", method]
+    if overrides:
+        args += ["--method-overrides", json.dumps(overrides)]
+    try:
+        result = subprocess.run(args, capture_output=True, text=True,
+                                env={**os.environ, "SYNTH_API_KEY": "fixture"}, timeout=10)
+    finally:
+        server.shutdown()
+        server.server_close()
+        worker.join()
+    assert result.returncode == 0, result.stderr
+    assert len(requests) == 1
+    expected = {"release": release, "overrides": overrides} if release else None
+    assert requests[0].get("method") == expected
+    assert requests[0]["limits"]["maximum_charge"]["amount"] == "2.00"
