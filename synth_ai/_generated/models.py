@@ -372,6 +372,18 @@ Scope: TypeAlias = Literal[
 ]
 
 
+class SelectionFile(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    path: str
+    sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
+class SelectionScore(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    numerator: Annotated[int, Field(ge=0)]
+    denominator: Annotated[int, Field(ge=1)]
+
+
 class TermsAcceptance(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     version: str
@@ -775,6 +787,19 @@ class RunUsage(BaseModel):
     model_time_ms: Annotated[int, Field(ge=0)]
 
 
+class SelectionCandidate(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    state: Literal["scored", "failed"]
+    commit_sha: Annotated[str, Field(pattern="^[0-9a-f]{40}$")]
+    tree_sha: Annotated[str, Field(pattern="^[0-9a-f]{40}$")] | None
+    artifact_digest: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    score: SelectionScore | None
+    evaluator_digest: str
+    evaluation_receipt: str
+    execution_receipt_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    candidate_files: list[SelectionFile] | None
+
+
 class UpdateApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     scopes: list[Scope]
@@ -970,6 +995,22 @@ class RunSandboxes(BaseModel):
     items: list[RunSandbox]
 
 
+class RunSelection(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["not_applicable", "pending", "selected", "no_selection", "unavailable"]
+    reason: Literal[
+        "baseline_retained",
+        "no_incumbent",
+        "settlement_open",
+        "incumbent_not_recorded",
+        "incumbent_unbound",
+        "custody_incomplete",
+        None,
+    ]
+    incumbent: SelectionCandidate | None
+    evaluated: list[SelectionCandidate]
+
+
 class Upload(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     upload_id: str
@@ -1047,6 +1088,7 @@ class RunSnapshot(BaseModel):
     started_at: str | None
     closed_at: str | None
     profile_overrides: ProfileOverrideReadback | None = None
+    selection: RunSelection | None = None
 
 
 class RunPage(BaseModel):
@@ -1095,6 +1137,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunTaskPage": RunTaskPage,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
+    "SelectionFile": SelectionFile,
+    "SelectionScore": SelectionScore,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,
@@ -1133,6 +1177,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunSettlementSummary": RunSettlementSummary,
     "RunTimings": RunTimings,
     "RunUsage": RunUsage,
+    "SelectionCandidate": SelectionCandidate,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "UsageDayBucket": UsageDayBucket,
     "UsageKeyBucket": UsageKeyBucket,
@@ -1151,6 +1196,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProjectPage": ProjectPage,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
+    "RunSelection": RunSelection,
     "Upload": Upload,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummary": UsageSummary,

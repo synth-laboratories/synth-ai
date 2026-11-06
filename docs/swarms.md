@@ -52,6 +52,13 @@ refused. Pass `overrides` to change a method's published settings, for example
 `{"release": "research.fork_flush@1", "overrides": {"branches": 2}}`, and read
 `run.method` for the release and execution pins retained with the run.
 
+`run.selection` reports what a research run selected. Only `selected` has an incumbent
+and a downloadable `selected-snapshot.tar.gz`, a gzipped tar whose SHA-256 equals
+`selection.incumbent.artifact_digest`. `candidate_files` lists the files the score
+covers. Other statuses are `not_applicable` (Status Quo), `pending`, `no_selection`
+and `unavailable`; a `failed` run can still read `selected`, so check both. List pages
+omit `selection`, so read a single run.
+
 ## Providers and owner resources
 
 Choose a provider with `profile_overrides={"launch": {"preset":

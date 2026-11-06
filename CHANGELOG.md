@@ -15,4 +15,7 @@ Adds execution method selection for Status Quo, Fork & Flush and Forgetting thro
 pairing. Adds file upload and run attachment through `upload_file`, `upload_text` and
 `synth swarms upload`.
 
+Adds `run.selection` for research run results and the selected snapshot output. Removes
+`method.forge_profile_digest` from run snapshots.
+
 Earlier releases and their changelog remain at tag `legacy/0.24.0`.

@@ -1819,7 +1819,7 @@ paths:
       - runs
       operationId: listRunOutputs
       summary: A run's outputs.
-      description: Published outputs for a native run, paginated by cursor.
+      description: Published outputs for a native run, paginated by cursor. A run whose `selection` has a stored incumbent snapshot also lists it as `selected-snapshot.tar.gz`, one gzipped tar holding the original archive bytes, with `reference.digest_sha256` equal to `selection.incumbent.artifact_digest`.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       x-synth-scope: swarms:read
@@ -4593,6 +4593,133 @@ components:
           format: date-time
         profile_overrides:
           $ref: '#/components/schemas/ProfileOverrideReadback'
+        selection:
+          $ref: '#/components/schemas/RunSelection'
+    RunSelection:
+      type: object
+      description: 'Which snapshot a research method selected and what a trusted score covers. Present on
+        single-run reads, including launch; list pages omit it. Only status `selected` claims that a trusted
+        score covers a snapshot this run produced. Every other status has a null incumbent, or in the case of
+        `unavailable` a reason naming what cannot be shown, and none of them is a pass.'
+      required:
+      - status
+      - reason
+      - incumbent
+      - evaluated
+      properties:
+        status:
+          type: string
+          description: '`not_applicable`: the run''s program does not select. `pending`: not settled yet.
+            `selected`: the incumbent is bound to a scored evaluation, the stored snapshot and its commit tree.
+            `no_selection`: settled, and nothing this run produced was selected. `unavailable`: settled, but
+            the custody chain cannot be shown.'
+          enum:
+          - not_applicable
+          - pending
+          - selected
+          - no_selection
+          - unavailable
+        reason:
+          type:
+          - string
+          - 'null'
+          description: Why the status holds, or null when `status` alone says it.
+          enum:
+          - baseline_retained
+          - no_incumbent
+          - settlement_open
+          - incumbent_not_recorded
+          - incumbent_unbound
+          - custody_incomplete
+          - null
+        incumbent:
+          description: The selected candidate. Null unless `status` is `selected`, or `unavailable` with reason
+            `custody_incomplete`, where its absent facts are null.
+          oneOf:
+          - $ref: '#/components/schemas/SelectionCandidate'
+          - type: 'null'
+        evaluated:
+          type: array
+          description: Every evaluation of this run that finished, in the order recorded.
+          items:
+            $ref: '#/components/schemas/SelectionCandidate'
+    SelectionCandidate:
+      type: object
+      required:
+      - state
+      - commit_sha
+      - tree_sha
+      - artifact_digest
+      - score
+      - evaluator_digest
+      - evaluation_receipt
+      - execution_receipt_sha256
+      - candidate_files
+      properties:
+        state:
+          type: string
+          description: '`scored`, or `failed` when the scorer ran and rejected the candidate.'
+          enum:
+          - scored
+          - failed
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+        tree_sha:
+          type:
+          - string
+          - 'null'
+          pattern: ^[0-9a-f]{40}$
+          description: The Git tree of `commit_sha`, read from the git server when the snapshot was admitted. Null when it was not recorded.
+        artifact_digest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: SHA-256 of the snapshot archive's exact bytes.
+        score:
+          description: An exact ratio. Null when `state` is `failed`.
+          oneOf:
+          - $ref: '#/components/schemas/SelectionScore'
+          - type: 'null'
+        evaluator_digest:
+          type: string
+          description: Identity of the pinned trusted evaluator.
+        evaluation_receipt:
+          type: string
+          description: Opaque identity of this evaluation's recorded result.
+        execution_receipt_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Digest of the scorer's execution evidence. The evidence is not public, so a reader can compare this value but not recompute it.
+        candidate_files:
+          type:
+          - array
+          - 'null'
+          description: The files the scorer received, by repository path, sorted by path. A score covers these files, not the whole archive. Null when not recorded.
+          items:
+            $ref: '#/components/schemas/SelectionFile'
+    SelectionScore:
+      type: object
+      required:
+      - numerator
+      - denominator
+      properties:
+        numerator:
+          type: integer
+          minimum: 0
+        denominator:
+          type: integer
+          minimum: 1
+    SelectionFile:
+      type: object
+      required:
+      - path
+      - sha256
+      properties:
+        path:
+          type: string
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
     PageFields:
       type: object
       required:
