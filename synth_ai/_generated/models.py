@@ -209,6 +209,65 @@ class OAuthTokenRequest(BaseModel):
     resource: str | None = None
 
 
+class ObjectiveClaim(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    id: str
+    kind: str
+    percent_complete: int
+    summary: str
+    by: str
+    observed_at: str | None
+
+
+class ObjectiveClaimedPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    objective_id: str
+    claim_id: str
+    percent_complete: int
+    kind: str
+    summary: str
+
+
+class ObjectiveMetric(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    name: str
+    direction: str
+    target: float
+    source: str
+
+
+class ObjectiveProgressPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    objective_id: str
+    name: str
+    current: float | None
+    best: float | None
+    target: float | None
+    direction: str
+    met: bool
+    percent: int
+    samples: Annotated[int, Field(ge=0)]
+    rollout_id: str
+    receipt_digest: str
+
+
+class ObjectiveReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    authority: str
+    kind: str
+    record_id: str
+    revision: str
+    digest_sha256: str
+
+
+class ObjectiveVerdict(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    decision: str
+    by: str
+    score: int | None
+    reason: str
+
+
 class Org(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     id: str
@@ -585,6 +644,18 @@ class OAuthGrants(BaseModel):
     observed_at: str
 
 
+class ObjectiveMetricState(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    current: float | None
+    best: float | None
+    best_rollout_id: str | None
+    best_policy_sha256: str | None
+    best_receipt: ObjectiveReceipt | None
+    samples: Annotated[int, Field(ge=0)]
+    met: bool
+    percent: int
+
+
 class OverrideResolution(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     schema_version: str
@@ -679,6 +750,7 @@ class RunEvent(BaseModel):
     usage: Any
     observed_at: str | None
     approval_id: str | None
+    payload: ObjectiveProgressPayload | ObjectiveClaimedPayload | None = None
 
 
 class RunModelUsage(BaseModel):
@@ -957,6 +1029,21 @@ class ProjectPage(BaseModel):
     items: list[Project]
 
 
+class RunObjective(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    id: str
+    kind: str
+    title: str
+    statement: str
+    required: bool
+    criteria: list[str]
+    state: Literal["open", "claimed", "verified", "rejected", "partial", "not_applicable"]
+    metric: ObjectiveMetric | None
+    metric_state: ObjectiveMetricState | None
+    claims: list[ObjectiveClaim]
+    verdict: ObjectiveVerdict | None
+
+
 class RunReportSandbox(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
@@ -1071,7 +1158,8 @@ class RunSnapshot(BaseModel):
     project_id: ProjId
     labels: dict[str, str] | None
     labels_revision: int
-    objectives: list[Any] | None
+    objectives: list[RunObjective] | None
+    objectives_read: Literal["ok", "unavailable"] | None = None
     guidance_coverage: list[Any] | None
     state: str
     model: str
@@ -1122,6 +1210,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "OAuthServerMetadata": OAuthServerMetadata,
     "OAuthToken": OAuthToken,
     "OAuthTokenRequest": OAuthTokenRequest,
+    "ObjectiveClaim": ObjectiveClaim,
+    "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
+    "ObjectiveMetric": ObjectiveMetric,
+    "ObjectiveProgressPayload": ObjectiveProgressPayload,
+    "ObjectiveReceipt": ObjectiveReceipt,
+    "ObjectiveVerdict": ObjectiveVerdict,
     "Org": Org,
     "PageFields": PageFields,
     "Principal": Principal,
@@ -1160,6 +1254,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
     "OAuthGrants": OAuthGrants,
+    "ObjectiveMetricState": ObjectiveMetricState,
     "OverrideResolution": OverrideResolution,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
@@ -1194,6 +1289,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProfileOverrideReadback": ProfileOverrideReadback,
     "ProjectFilePage": ProjectFilePage,
     "ProjectPage": ProjectPage,
+    "RunObjective": RunObjective,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
     "RunSelection": RunSelection,

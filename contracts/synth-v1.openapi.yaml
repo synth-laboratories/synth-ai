@@ -4533,7 +4533,15 @@ components:
           type:
           - array
           - 'null'
-          items: {}
+          description: The run's objectives on launch and single-run reads. Read objectives_read before treating an empty list as no objectives. List pages do not read them and return an empty list.
+          items:
+            $ref: '#/components/schemas/RunObjective'
+        objectives_read:
+          type: string
+          enum:
+          - ok
+          - unavailable
+          description: Whether objectives is the run's own answer. unavailable means it could not be read; the run read still succeeds. Absent on list pages.
         guidance_coverage:
           type:
           - array
@@ -4775,6 +4783,261 @@ components:
           type:
           - string
           - 'null'
+        payload:
+          description: The event's body on objective.progress and objective.claimed; null on every other kind.
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveProgressPayload'
+          - $ref: '#/components/schemas/ObjectiveClaimedPayload'
+          - type: 'null'
+    ObjectiveProgressPayload:
+      type: object
+      required:
+      - objective_id
+      - name
+      - current
+      - best
+      - target
+      - direction
+      - met
+      - percent
+      - samples
+      - rollout_id
+      - receipt_digest
+      properties:
+        objective_id:
+          type: string
+        name:
+          type: string
+        current:
+          type:
+          - number
+          - 'null'
+        best:
+          type:
+          - number
+          - 'null'
+        target:
+          type:
+          - number
+          - 'null'
+        direction:
+          type: string
+          description: Known values listed; unknown values are forwarded verbatim.
+          examples:
+          - maximize
+          - minimize
+        met:
+          type: boolean
+        percent:
+          type: integer
+        samples:
+          type: integer
+          minimum: 0
+        rollout_id:
+          type: string
+        receipt_digest:
+          type: string
+    ObjectiveClaimedPayload:
+      type: object
+      required:
+      - objective_id
+      - claim_id
+      - percent_complete
+      - kind
+      - summary
+      properties:
+        objective_id:
+          type: string
+        claim_id:
+          type: string
+        percent_complete:
+          type: integer
+        kind:
+          type: string
+        summary:
+          type: string
+          description: Agent-written text with credential-shaped values redacted.
+    RunObjective:
+      type: object
+      required:
+      - id
+      - kind
+      - title
+      - statement
+      - required
+      - criteria
+      - state
+      - metric
+      - metric_state
+      - claims
+      - verdict
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        title:
+          type: string
+        statement:
+          type: string
+        required:
+          type: boolean
+        criteria:
+          type: array
+          items:
+            type: string
+        state:
+          type: string
+          enum:
+          - open
+          - claimed
+          - verified
+          - rejected
+          - partial
+          - not_applicable
+        metric:
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveMetric'
+          - type: 'null'
+        metric_state:
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveMetricState'
+          - type: 'null'
+        claims:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectiveClaim'
+        verdict:
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveVerdict'
+          - type: 'null'
+    ObjectiveMetric:
+      type: object
+      required:
+      - name
+      - direction
+      - target
+      - source
+      properties:
+        name:
+          type: string
+        direction:
+          type: string
+          description: Known values listed; unknown values are forwarded verbatim.
+          examples:
+          - maximize
+          - minimize
+        target:
+          type: number
+        source:
+          type: string
+          examples:
+          - rollout_score
+    ObjectiveMetricState:
+      type: object
+      description: Computed by the platform from scored rollout receipts. Agents cannot write it.
+      required:
+      - current
+      - best
+      - best_rollout_id
+      - best_policy_sha256
+      - best_receipt
+      - samples
+      - met
+      - percent
+      properties:
+        current:
+          type:
+          - number
+          - 'null'
+        best:
+          type:
+          - number
+          - 'null'
+        best_rollout_id:
+          type:
+          - string
+          - 'null'
+        best_policy_sha256:
+          type:
+          - string
+          - 'null'
+        best_receipt:
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveReceipt'
+          - type: 'null'
+        samples:
+          type: integer
+          minimum: 0
+        met:
+          type: boolean
+        percent:
+          type: integer
+    ObjectiveReceipt:
+      type: object
+      required:
+      - authority
+      - kind
+      - record_id
+      - revision
+      - digest_sha256
+      properties:
+        authority:
+          type: string
+        kind:
+          type: string
+        record_id:
+          type: string
+        revision:
+          type: string
+        digest_sha256:
+          type: string
+    ObjectiveClaim:
+      type: object
+      required:
+      - id
+      - kind
+      - percent_complete
+      - summary
+      - by
+      - observed_at
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        percent_complete:
+          type: integer
+          description: On a metric objective, the platform's computed percent rather than the agent's.
+        summary:
+          type: string
+          description: Agent-written text with credential-shaped values redacted.
+        by:
+          type: string
+        observed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    ObjectiveVerdict:
+      type: object
+      required:
+      - decision
+      - by
+      - score
+      - reason
+      properties:
+        decision:
+          type: string
+        by:
+          type: string
+        score:
+          type:
+          - integer
+          - 'null'
+          description: Basis points, 0 to 10000, when the reviewer gave a score.
+        reason:
+          type: string
     EventPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'
