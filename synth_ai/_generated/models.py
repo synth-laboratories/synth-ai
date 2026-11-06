@@ -282,11 +282,6 @@ class ProjectCreateRequest(BaseModel):
     code_validation: dict[str, Any] | None = None
 
 
-class ProtocolFault(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    error: dict[str, Any]
-
-
 class ResolvedActor(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     provider_preset: str | None = None
@@ -1091,7 +1086,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "Problem": Problem,
     "ProfileChoice": ProfileChoice,
     "ProjectCreateRequest": ProjectCreateRequest,
-    "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
     "RunControlReceipt": RunControlReceipt,
     "RunLabels": RunLabels,

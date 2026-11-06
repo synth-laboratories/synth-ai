@@ -3121,23 +3121,9 @@ paths:
                 viewer_role: owner
                 observed_at: '2026-11-04T00:00:00Z'
         default:
-          description: Protocol response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProtocolFault'
-              example:
-                error:
-                  code: session_required
+          $ref: '#/components/responses/Problem'
         '403':
-          description: Protocol response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProtocolFault'
-              example:
-                error:
-                  code: session_required
+          $ref: '#/components/responses/Problem'
   /mcp/oauth/grants/{grant_id}:
     delete:
       tags:
@@ -3162,23 +3148,9 @@ paths:
                 status: revoked
                 outcome: revoked
         default:
-          description: Protocol response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProtocolFault'
-              example:
-                error:
-                  code: session_required
+          $ref: '#/components/responses/Problem'
         '403':
-          description: Protocol response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProtocolFault'
-              example:
-                error:
-                  code: session_required
+          $ref: '#/components/responses/Problem'
       parameters:
       - in: path
         name: grant_id
@@ -4584,6 +4556,7 @@ components:
           type: string
         provider:
           type: string
+          description: The provider named at launch, or openai when none was named. It does not change as the run executes; the provider that served each call is on its usage record.
         result_available:
           type: boolean
         execution_closed:
@@ -6333,26 +6306,6 @@ components:
       - grant_id
       - status
       - outcome
-      additionalProperties: false
-    ProtocolFault:
-      type: object
-      properties:
-        error:
-          type: object
-          properties:
-            code:
-              type: string
-            message:
-              type: string
-            service:
-              type: string
-            stage:
-              type: string
-          required:
-          - code
-          additionalProperties: true
-      required:
-      - error
       additionalProperties: false
     ProfileChoice:
       type: object
