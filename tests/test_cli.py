@@ -96,16 +96,21 @@ def test_watch_streams_then_reports_terminal_state(contract, state, exit_code):
     assert rows[-1]["state"] == state
 
 
-@pytest.mark.parametrize("method,release,overrides", [
-    ("status-quo", None, None),
-    ("fork-flush", "research.fork_flush@1", {"branches": 2}),
-    ("forgetting", "research.forgetting@1", {"peers": 2}),
-])
+@pytest.mark.parametrize(
+    "method,release,overrides",
+    [
+        ("status-quo", None, None),
+        ("fork-flush", "research.fork_flush@1", {"branches": 2}),
+        ("forgetting", "research.forgetting@1", {"peers": 2}),
+    ],
+)
 def test_launch_method_reaches_http_contract(contract, method, release, overrides):
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     from threading import Thread
 
-    snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"]["application/json"]["example"]
+    snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["example"]
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -124,14 +129,32 @@ def test_launch_method_reaches_http_contract(contract, method, release, override
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     worker = Thread(target=server.serve_forever, daemon=True)
     worker.start()
-    args = [sys.executable, "-m", "synth_ai.cli", "--base-url",
-            f"http://127.0.0.1:{server.server_port}", "swarms", "launch", "Improve policy",
-            "--project-id", snapshot["project_id"], "--budget", "2.00", "--method", method]
+    args = [
+        sys.executable,
+        "-m",
+        "synth_ai.cli",
+        "--base-url",
+        f"http://127.0.0.1:{server.server_port}",
+        "swarms",
+        "launch",
+        "Improve policy",
+        "--project-id",
+        snapshot["project_id"],
+        "--budget",
+        "2.00",
+        "--method",
+        method,
+    ]
     if overrides:
         args += ["--method-overrides", json.dumps(overrides)]
     try:
-        result = subprocess.run(args, capture_output=True, text=True,
-                                env={**os.environ, "SYNTH_API_KEY": "fixture"}, timeout=10)
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "SYNTH_API_KEY": "fixture"},
+            timeout=10,
+        )
     finally:
         server.shutdown()
         server.server_close()

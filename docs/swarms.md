@@ -31,8 +31,26 @@ synth billing balance
 synth billing checkout --json '{"credit":{"amount":"20.00","currency":"USD"}}'
 ```
 
-Task directories must contain one task.md, TASK.md or task.txt file; other files
-are refused because this API has no upload endpoint. Task text is the launch message.
+Task directories must contain one task.md, TASK.md or task.txt file, and any other
+file in the directory is refused. Task text is the launch message. To send files with
+a run, upload them with `synth swarms upload` or `upload_file` and pass the references
+in `inputs`; see the README.
+
+## Execution methods
+
+Three methods are available. Status Quo is the default program and needs no setup.
+
+| Method | CLI | Python `method=` |
+| --- | --- | --- |
+| Status Quo | `--method status-quo` | omit `method` |
+| Fork & Flush | `--method fork-flush` | `{"release": "research.fork_flush@1"}` |
+| Forgetting | `--method forgetting` | `{"release": "research.forgetting@1"}` |
+
+Fork & Flush and Forgetting need a published pairing for the project, which pins the
+evaluator, baseline, context and actor profile. A launch on an unpaired project is
+refused. Pass `overrides` to change a method's published settings, for example
+`{"release": "research.fork_flush@1", "overrides": {"branches": 2}}`, and read
+`run.method` for the release and execution pins retained with the run.
 
 ## Providers and owner resources
 

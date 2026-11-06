@@ -10,4 +10,9 @@ one transport. API-key management requires a signed-in session.
 Adds owner resource intents, provider presets through profile overrides, and CLI
 `watch` with terminal snapshots and bounded streaming.
 
+Adds execution method selection for Status Quo, Fork & Flush and Forgetting through
+`method=` and `--method`. The two research methods require a published project
+pairing. Adds file upload and run attachment through `upload_file`, `upload_text` and
+`synth swarms upload`.
+
 Earlier releases and their changelog remain at tag `legacy/0.24.0`.

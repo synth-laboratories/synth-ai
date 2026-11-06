@@ -284,7 +284,9 @@ class AsyncSwarms:
         )
 
     async def sandboxes(self, run_id: str) -> RunSandboxes:
-        return await self._transport.request("getRunSandboxes", RunSandboxes, path={"run_id": run_id})
+        return await self._transport.request(
+            "getRunSandboxes", RunSandboxes, path={"run_id": run_id}
+        )
 
     async def report(self, run_id: str) -> RunReport:
         return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
