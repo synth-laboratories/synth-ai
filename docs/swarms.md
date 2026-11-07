@@ -62,8 +62,9 @@ omit `selection`, so read a single run.
 Choose a provider with `profile_overrides={"launch": {"preset":
 "hosted.openrouter_zdr_us", "effort": "low"}}`. Role-specific choices belong
 under `profile_overrides["roles"]`. Hosted presets are
-`hosted.openrouter_zdr_us` (same-model OpenAI fallback) and
-`hosted.openai_direct`. `test.codex_pool` is restricted to local slots and
+`hosted.openrouter_zdr_us` (restricted OpenRouter routing) and
+`hosted.openai_direct` (the default). The direct preset makes no verified
+retention or residency guarantee and is not a fallback for the restricted preset. `test.codex_pool` is restricted to local slots and
 staging; production returns `provider_preset_not_allowed` (403).
 All three currently serve `gpt-6-luna`.
 
@@ -72,7 +73,7 @@ Pass owner resource intents in `resources`, for example:
 ```python
 resources = [
     {
-        "plugin": "rhodes.pool",
+        "plugin": "pool",
         "roles": ["worker"],
         "limits": {"spend_micros": 100000, "rollouts": 1},
         "selection": {"pool_ids": ["my-pool"]},
