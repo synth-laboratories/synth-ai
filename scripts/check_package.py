@@ -19,7 +19,8 @@ assert wheel.stat().st_size < 150 * 1024
 assert source_bytes < 250 * 1024
 with zipfile.ZipFile(wheel) as archive:
     assert all(
-        name.startswith(("synth_ai/", f"synth_ai-{version}.dist-info/")) for name in archive.namelist()
+        name.startswith(("synth_ai/", f"synth_ai-{version}.dist-info/"))
+        for name in archive.namelist()
     )
     assert not any("/public/" in name or "/sdk/" in name for name in archive.namelist())
 # Under the checkout so workspace file boundaries also apply to local validation.
