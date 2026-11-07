@@ -8,7 +8,6 @@ from synth_ai._generated.models import (
 SNAPSHOT = {
     "metadata": {},
     "run_id": "run_AAAAAAAAAAAAAAAAAAAAAA",
-    "project_id": "proj_AAAAAAAAAAAAAAAAAAAAAA",
     "labels": {},
     "labels_revision": 1,
     "guidance_coverage": [],
