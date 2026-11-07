@@ -1,11 +1,10 @@
 # Swarms
 
 `SynthClient().swarms` exposes launch, run, get, wait, cancel, list, events,
-iter_events, follow, outputs, output, output_content, create_project, project,
-projects and families. `AsyncSynthClient` exposes the same methods with `await`;
+iter_events, follow, outputs, output, output_content and families. `AsyncSynthClient` exposes the same methods with `await`;
 its iter_events and follow methods are async iterators.
 
-Supply a project ID or `SYNTH_PROJECT_ID`. Budget is a decimal USD string,
+Budget is a decimal USD string,
 for example `budget="0.10"`. Explicit launch limits default to 3600 seconds,
 100 tasks and four concurrent tasks. Profile overrides pass through the generated
 schema and their requested/resolved values are returned by the core.
@@ -22,9 +21,8 @@ Output bytes require the revision and SHA256 from the output reference.
 CLI examples:
 
 ```sh
-synth swarms create-project --name Example
-synth swarms launch 'Compare retrieval methods' --project-id "$SYNTH_PROJECT_ID" --budget 0.10
-synth swarms run --task ./task.md --project-id "$SYNTH_PROJECT_ID" --budget 0.10 --program swarms.general@1
+synth swarms launch 'Compare retrieval methods' --budget 0.10
+synth swarms run --task ./task.md --budget 0.10 --program swarms.general@1
 synth swarms events RUN_ID --limit 20
 synth swarms attach RUN_ID --last-event-id 12
 synth billing balance
@@ -43,13 +41,13 @@ Three methods are available. Status Quo is the default program and needs no setu
 | Method | CLI | Python `method=` |
 | --- | --- | --- |
 | Status Quo | `--method status-quo` | omit `method` |
-| Fork & Flush | `--method fork-flush` | `{"release": "research.fork_flush@1"}` |
-| Forgetting | `--method forgetting` | `{"release": "research.forgetting@1"}` |
+| Fork & Flush | `--method fork-flush --method-task TASK` | `{"release": "research.fork_flush@1", "task": "TASK"}` |
+| Forgetting | `--method forgetting --method-task TASK` | `{"release": "research.forgetting@1", "task": "TASK"}` |
 
-Fork & Flush and Forgetting need a published pairing for the project, which pins the
-evaluator, baseline, context and actor profile. A launch on an unpaired project is
+Fork & Flush and Forgetting run on a published task that has an approval for the method,
+which pins the evaluator, baseline, context and actor profile. A task with no approval is
 refused. Pass `overrides` to change a method's published settings, for example
-`{"release": "research.fork_flush@1", "overrides": {"branches": 2}}`, and read
+`{"release": "research.fork_flush@1", "task": "TASK", "overrides": {"branches": 2}}`, and read
 `run.method` for the release and execution pins retained with the run.
 
 `run.selection` reports what a research run selected. Only `selected` has an incumbent

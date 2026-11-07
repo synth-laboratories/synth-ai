@@ -34,6 +34,17 @@ class Family(BaseModel):
     required_actor_types: list[str]
 
 
+class File(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    file_id: str
+    revision_id: str
+    name: str
+    media_type: str
+    size_bytes: Annotated[int, Field(ge=0)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    created_at: str
+
+
 KeyId: TypeAlias = Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
 
 
@@ -330,17 +341,6 @@ class ProfileChoice(BaseModel):
     effort: Literal["low", "medium", "high", "xhigh"] | None = None
 
 
-ProjId: TypeAlias = Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
-
-
-class ProjectCreateRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    template: str | None = None
-    objective: Annotated[str, Field(max_length=8192)] | None = None
-    code_validation: dict[str, Any] | None = None
-
-
 class ResolvedActor(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     provider_preset: str | None = None
@@ -366,6 +366,17 @@ class RunControlReceipt(BaseModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+
+
+class RunGuidanceMetric(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    direction: Literal["maximize", "minimize"]
+    target: (
+        Annotated[float, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
+        | Annotated[str, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
+    )
+    source: Literal["rollout_score"]
 
 
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
@@ -585,6 +596,13 @@ class FamilyList(BaseModel):
     families: list[Family]
 
 
+class FilePage(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    items: list[File]
+    has_more: bool
+    next_cursor: str | None = None
+
+
 class LimitList(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     plan: str
@@ -704,26 +722,6 @@ class ProfileOverrides(BaseModel):
     roles: dict[str, ProfileChoice] | None = None
 
 
-class Project(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    project_id: ProjId
-    name: str
-    launch_enabled: bool
-    metadata: dict[str, Any]
-
-
-class ProjectFile(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    file_id: str
-    revision_id: str
-    project_id: ProjId
-    name: str
-    media_type: str
-    size_bytes: Annotated[int, Field(ge=0)]
-    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
-    created_at: str
-
-
 class RefundDetail(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     refund_cause: Literal["run_canceled", "run_failed", "run_expired", "launch_failed"]
@@ -751,6 +749,17 @@ class RunEvent(BaseModel):
     observed_at: str | None
     approval_id: str | None
     payload: ObjectiveProgressPayload | ObjectiveClaimedPayload | None = None
+
+
+class RunGuidance(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    id: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
+    kind: Literal["question", "outcome", "any"]
+    text: Annotated[str, Field(min_length=1, max_length=8192)]
+    evidence: Annotated[str, Field(max_length=8192)] | None = None
+    acceptance: Annotated[str, Field(max_length=8192)] | None = None
+    priority: Literal["must", "should", "nice"]
+    metric: RunGuidanceMetric | None = None
 
 
 class RunModelUsage(BaseModel):
@@ -879,6 +888,14 @@ class UpdateApiKeyRequest(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
 
 
+class Upload(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    upload_id: str
+    state: Literal["pending", "committed"]
+    file: File
+    put: dict[str, Any] | None = None
+
+
 class UsageDayBucket(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     charge: Money
@@ -895,15 +912,6 @@ class UsageKeyBucket(BaseModel):
     output_tokens: Annotated[int, Field(ge=0)]
     records: Annotated[int, Field(ge=0)]
     key_id: Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")] | None
-
-
-class UsageProjectBucket(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    charge: Money
-    input_tokens: Annotated[int, Field(ge=0)]
-    output_tokens: Annotated[int, Field(ge=0)]
-    records: Annotated[int, Field(ge=0)]
-    project_id: Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")] | None
 
 
 class UsageRecord(BaseModel):
@@ -983,9 +991,9 @@ class EventPage(BaseModel):
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     message: Annotated[str, Field(min_length=1, max_length=8192)] | None = None
-    project_id: ProjId
     limits: Limits
     inputs: dict[str, Any] | None = None
+    guidance: list[RunGuidance] | None = None
     providers: dict[str, Any] | None = None
     models: dict[str, Any] | None = None
     method: dict[str, Any] | None = None
@@ -1013,20 +1021,6 @@ class ProfileOverrideReadback(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     requested: ProfileOverrides
     resolution: OverrideResolution
-
-
-class ProjectFilePage(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    items: list[ProjectFile]
-    has_more: bool
-    next_cursor: str | None = None
-
-
-class ProjectPage(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    has_more: bool
-    next_cursor: Annotated[str, Field(min_length=1)] | None = None
-    items: list[Project]
 
 
 class RunObjective(BaseModel):
@@ -1098,14 +1092,6 @@ class RunSelection(BaseModel):
     evaluated: list[SelectionCandidate]
 
 
-class Upload(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    upload_id: str
-    state: Literal["pending", "committed"]
-    file: ProjectFile
-    put: dict[str, Any] | None = None
-
-
 class UsageRecordPage(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     has_more: bool
@@ -1124,7 +1110,6 @@ class UsageSummary(BaseModel):
     settling: dict[str, Any]
     by_source: dict[str, Any]
     by_day: list[UsageDayBucket]
-    by_project: list[UsageProjectBucket]
     by_key: list[UsageKeyBucket]
 
 
@@ -1155,7 +1140,6 @@ class RunSnapshot(BaseModel):
     metadata: dict[str, Any]
     method: Any | None = None
     run_id: RunId
-    project_id: ProjId
     labels: dict[str, str] | None
     labels_revision: int
     objectives: list[RunObjective] | None
@@ -1190,6 +1174,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
     "ControlRef": ControlRef,
     "Family": Family,
+    "File": File,
     "Limit": Limit,
     "LimitRow": LimitRow,
     "McpError": McpError,
@@ -1221,9 +1206,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "Principal": Principal,
     "Problem": Problem,
     "ProfileChoice": ProfileChoice,
-    "ProjectCreateRequest": ProjectCreateRequest,
     "ResolvedActor": ResolvedActor,
     "RunControlReceipt": RunControlReceipt,
+    "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
     "RunProgram": RunProgram,
@@ -1248,6 +1233,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
     "FamilyList": FamilyList,
+    "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
     "McpResponse": McpResponse,
@@ -1259,11 +1245,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
     "ProfileOverrides": ProfileOverrides,
-    "Project": Project,
-    "ProjectFile": ProjectFile,
     "RefundDetail": RefundDetail,
     "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
+    "RunGuidance": RunGuidance,
     "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
     "RunReward": RunReward,
@@ -1274,9 +1259,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunUsage": RunUsage,
     "SelectionCandidate": SelectionCandidate,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
+    "Upload": Upload,
     "UsageDayBucket": UsageDayBucket,
     "UsageKeyBucket": UsageKeyBucket,
-    "UsageProjectBucket": UsageProjectBucket,
     "UsageRecord": UsageRecord,
     "UsageTotals": UsageTotals,
     "ApiKeyPage": ApiKeyPage,
@@ -1287,13 +1272,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
-    "ProjectFilePage": ProjectFilePage,
-    "ProjectPage": ProjectPage,
     "RunObjective": RunObjective,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
     "RunSelection": RunSelection,
-    "Upload": Upload,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,

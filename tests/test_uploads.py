@@ -9,15 +9,14 @@ from synth_ai.mcp.server import call_tool
 
 
 async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tmp_path):
-    project = "proj_AAAAAAAAAAAAAAAAAAAAAA"
     upload_id = "upl_AAAAAAAAAAAAAAAAAAAAAA"
     content = b"# Task\nReturn done.\n"
     filename = tmp_path / "task.md"
     filename.write_bytes(content)
     manifest = dict(
-        contract["paths"]["/v1/projects/{project_id}/files"]["post"]["responses"]["201"]["content"][
-            "application/json"
-        ]["example"]
+        contract["paths"]["/v1/files"]["post"]["responses"]["201"]["content"]["application/json"][
+            "example"
+        ]
     )
     manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
     calls = []
@@ -58,10 +57,7 @@ async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tm
             )
         assert request.url.path == "/v1/runs"
         assert json.loads(request.content)["inputs"]["files"] == [
-            {
-                key: manifest[key]
-                for key in ("file_id", "revision_id", "project_id", "digest_sha256")
-            }
+            {key: manifest[key] for key in ("file_id", "revision_id", "digest_sha256")}
         ]
         snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
             "application/json"
@@ -75,24 +71,21 @@ async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tm
         async with AsyncSynthClient(
             "fixture", base_url="https://api.example.test", http_client=http
         ) as client:
-            file = await client.swarms.upload_file(
-                str(filename), project_id=project, idempotency_key="upload-one"
-            )
+            file = await client.swarms.upload_file(str(filename), idempotency_key="upload-one")
             reference = {
-                key: getattr(file, key)
-                for key in ("file_id", "revision_id", "project_id", "digest_sha256")
+                key: getattr(file, key) for key in ("file_id", "revision_id", "digest_sha256")
             }
-            await client.swarms.launch("Task", project_id=project, inputs={"files": [reference]})
+            await client.swarms.launch("Task", budget="1.00", inputs={"files": [reference]})
     assert len(calls) == 4
 
 
 async def test_mcp_upload_text_uses_public_operation_and_formats(contract):
-    file = contract["paths"]["/v1/projects/{project_id}/files"]["post"]["responses"]["201"][
-        "content"
-    ]["application/json"]["example"]
+    file = contract["paths"]["/v1/files"]["post"]["responses"]["201"]["content"][
+        "application/json"
+    ]["example"]
 
     def handle(request):
-        assert request.url.path == "/v1/projects/proj_AAAAAAAAAAAAAAAAAAAAAA/files"
+        assert request.url.path == "/v1/files"
         assert json.loads(request.content) == {
             "name": "task.md",
             "media_type": "text/markdown",
@@ -108,13 +101,10 @@ async def test_mcp_upload_text_uses_public_operation_and_formats(contract):
                 client,
                 "swarms_upload_file",
                 {
-                    "project_id": "proj_AAAAAAAAAAAAAAAAAAAAAA",
                     "idempotency_key": "text-one",
                     "body": {"name": "task.md", "media_type": "text/markdown", "content": "# Task"},
                 },
             )
             assert json.loads(result)["digest_sha256"] == file["digest_sha256"]
             with pytest.raises(ValueError, match="Supported formats"):
-                await client.swarms.upload_file(
-                    "task.pdf", project_id="proj_AAAAAAAAAAAAAAAAAAAAAA"
-                )
+                await client.swarms.upload_file("task.pdf")

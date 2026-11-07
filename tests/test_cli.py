@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -7,6 +8,8 @@ import pytest
 
 from synth_ai._generated.operations import OPERATIONS
 from synth_ai.cli import COMMANDS, parser
+
+TASK = "craftax-classic-enginebench-policy-v1"
 
 
 def test_cli_product_operation_inventory():
@@ -138,13 +141,13 @@ def test_launch_method_reaches_http_contract(contract, method, release, override
         "swarms",
         "launch",
         "Improve policy",
-        "--project-id",
-        snapshot["project_id"],
         "--budget",
         "2.00",
         "--method",
         method,
     ]
+    if release:
+        args += ["--method-task", TASK]
     if overrides:
         args += ["--method-overrides", json.dumps(overrides)]
     try:
@@ -161,6 +164,45 @@ def test_launch_method_reaches_http_contract(contract, method, release, override
         worker.join()
     assert result.returncode == 0, result.stderr
     assert len(requests) == 1
-    expected = {"release": release, "overrides": overrides} if release else None
+    expected = {"release": release, "task": TASK, "overrides": overrides} if release else None
     assert requests[0].get("method") == expected
+    assert "project_id" not in requests[0]
+    if expected:
+        schema = contract["components"]["schemas"]["LaunchRequest"]["properties"]["method"]
+        assert set(schema["required"]) <= set(expected) and set(expected) <= set(
+            schema["properties"]
+        )
+        assert re.fullmatch(schema["properties"]["task"]["pattern"], expected["task"])
+        assert expected["release"] in schema["properties"]["release"]["enum"]
     assert requests[0]["limits"]["maximum_charge"]["amount"] == "2.00"
+
+
+@pytest.mark.parametrize(
+    "extra,refusal",
+    [
+        (["--method", "fork-flush"], "requires --method-task"),
+        (["--method", "status-quo", "--method-task", TASK], "require fork-flush or forgetting"),
+        (["--method-task", TASK], "require fork-flush or forgetting"),
+    ],
+)
+def test_method_task_refuses_before_any_request(extra, refusal):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "synth_ai.cli",
+            "--base-url",
+            "http://127.0.0.1:9",
+            "swarms",
+            "launch",
+            "Task",
+            "--budget",
+            "1.00",
+            *extra,
+        ],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "SYNTH_API_KEY": "fixture"},
+        timeout=10,
+    )
+    assert result.returncode != 0 and refusal in result.stderr

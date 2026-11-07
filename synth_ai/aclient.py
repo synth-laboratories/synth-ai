@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
@@ -20,7 +19,6 @@ class AsyncSynthClient:
         api_key: str | None = None,
         *,
         base_url: str | None = None,
-        project_id: str | None = None,
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
@@ -29,7 +27,7 @@ class AsyncSynthClient:
         self._transport = Transport(
             url, token, client=http_client, timeout=timeout, retries=retries
         )
-        self.swarms = AsyncSwarms(self._transport, project_id or os.getenv("SYNTH_PROJECT_ID"))
+        self.swarms = AsyncSwarms(self._transport)
         self.account = AsyncAccount(self._transport)
         self.billing = AsyncBilling(self._transport)
 

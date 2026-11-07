@@ -93,7 +93,7 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 17
+    assert len(by_name) == len(hosted["tools"]) == 14
     for tool in hosted["tools"]:
         local = by_name.pop(tool["name"])
         assert local["inputSchema"] == tool["inputSchema"]
@@ -110,10 +110,6 @@ def test_a_nullable_constrained_field_accepts_null():
         "records": 0,
     }
     assert MODELS["UsageKeyBucket"].model_validate({**bucket, "key_id": None}).key_id is None
-    assert (
-        MODELS["UsageProjectBucket"].model_validate({**bucket, "project_id": None}).project_id
-        is None
-    )
 
 
 def test_generated_models_never_constrain_null():

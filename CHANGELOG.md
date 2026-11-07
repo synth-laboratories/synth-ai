@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Runs no longer take a project. `launch` and `run` drop `project_id`, the CLI drops
+`--project-id`, and `SYNTH_PROJECT_ID` is no longer read. `create_project`, `project` and
+`projects` are gone, and files now live at `/v1/files`, so `upload_file`, `upload_text`,
+`prepare_upload`, `files` and `file` take no project. Named methods take a published task:
+`method={"release": ..., "task": ...}` in Python and `--method-task` in the CLI.
+
 ## 0.26.0
 
 Public API v1: generated models and operations, opaque resource IDs, decimal-string

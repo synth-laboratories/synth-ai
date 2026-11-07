@@ -22,11 +22,6 @@ TOOLS: list[dict[str, Any]] = [
                 "created_after": {"format": "date-time", "type": "string"},
                 "cursor": {"type": "string"},
                 "limit": {"default": 20, "maximum": 100, "minimum": 1, "type": "integer"},
-                "project_id": {
-                    "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
-                    "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                    "type": "string",
-                },
                 "state": {"type": "string"},
             },
             "required": [],
@@ -44,6 +39,106 @@ TOOLS: list[dict[str, Any]] = [
                 "body": {
                     "additionalProperties": False,
                     "properties": {
+                        "guidance": {
+                            "description": "What the run "
+                            "must "
+                            "address. The "
+                            "planner "
+                            "covers or "
+                            "declines "
+                            "each item. A "
+                            "metric on an "
+                            "item binds "
+                            "every "
+                            "objective "
+                            "derived from "
+                            "it, and the "
+                            "planner "
+                            "cannot "
+                            "change or "
+                            "drop it. Not "
+                            "accepted "
+                            "with method.",
+                            "items": {
+                                "additionalProperties": False,
+                                "properties": {
+                                    "acceptance": {"maxLength": 8192, "type": ["string", "null"]},
+                                    "evidence": {"maxLength": 8192, "type": ["string", "null"]},
+                                    "id": {
+                                        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                                        "type": "string",
+                                    },
+                                    "kind": {
+                                        "enum": ["question", "outcome", "any"],
+                                        "type": "string",
+                                    },
+                                    "metric": {
+                                        "oneOf": [
+                                            {
+                                                "additionalProperties": False,
+                                                "description": "A "
+                                                "target "
+                                                "the "
+                                                "platform "
+                                                "measures "
+                                                "from "
+                                                "scored "
+                                                "rollouts.",
+                                                "properties": {
+                                                    "direction": {
+                                                        "enum": ["maximize", "minimize"],
+                                                        "type": "string",
+                                                    },
+                                                    "name": {
+                                                        "maxLength": 128,
+                                                        "minLength": 1,
+                                                        "type": "string",
+                                                    },
+                                                    "source": {
+                                                        "enum": ["rollout_score"],
+                                                        "type": "string",
+                                                    },
+                                                    "target": {
+                                                        "description": "A "
+                                                        "number, "
+                                                        "or "
+                                                        "a "
+                                                        "decimal "
+                                                        "string "
+                                                        "to "
+                                                        "keep "
+                                                        "digits "
+                                                        "a "
+                                                        "float "
+                                                        "cannot "
+                                                        "hold.",
+                                                        "pattern": "^-?[0-9]{1,18}(\\.[0-9]{1,18})?$",
+                                                        "type": ["number", "string"],
+                                                    },
+                                                },
+                                                "required": [
+                                                    "name",
+                                                    "direction",
+                                                    "target",
+                                                    "source",
+                                                ],
+                                                "type": "object",
+                                            },
+                                            {"type": "null"},
+                                        ]
+                                    },
+                                    "priority": {
+                                        "enum": ["must", "should", "nice"],
+                                        "type": "string",
+                                    },
+                                    "text": {"maxLength": 8192, "minLength": 1, "type": "string"},
+                                },
+                                "required": ["id", "kind", "text", "priority"],
+                                "type": "object",
+                            },
+                            "maxItems": 32,
+                            "type": ["array", "null"],
+                        },
                         "inputs": {
                             "properties": {
                                 "files": {
@@ -54,19 +149,9 @@ TOOLS: list[dict[str, Any]] = [
                                                 "type": "string",
                                             },
                                             "file_id": {"type": "string"},
-                                            "project_id": {
-                                                "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
-                                                "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                                                "type": "string",
-                                            },
                                             "revision_id": {"type": "string"},
                                         },
-                                        "required": [
-                                            "file_id",
-                                            "revision_id",
-                                            "project_id",
-                                            "digest_sha256",
-                                        ],
+                                        "required": ["file_id", "revision_id", "digest_sha256"],
                                         "type": "object",
                                     },
                                     "maxItems": 32,
@@ -127,7 +212,67 @@ TOOLS: list[dict[str, Any]] = [
                             "type": "object",
                         },
                         "message": {"maxLength": 8192, "minLength": 1, "type": ["string", "null"]},
-                        "method": {"type": ["object", "null"]},
+                        "method": {
+                            "additionalProperties": False,
+                            "description": "Runs a named "
+                            "method on a "
+                            "published task "
+                            "instead of a "
+                            "general run. "
+                            "Not accepted "
+                            "with program. "
+                            "Refused with "
+                            "422 "
+                            "research_task_required "
+                            "when task is "
+                            "missing, 422 "
+                            "research_task_invalid "
+                            "when it is "
+                            "malformed, 404 "
+                            "research_task_not_found "
+                            "when no such "
+                            "task is "
+                            "published for "
+                            "this "
+                            "organization, "
+                            "422 "
+                            "research_method_unknown "
+                            "for an unknown "
+                            "release, 422 "
+                            "research_method_unseeded "
+                            "when the task "
+                            "has no "
+                            "approval for "
+                            "this release, "
+                            "422 "
+                            "research_method_revoked "
+                            "when that "
+                            "approval is "
+                            "revoked, and "
+                            "409 "
+                            "research_method_unavailable "
+                            "when the "
+                            "release is not "
+                            "being served.",
+                            "properties": {
+                                "overrides": {
+                                    "description": "Values for the release's published parameters.",
+                                    "type": "object",
+                                },
+                                "release": {
+                                    "enum": ["research.fork_flush@1", "research.forgetting@1"],
+                                    "type": "string",
+                                },
+                                "task": {
+                                    "description": "The published task this method runs on.",
+                                    "examples": ["craftax-classic-enginebench-policy-v1"],
+                                    "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["release", "task"],
+                            "type": ["object", "null"],
+                        },
                         "models": {"type": ["object", "null"]},
                         "profile_overrides": {
                             "additionalProperties": False,
@@ -193,11 +338,6 @@ TOOLS: list[dict[str, Any]] = [
                             "required": ["id"],
                             "type": "object",
                         },
-                        "project_id": {
-                            "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
-                            "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                            "type": "string",
-                        },
                         "providers": {"type": ["object", "null"]},
                         "resources": {
                             "items": {
@@ -226,7 +366,6 @@ TOOLS: list[dict[str, Any]] = [
                                                         "uniqueItems": True,
                                                     }
                                                 },
-                                                "required": ["pool_ids"],
                                             },
                                         }
                                     }
@@ -296,7 +435,7 @@ TOOLS: list[dict[str, Any]] = [
                             "type": "array",
                         },
                     },
-                    "required": ["project_id", "limits"],
+                    "required": ["limits"],
                     "type": "object",
                 },
                 "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
@@ -445,64 +584,6 @@ TOOLS: list[dict[str, Any]] = [
         "scope": "swarms:read",
     },
     {
-        "description": "Create a Swarms project (launch-enabled).",
-        "inputSchema": {
-            "additionalProperties": False,
-            "properties": {
-                "body": {
-                    "additionalProperties": False,
-                    "properties": {
-                        "code_validation": {"additionalProperties": True, "type": "object"},
-                        "name": {"maxLength": 256, "minLength": 1, "type": "string"},
-                        "objective": {"maxLength": 8192, "type": "string"},
-                        "template": {"type": "string"},
-                    },
-                    "required": ["name"],
-                    "type": "object",
-                },
-                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
-            },
-            "required": ["body", "idempotency_key"],
-            "type": "object",
-        },
-        "name": "swarms_project_create",
-        "operationId": "createProject",
-        "scope": "swarms:write",
-    },
-    {
-        "description": "List projects, newest first.",
-        "inputSchema": {
-            "additionalProperties": False,
-            "properties": {
-                "cursor": {"type": "string"},
-                "limit": {"default": 20, "maximum": 100, "minimum": 1, "type": "integer"},
-            },
-            "required": [],
-            "type": "object",
-        },
-        "name": "swarms_projects_list",
-        "operationId": "listProjects",
-        "scope": "swarms:read",
-    },
-    {
-        "description": "One project of the caller's organization.",
-        "inputSchema": {
-            "additionalProperties": False,
-            "properties": {
-                "project_id": {
-                    "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
-                    "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                    "type": "string",
-                }
-            },
-            "required": ["project_id"],
-            "type": "object",
-        },
-        "name": "swarms_project_get",
-        "operationId": "getProject",
-        "scope": "swarms:read",
-    },
-    {
         "description": "The launchable program families (GA set, swarms.general@1).",
         "inputSchema": {
             "additionalProperties": False,
@@ -545,13 +626,8 @@ TOOLS: list[dict[str, Any]] = [
                     "type": "object",
                 },
                 "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
-                "project_id": {
-                    "examples": ["proj_AAAAAAAAAAAAAAAAAAAAAA"],
-                    "pattern": "^proj_[A-Za-z0-9_-]{22}$",
-                    "type": "string",
-                },
             },
-            "required": ["project_id", "body", "idempotency_key"],
+            "required": ["body", "idempotency_key"],
             "type": "object",
         },
         "name": "swarms_upload_file",

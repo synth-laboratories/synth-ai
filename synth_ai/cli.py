@@ -33,16 +33,13 @@ COMMANDS: dict[str, dict[str, str]] = {
         "outputs": "listRunOutputs",
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
-        "create-project": "createProject",
-        "project": "getProject",
-        "projects": "listProjects",
         "families": "listFamilies",
         "upload-text": "uploadFile",
         "uploads-prepare": "createUpload",
         "uploads-get": "getUpload",
         "uploads-finalize": "finalizeUpload",
-        "files": "listProjectFiles",
-        "file": "getProjectFile",
+        "files": "listFiles",
+        "file": "getFile",
         "labels": "updateRunLabels",
         "download": "getRunOutputContent",
     },
@@ -93,27 +90,24 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("--json", default="{}", help="JSON request object")
             if op["idempotent"]:
                 command.add_argument("--idempotency-key")
-            if oid == "createProject":
-                command.add_argument("--name")
             if op["binary"]:
                 command.add_argument("--out")
         if group == "swarms":
             upload = verbs.add_parser("upload")
             upload.add_argument("filename")
-            upload.add_argument("--project-id")
             upload.add_argument("--media-type")
             upload.add_argument("--idempotency-key")
             for verb in ["launch", "run"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("message", nargs="?")
                 command.add_argument("--task")
-                command.add_argument("--project-id")
                 command.add_argument("--budget", required=True)
                 selection = command.add_mutually_exclusive_group()
                 selection.add_argument("--program")
                 selection.add_argument(
                     "--method", choices=["status-quo", "fork-flush", "forgetting"]
                 )
+                command.add_argument("--method-task", help="published task a named method runs on")
                 command.add_argument("--method-overrides", help="JSON research parameter object")
                 command.add_argument("--idempotency-key")
                 command.add_argument("--timeout", type=float, default=600)
@@ -182,7 +176,6 @@ async def execute(args: argparse.Namespace) -> None:
             emit(
                 await client.swarms.upload_file(
                     args.filename,
-                    project_id=args.project_id,
                     media_type=args.media_type,
                     idempotency_key=args.idempotency_key,
                 )
@@ -201,17 +194,20 @@ async def execute(args: argparse.Namespace) -> None:
                     "fork-flush": "research.fork_flush@1",
                     "forgetting": "research.forgetting@1",
                 }[args.method]
-                method = {"release": release}
+                if not args.method_task:
+                    raise ValueError(f"--method {args.method} requires --method-task")
+                method = {"release": release, "task": args.method_task}
                 if args.method_overrides:
                     overrides = json.loads(args.method_overrides)
                     if not isinstance(overrides, dict):
                         raise ValueError("method overrides must be a JSON object")
                     method["overrides"] = overrides
-            elif args.method_overrides:
-                raise ValueError("method overrides require fork-flush or forgetting")
+            elif args.method_overrides or args.method_task:
+                raise ValueError(
+                    "--method-task and --method-overrides require fork-flush or forgetting"
+                )
             created = await client.swarms.launch(
                 message,
-                project_id=args.project_id,
                 budget=args.budget,
                 program=program,
                 method=method,

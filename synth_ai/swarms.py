@@ -14,13 +14,11 @@ from uuid import uuid4
 from ._generated.models import (
     EventPage,
     FamilyList,
+    File,
+    FilePage,
     Limits,
     Money,
     OutputPage,
-    Project,
-    ProjectFile,
-    ProjectFilePage,
-    ProjectPage,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -39,15 +37,13 @@ from .errors import RunFailedError, WaitTimeoutError
 
 
 class AsyncSwarms:
-    def __init__(self, transport: Transport, project_id: str | None = None) -> None:
+    def __init__(self, transport: Transport) -> None:
         self._transport = transport
-        self.project_id = project_id
 
     async def launch(
         self,
         message: str | None = None,
         *,
-        project_id: str | None = None,
         budget: str = "1.00",
         wall_time_seconds: int = 3600,
         maximum_tasks: int = 100,
@@ -62,9 +58,6 @@ class AsyncSwarms:
         profile_overrides: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        project_id = project_id or self.project_id
-        if not project_id:
-            raise ValueError("project_id or SYNTH_PROJECT_ID is required")
         try:
             amount = Decimal(budget)
             if not amount.is_finite() or amount <= 0:
@@ -77,7 +70,7 @@ class AsyncSwarms:
             maximum_tasks=maximum_tasks,
             maximum_parallel_tasks=maximum_parallel_tasks,
         )
-        body: dict[str, Any] = {"project_id": project_id, "limits": limits.model_dump(mode="json")}
+        body: dict[str, Any] = {"limits": limits.model_dump(mode="json")}
         for name, value in {
             "message": message,
             "inputs": inputs,
@@ -110,13 +103,9 @@ class AsyncSwarms:
         self,
         filename: str,
         *,
-        project_id: str | None = None,
         media_type: str | None = None,
         idempotency_key: str | None = None,
-    ) -> ProjectFile:
-        project_id = project_id or self.project_id
-        if not project_id:
-            raise ValueError("project_id or SYNTH_PROJECT_ID is required")
+    ) -> File:
         source = Path(filename)
         formats = {
             ".txt": "text/plain",
@@ -133,7 +122,6 @@ class AsyncSwarms:
             raise ValueError("File exceeds the 32 MiB limit")
         key = idempotency_key or str(uuid4())
         upload = await self.prepare_upload(
-            project_id,
             name=source.name,
             media_type=media,
             size_bytes=len(content),
@@ -152,23 +140,17 @@ class AsyncSwarms:
         *,
         name: str = "task.md",
         media_type: str = "text/markdown",
-        project_id: str | None = None,
         idempotency_key: str | None = None,
-    ) -> ProjectFile:
-        project_id = project_id or self.project_id
-        if not project_id:
-            raise ValueError("project_id or SYNTH_PROJECT_ID is required")
+    ) -> File:
         return await self._transport.request(
             "uploadFile",
-            ProjectFile,
-            path={"project_id": project_id},
+            File,
             body={"name": name, "media_type": media_type, "content": content},
             idempotency_key=idempotency_key,
         )
 
     async def prepare_upload(
         self,
-        project_id: str,
         *,
         name: str,
         media_type: str,
@@ -179,7 +161,6 @@ class AsyncSwarms:
         return await self._transport.request(
             "createUpload",
             Upload,
-            path={"project_id": project_id},
             body={
                 "name": name,
                 "media_type": media_type,
@@ -199,20 +180,15 @@ class AsyncSwarms:
     async def upload(self, upload_id: str) -> Upload:
         return await self._transport.request("getUpload", Upload, path={"upload_id": upload_id})
 
-    async def files(
-        self, project_id: str, *, cursor: str | None = None, limit: int = 20
-    ) -> ProjectFilePage:
+    async def files(self, *, cursor: str | None = None, limit: int = 20) -> FilePage:
         return await self._transport.request(
-            "listProjectFiles",
-            ProjectFilePage,
-            path={"project_id": project_id},
+            "listFiles",
+            FilePage,
             query={"cursor": cursor, "limit": limit},
         )
 
-    async def file(self, project_id: str, file_id: str) -> ProjectFile:
-        return await self._transport.request(
-            "getProjectFile", ProjectFile, path={"project_id": project_id, "file_id": file_id}
-        )
+    async def file(self, file_id: str) -> File:
+        return await self._transport.request("getFile", File, path={"file_id": file_id})
 
     async def update_labels(
         self, run_id: str, labels: dict[str, str], *, expected_revision: int
@@ -249,7 +225,6 @@ class AsyncSwarms:
         *,
         limit: int = 20,
         cursor: str | None = None,
-        project_id: str | None = None,
         state: str | None = None,
         created_after: str | None = None,
     ) -> RunPage:
@@ -259,7 +234,6 @@ class AsyncSwarms:
             query={
                 "limit": limit,
                 "cursor": cursor,
-                "project_id": project_id,
                 "state": state,
                 "created_after": created_after,
             },
@@ -358,35 +332,6 @@ class AsyncSwarms:
                 path={"run_id": run_id, "output_id": output_id},
                 query={"revision_id": revision_id, "digest_sha256": digest_sha256},
             ),
-        )
-
-    async def create_project(
-        self,
-        name: str,
-        *,
-        template: str | None = None,
-        objective: str | None = None,
-        code_validation: dict[str, Any] | None = None,
-        idempotency_key: str | None = None,
-    ) -> Project:
-        body: dict[str, Any] = {"name": name}
-        for k, v in {
-            "template": template,
-            "objective": objective,
-            "code_validation": code_validation,
-        }.items():
-            if v is not None:
-                body[k] = v
-        return await self._transport.request(
-            "createProject", Project, body=body, idempotency_key=idempotency_key
-        )
-
-    async def project(self, project_id: str) -> Project:
-        return await self._transport.request("getProject", Project, path={"project_id": project_id})
-
-    async def projects(self, *, cursor: str | None = None, limit: int = 20) -> ProjectPage:
-        return await self._transport.request(
-            "listProjects", ProjectPage, query={"cursor": cursor, "limit": limit}
         )
 
     async def families(self) -> FamilyList:

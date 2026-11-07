@@ -39,7 +39,6 @@ async def test_launch_exact_money_and_retry_identity(contract):
         ) as client:
             await client.swarms.launch(
                 "task",
-                project_id="proj_AAAAAAAAAAAAAAAAAAAAAA",
                 budget="0.10000001",
                 idempotency_key="launch-once",
                 resources=resources,

@@ -190,20 +190,6 @@ async def run(output: Path, resume: bool = False) -> None:
         await call(client, "getUsageSummary")
         await call(client, "listUsageRecords", query={"limit": 1})
         await call(client, "listFamilies")
-        if receipt["runs"]:
-            existing = await client.swarms.get(receipt["runs"][0]["run_id"])
-            project = await call(client, "getProject", path={"project_id": existing.project_id})
-        else:
-            receipt.setdefault("project_key", key())
-            save()
-            project = await call(
-                client,
-                "createProject",
-                body={"name": "public-sdk-smoke"},
-                idempotency_key=receipt["project_key"],
-            )
-        await call(client, "getProject", path={"project_id": project.project_id})
-        await call(client, "listProjects", query={"limit": 1})
 
         async def launch(message, index):
             if len(receipt["runs"]) > index:
@@ -216,7 +202,6 @@ async def run(output: Path, resume: bool = False) -> None:
                 client,
                 "createRun",
                 body={
-                    "project_id": project.project_id,
                     "message": message,
                     "program": {"id": "swarms.general", "version": "1"},
                     "limits": {
@@ -269,7 +254,7 @@ async def run(output: Path, resume: bool = False) -> None:
         )
         try:
             require_successful_run(await closed(first))
-            await call(client, "listRuns", query={"project_id": project.project_id, "limit": 1})
+            await call(client, "listRuns", query={"limit": 1})
             await call(client, "listRunEvents", path={"run_id": first}, query={"limit": 100})
             async with asyncio.timeout(15):
                 async for _ in client.swarms.follow(first):
