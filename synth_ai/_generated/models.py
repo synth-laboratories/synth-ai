@@ -6,10 +6,13 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class CheckoutSession(BaseModel):
+class AccountTerms(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
-    session_id: str
-    url: str
+    version: str
+    accepted_at: str
+
+
+CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 
 class ControlRef(BaseModel):
@@ -31,6 +34,17 @@ class Family(BaseModel):
     required_actor_types: list[str]
 
 
+class File(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    file_id: str
+    revision_id: str
+    name: str
+    media_type: str
+    size_bytes: Annotated[int, Field(ge=0)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    created_at: str
+
+
 KeyId: TypeAlias = Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
 
 
@@ -40,6 +54,16 @@ class Limit(BaseModel):
     metric: str
     window: str
     cap: float
+
+
+class LimitRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    resource: str
+    metric: str
+    window: str
+    cap: float | None
+    current: float | None
+    reset_at: str | None
 
 
 class McpError(BaseModel):
@@ -103,6 +127,8 @@ class OAuthConsentRequest(BaseModel):
     client_name: str
     scopes: list[str]
     resource: str
+    redirect_host: str
+    verified: bool
 
 
 class OAuthConsentResult(BaseModel):
@@ -194,6 +220,65 @@ class OAuthTokenRequest(BaseModel):
     resource: str | None = None
 
 
+class ObjectiveClaim(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    id: str
+    kind: str
+    percent_complete: int
+    summary: str
+    by: str
+    observed_at: str | None
+
+
+class ObjectiveClaimedPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    objective_id: str
+    claim_id: str
+    percent_complete: int
+    kind: str
+    summary: str
+
+
+class ObjectiveMetric(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    name: str
+    direction: str
+    target: float
+    source: str
+
+
+class ObjectiveProgressPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    objective_id: str
+    name: str
+    current: float | None
+    best: float | None
+    target: float | None
+    direction: str
+    met: bool
+    percent: int
+    samples: Annotated[int, Field(ge=0)]
+    rollout_id: str
+    receipt_digest: str
+
+
+class ObjectiveReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    authority: str
+    kind: str
+    record_id: str
+    revision: str
+    digest_sha256: str
+
+
+class ObjectiveVerdict(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    decision: str
+    by: str
+    score: int | None
+    reason: str
+
+
 class Org(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     id: str
@@ -207,6 +292,8 @@ class Org(BaseModel):
 
 OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 
+OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
+
 
 class PageFields(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -218,9 +305,9 @@ class Principal(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     org_id: str
     user_id: str | None = None
-    credential_kind: Literal["api_key", "session"]
+    credential_kind: Literal["api_key", "session", "oauth"]
     credential_id: str | None = None
-    credential_purpose: Literal["personal", "automation", "legacy"]
+    credential_purpose: Literal["personal", "automation", "legacy", "oauth"]
     principal_class: str
     scopes: list[str]
     permissions: list[str]
@@ -246,28 +333,18 @@ class Problem(BaseModel):
 
 class ProfileChoice(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    preset: (
+        Literal["hosted.openrouter_zdr_us", "hosted.openai_direct", "test.codex_pool"] | None
+    ) = None
+    upstream_model: Literal["gpt-6-luna", "openai/gpt-6-luna"] | None = None
     canonical_model: str | None = None
     effort: Literal["low", "medium", "high", "xhigh"] | None = None
 
 
-ProjId: TypeAlias = Annotated[str, Field(pattern="^proj_[A-Za-z0-9_-]{22}$")]
-
-
-class ProjectCreateRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    template: str | None = None
-    objective: Annotated[str, Field(max_length=8192)] | None = None
-    code_validation: dict[str, Any] | None = None
-
-
-class ProtocolFault(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    error: dict[str, Any]
-
-
 class ResolvedActor(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    provider_preset: str | None = None
+    provider_source: str | None = None
     actor_id: str
     actor_type: str
     base_profile_digest: str
@@ -279,7 +356,77 @@ class ResolvedActor(BaseModel):
     evaluated: bool
 
 
+class RunControlReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    operation_id: str
+    resource_id: str
+    state: str
+    command: str
+    reason: str
+    execution_closed: bool
+    accounting_final: bool
+    cleanup_complete: bool
+
+
+class RunGuidanceMetric(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    direction: Literal["maximize", "minimize"]
+    target: (
+        Annotated[float, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
+        | Annotated[str, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
+    )
+    source: Literal["rollout_score"]
+
+
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
+
+
+class RunLabels(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    labels: dict[str, str]
+    revision: Annotated[int, Field(ge=0)]
+
+
+class RunLabelsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    labels: dict[str, str]
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
+class RunProgram(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    program: dict[str, Any]
+
+
+class RunReportRollout(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    rollout_id: str
+    status: str
+    seed: int
+    reward: float | None = None
+    refusal: str | None = None
+    duration_ms: int | None = None
+
+
+class RunTaskPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    items: list[dict[str, Any]]
+    has_more: bool
+    next_cursor: str | None = None
+
+
+class SandboxImage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "resolved", "not_applicable", "unobserved"]
+    digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")] | None = None
+
+
+class SandboxMoment(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "observed", "not_recorded", "not_applicable", "unobserved"]
+    at: str | None = None
+
 
 Scope: TypeAlias = Literal[
     "account:billing:read",
@@ -291,7 +438,64 @@ Scope: TypeAlias = Literal[
     "swarms:write",
     "account:write",
     "account:billing:write",
+    "account:limits:read",
 ]
+
+
+class SelectionFile(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    path: str
+    sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
+class SelectionScore(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    numerator: Annotated[int, Field(ge=0)]
+    denominator: Annotated[int, Field(ge=1)]
+
+
+class TermsAcceptance(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    version: str
+    accepted_at: str
+    accepted_by: str
+    org_id: str
+
+
+class TermsAcceptanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    version: Annotated[str, Field(min_length=1, max_length=64)]
+    accepted_at: str
+
+
+class UploadCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=256)]
+    media_type: Literal["text/plain", "text/markdown", "application/json"]
+    size_bytes: Annotated[int, Field(ge=0, le=33554432)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
+class UploadFileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    name: Annotated[str, Field(min_length=1, max_length=256)]
+    media_type: Literal["text/plain", "text/markdown", "application/json"]
+    content: Annotated[str, Field(max_length=32768)]
+
+
+class UsageExport(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    export_id: str
+    state: Literal["queued", "running", "completed", "failed"]
+    download_url: str | None = None
+    failure_code: str | None = None
+
+
+class UsageExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    since: str
+    until: str
+    format: Literal["csv"]
 
 
 class Account(BaseModel):
@@ -299,6 +503,7 @@ class Account(BaseModel):
     org: Org
     principal: Principal
     limits: list[Limit]
+    terms: AccountTerms | None = None
 
 
 class ApiKey(BaseModel):
@@ -359,6 +564,19 @@ class ChargeUsage(BaseModel):
     charge: Money
 
 
+class CheckoutAttempt(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    checkout_id: CheckoutId
+    state: Literal["pending", "open", "completed", "expired", "failed"]
+    kind: Literal["credits", "subscription"]
+    session_id: str | None
+    url: str | None
+    amount: Money | None
+    failure_code: str | None
+    created_at: str
+    completed_at: str | None
+
+
 class CheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     plan_id: str | None = None
@@ -366,9 +584,30 @@ class CheckoutRequest(BaseModel):
     credit: Money | None = None
 
 
+class CheckoutSession(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    checkout_id: CheckoutId
+    session_id: str
+    url: str
+
+
 class FamilyList(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     families: list[Family]
+
+
+class FilePage(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    items: list[File]
+    has_more: bool
+    next_cursor: str | None = None
+
+
+class LimitList(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    plan: str
+    observed_at: str
+    items: list[LimitRow]
 
 
 class Limits(BaseModel):
@@ -390,11 +629,7 @@ class McpResponse(BaseModel):
 class MintApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     purpose: Literal["personal", "automation"] | None = None
-    name: (
-        Annotated[str, Field(min_length=1, max_length=128)]
-        | Annotated[None, Field(min_length=1, max_length=128)]
-        | None
-    ) = None
+    name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
     scopes: list[Scope] | None = None
     expires_at: str | None = None
     request_id: str | None = None
@@ -427,6 +662,18 @@ class OAuthGrants(BaseModel):
     observed_at: str
 
 
+class ObjectiveMetricState(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    current: float | None
+    best: float | None
+    best_rollout_id: str | None
+    best_policy_sha256: str | None
+    best_receipt: ObjectiveReceipt | None
+    samples: Annotated[int, Field(ge=0)]
+    met: bool
+    percent: int
+
+
 class OverrideResolution(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     schema_version: str
@@ -434,6 +681,16 @@ class OverrideResolution(BaseModel):
     request_digest: str
     actors: list[ResolvedActor]
     evaluated_system_changed: bool
+
+
+class OwnerResourceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    plugin: Literal["pool"]
+    version: Literal[1] | None = None
+    roles: list[Literal["planner", "worker", "reviewer", "run_assessor"]]
+    limits: OwnerResourceLimits
+    role_limits: dict[str, OwnerResourceLimits] | None = None
+    selection: dict[str, Any]
 
 
 class Plan(BaseModel):
@@ -456,20 +713,13 @@ class Plan(BaseModel):
     checkout_available: bool
     price: Money
     weekly_included: Money
+    limits: list[Limit] | None = None
 
 
 class ProfileOverrides(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     launch: ProfileChoice | None = None
     roles: dict[str, ProfileChoice] | None = None
-
-
-class Project(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    project_id: ProjId
-    name: str
-    launch_enabled: bool
-    metadata: dict[str, Any]
 
 
 class RefundDetail(BaseModel):
@@ -482,6 +732,12 @@ class RefundDetail(BaseModel):
     refunded: Money
 
 
+class RunConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    run_id: RunId
+    configuration: dict[str, Any]
+
+
 class RunEvent(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     event_id: EvtId
@@ -492,6 +748,33 @@ class RunEvent(BaseModel):
     usage: Any
     observed_at: str | None
     approval_id: str | None
+    payload: ObjectiveProgressPayload | ObjectiveClaimedPayload | None = None
+
+
+class RunGuidance(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    id: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
+    kind: Literal["question", "outcome", "any"]
+    text: Annotated[str, Field(min_length=1, max_length=8192)]
+    evidence: Annotated[str, Field(max_length=8192)] | None = None
+    acceptance: Annotated[str, Field(max_length=8192)] | None = None
+    priority: Literal["must", "should", "nice"]
+    metric: RunGuidanceMetric | None = None
+
+
+class RunModelUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    provider: str
+    model: str
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
 
 
 class RunOutput(BaseModel):
@@ -503,11 +786,159 @@ class RunOutput(BaseModel):
     filename: str
 
 
+class RunReward(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["scored", "not_scored", "no_rollouts", "unobserved"]
+    best: float | None = None
+    rollouts: list[RunReportRollout]
+
+
+class RunRoleUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    role: Literal["planner", "worker", "reviewer", "other"]
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
+class RunSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+
+
+class RunSettlementSummary(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["pending", "settled", "refused"]
+    refusal: str | None = None
+    total: Money | None = None
+    gateway: Money | None = None
+    rollout: Money | None = None
+    other: Money | None = None
+
+
+class RunTimings(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    created_at: str
+    closed: SandboxMoment
+    accounting_final: SandboxMoment
+    executing_ms: int | None = None
+    settling_ms: int | None = None
+
+
+class RunUsage(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    calls: Annotated[int, Field(ge=0)]
+    failed_calls: Annotated[int, Field(ge=0)]
+    charge: Money
+    subsidized: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    cached_input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    reasoning_tokens: Annotated[int, Field(ge=0)]
+    model_time_ms: Annotated[int, Field(ge=0)]
+
+
+class SelectionCandidate(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    state: Literal["scored", "failed"]
+    commit_sha: Annotated[str, Field(pattern="^[0-9a-f]{40}$")]
+    tree_sha: Annotated[str, Field(pattern="^[0-9a-f]{40}$")] | None
+    artifact_digest: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    score: SelectionScore | None
+    evaluator_digest: str
+    evaluation_receipt: str
+    execution_receipt_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    candidate_files: list[SelectionFile] | None
+
+
 class UpdateApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     scopes: list[Scope]
     expected_version: Annotated[int, Field(ge=1)]
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+
+
+class Upload(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    upload_id: str
+    state: Literal["pending", "committed"]
+    file: File
+    put: dict[str, Any] | None = None
+
+
+class UsageDayBucket(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
+    day: str
+
+
+class UsageKeyBucket(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
+    key_id: Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")] | None
+
+
+class UsageRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    record_id: str
+    run_id: RunId | None
+    session_kind: Literal["run", "session", "unknown"]
+    kind: Literal["gateway", "rollout", "other"]
+    provider: str
+    preset: str
+    program_pattern: str
+    actor_kind: str
+    key_id: Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")] | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    output_tokens: int | None
+    reasoning_tokens: int | None
+    charge: Money
+    created_at: str
+
+
+class UsageTotals(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    charge: Money
+    input_tokens: Annotated[int, Field(ge=0)]
+    output_tokens: Annotated[int, Field(ge=0)]
+    records: Annotated[int, Field(ge=0)]
 
 
 class ApiKeyPage(BaseModel):
@@ -559,19 +990,16 @@ class EventPage(BaseModel):
 
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    message: (
-        Annotated[str, Field(min_length=1, max_length=8192)]
-        | Annotated[None, Field(min_length=1, max_length=8192)]
-        | None
-    ) = None
-    project_id: ProjId
+    message: Annotated[str, Field(min_length=1, max_length=8192)] | None = None
     limits: Limits
     inputs: dict[str, Any] | None = None
+    guidance: list[RunGuidance] | None = None
     providers: dict[str, Any] | None = None
     models: dict[str, Any] | None = None
     method: dict[str, Any] | None = None
     program: dict[str, Any] | None = None
     profile_overrides: ProfileOverrides | None = None
+    resources: list[OwnerResourceRequest] | None = None
     labels: dict[str, str] | None = None
 
 
@@ -595,11 +1023,94 @@ class ProfileOverrideReadback(BaseModel):
     resolution: OverrideResolution
 
 
-class ProjectPage(BaseModel):
+class RunObjective(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    id: str
+    kind: str
+    title: str
+    statement: str
+    required: bool
+    criteria: list[str]
+    state: Literal["open", "claimed", "verified", "rejected", "partial", "not_applicable"]
+    metric: ObjectiveMetric | None
+    metric_state: ObjectiveMetricState | None
+    claims: list[ObjectiveClaim]
+    verdict: ObjectiveVerdict | None
+
+
+class RunReportSandbox(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
+    role: Literal["planner", "worker", "reviewer", "other"]
+    provider_kind: Literal["docker", "daytona", "exe_dev", "unobserved"]
+    state: Literal[
+        "pending",
+        "requested",
+        "created",
+        "ready",
+        "stopping",
+        "retained",
+        "destroyed",
+        "never_allocated",
+        "never_started",
+        "never_created",
+        "not_requested",
+        "unobserved",
+    ]
+    image: SandboxImage
+    cpu_millis: Annotated[int, Field(ge=0)]
+    memory_bytes: Annotated[int, Field(ge=0)]
+    created: SandboxMoment
+    ready: SandboxMoment
+    destroyed: SandboxMoment
+    observation: Literal["current", "unavailable", "contradicted"]
+    observed_at: str | None = None
+    usage: RunUsage
+    time_to_ready_ms: int | None = None
+    lifetime_ms: int | None = None
+
+
+class RunSandboxes(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    items: list[RunSandbox]
+
+
+class RunSelection(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal["not_applicable", "pending", "selected", "no_selection", "unavailable"]
+    reason: Literal[
+        "baseline_retained",
+        "no_incumbent",
+        "settlement_open",
+        "incumbent_not_recorded",
+        "incumbent_unbound",
+        "custody_incomplete",
+        None,
+    ]
+    incumbent: SelectionCandidate | None
+    evaluated: list[SelectionCandidate]
+
+
+class UsageRecordPage(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
-    items: list[Project]
+    items: list[UsageRecord]
+
+
+class UsageSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    since: str
+    until: str
+    observed_at: str
+    data_through: str | None
+    total: UsageTotals
+    pending: dict[str, Any]
+    settling: dict[str, Any]
+    by_source: dict[str, Any]
+    by_day: list[UsageDayBucket]
+    by_key: list[UsageKeyBucket]
 
 
 class BillingHistoryPage(BaseModel):
@@ -609,15 +1120,30 @@ class BillingHistoryPage(BaseModel):
     items: list[BillingHistoryEntry]
 
 
+class RunReport(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    run_id: RunId
+    settlement: RunSettlementSummary
+    attribution: Literal["pending", "attributed", "not_recorded"]
+    by_model: list[RunModelUsage]
+    by_role: list[RunRoleUsage]
+    sandboxes: list[RunReportSandbox]
+    teardown: Literal["complete", "pending", "residual", "unobserved"]
+    unattributed: RunUsage
+    sandbox_compute: Literal["not_metered", "metered"]
+    reward: RunReward
+    timings: RunTimings
+
+
 class RunSnapshot(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     metadata: dict[str, Any]
     method: Any | None = None
     run_id: RunId
-    project_id: ProjId
     labels: dict[str, str] | None
     labels_revision: int
-    objectives: list[Any] | None
+    objectives: list[RunObjective] | None
+    objectives_read: Literal["ok", "unavailable"] | None = None
     guidance_coverage: list[Any] | None
     state: str
     model: str
@@ -634,6 +1160,7 @@ class RunSnapshot(BaseModel):
     started_at: str | None
     closed_at: str | None
     profile_overrides: ProfileOverrideReadback | None = None
+    selection: RunSelection | None = None
 
 
 class RunPage(BaseModel):
@@ -644,10 +1171,12 @@ class RunPage(BaseModel):
 
 
 MODELS: dict[str, type[BaseModel]] = {
-    "CheckoutSession": CheckoutSession,
+    "AccountTerms": AccountTerms,
     "ControlRef": ControlRef,
     "Family": Family,
+    "File": File,
     "Limit": Limit,
+    "LimitRow": LimitRow,
     "McpError": McpError,
     "McpRequest": McpRequest,
     "McpTransport": McpTransport,
@@ -666,34 +1195,75 @@ MODELS: dict[str, type[BaseModel]] = {
     "OAuthServerMetadata": OAuthServerMetadata,
     "OAuthToken": OAuthToken,
     "OAuthTokenRequest": OAuthTokenRequest,
+    "ObjectiveClaim": ObjectiveClaim,
+    "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
+    "ObjectiveMetric": ObjectiveMetric,
+    "ObjectiveProgressPayload": ObjectiveProgressPayload,
+    "ObjectiveReceipt": ObjectiveReceipt,
+    "ObjectiveVerdict": ObjectiveVerdict,
     "Org": Org,
     "PageFields": PageFields,
     "Principal": Principal,
     "Problem": Problem,
     "ProfileChoice": ProfileChoice,
-    "ProjectCreateRequest": ProjectCreateRequest,
-    "ProtocolFault": ProtocolFault,
     "ResolvedActor": ResolvedActor,
+    "RunControlReceipt": RunControlReceipt,
+    "RunGuidanceMetric": RunGuidanceMetric,
+    "RunLabels": RunLabels,
+    "RunLabelsRequest": RunLabelsRequest,
+    "RunProgram": RunProgram,
+    "RunReportRollout": RunReportRollout,
+    "RunTaskPage": RunTaskPage,
+    "SandboxImage": SandboxImage,
+    "SandboxMoment": SandboxMoment,
+    "SelectionFile": SelectionFile,
+    "SelectionScore": SelectionScore,
+    "TermsAcceptance": TermsAcceptance,
+    "TermsAcceptanceRequest": TermsAcceptanceRequest,
+    "UploadCreateRequest": UploadCreateRequest,
+    "UploadFileRequest": UploadFileRequest,
+    "UsageExport": UsageExport,
+    "UsageExportRequest": UsageExportRequest,
     "Account": Account,
     "ApiKey": ApiKey,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
     "ChargeUsage": ChargeUsage,
+    "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
+    "CheckoutSession": CheckoutSession,
     "FamilyList": FamilyList,
+    "FilePage": FilePage,
+    "LimitList": LimitList,
     "Limits": Limits,
     "McpResponse": McpResponse,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
     "OAuthGrants": OAuthGrants,
+    "ObjectiveMetricState": ObjectiveMetricState,
     "OverrideResolution": OverrideResolution,
+    "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
     "ProfileOverrides": ProfileOverrides,
-    "Project": Project,
     "RefundDetail": RefundDetail,
+    "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
+    "RunGuidance": RunGuidance,
+    "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
+    "RunReward": RunReward,
+    "RunRoleUsage": RunRoleUsage,
+    "RunSandbox": RunSandbox,
+    "RunSettlementSummary": RunSettlementSummary,
+    "RunTimings": RunTimings,
+    "RunUsage": RunUsage,
+    "SelectionCandidate": SelectionCandidate,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
+    "Upload": Upload,
+    "UsageDayBucket": UsageDayBucket,
+    "UsageKeyBucket": UsageKeyBucket,
+    "UsageRecord": UsageRecord,
+    "UsageTotals": UsageTotals,
     "ApiKeyPage": ApiKeyPage,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
@@ -702,8 +1272,14 @@ MODELS: dict[str, type[BaseModel]] = {
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
-    "ProjectPage": ProjectPage,
+    "RunObjective": RunObjective,
+    "RunReportSandbox": RunReportSandbox,
+    "RunSandboxes": RunSandboxes,
+    "RunSelection": RunSelection,
+    "UsageRecordPage": UsageRecordPage,
+    "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,
+    "RunReport": RunReport,
     "RunSnapshot": RunSnapshot,
     "RunPage": RunPage,
 }

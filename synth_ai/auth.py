@@ -20,6 +20,7 @@ import httpx
 from .errors import SynthError
 
 DEFAULT_BASE_URL = "https://api.usesynth.ai"
+DEFAULT_OAUTH_BASE_URL = "https://mcp.usesynth.ai"
 
 
 def token_path() -> Path:
@@ -61,6 +62,15 @@ def save_tokens(records: dict[str, Any]) -> None:
             os.unlink(name)
 
 
+def oauth_base(base: str) -> str:
+    """The OAuth origin for an API base. Production signs in on the MCP host; every
+    other stack serves both from one origin. Tokens stay stored under the API base."""
+    override = os.getenv("SYNTH_OAUTH_BASE_URL")
+    if override:
+        return override.rstrip("/")
+    return DEFAULT_OAUTH_BASE_URL if base == DEFAULT_BASE_URL else base
+
+
 def credentials(base_url: str | None = None, api_key: str | None = None) -> tuple[str, str | None]:
     base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
     key = api_key or os.getenv("SYNTH_API_KEY")
@@ -73,14 +83,15 @@ def credentials(base_url: str | None = None, api_key: str | None = None) -> tupl
         raise SynthError("Invalid stored credential")
     if float(record.get("expires_at", 0)) <= time.time() + 30:
         with httpx.Client(timeout=30, follow_redirects=False) as client:
-            metadata = discover(client, base)
+            oauth = oauth_base(base)
+            metadata = discover(client, oauth)
             response = client.post(
-                endpoint(metadata, "token_endpoint", base),
+                endpoint(metadata, "token_endpoint", oauth),
                 data={
                     "grant_type": "refresh_token",
                     "client_id": record["client_id"],
                     "refresh_token": record["refresh_token"],
-                    "resource": base + "/mcp",
+                    "resource": oauth + "/mcp",
                 },
             )
             if not response.is_success:
@@ -128,6 +139,7 @@ def discover(client: httpx.Client, base: str) -> dict[str, Any]:
 
 def login(base_url: str | None = None, *, timeout: float = 180) -> None:
     base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    oauth = oauth_base(base)
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
     challenge = (
@@ -142,7 +154,7 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
             valid = (
                 parsed.path == "/callback"
                 and query.get("state") == [state]
-                and query.get("iss") == [base + "/"]
+                and query.get("iss") == [oauth + "/"]
             )
             if not valid:
                 self.send_response(400)
@@ -165,9 +177,9 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
         httpx.Client(timeout=30, follow_redirects=False) as client,
     ):
         redirect = f"http://127.0.0.1:{server.server_port}/callback"
-        metadata = discover(client, base)
+        metadata = discover(client, oauth)
         response = client.post(
-            endpoint(metadata, "registration_endpoint", base),
+            endpoint(metadata, "registration_endpoint", oauth),
             json={
                 "client_name": "Synth CLI",
                 "redirect_uris": [redirect],
@@ -179,7 +191,7 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
         response.raise_for_status()
         client_id = response.json()["client_id"]
         authorization = (
-            endpoint(metadata, "authorization_endpoint", base)
+            endpoint(metadata, "authorization_endpoint", oauth)
             + "?"
             + urlencode(
                 {
@@ -189,8 +201,8 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
                     "code_challenge": challenge,
                     "code_challenge_method": "S256",
                     "state": state,
-                    "resource": base + "/mcp",
-                    "scope": "offline_access user:org:read synth:read synth:action account:billing:read",
+                    "resource": oauth + "/mcp",
+                    "scope": "offline_access user:org:read synth:read synth:action account:billing:read account:billing:write",
                 }
             )
         )
@@ -203,14 +215,14 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
         if "code" not in result:
             raise SynthError("OAuth authorization denied or timed out")
         response = client.post(
-            endpoint(metadata, "token_endpoint", base),
+            endpoint(metadata, "token_endpoint", oauth),
             data={
                 "grant_type": "authorization_code",
                 "client_id": client_id,
                 "code": result["code"],
                 "code_verifier": verifier,
                 "redirect_uri": redirect,
-                "resource": base + "/mcp",
+                "resource": oauth + "/mcp",
             },
         )
         response.raise_for_status()
@@ -228,9 +240,10 @@ def logout(base_url: str | None = None) -> None:
     record = records.get(base)
     if record:
         with httpx.Client(timeout=30, follow_redirects=False) as client:
-            metadata = discover(client, base)
+            oauth = oauth_base(base)
+            metadata = discover(client, oauth)
             response = client.post(
-                endpoint(metadata, "revocation_endpoint", base),
+                endpoint(metadata, "revocation_endpoint", oauth),
                 data={
                     "token": record.get("refresh_token", record["access_token"]),
                     "client_id": record["client_id"],

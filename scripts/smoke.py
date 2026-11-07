@@ -25,9 +25,14 @@ from synth_ai._generated.operations import OPERATIONS
 from synth_ai.errors import SwarmsAPIError
 
 
+def require_successful_run(snapshot):
+    if snapshot.state != "completed":
+        raise RuntimeError("first run did not complete successfully: " + snapshot.state)
+
+
 async def run(output: Path, resume: bool = False) -> None:
     receipt = {
-        "schema": "synth.public-sdk.smoke.v1",
+        "schema": "synth.public-sdk.smoke.v3",
         "base_url": os.environ["SYNTH_API_BASE_URL"],
         "aggregate_maximum_usd": "0.20",
         "operations": {},
@@ -36,6 +41,8 @@ async def run(output: Path, resume: bool = False) -> None:
     }
     if resume:
         receipt = json.loads(output.read_text())
+        if receipt.get("schema") != "synth.public-sdk.smoke.v3":
+            raise ValueError("receipt schema differs; retain it and use a new v3 receipt")
         if receipt["base_url"] != os.environ["SYNTH_API_BASE_URL"]:
             raise ValueError("cannot resume against a different API")
         if len(receipt["runs"]) > 2:
@@ -178,22 +185,11 @@ async def run(output: Path, resume: bool = False) -> None:
         await call(client, "getBalance")
         await call(client, "listPlans")
         await call(client, "listBillingHistory", query={"limit": 1})
-        await call(client, "listInvoices", query={"limit": 1})
+        await call(client, "listStatements", query={"limit": 1})
+        await call(client, "listLimits")
+        await call(client, "getUsageSummary")
+        await call(client, "listUsageRecords", query={"limit": 1})
         await call(client, "listFamilies")
-        if receipt["runs"]:
-            existing = await client.swarms.get(receipt["runs"][0]["run_id"])
-            project = await call(client, "getProject", path={"project_id": existing.project_id})
-        else:
-            receipt.setdefault("project_key", key())
-            save()
-            project = await call(
-                client,
-                "createProject",
-                body={"name": "public-sdk-smoke"},
-                idempotency_key=receipt["project_key"],
-            )
-        await call(client, "getProject", path={"project_id": project.project_id})
-        await call(client, "listProjects", query={"limit": 1})
 
         async def launch(message, index):
             if len(receipt["runs"]) > index:
@@ -206,7 +202,6 @@ async def run(output: Path, resume: bool = False) -> None:
                 client,
                 "createRun",
                 body={
-                    "project_id": project.project_id,
                     "message": message,
                     "program": {"id": "swarms.general", "version": "1"},
                     "limits": {
@@ -258,8 +253,8 @@ async def run(output: Path, resume: bool = False) -> None:
             "Create a file hello.txt containing exactly hello and publish it as the task output.", 0
         )
         try:
-            await closed(first)
-            await call(client, "listRuns", query={"project_id": project.project_id, "limit": 1})
+            require_successful_run(await closed(first))
+            await call(client, "listRuns", query={"limit": 1})
             await call(client, "listRunEvents", path={"run_id": first}, query={"limit": 100})
             async with asyncio.timeout(15):
                 async for _ in client.swarms.follow(first):
@@ -305,17 +300,19 @@ async def run(output: Path, resume: bool = False) -> None:
                 save()
         receipt.setdefault("checkout_key", key())
         save()
-        await call(
+        checkout = await call(
             client,
             "createCheckout",
             body={"pack_id": "credits.10"},
             idempotency_key=receipt["checkout_key"],
         )
-        receipt["complete"] = (
+        await call(client, "getCheckout", path={"id": checkout.checkout_id})
+        receipt["api_complete"] = (
             not receipt["failures"]
             and set(receipt["operations"]) == set(OPERATIONS)
             and all(item.get("cleanup_complete") for item in receipt["runs"])
         )
+        receipt["complete"] = receipt["api_complete"]
         save()
         if not receipt["complete"]:
             raise RuntimeError(

@@ -17,6 +17,15 @@ def snapshot(contract):
 
 async def test_launch_exact_money_and_retry_identity(contract):
     requests = []
+    resources = [
+        {
+            "plugin": "pool",
+            "roles": ["worker"],
+            "limits": {"spend_micros": 100000, "rollouts": 1},
+            "selection": {"pool_ids": ["craftax-control"]},
+        }
+    ]
+    overrides = {"launch": {"preset": "test.codex_pool", "effort": "low"}}
 
     def handle(request):
         requests.append(request)
@@ -30,9 +39,10 @@ async def test_launch_exact_money_and_retry_identity(contract):
         ) as client:
             await client.swarms.launch(
                 "task",
-                project_id="proj_AAAAAAAAAAAAAAAAAAAAAA",
                 budget="0.10000001",
                 idempotency_key="launch-once",
+                resources=resources,
+                profile_overrides=overrides,
             )
     assert len(requests) == 2
     assert (
@@ -41,6 +51,9 @@ async def test_launch_exact_money_and_retry_identity(contract):
         == "launch-once"
     )
     assert requests[0].content == requests[1].content
+    body = json.loads(requests[0].content)
+    assert body["resources"] == resources
+    assert body["profile_overrides"] == overrides
     assert json.loads(requests[0].content)["limits"]["maximum_charge"] == {
         "amount": "0.10000001",
         "currency": "USD",
@@ -132,7 +145,7 @@ async def test_sse_resume_and_close(contract):
 
 
 def test_cli_inventory_and_task(tmp_path):
-    assert parser().parse_args(["billing", "invoices"]).operation == "listInvoices"
+    assert parser().parse_args(["billing", "statements"]).operation == "listStatements"
     assert parser().parse_args(["api-keys", "rotate", "key_x"]).operation == "rotateApiKey"
     (tmp_path / "task.md").write_text("Task text")
     assert read_task(str(tmp_path)) == "Task text"

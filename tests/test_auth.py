@@ -104,3 +104,43 @@ def test_refresh_rotates_and_logout_revokes_before_removal(tokens, monkeypatch):
     auth.logout(BASE)
     assert auth.read_tokens() == {}
     assert len(calls) == 4
+
+
+def test_production_signs_in_on_the_mcp_host_and_stores_under_the_api_base(tokens, monkeypatch):
+    monkeypatch.delenv("SYNTH_OAUTH_BASE_URL", raising=False)
+    assert auth.oauth_base(auth.DEFAULT_BASE_URL) == "https://mcp.usesynth.ai"
+    assert auth.oauth_base("https://core.internal.test") == "https://core.internal.test"
+    monkeypatch.setenv("SYNTH_OAUTH_BASE_URL", "https://other.example.test/")
+    assert auth.oauth_base(auth.DEFAULT_BASE_URL) == "https://other.example.test"
+    monkeypatch.delenv("SYNTH_OAUTH_BASE_URL")
+
+    oauth = "https://mcp.usesynth.ai"
+    seen = {}
+
+    def post(self, url, data=None, **_):
+        seen.update(url=url, resource=data["resource"])
+        return httpx.Response(
+            200,
+            json={"access_token": "new", "refresh_token": "r2", "expires_in": 3600},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(
+        auth,
+        "discover",
+        lambda _client, base: {"token_endpoint": base + "/mcp/oauth/token"},
+    )
+    monkeypatch.setattr(httpx.Client, "post", post)
+    auth.save_tokens(
+        {
+            auth.DEFAULT_BASE_URL: {
+                "access_token": "old",
+                "refresh_token": "r1",
+                "client_id": "c",
+                "expires_at": 0,
+            }
+        }
+    )
+    assert auth.credentials(auth.DEFAULT_BASE_URL) == (auth.DEFAULT_BASE_URL, "new")
+    assert seen == {"url": oauth + "/mcp/oauth/token", "resource": oauth + "/mcp"}
+    assert auth.DEFAULT_BASE_URL in auth.read_tokens()

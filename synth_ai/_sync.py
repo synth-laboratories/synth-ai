@@ -22,13 +22,13 @@ class SwarmsClient:
         self,
         message: str | None = None,
         *,
-        project_id: str | None = None,
         budget: str = "1.00",
         wall_time_seconds: int = 3600,
         maximum_tasks: int = 100,
         maximum_parallel_tasks: int = 4,
         inputs: dict[str, Any] | None = None,
         labels: dict[str, str] | None = None,
+        resources: list[dict[str, Any]] | None = None,
         program: dict[str, str] | None = None,
         providers: dict[str, str] | None = None,
         models: dict[str, str] | None = None,
@@ -39,13 +39,13 @@ class SwarmsClient:
         return self._runner.call(
             self._async.launch(
                 message,
-                project_id=project_id,
                 budget=budget,
                 wall_time_seconds=wall_time_seconds,
                 maximum_tasks=maximum_tasks,
                 maximum_parallel_tasks=maximum_parallel_tasks,
                 inputs=inputs,
                 labels=labels,
+                resources=resources,
                 program=program,
                 providers=providers,
                 models=models,
@@ -67,6 +67,69 @@ class SwarmsClient:
             self._async.run(message, timeout=timeout, poll_interval=poll_interval, **launch)
         )
 
+    def upload_file(
+        self, filename: str, *, media_type: str | None = None, idempotency_key: str | None = None
+    ) -> File:
+        return self._runner.call(
+            self._async.upload_file(
+                filename, media_type=media_type, idempotency_key=idempotency_key
+            )
+        )
+
+    def upload_text(
+        self,
+        content: str,
+        *,
+        name: str = "task.md",
+        media_type: str = "text/markdown",
+        idempotency_key: str | None = None,
+    ) -> File:
+        return self._runner.call(
+            self._async.upload_text(
+                content, name=name, media_type=media_type, idempotency_key=idempotency_key
+            )
+        )
+
+    def prepare_upload(
+        self,
+        *,
+        name: str,
+        media_type: str,
+        size_bytes: int,
+        digest_sha256: str,
+        idempotency_key: str | None = None,
+    ) -> Upload:
+        return self._runner.call(
+            self._async.prepare_upload(
+                name=name,
+                media_type=media_type,
+                size_bytes=size_bytes,
+                digest_sha256=digest_sha256,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def finalize_upload(self, upload_id: str, *, idempotency_key: str | None = None) -> Upload:
+        return self._runner.call(
+            self._async.finalize_upload(upload_id, idempotency_key=idempotency_key)
+        )
+
+    def upload(self, upload_id: str) -> Upload:
+        return self._runner.call(self._async.upload(upload_id))
+
+    def files(self, *, cursor: str | None = None, limit: int = 20) -> FilePage:
+        return self._runner.call(self._async.files(cursor=cursor, limit=limit))
+
+    def file(self, file_id: str) -> File:
+        return self._runner.call(self._async.file(file_id))
+
+    def update_labels(
+        self, run_id: str, labels: dict[str, str], *, expected_revision: int
+    ) -> RunLabels:
+        return self._runner.call(
+            self._async.update_labels(run_id, labels, expected_revision=expected_revision)
+        )
+
     def get(self, run_id: str) -> RunSnapshot:
         return self._runner.call(self._async.get(run_id))
 
@@ -80,19 +143,33 @@ class SwarmsClient:
         *,
         limit: int = 20,
         cursor: str | None = None,
-        project_id: str | None = None,
         state: str | None = None,
         created_after: str | None = None,
     ) -> RunPage:
         return self._runner.call(
-            self._async.list(
-                limit=limit,
-                cursor=cursor,
-                project_id=project_id,
-                state=state,
-                created_after=created_after,
-            )
+            self._async.list(limit=limit, cursor=cursor, state=state, created_after=created_after)
         )
+
+    def pause(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return self._runner.call(self._async.pause(run_id, idempotency_key=idempotency_key))
+
+    def resume(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
+        return self._runner.call(self._async.resume(run_id, idempotency_key=idempotency_key))
+
+    def program(self, run_id: str) -> RunProgram:
+        return self._runner.call(self._async.program(run_id))
+
+    def configuration(self, run_id: str) -> RunConfiguration:
+        return self._runner.call(self._async.configuration(run_id))
+
+    def sandboxes(self, run_id: str) -> RunSandboxes:
+        return self._runner.call(self._async.sandboxes(run_id))
+
+    def report(self, run_id: str) -> RunReport:
+        return self._runner.call(self._async.report(run_id))
+
+    def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
+        return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
 
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:
         return self._runner.call(self._async.cancel(run_id, idempotency_key=idempotency_key))
@@ -122,31 +199,6 @@ class SwarmsClient:
                 run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
             )
         )
-
-    def create_project(
-        self,
-        name: str,
-        *,
-        template: str | None = None,
-        objective: str | None = None,
-        code_validation: dict[str, Any] | None = None,
-        idempotency_key: str | None = None,
-    ) -> Project:
-        return self._runner.call(
-            self._async.create_project(
-                name,
-                template=template,
-                objective=objective,
-                code_validation=code_validation,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def project(self, project_id: str) -> Project:
-        return self._runner.call(self._async.project(project_id))
-
-    def projects(self, *, cursor: str | None = None, limit: int = 20) -> ProjectPage:
-        return self._runner.call(self._async.projects(cursor=cursor, limit=limit))
 
     def families(self) -> FamilyList:
         return self._runner.call(self._async.families())
@@ -195,6 +247,37 @@ class AccountClient:
     def get(self) -> Account:
         return self._runner.call(self._async.get())
 
+    def usage_summary(self, *, since: str | None = None, until: str | None = None) -> UsageSummary:
+        return self._runner.call(self._async.usage_summary(since=since, until=until))
+
+    def usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> UsageRecordPage:
+        return self._runner.call(
+            self._async.usage_records(
+                since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
+            )
+        )
+
+    def export_usage(
+        self, *, since: str, until: str, idempotency_key: str | None = None
+    ) -> UsageExport:
+        return self._runner.call(
+            self._async.export_usage(since=since, until=until, idempotency_key=idempotency_key)
+        )
+
+    def usage_export(self, export_id: str) -> UsageExport:
+        return self._runner.call(self._async.usage_export(export_id))
+
+    def limits(self) -> LimitList:
+        return self._runner.call(self._async.limits())
+
 
 class BillingClient:
     def __init__(self, runner: Runner, source: AsyncBilling) -> None:
@@ -223,8 +306,13 @@ class BillingClient:
             )
         )
 
-    def invoices(self, *, cursor: str | None = None, limit: int = 20) -> BillingStatementPage:
-        return self._runner.call(self._async.invoices(cursor=cursor, limit=limit))
+    def statements(
+        self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
+    ) -> BillingStatementPage:
+        return self._runner.call(self._async.statements(months=months, cursor=cursor, limit=limit))
+
+    def checkout_status(self, checkout_id: str) -> CheckoutAttempt:
+        return self._runner.call(self._async.checkout_status(checkout_id))
 
     def checkout(
         self,

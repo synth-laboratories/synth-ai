@@ -15,23 +15,35 @@ from pydantic import BaseModel
 from . import auth
 from ._generated.operations import OPERATIONS
 from .aclient import AsyncSynthClient
-from .errors import SwarmsAPIError, SynthError
+from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
 
 COMMANDS: dict[str, dict[str, str]] = {
     "swarms": {
         "status": "getRun",
+        "report": "getRunReport",
+        "sandboxes": "getRunSandboxes",
         "list": "listRuns",
         "events": "listRunEvents",
         "cancel": "cancelRun",
+        "pause": "pauseRun",
+        "resume": "resumeRun",
+        "program": "getRunProgram",
+        "configuration": "getRunConfiguration",
+        "tasks": "listRunTasks",
         "outputs": "listRunOutputs",
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
-        "create-project": "createProject",
-        "project": "getProject",
-        "projects": "listProjects",
         "families": "listFamilies",
+        "upload-text": "uploadFile",
+        "uploads-prepare": "createUpload",
+        "uploads-get": "getUpload",
+        "uploads-finalize": "finalizeUpload",
+        "files": "listFiles",
+        "file": "getFile",
+        "labels": "updateRunLabels",
+        "download": "getRunOutputContent",
     },
-    "account": {"get": "getAccount"},
+    "account": {"get": "getAccount", "accept-terms": "acceptTerms"},
     "api-keys": {
         "list": "listApiKeys",
         "mint": "createApiKey",
@@ -42,10 +54,18 @@ COMMANDS: dict[str, dict[str, str]] = {
     "billing": {
         "balance": "getBalance",
         "history": "listBillingHistory",
-        "invoices": "listInvoices",
+        "statements": "listStatements",
         "plans": "listPlans",
         "checkout": "createCheckout",
+        "checkout-status": "getCheckout",
     },
+    "usage": {
+        "summary": "getUsageSummary",
+        "records": "listUsageRecords",
+        "export": "createUsageExport",
+        "export-status": "getUsageExport",
+    },
+    "limits": {"list": "listLimits"},
 }
 
 
@@ -70,27 +90,36 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("--json", default="{}", help="JSON request object")
             if op["idempotent"]:
                 command.add_argument("--idempotency-key")
-            if oid == "createProject":
-                command.add_argument("--name")
             if op["binary"]:
                 command.add_argument("--out")
         if group == "swarms":
+            upload = verbs.add_parser("upload")
+            upload.add_argument("filename")
+            upload.add_argument("--media-type")
+            upload.add_argument("--idempotency-key")
             for verb in ["launch", "run"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("message", nargs="?")
                 command.add_argument("--task")
-                command.add_argument("--project-id")
                 command.add_argument("--budget", required=True)
-                command.add_argument("--program")
+                selection = command.add_mutually_exclusive_group()
+                selection.add_argument("--program")
+                selection.add_argument(
+                    "--method", choices=["status-quo", "fork-flush", "forgetting"]
+                )
+                command.add_argument("--method-task", help="published task a named method runs on")
+                command.add_argument("--method-overrides", help="JSON research parameter object")
                 command.add_argument("--idempotency-key")
                 command.add_argument("--timeout", type=float, default=600)
             command = verbs.add_parser("wait")
             command.add_argument("run_id")
             command.add_argument("--timeout", type=float, default=600)
-            for verb in ["follow", "attach"]:
+            for verb in ["follow", "attach", "watch"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("run_id")
                 command.add_argument("--last-event-id")
+                if verb == "watch":
+                    command.add_argument("--timeout", type=float, default=600)
     groups.add_parser("login")
     groups.add_parser("logout")
     auth_group = groups.add_parser("auth")
@@ -100,11 +129,14 @@ def parser() -> argparse.ArgumentParser:
 
 def emit(value: Any) -> None:
     if isinstance(value, BaseModel):
-        print(value.model_dump_json(exclude_unset=True))
+        print(value.model_dump_json(exclude_unset=True), flush=True)
     elif isinstance(value, bytes):
-        print(json.dumps({"encoding": "base64", "content": base64.b64encode(value).decode()}))
+        print(
+            json.dumps({"encoding": "base64", "content": base64.b64encode(value).decode()}),
+            flush=True,
+        )
     else:
-        print(json.dumps(value))
+        print(json.dumps(value), flush=True)
 
 
 def read_task(path: str) -> str:
@@ -140,6 +172,14 @@ async def execute(args: argparse.Namespace) -> None:
                 emit({"saved": args.out})
             else:
                 emit(result)
+        elif args.verb == "upload":
+            emit(
+                await client.swarms.upload_file(
+                    args.filename,
+                    media_type=args.media_type,
+                    idempotency_key=args.idempotency_key,
+                )
+            )
         elif args.verb in {"run", "launch"}:
             message = read_task(args.task) if args.task else args.message
             program = None
@@ -148,11 +188,29 @@ async def execute(args: argparse.Namespace) -> None:
                 if not separator or not name or not version:
                     raise ValueError("program must be FAMILY@VERSION")
                 program = {"id": name, "version": version}
+            method: dict[str, Any] | None = None
+            if args.method in {"fork-flush", "forgetting"}:
+                release = {
+                    "fork-flush": "research.fork_flush@1",
+                    "forgetting": "research.forgetting@1",
+                }[args.method]
+                if not args.method_task:
+                    raise ValueError(f"--method {args.method} requires --method-task")
+                method = {"release": release, "task": args.method_task}
+                if args.method_overrides:
+                    overrides = json.loads(args.method_overrides)
+                    if not isinstance(overrides, dict):
+                        raise ValueError("method overrides must be a JSON object")
+                    method["overrides"] = overrides
+            elif args.method_overrides or args.method_task:
+                raise ValueError(
+                    "--method-task and --method-overrides require fork-flush or forgetting"
+                )
             created = await client.swarms.launch(
                 message,
-                project_id=args.project_id,
                 budget=args.budget,
                 program=program,
+                method=method,
                 idempotency_key=args.idempotency_key,
             )
             emit(created)
@@ -160,6 +218,22 @@ async def execute(args: argparse.Namespace) -> None:
                 emit(await client.swarms.wait(created.run_id, timeout=args.timeout))
         elif args.verb == "wait":
             emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
+        elif args.verb == "watch":
+            if args.timeout <= 0:
+                raise ValueError("timeout must be positive")
+            try:
+                async with asyncio.timeout(args.timeout):
+                    async for event in client.swarms.follow(
+                        args.run_id, last_event_id=args.last_event_id
+                    ):
+                        emit(event)
+                    try:
+                        emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
+                    except RunFailedError:
+                        emit(await client.swarms.get(args.run_id))
+                        raise
+            except TimeoutError:
+                raise WaitTimeoutError("Timed out watching " + args.run_id) from None
         else:
             async for event in client.swarms.follow(args.run_id, last_event_id=args.last_event_id):
                 emit(event)
