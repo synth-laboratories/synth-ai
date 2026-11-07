@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synth-ai"
-version = "0.26.0"
+version = "0.27.0"
 description = "Typed Synth public API, CLI and MCP client"
 readme = "README.md"
 requires-python = ">=3.11"
