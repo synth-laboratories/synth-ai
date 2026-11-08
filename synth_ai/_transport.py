@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import hashlib
 import math
+import os
 import random
+import tempfile
 import time
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any, TypeVar
 from urllib.parse import quote
 from uuid import uuid4
@@ -18,10 +21,19 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from ._generated.models import MODELS, RunEvent
+from ._generated.models import MODELS, Problem, RunEvent, RunSnapshot
 from ._generated.operations import OPERATIONS
+from ._stream import StreamCheckpoint, frames
 from ._version import __version__
-from .errors import SynthError, TransportFailureError, local_problem, raise_for_response
+from .errors import (
+    ResponseContractError,
+    SwarmsAPIError,
+    SynthError,
+    TransportFailureError,
+    local_problem,
+    raise_for_response,
+    raise_problem,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -201,7 +213,15 @@ class Transport:
             try:
                 return MODELS[op["response_model"]].model_validate_json(response.content)
             except ValidationError as error:
-                raise SynthError("Response does not conform to " + operation_id) from error
+                raise ResponseContractError(
+                    local_problem(
+                        "response_contract_invalid",
+                        operation_id,
+                        unknown=op["idempotency"] == "durable_key",
+                    ),
+                    request_id=response.headers.get("x-request-id") or headers["X-Request-Id"],
+                    idempotency_key=headers.get("Idempotency-Key"),
+                ) from error
         return None
 
     async def put_upload(
@@ -236,6 +256,78 @@ class Transport:
         if response.status_code not in {200, 201, 204, 412}:
             raise SynthError("Upload transfer refused: HTTP " + str(response.status_code))
 
+    async def download_output(
+        self,
+        run_id: str,
+        output_id: str,
+        destination: Path,
+        *,
+        revision_id: str,
+        digest_sha256: str,
+        max_bytes: int,
+        expected_bytes: int | None = None,
+    ) -> None:
+        if (
+            type(max_bytes) is not int
+            or max_bytes <= 0
+            or expected_bytes is not None
+            and (type(expected_bytes) is not int or not 0 <= expected_bytes <= max_bytes)
+        ):
+            raise ValueError("invalid download size bound")
+        route = (
+            OPERATIONS["getRunOutputContent"]["path"]
+            .replace("{run_id}", quote(run_id, safe=""))
+            .replace("{output_id}", quote(output_id, safe=""))
+        )
+        temporary: str | None = None
+        try:
+            async with asyncio.timeout(self.retry_policy.deadline_seconds):
+                async with self.client.stream(
+                    "GET",
+                    self.base_url + route,
+                    params={"revision_id": revision_id, "digest_sha256": digest_sha256},
+                    headers=self.headers(),
+                    timeout=self.timeout,
+                ) as response:
+                    if not response.is_success:
+                        await response.aread()
+                        raise_for_response(response)
+                    if response.headers.get("X-Synth-Output-Revision", revision_id) != revision_id:
+                        raise ValueError("output revision does not match the pinned reference")
+                    if (
+                        response.headers.get("X-Synth-Content-SHA256", digest_sha256)
+                        != digest_sha256
+                    ):
+                        raise ValueError("output digest header does not match the pinned reference")
+                    digest, size = hashlib.sha256(), 0
+                    with tempfile.NamedTemporaryFile(
+                        dir=destination.parent, prefix="." + destination.name + ".", delete=False
+                    ) as target:
+                        temporary = target.name
+                        async for chunk in response.aiter_bytes():
+                            size += len(chunk)
+                            if size > max_bytes:
+                                raise ValueError("output exceeds the download size bound")
+                            digest.update(chunk)
+                            target.write(chunk)
+                        target.flush()
+                        os.fsync(target.fileno())
+                    if (
+                        digest.hexdigest() != digest_sha256
+                        or expected_bytes is not None
+                        and size != expected_bytes
+                    ):
+                        raise ValueError("download does not match the pinned output")
+                    os.replace(temporary, destination)
+                    temporary = None
+        except (httpx.TransportError, TimeoutError) as cause:
+            raise TransportFailureError(
+                local_problem("output_transfer_failed", "getRunOutputContent")
+            ) from cause
+        finally:
+            if temporary is not None:
+                os.unlink(temporary)
+
     async def request(self, operation_id: str, model: type[T], **kwargs: Any) -> T:
         result = await self.invoke(operation_id, **kwargs)
         if not isinstance(result, model):
@@ -243,34 +335,99 @@ class Transport:
         return result
 
     async def stream_events(
-        self, run_id: str, *, last_event_id: str | None = None
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
     ) -> AsyncIterator[RunEvent]:
-        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
-        headers = self.headers()
-        headers["Accept"] = "text/event-stream"
+        if timeout is not None and (not math.isfinite(timeout) or timeout <= 0):
+            raise ValueError("stream timeout must be finite and positive")
+        state = checkpoint if checkpoint is not None else StreamCheckpoint()
+        state.bind(run_id)
         if last_event_id is not None:
-            headers["Last-Event-ID"] = last_event_id
+            if state.last_event_id is not None and state.last_event_id != last_event_id:
+                raise ValueError("conflicting stream resume identities")
+            state.last_event_id = last_event_id
+        state.__post_init__()
+        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
         try:
-            async with self.client.stream(
-                "GET", self.base_url + route, headers=headers, timeout=None
-            ) as response:
-                if not response.is_success:
-                    await response.aread()
-                    raise_for_response(response)
-                if response.headers.get("content-type", "").split(";")[0] != "text/event-stream":
-                    raise SynthError("Expected event stream")
-                data: list[str] = []
-                async for line in response.aiter_lines():
-                    if line == "":
-                        if data:
-                            yield RunEvent.model_validate(json.loads("\n".join(data)))
-                            data = []
-                    elif line.startswith("data:"):
-                        data.append(line[5:].lstrip(" "))
-        except httpx.TransportError as error:
-            raise TransportFailureError(
-                local_problem("event_stream_interrupted", "listRunEvents")
-            ) from error
+            async with asyncio.timeout(timeout):
+                for attempt in range(self.retry_policy.attempts):
+                    headers = self.headers()
+                    headers["Accept"] = "text/event-stream"
+                    if state.last_event_id is not None:
+                        headers["Last-Event-ID"] = state.last_event_id
+                    disconnected = False
+                    try:
+                        async with self.client.stream(
+                            "GET", self.base_url + route, headers=headers, timeout=self.timeout
+                        ) as response:
+                            if not response.is_success:
+                                await response.aread()
+                                raise_for_response(response)
+                            if (
+                                response.headers.get("content-type", "").split(";")[0].strip()
+                                != "text/event-stream"
+                            ):
+                                raise ValueError("expected event stream")
+                            async for frame in frames(response.aiter_lines()):
+                                if frame.event == "error":
+                                    raise_problem(
+                                        Problem.model_validate_json(frame.data),
+                                        request_id=response.headers.get("x-request-id"),
+                                    )
+                                if frame.event not in {"message", "event"}:
+                                    raise ValueError("unknown event frame type")
+                                item = (
+                                    RunEvent.model_validate_json(frame.data) if frame.data else None
+                                )
+                                if item is not None and item.run_id != run_id:
+                                    raise ValueError("event belongs to another run")
+                                duplicate = (
+                                    item is not None and item.event_id in state.pending_event_ids
+                                )
+                                if item is not None:
+                                    state.pending_event_ids.add(item.event_id)
+                                if len(state.pending_event_ids) > 4096:
+                                    raise ValueError(
+                                        "expanded event sequence exceeds checkpoint bound"
+                                    )
+                                if frame.id is not None:
+                                    if len(frame.id) > 1024:
+                                        raise ValueError("event cursor exceeds checkpoint bound")
+                                    state.last_event_id = frame.id or None
+                                    state.pending_event_ids.clear()
+                                if item is not None and not duplicate:
+                                    yield item
+                    except httpx.TransportError:
+                        disconnected = True
+                    if not disconnected:
+                        snapshot = await self.request(
+                            "getRun", RunSnapshot, path={"run_id": run_id}
+                        )
+                        if snapshot.execution_closed:
+                            return
+                    if attempt + 1 < self.retry_policy.attempts:
+                        delay = self.retry_policy.delay(None, attempt)
+                        await asyncio.sleep(delay or 0)
+                error = TransportFailureError(
+                    local_problem("event_stream_interrupted", "listRunEvents")
+                )
+                error.checkpoint = state
+                raise error
+        except SwarmsAPIError as api_error:
+            api_error.checkpoint = state
+            raise
+        except (ValueError, ValidationError) as invalid_frame:
+            contract_error = ResponseContractError(local_problem("event_stream_invalid", "listRunEvents"))
+            contract_error.checkpoint = state
+            raise contract_error from invalid_frame
+        except TimeoutError as cause:
+            error = TransportFailureError(local_problem("event_stream_timeout", "listRunEvents"))
+            error.checkpoint = state
+            raise error from cause
 
 
 def retry_delay(value: str | None, attempt: int) -> float | None:

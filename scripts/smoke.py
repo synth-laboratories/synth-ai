@@ -207,8 +207,6 @@ async def run(output: Path, resume: bool = False) -> None:
                     "limits": {
                         "maximum_charge": {"amount": "0.10", "currency": "USD"},
                         "wall_time_seconds": 120,
-                        "maximum_tasks": 1,
-                        "maximum_parallel_tasks": 1,
                     },
                 },
                 idempotency_key=receipt["launch_keys"][str(index)],

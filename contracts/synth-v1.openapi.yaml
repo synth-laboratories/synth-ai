@@ -1,7 +1,8 @@
 openapi: 3.1.0
+x-synth-launch-contract: 2
 info:
   title: Synth API
-  version: 1.0.0
+  version: 1.1.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
   license:
@@ -3105,6 +3106,7 @@ paths:
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
       summary: Read an upload.
+      description: Returns the retained upload. A caller with swarms:write also receives a renewed size/digest-bound PUT grant while it is pending. Read-only callers receive no write grant.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
@@ -4155,32 +4157,164 @@ components:
         currency:
           type: string
           const: USD
+    LaunchBudget:
+      type: object
+      additionalProperties: false
+      required:
+      - amount
+      - currency
+      properties:
+        amount:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,8})?$
+          x-synth-budget: true
+        currency:
+          type: string
+          const: USD
+    Only:
+      type: object
+      additionalProperties: false
+      required:
+      - only
+      properties:
+        only:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+    Exclude:
+      type: object
+      additionalProperties: false
+      required:
+      - exclude
+      properties:
+        exclude:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+    RoutingConstraints:
+      type: object
+      additionalProperties: false
+      properties:
+        providers:
+          oneOf:
+          - $ref: '#/components/schemas/Only'
+          - $ref: '#/components/schemas/Exclude'
+        models:
+          oneOf:
+          - $ref: '#/components/schemas/Only'
+          - $ref: '#/components/schemas/Exclude'
+      description: Unordered hard restrictions across every managed inference actor. Provider restrictions
+        include intermediaries and serving hosts. Omission leaves assignment to Synth.
+    RoutingCatalogRoute:
+      type: object
+      additionalProperties: false
+      required:
+      - preset
+      - model
+      - providers
+      properties:
+        preset:
+          type: string
+        model:
+          type: string
+        providers:
+          type: array
+          items:
+            type: string
+    RoutingCatalog:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - models
+      - providers
+      - routes
+      properties:
+        revision:
+          type: string
+        models:
+          type: array
+          items:
+            type: string
+        providers:
+          type: array
+          items:
+            type: string
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingCatalogRoute'
+    RoutingActor:
+      type: object
+      additionalProperties: false
+      required:
+      - actor_id
+      - role
+      - model
+      - preset
+      - providers
+      - profile_digest
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+        model:
+          type: string
+        preset:
+          type: string
+        profile_digest:
+          type: string
+        providers:
+          type: array
+          items:
+            type: string
+    RoutingReadback:
+      type: object
+      additionalProperties: false
+      required:
+      - requested
+      - catalog_revision
+      - policy_revision
+      - request_digest
+      - actors
+      properties:
+        requested:
+          oneOf:
+          - $ref: '#/components/schemas/RoutingConstraints'
+          - type: 'null'
+        catalog_revision:
+          type: string
+        policy_revision:
+          type: string
+        request_digest:
+          type: string
+        actors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingActor'
     Limits:
       type: object
+      additionalProperties: false
       required:
       - maximum_charge
-      - wall_time_seconds
-      - maximum_tasks
-      - maximum_parallel_tasks
-      description: maximum_charge is required; explicit null requests operator-funded local execution.
-        maximum_parallel_tasks cannot exceed maximum_tasks.
+      description: An explicit positive USD budget is required. Task and parallelism limits are service-owned.
       properties:
         maximum_charge:
-          oneOf:
-          - $ref: '#/components/schemas/Money'
-          - type: 'null'
+          $ref: '#/components/schemas/LaunchBudget'
         wall_time_seconds:
           type: integer
           minimum: 1
           maximum: 86400
-        maximum_tasks:
-          type: integer
-          minimum: 1
-          maximum: 1000
-        maximum_parallel_tasks:
-          type: integer
-          minimum: 1
-          maximum: 1000
     Family:
       type: object
       required:
@@ -4211,6 +4345,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Family'
+        routing:
+          $ref: '#/components/schemas/RoutingCatalog'
     LaunchRequest:
       type: object
       additionalProperties: false
@@ -4254,24 +4390,18 @@ components:
           - array
           - 'null'
           maxItems: 32
-          description: What the run must address. The planner covers or declines each item. A metric on an item binds every objective derived from it, and the planner cannot change or drop it. Not accepted with method.
+          description: What the run must address. The planner covers or declines each item. A metric on an
+            item binds every objective derived from it, and the planner cannot change or drop it. Not accepted
+            with method.
           items:
             $ref: '#/components/schemas/RunGuidance'
-        providers:
-          type:
-          - object
-          - 'null'
-        models:
-          type:
-          - object
-          - 'null'
         method:
-          description: 'Runs a named method on a published task instead of a general run. Not accepted with program.
-            Refused with 422 research_task_required when task is missing, 422 research_task_invalid
-            when it is malformed, 404 research_task_not_found when no such task is published for this
-            organization, 422 research_method_unknown for an unknown release, 422 research_method_unseeded
-            when the task has no approval for this release, 422 research_method_revoked when that
-            approval is revoked, and 409 research_method_unavailable when the release is not being served.'
+          description: Runs a named method on a published task instead of a general run. Not accepted with
+            program. Refused with 422 research_task_required when task is missing, 422 research_task_invalid
+            when it is malformed, 404 research_task_not_found when no such task is published for this organization,
+            422 research_method_unknown for an unknown release, 422 research_method_unseeded when the task
+            has no approval for this release, 422 research_method_revoked when that approval is revoked, and
+            409 research_method_unavailable when the release is not being served.
           type:
           - object
           - 'null'
@@ -4315,6 +4445,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        routing:
+          $ref: '#/components/schemas/RoutingConstraints'
     OwnerResourceRequest:
       type: object
       additionalProperties: false
@@ -4438,7 +4570,8 @@ components:
           type:
           - array
           - 'null'
-          description: The run's objectives on launch and single-run reads. Read objectives_read before treating an empty list as no objectives. List pages do not read them and return an empty list.
+          description: The run's objectives on launch and single-run reads. Read objectives_read before treating
+            an empty list as no objectives. List pages do not read them and return an empty list.
           items:
             $ref: '#/components/schemas/RunObjective'
         objectives_read:
@@ -4446,7 +4579,8 @@ components:
           enum:
           - ok
           - unavailable
-          description: Whether objectives is the run's own answer. unavailable means it could not be read; the run read still succeeds. Absent on list pages.
+          description: Whether objectives is the run's own answer. unavailable means it could not be read;
+            the run read still succeeds. Absent on list pages.
         guidance_coverage:
           type:
           - array
@@ -4469,15 +4603,19 @@ components:
           type: string
         provider:
           type: string
-          description: The provider named at launch, or openai when none was named. It does not change as the run executes; the provider that served each call is on its usage record.
+          description: The provider named at launch, or openai when none was named. It does not change as
+            the run executes; the provider that served each call is on its usage record.
         result_available:
           type: boolean
-          description: True when the run completed or partially completed, or when it has ended and has at least one output, including a run that failed or was cancelled. False while the run is open, for a run that ended with no output, and for an imported run.
+          description: True when the run completed or partially completed, or when it has ended and has at
+            least one output, including a run that failed or was cancelled. False while the run is open, for
+            a run that ended with no output, and for an imported run.
         execution_closed:
           type: boolean
         accounting_final:
           type: boolean
-          description: True only once settlement has closed the run's books; releasing a hold does not flip it.
+          description: True only once settlement has closed the run's books; releasing a hold does not flip
+            it.
         cleanup_complete:
           type: boolean
         control:
@@ -4490,8 +4628,8 @@ components:
         problems_observed:
           type: boolean
         failure:
-          description: 'Open failure projection or null. Reasons include launch_not_dispatched (the worker found a
-            queued run that never reached the execution service; the hold was refunded).'
+          description: Open failure projection or null. Reasons include launch_not_dispatched (the worker
+            found a queued run that never reached the execution service; the hold was refunded).
         created_at:
           type: string
           format: date-time
@@ -4509,6 +4647,8 @@ components:
           $ref: '#/components/schemas/ProfileOverrideReadback'
         selection:
           $ref: '#/components/schemas/RunSelection'
+        routing:
+          $ref: '#/components/schemas/RoutingReadback'
     RunSelection:
       type: object
       description: 'Which snapshot a research method selected and what a trusted score covers. Present on
@@ -4715,18 +4855,24 @@ components:
           - any
         text:
           type: string
+          x-synth-message-text: true
           minLength: 1
           maxLength: 8192
+          x-synth-max-bytes: 8192
         evidence:
+          x-synth-no-nul: true
           type:
           - string
           - 'null'
           maxLength: 8192
+          x-synth-max-bytes: 8192
         acceptance:
+          x-synth-no-nul: true
           type:
           - string
           - 'null'
           maxLength: 8192
+          x-synth-max-bytes: 8192
         priority:
           type: string
           enum:
@@ -4751,6 +4897,8 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          x-synth-max-bytes: 128
+          x-synth-message-text: true
         direction:
           type: string
           enum:

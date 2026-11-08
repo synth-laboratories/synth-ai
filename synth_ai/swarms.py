@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import time
+import math
 from collections.abc import AsyncIterator
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from ._generated.models import (
@@ -16,12 +16,17 @@ from ._generated.models import (
     FamilyList,
     File,
     FilePage,
+    LaunchBudget,
+    LaunchRequest,
     Limits,
-    Money,
     OutputPage,
+    ProfileOverrides,
+    RoutingCatalog,
+    RoutingConstraints,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
+    RunGuidance,
     RunLabels,
     RunOutput,
     RunPage,
@@ -32,8 +37,16 @@ from ._generated.models import (
     RunTaskPage,
     Upload,
 )
+from ._stream import StreamCheckpoint
 from ._transport import Transport
-from .errors import RunFailedError, WaitTimeoutError
+from .errors import (
+    ResultUnavailableError,
+    RunFailedError,
+    RunHistoryUnavailableError,
+    SynthError,
+    UploadTransferError,
+    WaitTimeoutError,
+)
 
 
 class AsyncSwarms:
@@ -44,60 +57,76 @@ class AsyncSwarms:
         self,
         message: str | None = None,
         *,
-        budget: str = "1.00",
-        wall_time_seconds: int = 3600,
-        maximum_tasks: int = 100,
-        maximum_parallel_tasks: int = 4,
+        budget: str | Decimal,
+        wall_time_seconds: int | None = None,
         inputs: dict[str, Any] | None = None,
         labels: dict[str, str] | None = None,
         resources: list[dict[str, Any]] | None = None,
         program: dict[str, str] | None = None,
-        providers: dict[str, str] | None = None,
-        models: dict[str, str] | None = None,
+        routing: RoutingConstraints | dict[str, Any] | None = None,
+        guidance: list[RunGuidance | dict[str, Any]] | None = None,
         method: Any = None,
-        profile_overrides: dict[str, Any] | None = None,
+        profile_overrides: ProfileOverrides | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
+        if not isinstance(budget, (str, Decimal)):
+            raise ValueError("budget must be a decimal string or Decimal")
         try:
             amount = Decimal(budget)
             if not amount.is_finite() or amount <= 0:
                 raise ValueError("budget must be positive")
         except InvalidOperation as error:
             raise ValueError("budget must be a decimal string") from error
-        limits = Limits(
-            maximum_charge=Money(amount=format(amount, "f"), currency="USD"),
-            wall_time_seconds=wall_time_seconds,
-            maximum_tasks=maximum_tasks,
-            maximum_parallel_tasks=maximum_parallel_tasks,
-        )
-        body: dict[str, Any] = {"limits": limits.model_dump(mode="json")}
+        limit_values: dict[str, Any] = {
+            "maximum_charge": LaunchBudget(amount=format(amount, "f"), currency="USD")
+        }
+        if wall_time_seconds is not None:
+            limit_values["wall_time_seconds"] = wall_time_seconds
+        limits = Limits(**limit_values)
+        body: dict[str, Any] = {"limits": limits.model_dump(mode="json", exclude_unset=True)}
         for name, value in {
             "message": message,
             "inputs": inputs,
             "labels": labels,
             "resources": resources,
             "program": program,
-            "providers": providers,
-            "models": models,
+            "routing": routing,
+            "guidance": guidance,
             "method": method,
             "profile_overrides": profile_overrides,
         }.items():
             if value is not None:
                 body[name] = value
+        return await self.launch_request(
+            LaunchRequest.model_validate(body), idempotency_key=idempotency_key
+        )
+
+    async def launch_request(
+        self, request: LaunchRequest, *, idempotency_key: str | None = None
+    ) -> RunSnapshot:
         return await self._transport.request(
-            "createRun", RunSnapshot, body=body, idempotency_key=idempotency_key
+            "createRun", RunSnapshot, body=request, idempotency_key=idempotency_key
         )
 
     async def run(
         self,
         message: str | None = None,
         *,
+        budget: str | Decimal,
         timeout: float = 600,
         poll_interval: float = 1,
+        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        raise_on_failure: bool = False,
         **launch: Any,
     ) -> RunSnapshot:
-        created = await self.launch(message, **launch)
-        return await self.wait(created.run_id, timeout=timeout, poll_interval=poll_interval)
+        created = await self.launch(message, budget=budget, **launch)
+        return await self.wait(
+            created.run_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            until=until,
+            raise_on_failure=raise_on_failure,
+        )
 
     async def upload_file(
         self,
@@ -128,11 +157,34 @@ class AsyncSwarms:
             digest_sha256=hashlib.sha256(content).hexdigest(),
             idempotency_key=key,
         )
+        return await self._finish_upload(upload, content, key)
+
+    async def _finish_upload(self, upload: Upload, content: bytes, key: str) -> File:
+        if upload.state == "committed":
+            return upload.file
         if upload.put is None:
-            raise ValueError("Upload response has no PUT grant")
-        await self._transport.put_upload(upload.put, content, idempotency_key=key)
-        finalized = await self.finalize_upload(upload.upload_id, idempotency_key=key)
-        return finalized.file
+            raise UploadTransferError(upload.upload_id, key)
+        try:
+            await self._transport.put_upload(upload.put, content, idempotency_key=key)
+            finalized = await self.finalize_upload(upload.upload_id, idempotency_key=key)
+            if finalized.state != "committed":
+                raise UploadTransferError(upload.upload_id, key)
+            return finalized.file
+        except SynthError as cause:
+            raise UploadTransferError(upload.upload_id, key) from cause
+
+    async def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
+        upload = await self.upload(upload_id)
+        if upload.state == "committed":
+            return upload.file
+        with Path(filename).open("rb") as source:
+            content = source.read((32 << 20) + 1)
+        if (
+            len(content) != upload.file.size_bytes
+            or hashlib.sha256(content).hexdigest() != upload.file.digest_sha256
+        ):
+            raise ValueError("resume content differs from the retained upload")
+        return await self._finish_upload(upload, content, idempotency_key)
 
     async def upload_text(
         self,
@@ -204,21 +256,56 @@ class AsyncSwarms:
         return await self._transport.request("getRun", RunSnapshot, path={"run_id": run_id})
 
     async def wait(
-        self, run_id: str, *, timeout: float = 600, poll_interval: float = 1
+        self,
+        run_id: str,
+        *,
+        timeout: float = 600,
+        poll_interval: float = 1,
+        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        raise_on_failure: bool = False,
     ) -> RunSnapshot:
-        if timeout <= 0 or poll_interval <= 0:
-            raise ValueError("timeout and poll_interval must be positive")
-        end = time.monotonic() + timeout
-        while True:
-            run = await self.get(run_id)
-            if run.execution_closed:
-                if run.state == "failed":
-                    raise RunFailedError("Run " + run.run_id + " failed")
-                return run
-            remaining = end - time.monotonic()
-            if remaining <= 0:
-                raise WaitTimeoutError("Timed out waiting for " + run_id)
-            await asyncio.sleep(min(poll_interval, remaining))
+        if (
+            not math.isfinite(timeout)
+            or not math.isfinite(poll_interval)
+            or timeout <= 0
+            or poll_interval <= 0
+        ):
+            raise ValueError("timeout and poll_interval must be finite and positive")
+        if until not in {"finished", "execution_closed", "result_available"}:
+            raise ValueError("unknown completion milestone")
+        snapshot: RunSnapshot | None = None
+        try:
+            async with asyncio.timeout(timeout):
+                while True:
+                    snapshot = await self.get(run_id)
+                    finished = (
+                        snapshot.execution_closed
+                        and snapshot.accounting_final
+                        and snapshot.cleanup_complete
+                    )
+                    reached = {
+                        "finished": finished,
+                        "execution_closed": snapshot.execution_closed,
+                        "result_available": snapshot.result_available,
+                    }[until]
+                    if reached:
+                        if raise_on_failure and snapshot.state == "failed":
+                            raise RunFailedError("Run " + run_id + " failed", snapshot=snapshot)
+                        return snapshot
+                    if until == "result_available" and finished:
+                        raise ResultUnavailableError(
+                            "Run has finished without an available result", snapshot=snapshot
+                        )
+                    if snapshot.metadata.get("imported_history") is not None:
+                        raise RunHistoryUnavailableError(
+                            "This historical run cannot prove the requested milestone",
+                            snapshot=snapshot,
+                        )
+                    await asyncio.sleep(poll_interval)
+        except TimeoutError as error:
+            raise WaitTimeoutError(
+                "Timed out waiting for " + run_id, snapshot=snapshot, run_id=run_id
+            ) from error
 
     async def list(
         self,
@@ -302,9 +389,16 @@ class AsyncSwarms:
             cursor = page.next_cursor
 
     async def follow(
-        self, run_id: str, *, last_event_id: str | None = None
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
     ) -> AsyncIterator[RunEvent]:
-        async for event in self._transport.stream_events(run_id, last_event_id=last_event_id):
+        async for event in self._transport.stream_events(
+            run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+        ):
             yield event
 
     async def outputs(
@@ -325,7 +419,7 @@ class AsyncSwarms:
     async def output_content(
         self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
     ) -> bytes:
-        return cast(
+        content = cast(
             bytes,
             await self._transport.invoke(
                 "getRunOutputContent",
@@ -333,6 +427,38 @@ class AsyncSwarms:
                 query={"revision_id": revision_id, "digest_sha256": digest_sha256},
             ),
         )
+        if hashlib.sha256(content).hexdigest() != digest_sha256:
+            raise ValueError("output digest does not match the pinned reference")
+        return content
+
+    async def download_output(
+        self,
+        run_id: str,
+        output_id: str,
+        filename: str,
+        *,
+        revision_id: str,
+        digest_sha256: str,
+        max_bytes: int = 64 << 20,
+        expected_bytes: int | None = None,
+    ) -> Path:
+        destination = Path(filename)
+        await self._transport.download_output(
+            run_id,
+            output_id,
+            destination,
+            revision_id=revision_id,
+            digest_sha256=digest_sha256,
+            max_bytes=max_bytes,
+            expected_bytes=expected_bytes,
+        )
+        return destination
 
     async def families(self) -> FamilyList:
         return await self._transport.request("listFamilies", FamilyList)
+
+    async def routing_catalog(self) -> RoutingCatalog:
+        catalog = await self.families()
+        if catalog.routing is None:
+            raise ValueError("Server does not expose a routing catalog")
+        return catalog.routing

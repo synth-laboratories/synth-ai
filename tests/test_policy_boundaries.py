@@ -27,10 +27,8 @@ def test_shared_utf8_boundaries(row, tmp_path):
         assert LaunchRequest(
             message=text,
             limits={
-                "maximum_charge": None,
+                "maximum_charge": {"amount": "1.00", "currency": "USD"},
                 "wall_time_seconds": 60,
-                "maximum_tasks": 1,
-                "maximum_parallel_tasks": 1,
             },
         ).message == read_task(str(path))
     else:
@@ -38,10 +36,8 @@ def test_shared_utf8_boundaries(row, tmp_path):
             LaunchRequest(
                 message=text,
                 limits={
-                    "maximum_charge": None,
+                    "maximum_charge": {"amount": "1.00", "currency": "USD"},
                     "wall_time_seconds": 60,
-                    "maximum_tasks": 1,
-                    "maximum_parallel_tasks": 1,
                 },
             )
         assert any(item["loc"] == ("message",) for item in error.value.errors())

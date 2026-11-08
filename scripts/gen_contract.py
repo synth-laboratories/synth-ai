@@ -104,7 +104,18 @@ def generate() -> dict[Path, str]:
         if isinstance(typ, list):
             return " | ".join(annotation({**s, "type": t}) for t in typ)
         if typ == "array":
-            return "list[" + annotation(s.get("items", {})) + "]"
+            base = "list[" + annotation(s.get("items", {})) + "]"
+            meta = []
+            bounds = [
+                name + "=" + str(s[key])
+                for key, name in (("minItems", "min_length"), ("maxItems", "max_length"))
+                if key in s
+            ]
+            if bounds:
+                meta.append("Field(" + ", ".join(bounds) + ")")
+            if s.get("uniqueItems"):
+                meta.append("AfterValidator(unique_items)")
+            return "Annotated[" + base + ", " + ", ".join(meta) + "]" if meta else base
         if typ == "object":
             additional = s.get("additionalProperties")
             return (
@@ -133,6 +144,10 @@ def generate() -> dict[Path, str]:
             if dest:
                 args.append(dest + "=" + repr(v))
         metadata = ["Field(" + ", ".join(args) + ")"] if args else []
+        if s.get("x-synth-budget"):
+            metadata.append("AfterValidator(budget_amount)")
+        if s.get("x-synth-no-nul"):
+            metadata.append("AfterValidator(no_nul)")
         if s.get("x-synth-message-text"):
             metadata.append("AfterValidator(message_text)")
         if "x-synth-max-bytes" in s:
@@ -165,7 +180,7 @@ def generate() -> dict[Path, str]:
         "from __future__ import annotations",
         "from typing import Annotated, Any, Literal, TypeAlias",
         "from pydantic import AfterValidator, BaseModel, ConfigDict, Field",
-        "from synth_ai._validation import message_text, utf8_max_bytes",
+        "from synth_ai._validation import budget_amount, message_text, no_nul, unique_items, utf8_max_bytes",
         "",
     ]
     modelnames = []

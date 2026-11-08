@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.26.0.
+Typed Python 3.11+ client for the Synth public API v1. Version 0.28.0 (launch contract 2).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.
@@ -55,3 +55,7 @@ The equivalent Python arguments are `method={"release": "research.fork_flush@1",
 "overrides": {"branches": 2}}` and `method={"release": "research.forgetting@1",
 "overrides": {"peers": 2}}`. Omit `method` for Status Quo. Read `run.method` to
 inspect the immutable release and execution pins retained with the run.
+
+Routing restrictions, mandatory budgets, completion milestones and resumable
+transfers are documented in [Swarms](docs/swarms.md). Version 0.28.0 removes
+public task-count controls and the old top-level provider/model mappings.

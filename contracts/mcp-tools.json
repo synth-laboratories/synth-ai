@@ -59,14 +59,18 @@
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "x-synth-max-bytes": 8192,
+                      "x-synth-no-nul": true
                     },
                     "evidence": {
                       "maxLength": 8192,
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "x-synth-max-bytes": 8192,
+                      "x-synth-no-nul": true
                     },
                     "id": {
                       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
@@ -96,7 +100,9 @@
                             "name": {
                               "maxLength": 128,
                               "minLength": 1,
-                              "type": "string"
+                              "type": "string",
+                              "x-synth-max-bytes": 128,
+                              "x-synth-message-text": true
                             },
                             "source": {
                               "enum": [
@@ -137,7 +143,9 @@
                     "text": {
                       "maxLength": 8192,
                       "minLength": 1,
-                      "type": "string"
+                      "type": "string",
+                      "x-synth-max-bytes": 8192,
+                      "x-synth-message-text": true
                     }
                   },
                   "required": [
@@ -193,45 +201,27 @@
                 "type": "object"
               },
               "limits": {
-                "description": "maximum_charge is required; explicit null requests operator-funded local execution. maximum_parallel_tasks cannot exceed maximum_tasks.",
+                "additionalProperties": false,
+                "description": "An explicit positive USD budget is required. Task and parallelism limits are service-owned.",
                 "properties": {
                   "maximum_charge": {
-                    "oneOf": [
-                      {
-                        "additionalProperties": false,
-                        "properties": {
-                          "amount": {
-                            "examples": [
-                              "5.00"
-                            ],
-                            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
-                            "type": "string"
-                          },
-                          "currency": {
-                            "const": "USD",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "amount",
-                          "currency"
-                        ],
-                        "type": "object"
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$",
+                        "type": "string",
+                        "x-synth-budget": true
                       },
-                      {
-                        "type": "null"
+                      "currency": {
+                        "const": "USD",
+                        "type": "string"
                       }
-                    ]
-                  },
-                  "maximum_parallel_tasks": {
-                    "maximum": 1000,
-                    "minimum": 1,
-                    "type": "integer"
-                  },
-                  "maximum_tasks": {
-                    "maximum": 1000,
-                    "minimum": 1,
-                    "type": "integer"
+                    },
+                    "required": [
+                      "amount",
+                      "currency"
+                    ],
+                    "type": "object"
                   },
                   "wall_time_seconds": {
                     "maximum": 86400,
@@ -240,10 +230,7 @@
                   }
                 },
                 "required": [
-                  "maximum_charge",
-                  "wall_time_seconds",
-                  "maximum_tasks",
-                  "maximum_parallel_tasks"
+                  "maximum_charge"
                 ],
                 "type": "object"
               },
@@ -285,12 +272,6 @@
                   "release",
                   "task"
                 ],
-                "type": [
-                  "object",
-                  "null"
-                ]
-              },
-              "models": {
                 "type": [
                   "object",
                   "null"
@@ -388,12 +369,6 @@
                   "id"
                 ],
                 "type": "object"
-              },
-              "providers": {
-                "type": [
-                  "object",
-                  "null"
-                ]
               },
               "resources": {
                 "items": {
@@ -521,6 +496,99 @@
                 },
                 "maxItems": 8,
                 "type": "array"
+              },
+              "routing": {
+                "additionalProperties": false,
+                "description": "Unordered hard restrictions across every managed inference actor. Provider restrictions include intermediaries and serving hosts. Omission leaves assignment to Synth.",
+                "properties": {
+                  "models": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "only": {
+                            "items": {
+                              "maxLength": 128,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "maxItems": 64,
+                            "minItems": 1,
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "only"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "exclude": {
+                            "items": {
+                              "maxLength": 128,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "maxItems": 64,
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "exclude"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "providers": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "only": {
+                            "items": {
+                              "maxLength": 128,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "maxItems": 64,
+                            "minItems": 1,
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "only"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "exclude": {
+                            "items": {
+                              "maxLength": 128,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "maxItems": 64,
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "exclude"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
               }
             },
             "required": [

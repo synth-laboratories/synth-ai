@@ -39,7 +39,7 @@ async def test_launch_exact_money_and_retry_identity(contract):
         ) as client:
             await client.swarms.launch(
                 "task",
-                budget="0.10000001",
+                budget="0.100001",
                 idempotency_key="launch-once",
                 resources=resources,
                 profile_overrides=overrides,
@@ -55,7 +55,7 @@ async def test_launch_exact_money_and_retry_identity(contract):
     assert body["resources"] == resources
     assert body["profile_overrides"] == overrides
     assert json.loads(requests[0].content)["limits"]["maximum_charge"] == {
-        "amount": "0.10000001",
+        "amount": "0.100001",
         "currency": "USD",
     }
 
@@ -124,6 +124,10 @@ async def test_sse_resume_and_close(contract):
     }
 
     def stream(request):
+        if request.headers.get("accept") != "text/event-stream":
+            body = snapshot(contract).copy()
+            body["execution_closed"] = True
+            return httpx.Response(200, json=body)
         assert request.headers["Last-Event-ID"] == "12"
         return httpx.Response(
             200,

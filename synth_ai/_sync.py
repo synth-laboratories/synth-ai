@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import Iterator
-from typing import Any
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Literal
 
 from ._blocking import Runner
 from ._generated.models import *  # noqa: F403
+from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
 from .swarms import AsyncSwarms
@@ -22,18 +25,16 @@ class SwarmsClient:
         self,
         message: str | None = None,
         *,
-        budget: str = "1.00",
-        wall_time_seconds: int = 3600,
-        maximum_tasks: int = 100,
-        maximum_parallel_tasks: int = 4,
+        budget: str | Decimal,
+        wall_time_seconds: int | None = None,
         inputs: dict[str, Any] | None = None,
         labels: dict[str, str] | None = None,
         resources: list[dict[str, Any]] | None = None,
         program: dict[str, str] | None = None,
-        providers: dict[str, str] | None = None,
-        models: dict[str, str] | None = None,
+        routing: RoutingConstraints | dict[str, Any] | None = None,
+        guidance: list[RunGuidance | dict[str, Any]] | None = None,
         method: Any = None,
-        profile_overrides: dict[str, Any] | None = None,
+        profile_overrides: ProfileOverrides | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
@@ -41,30 +42,46 @@ class SwarmsClient:
                 message,
                 budget=budget,
                 wall_time_seconds=wall_time_seconds,
-                maximum_tasks=maximum_tasks,
-                maximum_parallel_tasks=maximum_parallel_tasks,
                 inputs=inputs,
                 labels=labels,
                 resources=resources,
                 program=program,
-                providers=providers,
-                models=models,
+                routing=routing,
+                guidance=guidance,
                 method=method,
                 profile_overrides=profile_overrides,
                 idempotency_key=idempotency_key,
             )
         )
 
+    def launch_request(
+        self, request: LaunchRequest, *, idempotency_key: str | None = None
+    ) -> RunSnapshot:
+        return self._runner.call(
+            self._async.launch_request(request, idempotency_key=idempotency_key)
+        )
+
     def run(
         self,
         message: str | None = None,
         *,
+        budget: str | Decimal,
         timeout: float = 600,
         poll_interval: float = 1,
+        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        raise_on_failure: bool = False,
         **launch: Any,
     ) -> RunSnapshot:
         return self._runner.call(
-            self._async.run(message, timeout=timeout, poll_interval=poll_interval, **launch)
+            self._async.run(
+                message,
+                budget=budget,
+                timeout=timeout,
+                poll_interval=poll_interval,
+                until=until,
+                raise_on_failure=raise_on_failure,
+                **launch,
+            )
         )
 
     def upload_file(
@@ -74,6 +91,11 @@ class SwarmsClient:
             self._async.upload_file(
                 filename, media_type=media_type, idempotency_key=idempotency_key
             )
+        )
+
+    def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
+        return self._runner.call(
+            self._async.resume_upload(upload_id, filename, idempotency_key=idempotency_key)
         )
 
     def upload_text(
@@ -133,9 +155,23 @@ class SwarmsClient:
     def get(self, run_id: str) -> RunSnapshot:
         return self._runner.call(self._async.get(run_id))
 
-    def wait(self, run_id: str, *, timeout: float = 600, poll_interval: float = 1) -> RunSnapshot:
+    def wait(
+        self,
+        run_id: str,
+        *,
+        timeout: float = 600,
+        poll_interval: float = 1,
+        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        raise_on_failure: bool = False,
+    ) -> RunSnapshot:
         return self._runner.call(
-            self._async.wait(run_id, timeout=timeout, poll_interval=poll_interval)
+            self._async.wait(
+                run_id,
+                timeout=timeout,
+                poll_interval=poll_interval,
+                until=until,
+                raise_on_failure=raise_on_failure,
+            )
         )
 
     def list(
@@ -182,8 +218,19 @@ class SwarmsClient:
     ) -> Iterator[RunEvent]:
         return self._runner.iterate(self._async.iter_events(run_id, cursor=cursor, limit=limit))
 
-    def follow(self, run_id: str, *, last_event_id: str | None = None) -> Iterator[RunEvent]:
-        return self._runner.iterate(self._async.follow(run_id, last_event_id=last_event_id))
+    def follow(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> Iterator[RunEvent]:
+        return self._runner.iterate(
+            self._async.follow(
+                run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+            )
+        )
 
     def outputs(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> OutputPage:
         return self._runner.call(self._async.outputs(run_id, cursor=cursor, limit=limit))
@@ -200,8 +247,34 @@ class SwarmsClient:
             )
         )
 
+    def download_output(
+        self,
+        run_id: str,
+        output_id: str,
+        filename: str,
+        *,
+        revision_id: str,
+        digest_sha256: str,
+        max_bytes: int = 64 << 20,
+        expected_bytes: int | None = None,
+    ) -> Path:
+        return self._runner.call(
+            self._async.download_output(
+                run_id,
+                output_id,
+                filename,
+                revision_id=revision_id,
+                digest_sha256=digest_sha256,
+                max_bytes=max_bytes,
+                expected_bytes=expected_bytes,
+            )
+        )
+
     def families(self) -> FamilyList:
         return self._runner.call(self._async.families())
+
+    def routing_catalog(self) -> RoutingCatalog:
+        return self._runner.call(self._async.routing_catalog())
 
 
 class ApiKeysClient:

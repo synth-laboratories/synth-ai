@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from synth_ai._validation import message_text, utf8_max_bytes
+from synth_ai._validation import budget_amount, message_text, no_nul, unique_items, utf8_max_bytes
 
 
 class AccountTerms(BaseModel):
@@ -25,6 +25,15 @@ class ControlRef(BaseModel):
 
 
 EvtId: TypeAlias = Annotated[str, Field(pattern="^evt_[A-Za-z0-9_-]{22}$")]
+
+
+class Exclude(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    exclude: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]],
+        Field(max_length=64),
+        AfterValidator(unique_items),
+    ]
 
 
 class Family(BaseModel):
@@ -48,6 +57,14 @@ class File(BaseModel):
 
 
 KeyId: TypeAlias = Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
+
+
+class LaunchBudget(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    amount: Annotated[
+        str, Field(pattern="^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$"), AfterValidator(budget_amount)
+    ]
+    currency: Literal["USD"]
 
 
 class Limit(BaseModel):
@@ -102,7 +119,7 @@ class OAuthClient(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     client_id: str
     client_name: Annotated[str, Field(min_length=1, max_length=128)]
-    redirect_uris: list[str]
+    redirect_uris: Annotated[list[str], Field(min_length=1, max_length=10)]
     grant_types: list[Literal["authorization_code", "refresh_token"]]
     response_types: list[Literal["code"]]
     token_endpoint_auth_method: Literal["none"]
@@ -111,7 +128,7 @@ class OAuthClient(BaseModel):
 class OAuthClientRegistration(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     client_name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
-    redirect_uris: list[str]
+    redirect_uris: Annotated[list[str], Field(min_length=1, max_length=10)]
     grant_types: list[Literal["authorization_code", "refresh_token"]] | None = None
     response_types: list[Literal["code"]] | None = None
     token_endpoint_auth_method: Literal["none"] | None = None
@@ -281,6 +298,15 @@ class ObjectiveVerdict(BaseModel):
     reason: str
 
 
+class Only(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    only: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]],
+        Field(min_length=1, max_length=64),
+        AfterValidator(unique_items),
+    ]
+
+
 class Org(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     id: str
@@ -358,6 +384,23 @@ class ResolvedActor(BaseModel):
     evaluated: bool
 
 
+class RoutingActor(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    actor_id: str
+    role: str
+    model: str
+    preset: str
+    profile_digest: str
+    providers: list[str]
+
+
+class RoutingCatalogRoute(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    preset: str
+    model: str
+    providers: list[str]
+
+
 class RunControlReceipt(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     operation_id: str
@@ -372,7 +415,12 @@ class RunControlReceipt(BaseModel):
 
 class RunGuidanceMetric(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    name: Annotated[str, Field(min_length=1, max_length=128)]
+    name: Annotated[
+        str,
+        Field(min_length=1, max_length=128),
+        AfterValidator(message_text),
+        AfterValidator(utf8_max_bytes(128)),
+    ]
     direction: Literal["maximize", "minimize"]
     target: (
         Annotated[float, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
@@ -593,11 +641,6 @@ class CheckoutSession(BaseModel):
     url: str
 
 
-class FamilyList(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    families: list[Family]
-
-
 class FilePage(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     items: list[File]
@@ -613,11 +656,9 @@ class LimitList(BaseModel):
 
 
 class Limits(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-    maximum_charge: Money | None
-    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)]
-    maximum_tasks: Annotated[int, Field(ge=1, le=1000)]
-    maximum_parallel_tasks: Annotated[int, Field(ge=1, le=1000)]
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    maximum_charge: LaunchBudget
+    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
 
 
 class McpResponse(BaseModel):
@@ -632,7 +673,7 @@ class MintApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     purpose: Literal["personal", "automation"] | None = None
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
-    scopes: list[Scope] | None = None
+    scopes: Annotated[list[Scope], Field(max_length=32), AfterValidator(unique_items)] | None = None
     expires_at: str | None = None
     request_id: str | None = None
 
@@ -689,7 +730,11 @@ class OwnerResourceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     plugin: Literal["pool"]
     version: Literal[1] | None = None
-    roles: list[Literal["planner", "worker", "reviewer", "run_assessor"]]
+    roles: Annotated[
+        list[Literal["planner", "worker", "reviewer", "run_assessor"]],
+        Field(min_length=1, max_length=4),
+        AfterValidator(unique_items),
+    ]
     limits: OwnerResourceLimits
     role_limits: dict[str, OwnerResourceLimits] | None = None
     selection: dict[str, Any]
@@ -734,6 +779,20 @@ class RefundDetail(BaseModel):
     refunded: Money
 
 
+class RoutingCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    revision: str
+    models: list[str]
+    providers: list[str]
+    routes: list[RoutingCatalogRoute]
+
+
+class RoutingConstraints(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    providers: Only | Exclude | None = None
+    models: Only | Exclude | None = None
+
+
 class RunConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     run_id: RunId
@@ -757,9 +816,30 @@ class RunGuidance(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     id: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
     kind: Literal["question", "outcome", "any"]
-    text: Annotated[str, Field(min_length=1, max_length=8192)]
-    evidence: Annotated[str, Field(max_length=8192)] | None = None
-    acceptance: Annotated[str, Field(max_length=8192)] | None = None
+    text: Annotated[
+        str,
+        Field(min_length=1, max_length=8192),
+        AfterValidator(message_text),
+        AfterValidator(utf8_max_bytes(8192)),
+    ]
+    evidence: (
+        Annotated[
+            str,
+            Field(max_length=8192),
+            AfterValidator(no_nul),
+            AfterValidator(utf8_max_bytes(8192)),
+        ]
+        | None
+    ) = None
+    acceptance: (
+        Annotated[
+            str,
+            Field(max_length=8192),
+            AfterValidator(no_nul),
+            AfterValidator(utf8_max_bytes(8192)),
+        ]
+        | None
+    ) = None
     priority: Literal["must", "should", "nice"]
     metric: RunGuidanceMetric | None = None
 
@@ -885,7 +965,7 @@ class SelectionCandidate(BaseModel):
 
 class UpdateApiKeyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    scopes: list[Scope]
+    scopes: Annotated[list[Scope], Field(max_length=32), AfterValidator(unique_items)]
     expected_version: Annotated[int, Field(ge=1)]
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
 
@@ -990,6 +1070,12 @@ class EventPage(BaseModel):
     resume_cursor: str | None
 
 
+class FamilyList(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    families: list[Family]
+    routing: RoutingCatalog | None = None
+
+
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     message: (
@@ -1003,14 +1089,13 @@ class LaunchRequest(BaseModel):
     ) = None
     limits: Limits
     inputs: dict[str, Any] | None = None
-    guidance: list[RunGuidance] | None = None
-    providers: dict[str, Any] | None = None
-    models: dict[str, Any] | None = None
+    guidance: Annotated[list[RunGuidance], Field(max_length=32)] | None = None
     method: dict[str, Any] | None = None
     program: dict[str, Any] | None = None
     profile_overrides: ProfileOverrides | None = None
-    resources: list[OwnerResourceRequest] | None = None
+    resources: Annotated[list[OwnerResourceRequest], Field(max_length=8)] | None = None
     labels: dict[str, str] | None = None
+    routing: RoutingConstraints | None = None
 
 
 class OutputPage(BaseModel):
@@ -1031,6 +1116,15 @@ class ProfileOverrideReadback(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     requested: ProfileOverrides
     resolution: OverrideResolution
+
+
+class RoutingReadback(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    requested: RoutingConstraints | None
+    catalog_revision: str
+    policy_revision: str
+    request_digest: str
+    actors: list[RoutingActor]
 
 
 class RunObjective(BaseModel):
@@ -1171,6 +1265,7 @@ class RunSnapshot(BaseModel):
     closed_at: str | None
     profile_overrides: ProfileOverrideReadback | None = None
     selection: RunSelection | None = None
+    routing: RoutingReadback | None = None
 
 
 class RunPage(BaseModel):
@@ -1183,8 +1278,10 @@ class RunPage(BaseModel):
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
     "ControlRef": ControlRef,
+    "Exclude": Exclude,
     "Family": Family,
     "File": File,
+    "LaunchBudget": LaunchBudget,
     "Limit": Limit,
     "LimitRow": LimitRow,
     "McpError": McpError,
@@ -1211,12 +1308,15 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveProgressPayload": ObjectiveProgressPayload,
     "ObjectiveReceipt": ObjectiveReceipt,
     "ObjectiveVerdict": ObjectiveVerdict,
+    "Only": Only,
     "Org": Org,
     "PageFields": PageFields,
     "Principal": Principal,
     "Problem": Problem,
     "ProfileChoice": ProfileChoice,
     "ResolvedActor": ResolvedActor,
+    "RoutingActor": RoutingActor,
+    "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunControlReceipt": RunControlReceipt,
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
@@ -1242,7 +1342,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
-    "FamilyList": FamilyList,
     "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
@@ -1256,6 +1355,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "Plan": Plan,
     "ProfileOverrides": ProfileOverrides,
     "RefundDetail": RefundDetail,
+    "RoutingCatalog": RoutingCatalog,
+    "RoutingConstraints": RoutingConstraints,
     "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,
@@ -1278,10 +1379,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "EventPage": EventPage,
+    "FamilyList": FamilyList,
     "LaunchRequest": LaunchRequest,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "ProfileOverrideReadback": ProfileOverrideReadback,
+    "RoutingReadback": RoutingReadback,
     "RunObjective": RunObjective,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,

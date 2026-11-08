@@ -62,8 +62,18 @@ TOOLS: list[dict[str, Any]] = [
                             "items": {
                                 "additionalProperties": False,
                                 "properties": {
-                                    "acceptance": {"maxLength": 8192, "type": ["string", "null"]},
-                                    "evidence": {"maxLength": 8192, "type": ["string", "null"]},
+                                    "acceptance": {
+                                        "maxLength": 8192,
+                                        "type": ["string", "null"],
+                                        "x-synth-max-bytes": 8192,
+                                        "x-synth-no-nul": True,
+                                    },
+                                    "evidence": {
+                                        "maxLength": 8192,
+                                        "type": ["string", "null"],
+                                        "x-synth-max-bytes": 8192,
+                                        "x-synth-no-nul": True,
+                                    },
                                     "id": {
                                         "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
                                         "type": "string",
@@ -93,6 +103,8 @@ TOOLS: list[dict[str, Any]] = [
                                                         "maxLength": 128,
                                                         "minLength": 1,
                                                         "type": "string",
+                                                        "x-synth-max-bytes": 128,
+                                                        "x-synth-message-text": True,
                                                     },
                                                     "source": {
                                                         "enum": ["rollout_score"],
@@ -131,7 +143,13 @@ TOOLS: list[dict[str, Any]] = [
                                         "enum": ["must", "should", "nice"],
                                         "type": "string",
                                     },
-                                    "text": {"maxLength": 8192, "minLength": 1, "type": "string"},
+                                    "text": {
+                                        "maxLength": 8192,
+                                        "minLength": 1,
+                                        "type": "string",
+                                        "x-synth-max-bytes": 8192,
+                                        "x-synth-message-text": True,
+                                    },
                                 },
                                 "required": ["id", "kind", "text", "priority"],
                                 "type": "object",
@@ -162,53 +180,36 @@ TOOLS: list[dict[str, Any]] = [
                         },
                         "labels": {"additionalProperties": {"type": "string"}, "type": "object"},
                         "limits": {
-                            "description": "maximum_charge "
-                            "is required; "
-                            "explicit null "
-                            "requests "
-                            "operator-funded "
-                            "local "
-                            "execution. "
-                            "maximum_parallel_tasks "
-                            "cannot exceed "
-                            "maximum_tasks.",
+                            "additionalProperties": False,
+                            "description": "An explicit "
+                            "positive USD "
+                            "budget is "
+                            "required. Task "
+                            "and "
+                            "parallelism "
+                            "limits are "
+                            "service-owned.",
                             "properties": {
                                 "maximum_charge": {
-                                    "oneOf": [
-                                        {
-                                            "additionalProperties": False,
-                                            "properties": {
-                                                "amount": {
-                                                    "examples": ["5.00"],
-                                                    "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
-                                                    "type": "string",
-                                                },
-                                                "currency": {"const": "USD", "type": "string"},
-                                            },
-                                            "required": ["amount", "currency"],
-                                            "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "amount": {
+                                            "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$",
+                                            "type": "string",
+                                            "x-synth-budget": True,
                                         },
-                                        {"type": "null"},
-                                    ]
+                                        "currency": {"const": "USD", "type": "string"},
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "type": "object",
                                 },
-                                "maximum_parallel_tasks": {
-                                    "maximum": 1000,
-                                    "minimum": 1,
-                                    "type": "integer",
-                                },
-                                "maximum_tasks": {"maximum": 1000, "minimum": 1, "type": "integer"},
                                 "wall_time_seconds": {
                                     "maximum": 86400,
                                     "minimum": 1,
                                     "type": "integer",
                                 },
                             },
-                            "required": [
-                                "maximum_charge",
-                                "wall_time_seconds",
-                                "maximum_tasks",
-                                "maximum_parallel_tasks",
-                            ],
+                            "required": ["maximum_charge"],
                             "type": "object",
                         },
                         "message": {
@@ -279,7 +280,6 @@ TOOLS: list[dict[str, Any]] = [
                             "required": ["release", "task"],
                             "type": ["object", "null"],
                         },
-                        "models": {"type": ["object", "null"]},
                         "profile_overrides": {
                             "additionalProperties": False,
                             "properties": {
@@ -344,7 +344,6 @@ TOOLS: list[dict[str, Any]] = [
                             "required": ["id"],
                             "type": "object",
                         },
-                        "providers": {"type": ["object", "null"]},
                         "resources": {
                             "items": {
                                 "additionalProperties": False,
@@ -439,6 +438,107 @@ TOOLS: list[dict[str, Any]] = [
                             },
                             "maxItems": 8,
                             "type": "array",
+                        },
+                        "routing": {
+                            "additionalProperties": False,
+                            "description": "Unordered "
+                            "hard "
+                            "restrictions "
+                            "across every "
+                            "managed "
+                            "inference "
+                            "actor. "
+                            "Provider "
+                            "restrictions "
+                            "include "
+                            "intermediaries "
+                            "and serving "
+                            "hosts. "
+                            "Omission "
+                            "leaves "
+                            "assignment to "
+                            "Synth.",
+                            "properties": {
+                                "models": {
+                                    "oneOf": [
+                                        {
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "only": {
+                                                    "items": {
+                                                        "maxLength": 128,
+                                                        "minLength": 1,
+                                                        "type": "string",
+                                                    },
+                                                    "maxItems": 64,
+                                                    "minItems": 1,
+                                                    "type": "array",
+                                                    "uniqueItems": True,
+                                                }
+                                            },
+                                            "required": ["only"],
+                                            "type": "object",
+                                        },
+                                        {
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "exclude": {
+                                                    "items": {
+                                                        "maxLength": 128,
+                                                        "minLength": 1,
+                                                        "type": "string",
+                                                    },
+                                                    "maxItems": 64,
+                                                    "type": "array",
+                                                    "uniqueItems": True,
+                                                }
+                                            },
+                                            "required": ["exclude"],
+                                            "type": "object",
+                                        },
+                                    ]
+                                },
+                                "providers": {
+                                    "oneOf": [
+                                        {
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "only": {
+                                                    "items": {
+                                                        "maxLength": 128,
+                                                        "minLength": 1,
+                                                        "type": "string",
+                                                    },
+                                                    "maxItems": 64,
+                                                    "minItems": 1,
+                                                    "type": "array",
+                                                    "uniqueItems": True,
+                                                }
+                                            },
+                                            "required": ["only"],
+                                            "type": "object",
+                                        },
+                                        {
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "exclude": {
+                                                    "items": {
+                                                        "maxLength": 128,
+                                                        "minLength": 1,
+                                                        "type": "string",
+                                                    },
+                                                    "maxItems": 64,
+                                                    "type": "array",
+                                                    "uniqueItems": True,
+                                                }
+                                            },
+                                            "required": ["exclude"],
+                                            "type": "object",
+                                        },
+                                    ]
+                                },
+                            },
+                            "type": "object",
                         },
                     },
                     "required": ["limits"],

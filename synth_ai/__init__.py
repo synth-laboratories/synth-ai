@@ -5,6 +5,7 @@ from ._version import __version__
 from .aclient import AsyncSynthClient
 from .client import SynthClient
 from .errors import SwarmsAPIError, SynthError
+from .models import Exclude, LaunchRequest, Only, RoutingConstraints, StreamCheckpoint
 
 __all__ = [
     "AsyncSynthClient",
@@ -13,4 +14,9 @@ __all__ = [
     "SwarmsAPIError",
     "__version__",
     "RetryPolicy",
+    "Exclude",
+    "Only",
+    "LaunchRequest",
+    "RoutingConstraints",
+    "StreamCheckpoint",
 ]

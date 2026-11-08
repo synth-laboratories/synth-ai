@@ -36,7 +36,7 @@ def test_watch_streams_then_reports_terminal_state(contract, state, exit_code):
             "application/json"
         ]["example"]
     )
-    snapshot.update(state=state, execution_closed=True)
+    snapshot.update(state=state, execution_closed=True, accounting_final=True, cleanup_complete=True)
     event = {
         "event_id": "evt_AAAAAAAAAAAAAAAAAAAAAA",
         "run_id": snapshot["run_id"],
