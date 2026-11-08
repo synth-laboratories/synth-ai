@@ -211,7 +211,12 @@ TOOLS: list[dict[str, Any]] = [
                             ],
                             "type": "object",
                         },
-                        "message": {"maxLength": 8192, "minLength": 1, "type": ["string", "null"]},
+                        "message": {
+                            "maxLength": 8192,
+                            "minLength": 1,
+                            "type": ["string", "null"],
+                            "x-synth-max-bytes": 8192,
+                        },
                         "method": {
                             "additionalProperties": False,
                             "description": "Runs a named "

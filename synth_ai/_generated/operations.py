@@ -9,6 +9,7 @@ class Operation(TypedDict):
     path_params: list[str]
     query_params: list[str]
     idempotent: bool
+    retry: str
     request_model: str | None
     response_model: str | None
     binary: bool
@@ -26,6 +27,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "TermsAcceptanceRequest",
         "response_model": "TermsAcceptance",
+        "retry": "never",
         "scope": "account:write",
     },
     "cancelRun": {
@@ -38,6 +40,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunSnapshot",
+        "retry": "never",
         "scope": "swarms:control",
     },
     "createApiKey": {
@@ -50,6 +53,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "MintApiKeyRequest",
         "response_model": "MintedApiKey",
+        "retry": "never",
         "scope": "account:write",
     },
     "createCheckout": {
@@ -62,6 +66,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "CheckoutRequest",
         "response_model": "CheckoutSession",
+        "retry": "deduplicated",
         "scope": "account:billing:write",
     },
     "createRun": {
@@ -74,6 +79,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "LaunchRequest",
         "response_model": "RunSnapshot",
+        "retry": "deduplicated",
         "scope": "swarms:run",
     },
     "createUpload": {
@@ -86,6 +92,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UploadCreateRequest",
         "response_model": "Upload",
+        "retry": "never",
         "scope": "swarms:write",
     },
     "createUsageExport": {
@@ -98,6 +105,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UsageExportRequest",
         "response_model": "UsageExport",
+        "retry": "never",
         "scope": "account:read",
     },
     "finalizeUpload": {
@@ -110,6 +118,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "Upload",
+        "retry": "never",
         "scope": "swarms:write",
     },
     "getAccount": {
@@ -122,6 +131,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "Account",
+        "retry": "safe_read",
         "scope": "account:read",
     },
     "getBalance": {
@@ -134,6 +144,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "Balance",
+        "retry": "safe_read",
         "scope": "account:billing:read",
     },
     "getCheckout": {
@@ -146,6 +157,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "CheckoutAttempt",
+        "retry": "safe_read",
         "scope": "account:billing:read",
     },
     "getFile": {
@@ -158,6 +170,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "File",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRun": {
@@ -170,6 +183,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunSnapshot",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunConfiguration": {
@@ -182,6 +196,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunConfiguration",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunOutput": {
@@ -194,6 +209,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunOutput",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunOutputContent": {
@@ -206,6 +222,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["revision_id", "digest_sha256"],
         "request_model": None,
         "response_model": None,
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunProgram": {
@@ -218,6 +235,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunProgram",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunReport": {
@@ -230,6 +248,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunReport",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getRunSandboxes": {
@@ -242,6 +261,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunSandboxes",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getUpload": {
@@ -254,6 +274,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "Upload",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "getUsageExport": {
@@ -266,6 +287,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "UsageExport",
+        "retry": "safe_read",
         "scope": "account:read",
     },
     "getUsageSummary": {
@@ -278,6 +300,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["since", "until"],
         "request_model": None,
         "response_model": "UsageSummary",
+        "retry": "safe_read",
         "scope": "account:usage:read",
     },
     "listApiKeys": {
@@ -290,6 +313,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["purpose", "limit", "cursor"],
         "request_model": None,
         "response_model": "ApiKeyPage",
+        "retry": "safe_read",
         "scope": "account:read",
     },
     "listBillingHistory": {
@@ -302,6 +326,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["cause", "run_id", "since", "until", "limit", "cursor"],
         "request_model": None,
         "response_model": "BillingHistoryPage",
+        "retry": "safe_read",
         "scope": "account:billing:read",
     },
     "listFamilies": {
@@ -314,6 +339,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "FamilyList",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listFiles": {
@@ -326,6 +352,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["limit", "cursor"],
         "request_model": None,
         "response_model": "FilePage",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listLimits": {
@@ -338,6 +365,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "LimitList",
+        "retry": "safe_read",
         "scope": "account:limits:read",
     },
     "listPlans": {
@@ -350,6 +378,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "PlanCatalog",
+        "retry": "safe_read",
         "scope": "",
     },
     "listRunEvents": {
@@ -362,6 +391,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["limit", "cursor"],
         "request_model": None,
         "response_model": "EventPage",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listRunOutputs": {
@@ -374,6 +404,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["limit", "cursor"],
         "request_model": None,
         "response_model": "OutputPage",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listRunTasks": {
@@ -386,6 +417,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["limit", "cursor"],
         "request_model": None,
         "response_model": "RunTaskPage",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listRuns": {
@@ -398,6 +430,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["limit", "cursor", "state", "created_after"],
         "request_model": None,
         "response_model": "RunPage",
+        "retry": "safe_read",
         "scope": "swarms:read",
     },
     "listStatements": {
@@ -410,6 +443,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["months", "limit", "cursor"],
         "request_model": None,
         "response_model": "BillingStatementPage",
+        "retry": "safe_read",
         "scope": "account:billing:read",
     },
     "listUsageRecords": {
@@ -422,6 +456,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": ["since", "until", "run_id", "limit", "cursor"],
         "request_model": None,
         "response_model": "UsageRecordPage",
+        "retry": "safe_read",
         "scope": "account:usage:read",
     },
     "pauseRun": {
@@ -434,6 +469,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunControlReceipt",
+        "retry": "never",
         "scope": "swarms:control",
     },
     "resumeRun": {
@@ -446,6 +482,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunControlReceipt",
+        "retry": "never",
         "scope": "swarms:control",
     },
     "revokeApiKey": {
@@ -458,6 +495,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": None,
+        "retry": "never",
         "scope": "account:write",
     },
     "rotateApiKey": {
@@ -470,6 +508,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "MintedApiKey",
+        "retry": "never",
         "scope": "account:write",
     },
     "updateApiKey": {
@@ -482,6 +521,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UpdateApiKeyRequest",
         "response_model": "ApiKey",
+        "retry": "never",
         "scope": "account:write",
     },
     "updateRunLabels": {
@@ -494,6 +534,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "RunLabelsRequest",
         "response_model": "RunLabels",
+        "retry": "never",
         "scope": "swarms:write",
     },
     "uploadFile": {
@@ -506,6 +547,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UploadFileRequest",
         "response_model": "File",
+        "retry": "never",
         "scope": "swarms:write",
     },
 }

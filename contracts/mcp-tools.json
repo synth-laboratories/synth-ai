@@ -253,7 +253,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "x-synth-max-bytes": 8192
               },
               "method": {
                 "additionalProperties": false,

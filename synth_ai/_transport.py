@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
+import random
+import time
 from collections.abc import AsyncIterator, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, TypeVar
@@ -16,9 +20,58 @@ from pydantic import BaseModel, ValidationError
 
 from ._generated.models import MODELS, RunEvent
 from ._generated.operations import OPERATIONS
+from ._version import __version__
 from .errors import SynthError, TransportFailureError, local_problem, raise_for_response
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Bound one operation; ambiguous mutations are never automatically replayed."""
+
+    attempts: int = 3
+    deadline_seconds: float = 90.0
+    backoff_seconds: float = 1.0
+    backoff_max_seconds: float = 8.0
+    jitter_seconds: float = 0.25
+
+    def __post_init__(self) -> None:
+        if type(self.attempts) is not int or not 1 <= self.attempts <= 6:
+            raise ValueError("retry attempts must be between 1 and 6")
+        values = (
+            self.deadline_seconds,
+            self.backoff_seconds,
+            self.backoff_max_seconds,
+            self.jitter_seconds,
+        )
+        if (
+            any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in values)
+            or self.deadline_seconds == 0
+        ):
+            raise ValueError(
+                "retry durations must be finite and nonnegative; deadline must be positive"
+            )
+
+    def delay(self, value: str | None, attempt: int) -> float | None:
+        server_delay = retry_delay(value, attempt)
+        if server_delay is None:
+            return None
+        backoff = min(self.backoff_max_seconds, self.backoff_seconds * float(2**attempt))
+        return max(server_delay if value is not None else 0, backoff) + random.uniform(
+            0, self.jitter_seconds
+        )
+
+
+def ambiguous_response(response: httpx.Response) -> bool:
+    """Honor the owner's explicit uncertainty even on a retryable HTTP status."""
+    try:
+        body = response.json()
+    except (ValueError, UnicodeError):
+        return False
+    return isinstance(body, dict) and (
+        body.get("outcome") == "unknown" or body.get("outcome_unknown") is True
+    )
 
 
 class Transport:
@@ -30,6 +83,7 @@ class Transport:
         client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         url = httpx.URL(self.base_url)
@@ -46,6 +100,12 @@ class Transport:
             raise ValueError("credentials require HTTPS outside loopback")
         if retries < 0 or retries > 5:
             raise ValueError("retries must be between 0 and 5")
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        self.timeout = timeout
+        self.retry_policy = retry_policy or RetryPolicy(
+            attempts=retries + 1, deadline_seconds=timeout * (retries + 1)
+        )
         self.token = token
         self.client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=False)
         self.owned = client is None
@@ -58,7 +118,7 @@ class Transport:
     def headers(self, auth: bool = True) -> dict[str, str]:
         headers = {
             "Accept": "application/json",
-            "User-Agent": "synth-ai/0.26.0",
+            "User-Agent": "synth-ai/" + __version__,
             "X-Request-Id": str(uuid4()),
         }
         if auth:
@@ -99,12 +159,20 @@ class Transport:
         headers = self.headers(op["auth"])
         if op["idempotent"]:
             headers["Idempotency-Key"] = idempotency_key or str(uuid4())
-        for attempt in range(self.retries + 1):
+        deadline = time.monotonic() + self.retry_policy.deadline_seconds
+        for attempt in range(self.retry_policy.attempts):
             try:
-                response = await self.client.request(
-                    op["method"], self.base_url + route, params=query, json=payload, headers=headers
-                )
-            except httpx.TransportError as error:
+                remaining = deadline - time.monotonic()
+                async with asyncio.timeout(max(0, remaining)):
+                    response = await self.client.request(
+                        op["method"],
+                        self.base_url + route,
+                        params=query,
+                        json=payload,
+                        headers=headers,
+                        timeout=min(self.timeout, max(0, remaining)),
+                    )
+            except (httpx.TransportError, TimeoutError) as error:
                 # A timeout after admission is unknown. Keep the same key for caller-directed retry.
                 raise TransportFailureError(
                     local_problem(
@@ -115,12 +183,15 @@ class Transport:
                     request_id=headers["X-Request-Id"],
                     idempotency_key=headers.get("Idempotency-Key"),
                 ) from error
-            if response.status_code not in {429, 503} or attempt == self.retries:
+            if (
+                response.status_code not in {429, 503}
+                or attempt + 1 == self.retry_policy.attempts
+                or op["retry"] == "never"
+                or ambiguous_response(response)
+            ):
                 break
-            if op["method"] not in {"GET", "HEAD"} and not op["idempotent"]:
-                break
-            delay = retry_delay(response.headers.get("Retry-After"), attempt)
-            if delay is None:
+            delay = self.retry_policy.delay(response.headers.get("Retry-After"), attempt)
+            if delay is None or delay >= deadline - time.monotonic():
                 break
             await asyncio.sleep(delay)
         raise_for_response(response)
@@ -212,4 +283,4 @@ def retry_delay(value: str | None, attempt: int) -> float | None:
             seconds = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
         except (ValueError, TypeError, OverflowError):
             return None
-    return max(0, seconds) if seconds <= 60 else None
+    return max(0, seconds) if math.isfinite(seconds) and seconds <= 60 else None

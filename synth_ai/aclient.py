@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from ._transport import Transport
+from ._transport import RetryPolicy, Transport
 from .account import AsyncAccount
 from .auth import credentials
 from .billing import AsyncBilling
@@ -22,10 +22,16 @@ class AsyncSynthClient:
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         url, token = credentials(base_url, api_key)
         self._transport = Transport(
-            url, token, client=http_client, timeout=timeout, retries=retries
+            url,
+            token,
+            client=http_client,
+            timeout=timeout,
+            retries=retries,
+            retry_policy=retry_policy,
         )
         self.swarms = AsyncSwarms(self._transport)
         self.account = AsyncAccount(self._transport)

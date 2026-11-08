@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
+from ._generated.policy import SDK_OAUTH_SCOPES
 from .errors import SynthError
 
 DEFAULT_BASE_URL = "https://api.usesynth.ai"
@@ -202,7 +203,7 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
                     "code_challenge_method": "S256",
                     "state": state,
                     "resource": oauth + "/mcp",
-                    "scope": "offline_access user:org:read synth:read synth:action account:billing:read account:billing:write",
+                    "scope": " ".join(SDK_OAUTH_SCOPES),
                 }
             )
         )

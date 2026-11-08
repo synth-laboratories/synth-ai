@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from . import auth
 from ._generated.operations import OPERATIONS
+from ._generated.policy import MESSAGE_MAX_BYTES
 from .aclient import AsyncSynthClient
 from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
 
@@ -147,8 +148,8 @@ def read_task(path: str) -> str:
             raise ValueError("task bundle must contain exactly one task text file")
         source = files[0]
     raw = source.read_bytes()
-    if not raw.strip() or len(raw) > 8192:
-        raise ValueError("task must contain 1..8192 bytes")
+    if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
+        raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
     return raw.decode("utf-8")
 
 
