@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import builtins
 import hashlib
 import json
@@ -11,6 +12,7 @@ import keyword
 import pprint
 import subprocess
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -76,6 +78,69 @@ class JSONObject(dict[str, JsonValue]):
                 raise ValueError(f"{key}: expected strings")
             result.append(value)
         return result
+
+
+def schema_references(value: JsonValue) -> set[str]:
+    if isinstance(value, dict):
+        found: set[str] = (
+            {JSONObject.require(value).text("$ref").split("/")[-1]} if "$ref" in value else set()
+        )
+        for child in value.values():
+            found |= schema_references(child)
+        return found
+    if isinstance(value, list):
+        found = set()
+        for child in value:
+            found |= schema_references(child)
+        return found
+    return set()
+
+
+def sdk_model_roots(operations: Mapping[str, JSONObject]) -> set[str]:
+    """Public exports, typed runtime imports, and dynamic transport lookups are live."""
+    roots: set[str] = set()
+    for operation in operations.values():
+        for key in ("request_model", "response_model"):
+            if operation.get(key) is not None:
+                roots.add(operation.text(key))
+    for path in (ROOT / "synth_ai").rglob("*.py"):
+        if "_generated" in path.relative_to(ROOT).parts or path.name == "_sync.py":
+            continue  # Generated files cannot keep themselves alive.
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+            if isinstance(node, ast.ImportFrom) and node.module in {
+                "_generated.models",
+                "synth_ai._generated.models",
+            }:
+                for alias in node.names:
+                    if alias.name == "*":
+                        raise ValueError(f"explicit model imports required: {path}")
+                    if alias.name != "MODELS":
+                        roots.add(alias.name)
+    return roots
+
+
+def select_sdk_schemas(schemas: Mapping[str, JSONObject], roots: set[str]) -> dict[str, JSONObject]:
+    """Select the schema closure after flattening/lifting, before emitting Python."""
+    owners = {name: name for name in schemas}
+    for name, schema in schemas.items():
+        for field, value in schema.objects("properties", optional=True).items():
+            if "enum" in value and all(isinstance(item, str) for item in value.array("enum")):
+                owners[name + "".join(part.title() for part in field.split("_"))] = name
+    if "RunSnapshot" in schemas:
+        owners["RunState"] = "RunSnapshot"  # Known-state enum emitted from its examples.
+    if missing := roots - owners.keys():
+        raise ValueError("SDK imports unknown generated types: " + ", ".join(sorted(missing)))
+    pending = [owners[name] for name in roots]
+    keep: set[str] = set()
+    while pending:
+        name = pending.pop()
+        if name in keep:
+            continue
+        if name not in schemas:
+            raise ValueError("SDK schema references unknown type: " + name)
+        keep.add(name)
+        pending.extend(schema_references(schemas[name]) - keep)
+    return {name: schema for name, schema in schemas.items() if name in keep}
 
 
 def generate() -> dict[Path, str]:
@@ -214,6 +279,7 @@ def generate() -> dict[Path, str]:
 
     for name in list(schemas):
         schemas[name] = lift(schemas[name], name)
+    schemas = select_sdk_schemas(schemas, sdk_model_roots(ops))
     enums = {
         "RunState": schemas["RunSnapshot"].object("properties").object("state").strings("examples")
     }
@@ -307,25 +373,10 @@ def generate() -> dict[Path, str]:
             metadata.append("AfterValidator(utf8_max_bytes(" + str(s["x-synth-max-bytes"]) + "))")
         return "Annotated[" + base + ", " + ", ".join(metadata) + "]" if metadata else base
 
-    def dependencies(s: JsonValue) -> set[str]:
-        if isinstance(s, dict):
-            found: set[str] = (
-                {JSONObject.require(s).text("$ref").split("/")[-1]} if "$ref" in s else set()
-            )
-            for v in s.values():
-                found |= dependencies(v)
-            return found
-        if isinstance(s, list):
-            found = set()
-            for v in s:
-                found |= dependencies(v)
-            return found
-        return set()
-
     ordered = []
     remaining = set(schemas)
     while remaining:
-        ready = sorted(n for n in remaining if not (dependencies(schemas[n]) & remaining))
+        ready = sorted(n for n in remaining if not (schema_references(schemas[n]) & remaining))
         if not ready:
             raise ValueError("recursive schemas require explicit generation support")
         ordered.extend(ready)

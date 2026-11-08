@@ -2,6 +2,11 @@
 
 ## 0.30.0 (unreleased)
 
+Generated Python types now include only supported SDK operation models, public
+exports and their dependencies. Removes unused profile-override, OAuth-server and
+MCP-transport schemas from the private generated module; the full pinned Core
+contract remains unchanged. Drops an unread transport retry field.
+
 Type verification now covers all SDK tooling and accepted consumer examples.
 Explicit negative type contracts guard budgets, models and sync/async return
 types. Generators and smoke receipts have typed boundaries; scripts require

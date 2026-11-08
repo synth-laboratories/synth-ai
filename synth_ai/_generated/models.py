@@ -73,22 +73,6 @@ class MintedApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
-class OAuthGrantRevokedOutcome(StrEnum):
-    REVOKED = "revoked"
-    ALREADY_REVOKED = "already_revoked"
-
-
-class OAuthGrantStatus(StrEnum):
-    ACTIVE = "active"
-    EXPIRED = "expired"
-    REVOKED = "revoked"
-
-
-class OAuthTokenRequestGrantType(StrEnum):
-    AUTHORIZATION_CODE = "authorization_code"
-    REFRESH_TOKEN = "refresh_token"
-
-
 class PlanKind(StrEnum):
     FREE = "free"
     RECURRING = "recurring"
@@ -129,24 +113,6 @@ class PrincipalOrgRole(StrEnum):
 class ProblemOutcome(StrEnum):
     NOT_ACCEPTED = "not_accepted"
     UNKNOWN = "unknown"
-
-
-class ProfileChoiceEffort(StrEnum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    XHIGH = "xhigh"
-
-
-class ProfileChoicePreset(StrEnum):
-    HOSTED_OPENROUTER_ZDR_US = "hosted.openrouter_zdr_us"
-    HOSTED_OPENAI_DIRECT = "hosted.openai_direct"
-    TEST_CODEX_POOL = "test.codex_pool"
-
-
-class ProfileChoiceUpstreamModel(StrEnum):
-    GPT_6_LUNA = "gpt-6-luna"
-    OPENAI_GPT_6_LUNA = "openai/gpt-6-luna"
 
 
 class RefundDetailRefundCause(StrEnum):
@@ -497,195 +463,12 @@ class LimitRow(WireModel):
     reset_at: str | None
 
 
-class McpError(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    code: int
-    message: str
-    data: JsonValue | None = None
-
-
-class McpRequest(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    jsonrpc: Literal["2.0"]
-    id: str | int | None = None
-    method: str
-    params: dict[str, JsonValue] | None = None
-
-
-class McpTransportOauth(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    resource: str
-    authorization_servers: list[str]
-
-
 class Money(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     amount: Annotated[str, Field(pattern="^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$")]
     currency: Literal["USD"]
-
-
-class OAuthClient(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    client_id: str
-    client_name: Annotated[str, Field(min_length=1, max_length=128)]
-    redirect_uris: Annotated[list[str], Field(min_length=1, max_length=10)]
-    grant_types: list[Literal["authorization_code", "refresh_token"]]
-    response_types: list[Literal["code"]]
-    token_endpoint_auth_method: Literal["none"]
-
-
-class OAuthClientRegistration(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    client_name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
-    redirect_uris: Annotated[list[str], Field(min_length=1, max_length=10)]
-    grant_types: list[Literal["authorization_code", "refresh_token"]] | None = None
-    response_types: list[Literal["code"]] | None = None
-    token_endpoint_auth_method: Literal["none"] | None = None
-
-
-class OAuthConsentDecision(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    request: Annotated[str, Field(min_length=32, max_length=128)]
-    approve: bool
-
-
-class OAuthConsentRequest(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    client_id: str
-    client_name: str
-    scopes: list[str]
-    resource: str
-    redirect_host: str
-    verified: bool
-
-
-class OAuthConsentResult(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    redirect_uri: str
-
-
-class OAuthError(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    error: str
-    error_description: str | None = None
-    error_uri: str | None = None
-
-
-class OAuthGrant(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    grant_id: str
-    client_id: str
-    client_name: str | None
-    scopes: list[str]
-    created_at: str
-    last_used_at: str | None
-    expires_at: str | None
-    revoked_at: str | None
-    status: Annotated[OAuthGrantStatus, BeforeValidator(enum_value(OAuthGrantStatus))]
-    owner_user_id: str
-    owned_by_viewer: bool
-
-
-class OAuthGrantRevoked(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    grant_id: str
-    status: Literal["revoked"]
-    outcome: Annotated[
-        OAuthGrantRevokedOutcome, BeforeValidator(enum_value(OAuthGrantRevokedOutcome))
-    ]
-
-
-class OAuthResourceMetadata(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    resource: str
-    authorization_servers: list[str]
-    bearer_methods_supported: list[str]
-    scopes_supported: list[str]
-
-
-class OAuthRevocationRequest(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    token: str
-    client_id: str
-    token_type_hint: str | None = None
-
-
-class OAuthRevoked(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-
-
-class OAuthServerMetadata(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    issuer: str
-    authorization_endpoint: str
-    token_endpoint: str
-    registration_endpoint: str
-    revocation_endpoint: str
-    response_types_supported: list[str]
-    grant_types_supported: list[str]
-    code_challenge_methods_supported: list[str]
-    token_endpoint_auth_methods_supported: list[str]
-    revocation_endpoint_auth_methods_supported: list[str]
-    scopes_supported: list[str]
-    authorization_response_iss_parameter_supported: bool
-
-
-class OAuthToken(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    access_token: str
-    token_type: Literal["Bearer"]
-    expires_in: Annotated[int, Field(ge=1)]
-    scope: str
-    refresh_token: str | None = None
-
-
-class OAuthTokenRequest(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    grant_type: Annotated[
-        OAuthTokenRequestGrantType, BeforeValidator(enum_value(OAuthTokenRequestGrantType))
-    ]
-    client_id: str
-    code: str | None = None
-    redirect_uri: str | None = None
-    code_verifier: str | None = None
-    refresh_token: str | None = None
-    resource: str | None = None
 
 
 class ObjectiveClaim(WireModel):
@@ -788,14 +571,6 @@ OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
 
 
-class PageFields(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    has_more: bool
-    next_cursor: Annotated[str, Field(min_length=1)] | None = None
-
-
 class PoolSelection(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -850,25 +625,6 @@ class Problem(WireModel):
     outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
 
 
-class ProfileChoice(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    preset: (
-        Annotated[ProfileChoicePreset, BeforeValidator(enum_value(ProfileChoicePreset))] | None
-    ) = None
-    upstream_model: (
-        Annotated[
-            ProfileChoiceUpstreamModel, BeforeValidator(enum_value(ProfileChoiceUpstreamModel))
-        ]
-        | None
-    ) = None
-    canonical_model: str | None = None
-    effort: (
-        Annotated[ProfileChoiceEffort, BeforeValidator(enum_value(ProfileChoiceEffort))] | None
-    ) = None
-
-
 class RefundDetailRunUsage1(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -878,23 +634,6 @@ class RefundDetailRunUsage1(WireModel):
     output_tokens: int | None = None
     reasoning_tokens: int | None = None
     compute: dict[str, dict[str, JsonValue]] | None = None
-
-
-class ResolvedActor(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    provider_preset: str | None = None
-    provider_source: str | None = None
-    actor_id: str
-    actor_type: str
-    base_profile_digest: str
-    profile_digest: str
-    canonical_model: str
-    effort: str
-    model_source: str
-    effort_source: str
-    evaluated: bool
 
 
 class RoutingActor(WireModel):
@@ -1264,27 +1003,6 @@ class Limits(WireModel):
     wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
 
 
-class McpResponse(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    jsonrpc: Literal["2.0"]
-    id: str | int | None
-    result: JsonValue | None = None
-    error: McpError | None = None
-
-
-class McpTransport(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    name: str
-    transport: str
-    endpoint: str
-    protocol_version: str
-    oauth: McpTransportOauth
-
-
 class MintApiKeyRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1320,16 +1038,6 @@ class MintedApiKey(WireModel):
     key: Annotated[str, Field(pattern="^sk_(live|test)_[0-9a-f]{48}$")]
 
 
-class OAuthGrants(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    grants: list[OAuthGrant]
-    visibility: str
-    viewer_role: str
-    observed_at: str
-
-
 class ObjectiveMetricState(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1342,17 +1050,6 @@ class ObjectiveMetricState(WireModel):
     samples: Annotated[int, Field(ge=0)]
     met: bool
     percent: int
-
-
-class OverrideResolution(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    schema_version: str
-    declaration_digest: str
-    request_digest: str
-    actors: list[ResolvedActor]
-    evaluated_system_changed: bool
 
 
 class OwnerResourceRequest(WireModel):
@@ -1385,14 +1082,6 @@ class Plan(WireModel):
     price: Money
     weekly_included: Money
     limits: list[Limit] | None = None
-
-
-class ProfileOverrides(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    launch: ProfileChoice | None = None
-    roles: dict[str, ProfileChoice] | None = None
 
 
 class RefundDetail(WireModel):
@@ -1835,14 +1524,6 @@ class PlanCatalog(WireModel):
     plans: list[Plan]
 
 
-class ProfileOverrideReadback(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    requested: ProfileOverrides
-    resolution: OverrideResolution
-
-
 class RoutingReadback(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2080,24 +1761,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchBudget": LaunchBudget,
     "Limit": Limit,
     "LimitRow": LimitRow,
-    "McpError": McpError,
-    "McpRequest": McpRequest,
-    "McpTransportOauth": McpTransportOauth,
     "Money": Money,
-    "OAuthClient": OAuthClient,
-    "OAuthClientRegistration": OAuthClientRegistration,
-    "OAuthConsentDecision": OAuthConsentDecision,
-    "OAuthConsentRequest": OAuthConsentRequest,
-    "OAuthConsentResult": OAuthConsentResult,
-    "OAuthError": OAuthError,
-    "OAuthGrant": OAuthGrant,
-    "OAuthGrantRevoked": OAuthGrantRevoked,
-    "OAuthResourceMetadata": OAuthResourceMetadata,
-    "OAuthRevocationRequest": OAuthRevocationRequest,
-    "OAuthRevoked": OAuthRevoked,
-    "OAuthServerMetadata": OAuthServerMetadata,
-    "OAuthToken": OAuthToken,
-    "OAuthTokenRequest": OAuthTokenRequest,
     "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
     "ObjectiveMetric": ObjectiveMetric,
@@ -2106,13 +1770,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveVerdict": ObjectiveVerdict,
     "Only": Only,
     "Org": Org,
-    "PageFields": PageFields,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
     "Problem": Problem,
-    "ProfileChoice": ProfileChoice,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
-    "ResolvedActor": ResolvedActor,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunControlReceipt": RunControlReceipt,
@@ -2145,16 +1806,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
-    "McpResponse": McpResponse,
-    "McpTransport": McpTransport,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
-    "OAuthGrants": OAuthGrants,
     "ObjectiveMetricState": ObjectiveMetricState,
-    "OverrideResolution": OverrideResolution,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
-    "ProfileOverrides": ProfileOverrides,
     "RefundDetail": RefundDetail,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
@@ -2189,7 +1845,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchRequest": LaunchRequest,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
-    "ProfileOverrideReadback": ProfileOverrideReadback,
     "RoutingReadback": RoutingReadback,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,

@@ -4,6 +4,13 @@ Core's pinned OpenAPI remains the authority. Update it before changing a wire
 shape; regenerate models, operations, MCP schemas, and synchronous delegates.
 There is no second handwritten set of request models.
 
+Python generation keeps the transitive schema closure of implemented SDK
+request/response operations, handwritten runtime imports, and public exports.
+Generated files and the model registry cannot keep themselves alive. Unused
+schemas remain in the pinned Core contract where other consumers may need them.
+A regression check independently verifies that emitted Python has no orphan
+definitions; both generator drift checks remain required.
+
 ## Python records and boundaries
 
 Public methods have explicit typed parameters. Use `RunInputs`/`InputFile`,

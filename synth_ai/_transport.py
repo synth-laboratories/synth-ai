@@ -124,7 +124,6 @@ class Transport:
         self.token = token
         self.client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=False)
         self.owned = client is None
-        self.retries = retries
 
     async def close(self) -> None:
         if self.owned:
