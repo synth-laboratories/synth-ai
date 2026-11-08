@@ -24,6 +24,7 @@ source_bytes = sum(
 require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
 require(source_bytes < 250 * 1024, "package acceptance invariant failed")
 with zipfile.ZipFile(wheel) as archive:
+    require("synth_ai/py.typed" in archive.namelist(), "wheel must ship PEP 561 types")
     require(
         all(
             name.startswith(("synth_ai/", f"synth_ai-{version}.dist-info/"))

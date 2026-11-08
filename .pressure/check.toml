@@ -1,0 +1,16 @@
+scope = "repo"
+
+[[checks]]
+id = "sdk_strict_typed_protocols"
+description = "Generated strict models and semantic payloads remain guarded by ty and boundary regressions"
+severity = "error"
+require_paths = ["synth_ai/py.typed", "tests/test_typed_protocols.py"]
+file_contains = [
+  { path = "pyproject.toml", pattern = "[tool.ty.rules]" },
+  { path = ".github/workflows/ci.yml", pattern = "uv run ty check" },
+  { path = "scripts/gen_contract.py", pattern = "strict=True, frozen=True" },
+  { path = "scripts/gen_contract.py", pattern = "x-synth-event-kind" },
+  { path = "tests/test_typed_protocols.py", pattern = "test_wrong_wall_time_type_is_rejected_before_any_request" },
+  { path = "tests/test_typed_protocols.py", pattern = "test_production_annotations_have_no_any_or_unchecked_keyword_bags" },
+]
+remedy = "Restore the generated strict contract and ty CI checks; run the typed protocol regression suite and both generator drift checks."

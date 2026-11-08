@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import hashlib
 import math
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import cast
 from uuid import uuid4
 
 from ._generated.models import (
@@ -20,13 +21,16 @@ from ._generated.models import (
     LaunchRequest,
     Limits,
     OutputPage,
+    OwnerResourceRequest,
     RoutingCatalog,
     RoutingConstraints,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
     RunGuidance,
+    RunInputs,
     RunLabels,
+    RunLabelsRequest,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -37,9 +41,12 @@ from ._generated.models import (
     RunTaskPage,
     Upload,
 )
+from ._limits import UPLOAD_MAX_BYTES
+from ._protocol import CompletionMilestone
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from .errors import (
+    DataIntegrityError,
     ResultUnavailableError,
     RunFailedError,
     RunHistoryUnavailableError,
@@ -59,13 +66,13 @@ class AsyncSwarms:
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
-        inputs: dict[str, Any] | None = None,
+        inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
-        resources: list[dict[str, Any]] | None = None,
+        resources: builtins.list[OwnerResourceRequest] | None = None,
         profile: str | None = None,
         research_task: str | None = None,
-        routing: RoutingConstraints | dict[str, Any] | None = None,
-        guidance: list[RunGuidance | dict[str, Any]] | None = None,
+        routing: RoutingConstraints | None = None,
+        guidance: builtins.list[RunGuidance] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         if profile in {"fork-flush", "forgetting"} and research_task is None:
@@ -80,28 +87,23 @@ class AsyncSwarms:
                 raise ValueError("budget must be positive")
         except InvalidOperation as error:
             raise ValueError("budget must be a decimal string") from error
-        limit_values: dict[str, Any] = {
-            "maximum_charge": LaunchBudget(amount=format(amount, "f"), currency="USD")
-        }
-        if wall_time_seconds is not None:
-            limit_values["wall_time_seconds"] = wall_time_seconds
-        limits = Limits(**limit_values)
-        body: dict[str, Any] = {"limits": limits.model_dump(mode="json", exclude_unset=True)}
-        for name, value in {
-            "message": message,
-            "inputs": inputs,
-            "labels": labels,
-            "resources": resources,
-            "profile": profile,
-            "research_task": research_task,
-            "routing": routing,
-            "guidance": guidance,
-        }.items():
-            if value is not None:
-                body[name] = value
-        return await self.launch_request(
-            LaunchRequest.model_validate(body), idempotency_key=idempotency_key
+        request = LaunchRequest(
+            limits=Limits(
+                maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
+                wall_time_seconds=wall_time_seconds,
+            ),
+            message=message,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            profile=profile,
+            research_task=research_task,
+            routing=routing,
+            guidance=guidance,
         )
+        # Omitted convenience options stay absent on the wire, not explicit nulls.
+        request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))
+        return await self.launch_request(request, idempotency_key=idempotency_key)
 
     async def launch_request(
         self, request: LaunchRequest, *, idempotency_key: str | None = None
@@ -119,13 +121,29 @@ class AsyncSwarms:
         research_task: str | None = None,
         timeout: float = 600,
         poll_interval: float = 1,
-        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
-        **launch: Any,
+        wall_time_seconds: int | None = None,
+        inputs: RunInputs | None = None,
+        labels: dict[str, str] | None = None,
+        resources: builtins.list[OwnerResourceRequest] | None = None,
+        routing: RoutingConstraints | None = None,
+        guidance: builtins.list[RunGuidance] | None = None,
+        idempotency_key: str | None = None,
     ) -> RunSnapshot:
         _validate_wait(timeout, poll_interval, until)
         created = await self.launch(
-            message, budget=budget, profile=profile, research_task=research_task, **launch
+            message,
+            budget=budget,
+            profile=profile,
+            research_task=research_task,
+            wall_time_seconds=wall_time_seconds,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            routing=routing,
+            guidance=guidance,
+            idempotency_key=idempotency_key,
         )
         return await self.wait(
             created.run_id,
@@ -153,8 +171,8 @@ class AsyncSwarms:
         if media not in {"text/plain", "text/markdown", "application/json"}:
             raise ValueError("Supported formats: text/plain, text/markdown, application/json")
         with source.open("rb") as stream:
-            content = stream.read((32 << 20) + 1)
-        if len(content) > 32 << 20:
+            content = stream.read(UPLOAD_MAX_BYTES + 1)
+        if len(content) > UPLOAD_MAX_BYTES:
             raise ValueError("File exceeds the 32 MiB limit")
         key = idempotency_key or str(uuid4())
         upload = await self.prepare_upload(
@@ -185,12 +203,12 @@ class AsyncSwarms:
         if upload.state == "committed":
             return upload.file
         with Path(filename).open("rb") as source:
-            content = source.read((32 << 20) + 1)
+            content = source.read(UPLOAD_MAX_BYTES + 1)
         if (
             len(content) != upload.file.size_bytes
             or hashlib.sha256(content).hexdigest() != upload.file.digest_sha256
         ):
-            raise ValueError("resume content differs from the retained upload")
+            raise DataIntegrityError("resume content differs from the retained upload")
         return await self._finish_upload(upload, content, idempotency_key)
 
     async def upload_text(
@@ -256,7 +274,7 @@ class AsyncSwarms:
             "updateRunLabels",
             RunLabels,
             path={"run_id": run_id},
-            body={"labels": labels, "expected_revision": expected_revision},
+            body=RunLabelsRequest(labels=labels, expected_revision=expected_revision),
         )
 
     async def get(self, run_id: str) -> RunSnapshot:
@@ -268,7 +286,7 @@ class AsyncSwarms:
         *,
         timeout: float = 600,
         poll_interval: float = 1,
-        until: Literal["finished", "execution_closed", "result_available"] = "finished",
+        until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
     ) -> RunSnapshot:
         _validate_wait(timeout, poll_interval, until)
@@ -277,16 +295,8 @@ class AsyncSwarms:
             async with asyncio.timeout(timeout):
                 while True:
                     snapshot = await self.get(run_id)
-                    finished = (
-                        snapshot.execution_closed
-                        and snapshot.accounting_final
-                        and snapshot.cleanup_complete
-                    )
-                    reached = {
-                        "finished": finished,
-                        "execution_closed": snapshot.execution_closed,
-                        "result_available": snapshot.result_available,
-                    }[until]
+                    finished = snapshot.finished
+                    reached = snapshot.reached(until)
                     if reached:
                         if raise_on_failure and snapshot.state == "failed":
                             raise RunFailedError("Run " + run_id + " failed", snapshot=snapshot)
@@ -376,14 +386,14 @@ class AsyncSwarms:
 
     async def iter_events(
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
-    ) -> AsyncIterator[RunEvent]:
+    ) -> AsyncGenerator[RunEvent, None]:
         while True:
             page = await self.events(run_id, cursor=cursor, limit=limit)
             for item in page.items:
                 yield item
             if not page.has_more:
                 return
-            if not page.next_cursor or page.next_cursor == cursor:
+            if page.next_cursor is None or page.next_cursor == "" or page.next_cursor == cursor:
                 raise ValueError("nonadvancing event cursor")
             cursor = page.next_cursor
 
@@ -394,7 +404,7 @@ class AsyncSwarms:
         last_event_id: str | None = None,
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
-    ) -> AsyncIterator[RunEvent]:
+    ) -> AsyncGenerator[RunEvent, None]:
         async for event in self._transport.stream_events(
             run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
         ):
@@ -427,7 +437,7 @@ class AsyncSwarms:
             ),
         )
         if hashlib.sha256(content).hexdigest() != digest_sha256:
-            raise ValueError("output digest does not match the pinned reference")
+            raise DataIntegrityError("output digest does not match the pinned reference")
         return content
 
     async def download_output(

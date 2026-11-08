@@ -8,7 +8,7 @@ Core owns the pinned public OpenAPI, scope registry and per-operation retry elig
 
 `RetryPolicy` bounds attempts, total monotonic deadline, exponential backoff and additive jitter. Retry-After is a minimum wait and is never shortened to fit a budget; if it cannot fit, the last response is returned as a typed API error. Existing `timeout` and `retries` arguments remain supported and derive the default policy. Cancellation propagates. User-Agent and exported version are generated from project metadata.
 
-Run `uv run pytest -q`, `uv run mypy synth_ai`, and both generator checks. These are offline checks; no hosted acceptance or release is implied. Package acceptance checks use explicit errors and also fail under optimized Python.
+Run `uv run pytest -q`, `uv run ty check`, and both generator checks. These are offline checks; no hosted acceptance or release is implied. Package acceptance checks use explicit errors and also fail under optimized Python.
 
 Launch contract 2 adds hard routing selectors and a mandatory positive exact
 budget. SDK 0.28.0 is a breaking candidate for clients using removed task-count

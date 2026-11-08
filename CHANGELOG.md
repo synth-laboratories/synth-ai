@@ -1,12 +1,29 @@
 # Changelog
 
-## Unreleased
+## 0.30.0 (unreleased)
 
-Runs no longer take a project. `launch` and `run` drop `project_id`, the CLI drops
-`--project-id`, and `SYNTH_PROJECT_ID` is no longer read. `create_project`, `project` and
-`projects` are gone, and files now live at `/v1/files`, so `upload_file`, `upload_text`,
-`prepare_upload`, `files` and `file` take no project. Named methods take a published task:
-`method={"release": ..., "task": ...}` in Python and `--method-task` in the CLI.
+Strict, frozen generated records reject implicit scalar coercion. Nested file
+inputs, upload grants, resource selections and tasks have named models. Schema
+enums are `StrEnum` classes. Public clients and run helpers have explicit typed
+parameters; `run` no longer accepts an arbitrary launch keyword bag.
+
+`CompletionMilestone`, `RunSnapshot.finished` and `known_state` expose lifecycle
+semantics without hiding unknown server states. Event payloads are validated
+against their declared event kinds. Checkpoints have a typed, versioned persisted
+format and still read the original unversioned format. Local errors expose stable
+codes and categories. Credential records and auth status now use attribute access.
+
+CI uses `ty` and expanded Ruff rules. Production modules contain no `Any`
+annotations; intentional JSON extensions remain `JsonValue`.
+
+## 0.29.0 (unreleased)
+
+Every run requires a budget. Public launch selection uses published named
+`profile` values with optional `research_task`; `program`, `method` and
+`profile_overrides` are removed. Profiles can be discovered through the SDK and
+CLI. Routing supports fixed or prohibited provider/model lists. Finished waits
+require execution closure, final accounting and cleanup. Uploads and streams
+retain recovery identities.
 
 ## 0.26.0
 

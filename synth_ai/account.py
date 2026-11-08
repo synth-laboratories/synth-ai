@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import builtins
-from typing import Any
 
 from ._generated.models import (
     Account,
     ApiKey,
     ApiKeyPage,
     LimitList,
+    MintApiKeyRequest,
+    MintApiKeyRequestPurpose,
     MintedApiKey,
+    Scope,
+    UpdateApiKeyRequest,
     UsageExport,
     UsageRecordPage,
     UsageSummary,
@@ -29,7 +32,20 @@ class AsyncApiKeys:
             "listApiKeys", ApiKeyPage, query={"purpose": purpose, "cursor": cursor, "limit": limit}
         )
 
-    async def mint(self, *, idempotency_key: str | None = None, **body: Any) -> MintedApiKey:
+    async def mint(
+        self,
+        *,
+        purpose: MintApiKeyRequestPurpose | None = None,
+        name: str | None = None,
+        scopes: builtins.list[Scope] | None = None,
+        expires_at: str | None = None,
+        request_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> MintedApiKey:
+        body = MintApiKeyRequest(
+            purpose=purpose, name=name, scopes=scopes, expires_at=expires_at, request_id=request_id
+        )
+        body = MintApiKeyRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "createApiKey", MintedApiKey, body=body, idempotency_key=idempotency_key
         )
@@ -38,13 +54,12 @@ class AsyncApiKeys:
         self,
         key_id: str,
         *,
-        scopes: builtins.list[str],
+        scopes: builtins.list[Scope],
         expected_version: int,
         name: str | None = None,
     ) -> ApiKey:
-        body: dict[str, Any] = {"scopes": scopes, "expected_version": expected_version}
-        if name is not None:
-            body["name"] = name
+        body = UpdateApiKeyRequest(scopes=scopes, expected_version=expected_version, name=name)
+        body = UpdateApiKeyRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "updateApiKey", ApiKey, path={"key_id": key_id}, body=body
         )

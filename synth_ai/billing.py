@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from ._generated.models import (
     Balance,
     BillingHistoryPage,
     BillingStatementPage,
     CheckoutAttempt,
+    CheckoutRequest,
     CheckoutSession,
+    Money,
     PlanCatalog,
 )
 from ._transport import Transport
@@ -66,14 +66,11 @@ class AsyncBilling:
         self,
         *,
         plan_id: str | None = None,
-        credit: dict[str, str] | None = None,
+        credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:
-        body: dict[str, Any] = {}
-        if plan_id is not None:
-            body["plan_id"] = plan_id
-        if credit is not None:
-            body["credit"] = credit
+        body = CheckoutRequest(plan_id=plan_id, credit=credit)
+        body = CheckoutRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "createCheckout", CheckoutSession, body=body, idempotency_key=idempotency_key
         )

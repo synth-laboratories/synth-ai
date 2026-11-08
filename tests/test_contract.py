@@ -30,7 +30,7 @@ def test_generated_drift():
 
 
 def test_wire_examples(contract):
-    for path, item in contract["paths"].items():
+    for _path, item in contract["paths"].items():
         for operation in item.values():
             for response in operation.get("responses", {}).values():
                 response = resolve(contract, response)

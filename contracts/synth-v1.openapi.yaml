@@ -4928,7 +4928,9 @@ components:
           description: The event's body on objective.progress and objective.claimed; null on every other kind. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence.
           oneOf:
           - $ref: '#/components/schemas/ObjectiveProgressPayload'
+            x-synth-event-kind: objective.progress
           - $ref: '#/components/schemas/ObjectiveClaimedPayload'
+            x-synth-event-kind: objective.claimed
           - type: 'null'
     RunGuidance:
       type: object

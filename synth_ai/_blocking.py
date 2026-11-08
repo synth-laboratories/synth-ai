@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Coroutine, Iterator
+from collections.abc import AsyncGenerator, Coroutine, Iterator
 from concurrent.futures import Future
 from threading import Event, Thread
-from typing import Any, TypeVar
+from typing import TypeVar
+
+from .errors import ClientClosedError
 
 T = TypeVar("T")
 
@@ -26,14 +28,18 @@ class Runner:
         ready.wait()
         self.closed = False
 
-    def call(self, operation: Coroutine[Any, Any, T]) -> T:
+    def call(self, operation: Coroutine[object, object, T]) -> T:
         if self.closed:
             operation.close()
-            raise RuntimeError("client is closed")
+            raise ClientClosedError("client is closed")
         future: Future[T] = asyncio.run_coroutine_threadsafe(operation, self.loop)
-        return future.result()
+        try:
+            return future.result()
+        except BaseException:
+            future.cancel()
+            raise
 
-    def iterate(self, source: AsyncIterator[T]) -> Iterator[T]:
+    def iterate(self, source: AsyncGenerator[T, None]) -> Iterator[T]:
         async def advance() -> T:
             return await anext(source)
 
@@ -44,9 +50,7 @@ class Runner:
                 except StopAsyncIteration:
                     return
         finally:
-            close = getattr(source, "aclose", None)
-            if close is not None:
-                self.call(close())
+            self.call(source.aclose())
 
     def close(self) -> None:
         if self.closed:

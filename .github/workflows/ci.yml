@@ -18,7 +18,7 @@ jobs:
       - run: uv sync --locked --extra mcp
       - run: uv run ruff check synth_ai scripts tests
       - run: uv run ruff format --check synth_ai scripts tests
-      - run: uv run mypy
+      - run: uv run ty check
       - run: uv run python scripts/gen_contract.py --check && uv run python scripts/gen_sync.py --check
       - run: uv run pytest -q
       - run: uv build && uv run twine check dist/*

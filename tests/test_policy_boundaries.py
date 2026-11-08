@@ -70,7 +70,9 @@ async def test_unverified_or_ambiguous_mutations_are_not_replayed(operation, bod
             retry_policy=RetryPolicy(backoff_seconds=0, jitter_seconds=0),
         )
         with pytest.raises(SwarmsAPIError):
-            await transport.invoke(operation, path={"key_id": "key_one"} if operation == "updateApiKey" else None)
+            await transport.invoke(
+                operation, path={"key_id": "key_one"} if operation == "updateApiKey" else None
+            )
     assert len(calls) == 1
 
 

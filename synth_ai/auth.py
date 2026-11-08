@@ -10,13 +10,23 @@ import secrets
 import tempfile
 import time
 import webbrowser
+from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
+from pydantic import JsonValue, TypeAdapter
+from typing_extensions import override
 
+from ._auth_models import (
+    AuthStatus,
+    ClientRegistration,
+    CredentialRecord,
+    CredentialSource,
+    OAuthMetadata,
+    OAuthToken,
+)
 from ._generated.policy import SDK_OAUTH_SCOPES
 from .errors import SynthError
 
@@ -28,12 +38,12 @@ def token_path() -> Path:
     configured = os.getenv("SYNTH_AUTH_FILE")
     return (
         Path(configured).expanduser()
-        if configured
+        if configured is not None and configured != ""
         else Path.home() / ".config" / "synth" / "credentials.json"
     )
 
 
-def read_tokens() -> dict[str, Any]:
+def read_tokens() -> dict[str, CredentialRecord]:
     path = token_path()
     if not path.exists():
         return {}
@@ -43,18 +53,22 @@ def read_tokens() -> dict[str, Any]:
         value = json.loads(path.read_text())
         if not isinstance(value, dict):
             raise ValueError("expected object")
-        return value
+        return TypeAdapter(dict[str, CredentialRecord]).validate_python(value, strict=True)
     except (OSError, ValueError) as error:
         raise SynthError("Credential file cannot be read") from error
 
 
-def save_tokens(records: dict[str, Any]) -> None:
+def save_tokens(records: Mapping[str, CredentialRecord | dict[str, JsonValue]]) -> None:
+    validated = TypeAdapter(dict[str, CredentialRecord]).validate_python(dict(records), strict=True)
     path = token_path()
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(prefix=".credentials-", dir=path.parent)
     try:
         with os.fdopen(descriptor, "w") as stream:
-            json.dump(records, stream)
+            json.dump(
+                {key: record.model_dump(exclude_none=True) for key, record in validated.items()},
+                stream,
+            )
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(name, path)
@@ -67,7 +81,7 @@ def oauth_base(base: str) -> str:
     """The OAuth origin for an API base. Production signs in on the MCP host; every
     other stack serves both from one origin. Tokens stay stored under the API base."""
     override = os.getenv("SYNTH_OAUTH_BASE_URL")
-    if override:
+    if override is not None and override != "":
         return override.rstrip("/")
     return DEFAULT_OAUTH_BASE_URL if base == DEFAULT_BASE_URL else base
 
@@ -75,14 +89,14 @@ def oauth_base(base: str) -> str:
 def credentials(base_url: str | None = None, api_key: str | None = None) -> tuple[str, str | None]:
     base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
     key = api_key or os.getenv("SYNTH_API_KEY")
-    if key:
+    if key is not None and key != "":
         return base, key
     record = read_tokens().get(base)
     if record is None:
         return base, None
-    if not isinstance(record, dict):
-        raise SynthError("Invalid stored credential")
-    if float(record.get("expires_at", 0)) <= time.time() + 30:
+    if record.expires_at <= time.time() + 30:
+        if record.client_id is None or record.refresh_token is None:
+            raise SynthError("Stored credential cannot be refreshed; sign in again")
         with httpx.Client(timeout=30, follow_redirects=False) as client:
             oauth = oauth_base(base)
             metadata = discover(client, oauth)
@@ -90,39 +104,44 @@ def credentials(base_url: str | None = None, api_key: str | None = None) -> tupl
                 endpoint(metadata, "token_endpoint", oauth),
                 data={
                     "grant_type": "refresh_token",
-                    "client_id": record["client_id"],
-                    "refresh_token": record["refresh_token"],
+                    "client_id": record.client_id,
+                    "refresh_token": record.refresh_token,
                     "resource": oauth + "/mcp",
                 },
             )
             if not response.is_success:
                 raise SynthError("OAuth refresh refused; sign in again")
-            token = response.json()
-            record.update(token)
-            record["expires_at"] = time.time() + float(token["expires_in"])
+            token = OAuthToken.model_validate_json(response.content)
+            record = CredentialRecord(
+                access_token=token.access_token,
+                refresh_token=token.refresh_token or record.refresh_token,
+                client_id=record.client_id,
+                expires_at=time.time() + token.expires_in,
+            )
         records = read_tokens()
         records[base] = record
         save_tokens(records)
-    return base, str(record["access_token"])
+    return base, record.access_token
 
 
-def endpoint(metadata: dict[str, Any], name: str, base: str) -> str:
-    value = metadata.get(name)
+def endpoint(metadata: OAuthMetadata | Mapping[str, JsonValue], name: str, base: str) -> str:
+    metadata = OAuthMetadata.model_validate(metadata)
+    value = getattr(metadata, name, None)
     if not isinstance(value, str):
         raise SynthError("OAuth metadata missing " + name)
     url = urlparse(value)
     origin = urlparse(base)
     if (
         (url.scheme, url.netloc) != (origin.scheme, origin.netloc)
-        or url.username
-        or url.password
-        or url.fragment
+        or url.username is not None
+        or url.password is not None
+        or url.fragment != ""
     ):
         raise SynthError("OAuth endpoint origin mismatch")
     return value
 
 
-def discover(client: httpx.Client, base: str) -> dict[str, Any]:
+def discover(client: httpx.Client, base: str) -> OAuthMetadata:
     parsed = urlparse(base)
     if parsed.scheme != "https" and not (
         parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
@@ -130,10 +149,10 @@ def discover(client: httpx.Client, base: str) -> dict[str, Any]:
         raise SynthError("OAuth requires HTTPS outside loopback")
     response = client.get(base + "/.well-known/oauth-authorization-server")
     response.raise_for_status()
-    value = response.json()
-    if not isinstance(value, dict) or str(value.get("issuer", "")).rstrip("/") != base:
+    value = OAuthMetadata.model_validate_json(response.content)
+    if value.issuer is None or value.issuer.rstrip("/") != base:
         raise SynthError("OAuth issuer mismatch")
-    if "S256" not in value.get("code_challenge_methods_supported", []):
+    if "S256" not in value.code_challenge_methods_supported:
         raise SynthError("OAuth server lacks PKCE S256")
     return value
 
@@ -170,7 +189,8 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
             self.end_headers()
             self.wfile.write(b"Sign-in complete. You can close this window.")
 
-        def log_message(self, format: str, *args: Any) -> None:
+        @override
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     with (
@@ -190,7 +210,7 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
             },
         )
         response.raise_for_status()
-        client_id = response.json()["client_id"]
+        client_id = ClientRegistration.model_validate_json(response.content).client_id
         authorization = (
             endpoint(metadata, "authorization_endpoint", oauth)
             + "?"
@@ -227,9 +247,13 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
             },
         )
         response.raise_for_status()
-        token = response.json()
-        token["client_id"] = client_id
-        token["expires_at"] = time.time() + float(token["expires_in"])
+        response_token = OAuthToken.model_validate_json(response.content)
+        token = CredentialRecord(
+            access_token=response_token.access_token,
+            refresh_token=response_token.refresh_token,
+            client_id=client_id,
+            expires_at=time.time() + response_token.expires_in,
+        )
         records = read_tokens()
         records[base] = token
         save_tokens(records)
@@ -246,8 +270,8 @@ def logout(base_url: str | None = None) -> None:
             response = client.post(
                 endpoint(metadata, "revocation_endpoint", oauth),
                 data={
-                    "token": record.get("refresh_token", record["access_token"]),
-                    "client_id": record["client_id"],
+                    "token": record.refresh_token or record.access_token,
+                    "client_id": record.client_id,
                 },
             )
             response.raise_for_status()
@@ -255,12 +279,17 @@ def logout(base_url: str | None = None) -> None:
         save_tokens(records)
 
 
-def status(base_url: str | None = None) -> dict[str, Any]:
+def status(base_url: str | None = None) -> AuthStatus:
     base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-    record = read_tokens().get(base, {})
-    return {
-        "base_url": base,
-        "authenticated": bool(os.getenv("SYNTH_API_KEY") or record),
-        "source": "environment" if os.getenv("SYNTH_API_KEY") else "oauth" if record else "none",
-        "expires_at": record.get("expires_at"),
-    }
+    record = read_tokens().get(base)
+    environment = bool(os.getenv("SYNTH_API_KEY"))
+    return AuthStatus(
+        base_url=base,
+        authenticated=environment or record is not None,
+        source=CredentialSource.ENVIRONMENT
+        if environment
+        else CredentialSource.OAUTH
+        if record is not None
+        else CredentialSource.NONE,
+        expires_at=record.expires_at if record is not None else None,
+    )

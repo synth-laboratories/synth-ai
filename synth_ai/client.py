@@ -2,16 +2,35 @@
 
 from __future__ import annotations
 
-from typing import Any
+from types import TracebackType
+
+import httpx
 
 from ._blocking import Runner
 from ._sync import AccountClient, BillingClient, SwarmsClient
+from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
 
 
 class SynthClient:
-    def __init__(self, api_key: str | None = None, **options: Any) -> None:
-        self._async = AsyncSynthClient(api_key, **options)
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        base_url: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        timeout: float = 30,
+        retries: int = 2,
+        retry_policy: RetryPolicy | None = None,
+    ) -> None:
+        self._async = AsyncSynthClient(
+            api_key,
+            base_url=base_url,
+            http_client=http_client,
+            timeout=timeout,
+            retries=retries,
+            retry_policy=retry_policy,
+        )
         self._runner = Runner()
         self.swarms = SwarmsClient(self._runner, self._async.swarms)
         self.account = AccountClient(self._runner, self._async.account)
@@ -28,5 +47,10 @@ class SynthClient:
     def __enter__(self) -> SynthClient:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()

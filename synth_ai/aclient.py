@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from types import TracebackType
 
 import httpx
 
@@ -43,5 +43,10 @@ class AsyncSynthClient:
     async def __aenter__(self) -> AsyncSynthClient:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         await self.close()

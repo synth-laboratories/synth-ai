@@ -4,6 +4,28 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from typing import Literal, cast
+
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, field_validator
+
+from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH, SSE_FRAME_MAX_BYTES
+
+
+class StreamCheckpointData(BaseModel):
+    """Versioned persistence protocol; mutable stream state is kept separately."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    schema_version: Literal[1] = 1
+    run_id: str | None = None
+    last_event_id: str | None = None
+    pending_event_ids: list[str] = Field(default_factory=list, max_length=CHECKPOINT_MAX_EVENTS)
+
+    @field_validator("schema_version", mode="before")
+    @classmethod
+    def strict_version(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("checkpoint schema version must be an integer")
+        return value
 
 
 @dataclass
@@ -15,11 +37,13 @@ class StreamCheckpoint:
     def __post_init__(self) -> None:
         for value in (self.run_id, self.last_event_id, *self.pending_event_ids):
             if value is not None and (
-                not isinstance(value, str) or not value or len(value) > 1024
+                not isinstance(value, str)
+                or not value
+                or len(value) > CHECKPOINT_MAX_ID_LENGTH
                 or any(c in value for c in "\r\n\0")
             ):
                 raise ValueError("invalid stream checkpoint identity")
-        if len(self.pending_event_ids) > 4096:
+        if len(self.pending_event_ids) > CHECKPOINT_MAX_EVENTS:
             raise ValueError("stream checkpoint exceeds the event bound")
 
     def bind(self, run_id: str) -> None:
@@ -27,32 +51,31 @@ class StreamCheckpoint:
             raise ValueError("stream checkpoint belongs to another run")
         self.run_id = run_id
 
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "run_id": self.run_id,
-            "last_event_id": self.last_event_id,
-            "pending_event_ids": sorted(self.pending_event_ids),
-        }
+    def to_data(self) -> StreamCheckpointData:
+        self.__post_init__()
+        return StreamCheckpointData(
+            run_id=self.run_id,
+            last_event_id=self.last_event_id,
+            pending_event_ids=sorted(self.pending_event_ids),
+        )
+
+    def to_dict(self) -> dict[str, JsonValue]:
+        return TypeAdapter(dict[str, JsonValue]).validate_python(
+            self.to_data().model_dump(mode="json"), strict=True
+        )
+
+    @classmethod
+    def from_data(cls, value: StreamCheckpointData) -> StreamCheckpoint:
+        return cls(
+            run_id=value.run_id,
+            last_event_id=value.last_event_id,
+            pending_event_ids=set(value.pending_event_ids),
+        )
 
     @classmethod
     def from_dict(cls, value: dict[str, object]) -> StreamCheckpoint:
-        if set(value) != {"run_id", "last_event_id", "pending_event_ids"}:
-            raise ValueError("invalid stream checkpoint")
-        run_id, last_id, pending = (
-            value["run_id"],
-            value["last_event_id"],
-            value["pending_event_ids"],
-        )
-        if (
-            run_id is not None
-            and not isinstance(run_id, str)
-            or last_id is not None
-            and not isinstance(last_id, str)
-            or not isinstance(pending, list)
-            or any(not isinstance(item, str) for item in pending)
-        ):
-            raise ValueError("invalid stream checkpoint")
-        return cls(run_id=run_id, last_event_id=last_id, pending_event_ids=set(pending))
+        # An absent version reads the original v1 checkpoint format.
+        return cls.from_data(StreamCheckpointData.model_validate(value))
 
 
 @dataclass(frozen=True)
@@ -67,12 +90,12 @@ async def frames(lines: AsyncIterator[str]) -> AsyncIterator[Frame]:
     event, event_id, size = "message", None, 0
     async for line in lines:
         size += len(line.encode("utf-8"))
-        if size > 1 << 20:
+        if size > SSE_FRAME_MAX_BYTES:
             raise ValueError("event frame exceeds 1 MiB")
         if line == "":
             if data or event_id is not None:
                 yield Frame(event, "\n".join(data), event_id)
-            event, event_id, data, size = "message", None, [], 0
+            event, event_id, data, size = "message", None, cast(list[str], []), 0
             continue
         if line.startswith(":"):
             continue

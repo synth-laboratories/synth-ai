@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from enum import StrEnum
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from ._stream import StreamCheckpoint
@@ -10,14 +11,39 @@ if TYPE_CHECKING:
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem, RunSnapshot
+from ._generated.models import Problem, ProblemOutcome, RunSnapshot
+
+
+class ErrorKind(StrEnum):
+    API = "api"
+    TRANSPORT = "transport"
+    CONTRACT = "contract"
+    UPLOAD = "upload"
+    OBSERVATION = "observation"
+    CONFIGURATION = "configuration"
+    INTEGRITY = "integrity"
+    LIFECYCLE = "lifecycle"
 
 
 class SynthError(Exception):
-    """Base SDK error."""
+    """Base SDK error with a stable category and machine-readable code."""
+
+    kind: ClassVar[ErrorKind] = ErrorKind.CONFIGURATION
+    code: str = "sdk_error"
+
+
+class ClientClosedError(SynthError, RuntimeError):
+    kind = ErrorKind.LIFECYCLE
+    code = "client_closed"
+
+
+class DataIntegrityError(SynthError, ValueError):
+    kind = ErrorKind.INTEGRITY
+    code = "content_integrity_failed"
 
 
 class SwarmsAPIError(SynthError):
+    kind = ErrorKind.API
     checkpoint: StreamCheckpoint | None = None
 
     def __init__(
@@ -83,14 +109,17 @@ class ResourceAdmissionError(InvalidRequestError):
 
 
 class MalformedErrorResponseError(SwarmsAPIError):
-    pass
+    kind = ErrorKind.CONTRACT
 
 
 class TransportFailureError(SwarmsAPIError):
-    pass
+    kind = ErrorKind.TRANSPORT
 
 
 class UploadTransferError(SynthError):
+    kind = ErrorKind.UPLOAD
+    code = "upload_incomplete"
+
     def __init__(self, upload_id: str, idempotency_key: str) -> None:
         super().__init__("Upload is incomplete; resume the retained upload")
         self.upload_id = upload_id
@@ -100,8 +129,12 @@ class UploadTransferError(SynthError):
 class ResponseContractError(SwarmsAPIError):
     """A response could not be decoded; mutation identity remains recoverable."""
 
+    kind = ErrorKind.CONTRACT
+
 
 class RunObservationError(SynthError):
+    kind = ErrorKind.OBSERVATION
+
     def __init__(
         self, message: str, *, snapshot: RunSnapshot | None = None, run_id: str | None = None
     ) -> None:
@@ -111,19 +144,19 @@ class RunObservationError(SynthError):
 
 
 class RunFailedError(RunObservationError):
-    pass
+    code = "run_failed"
 
 
 class WaitTimeoutError(RunObservationError):
-    pass
+    code = "wait_timeout"
 
 
 class ResultUnavailableError(RunObservationError):
-    pass
+    code = "result_unavailable"
 
 
 class RunHistoryUnavailableError(RunObservationError):
-    pass
+    code = "run_history_unavailable"
 
 
 _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
@@ -178,7 +211,7 @@ def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = F
         code=code,
         service="synth-ai",
         stage=stage,
-        outcome="unknown" if unknown else "not_accepted",
+        outcome=ProblemOutcome.UNKNOWN if unknown else ProblemOutcome.NOT_ACCEPTED,
     )
 
 

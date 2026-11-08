@@ -8,9 +8,8 @@ import base64
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from . import auth
 from ._generated.operations import OPERATIONS
@@ -90,7 +89,7 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument(
                     "--" + name.replace("_", "-"), type=int if name == "limit" else str
                 )
-            if op["request_model"]:
+            if op["request_model"] is not None:
                 command.add_argument("--json", default="{}", help="JSON request object")
             if op["idempotent"]:
                 command.add_argument("--idempotency-key")
@@ -145,7 +144,7 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def emit(value: Any) -> None:
+def emit(value: BaseModel | bytes | JsonValue) -> None:
     if isinstance(value, BaseModel):
         print(value.model_dump_json(exclude_unset=True), flush=True)
     elif isinstance(value, bytes):
@@ -193,15 +192,22 @@ async def execute(args: argparse.Namespace) -> None:
             if args.operation == "getRunOutputContent":
                 if getattr(args, "out", None):
                     saved = await client.swarms.download_output(
-                        args.run_id, args.output_id, args.out,
-                        revision_id=args.revision_id, digest_sha256=args.digest_sha256,
+                        args.run_id,
+                        args.output_id,
+                        args.out,
+                        revision_id=args.revision_id,
+                        digest_sha256=args.digest_sha256,
                     )
                     emit({"saved": str(saved)})
                 else:
-                    emit(await client.swarms.output_content(
-                        args.run_id, args.output_id,
-                        revision_id=args.revision_id, digest_sha256=args.digest_sha256,
-                    ))
+                    emit(
+                        await client.swarms.output_content(
+                            args.run_id,
+                            args.output_id,
+                            revision_id=args.revision_id,
+                            digest_sha256=args.digest_sha256,
+                        )
+                    )
                 return
             result = await client._transport.invoke(
                 args.operation,
@@ -226,7 +232,7 @@ async def execute(args: argparse.Namespace) -> None:
             )
         elif args.verb in {"run", "launch"}:
             message = read_task(args.task) if args.task else args.message
-            routing: dict[str, Any] = {}
+            routing: dict[str, JsonValue] = {}
             for dimension in ("providers", "models"):
                 for mode in ("only", "exclude"):
                     value = getattr(args, dimension + "_" + mode)

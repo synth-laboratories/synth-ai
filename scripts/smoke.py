@@ -14,7 +14,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -85,7 +85,7 @@ async def run(output: Path, resume: bool = False) -> None:
         entry = {
             "operation": operation,
             "status": response.status_code,
-            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "observed_at": datetime.now(UTC).isoformat(),
             "headers_present": {
                 name: name in response.headers
                 for name in (
@@ -126,9 +126,7 @@ async def run(output: Path, resume: bool = False) -> None:
                             "name": "public-sdk-smoke",
                             "purpose": "automation",
                             "scopes": ["account:read"],
-                            "expires_at": (
-                                datetime.now(timezone.utc) + timedelta(hours=1)
-                            ).isoformat(),
+                            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
                         },
                         idempotency_key=key(),
                     )
@@ -226,7 +224,7 @@ async def run(output: Path, resume: bool = False) -> None:
                             execution_closed=snapshot.execution_closed,
                             accounting_final=snapshot.accounting_final,
                             cleanup_complete=snapshot.cleanup_complete,
-                            observed_at=datetime.now(timezone.utc).isoformat(),
+                            observed_at=datetime.now(UTC).isoformat(),
                         )
                 save()
                 if (

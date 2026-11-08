@@ -1,6 +1,21 @@
 """Boundary validators generated schemas can reuse without duplicating policy."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from enum import StrEnum
+from typing import TypeVar
+
+from pydantic import BaseModel, ValidationInfo
+
+E = TypeVar("E", bound=StrEnum)
+
+
+def enum_value(enum: type[E]) -> Callable[[object], E]:
+    def validate(value: object) -> E:
+        if not isinstance(value, str):
+            raise ValueError("expected a string enum value")
+        return enum(value)
+
+    return validate
 
 
 def utf8_max_bytes(maximum: int) -> Callable[[str], str]:
@@ -43,4 +58,26 @@ def budget_amount(value: str) -> str:
 def no_nul(value: str) -> str:
     if "\0" in value:
         raise ValueError("text must contain no NUL")
+    return value
+
+
+def event_payload(
+    models: Mapping[str, type[BaseModel]],
+) -> Callable[[object, ValidationInfo], object]:
+    """Select semantic event data by its envelope, never by overlapping field shape."""
+
+    def validate(value: object, info: ValidationInfo) -> object:
+        if value is None:
+            return None
+        model = models.get(info.data.get("kind", ""))
+        if model is None:
+            raise ValueError("event kind does not declare a payload")
+        return model.model_validate(value)
+
+    return validate
+
+
+def strict_int(value: object) -> int:
+    if type(value) is not int:
+        raise ValueError("expected an integer")
     return value
