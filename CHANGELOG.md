@@ -2,6 +2,12 @@
 
 ## 0.30.0 (unreleased)
 
+The release smoke now checks a bounded two-run Swarms journey instead of an
+unreachable full-API gate. Its v4 receipt reports `smoke_complete`, verified output,
+final accounting and cleanup; launch and cancellation identities survive resume.
+Unrelated account, API-key and checkout mutations are removed from the smoke.
+Historical receipts remain intact and cannot be resumed with the v4 runner.
+
 Generated Python types now include only supported SDK operation models, public
 exports and their dependencies. Removes unused profile-override, OAuth-server and
 MCP-transport schemas from the private generated module; the full pinned Core

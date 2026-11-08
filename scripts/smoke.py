@@ -1,49 +1,35 @@
-"""Bounded live qualification; explicit --execute, $0.20 aggregate run caps.
+"""Bounded Swarms journey smoke; explicit --execute, $0.20 aggregate run caps.
 
-Reads SYNTH_API_KEY / SYNTH_API_BASE_URL. Optional SYNTH_CLERK_SESSION_TOKEN
-qualifies positive session-only key CRUD; otherwise verifies their scoped-key refusal.
-Checkout creates an unpaid session. Receipt contains identifiers/status only.
+Requires SYNTH_API_KEY or saved OAuth and SYNTH_API_BASE_URL. This checks a
+completed run with verified output and a second run's cancellation/closure;
+it does not claim full API or hosted MCP acceptance. Old v3 receipts stay intact.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
+import json
 import os
 import re
 import time
-from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Protocol, TypeVar, overload
+from typing import Literal, Protocol
 from uuid import uuid4
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from synth_ai import AsyncSynthClient
-from synth_ai._generated.models import (
-    CheckoutSession,
-    MintedApiKey,
-    OutputPage,
-    Problem,
-    RunOutput,
-    RunSnapshot,
-)
+from synth_ai._generated.models import Problem, RunSnapshot
 from synth_ai._generated.operations import OPERATIONS
-from synth_ai.errors import SwarmsAPIError
+from synth_ai.errors import SwarmsAPIError, SynthError
 
 
 class RunStateView(Protocol):
     @property
     def state(self) -> str: ...
-
-
-class OperationObservation(BaseModel):
-    model_config = ConfigDict(strict=True, extra="forbid")
-    status: int | Literal["passed"]
-    code: str | None = None
 
 
 class ResponseObservation(BaseModel):
@@ -71,30 +57,53 @@ class ObservedRun(BaseModel):
         self.cleanup_complete = snapshot.cleanup_complete
         self.observed_at = datetime.now(UTC).isoformat()
 
+    @property
+    def finished(self) -> bool:
+        return self.execution_closed and self.accounting_final and self.cleanup_complete
+
 
 class SmokeReceipt(BaseModel):
-    """Mutable observation state; the persisted JSON is validated before resuming."""
+    """Mutable smoke observations, with an explicit scope and retained identities."""
 
     model_config = ConfigDict(
         strict=True, extra="forbid", populate_by_name=True, validate_assignment=True
     )
-    schema_: Literal["synth.public-sdk.smoke.v3"] = Field(
-        default="synth.public-sdk.smoke.v3", alias="schema"
+    schema_: Literal["synth.public-sdk.swarms-smoke.v4"] = Field(
+        default="synth.public-sdk.swarms-smoke.v4", alias="schema"
     )
     base_url: str
     aggregate_maximum_usd: Literal["0.20"] = "0.20"
-    operations: dict[str, OperationObservation] = Field(default_factory=dict)
     runs: list[ObservedRun] = Field(default_factory=list, max_length=2)
-    complete: bool = False
     failures: dict[str, str] = Field(default_factory=dict)
     responses: list[ResponseObservation] = Field(default_factory=list)
-    key_crud_positive: bool = False
     launch_keys: dict[str, str] = Field(default_factory=dict)
-    checkout_key: str | None = None
-    api_complete: bool = False
+    cancel_keys: dict[str, str] = Field(default_factory=dict)
+    output_verified: bool = False
+    cancellation_requested: bool = False
 
+    @property
+    def smoke_complete(self) -> bool:
+        return (
+            not self.failures
+            and len(self.runs) == 2
+            and self.runs[0].state == "completed"
+            and all(run.finished for run in self.runs)
+            and self.output_verified
+            and self.cancellation_requested
+        )
 
-T = TypeVar("T", bound=BaseModel)
+    def to_json(self) -> str:
+        value = self.model_dump(mode="json", by_alias=True, exclude_none=True)
+        value["smoke_complete"] = self.smoke_complete
+        return json.dumps(value, indent=2) + "\n"
+
+    @classmethod
+    def from_json(cls, source: str) -> SmokeReceipt:
+        # The computed summary is never authority when resuming observations.
+        value = json.loads(source)
+        if isinstance(value, dict):
+            value.pop("smoke_complete", None)
+        return cls.model_validate(value)
 
 
 def require_successful_run(snapshot: RunStateView) -> None:
@@ -105,70 +114,17 @@ def require_successful_run(snapshot: RunStateView) -> None:
 async def run(output: Path, resume: bool = False) -> None:
     receipt = SmokeReceipt(base_url=os.environ["SYNTH_API_BASE_URL"])
     if resume:
-        receipt = SmokeReceipt.model_validate_json(output.read_text())
+        receipt = SmokeReceipt.from_json(output.read_text())
         if receipt.base_url != os.environ["SYNTH_API_BASE_URL"]:
             raise ValueError("cannot resume against a different API")
-        if len(receipt.runs) > 2:
-            raise ValueError("receipt exceeds the two-run budget")
     elif output.exists():
         raise ValueError("receipt already exists; use --resume to preserve the run budget")
-    receipt.failures = {}
+    receipt.failures.clear()
+    receipt.output_verified = receipt.cancellation_requested = False
     output.parent.mkdir(parents=True, exist_ok=True)
 
     def save() -> None:
-        output.write_text(
-            receipt.model_dump_json(indent=2, by_alias=True, exclude_none=True) + "\n"
-        )
-
-    @overload
-    async def call(
-        client: AsyncSynthClient,
-        operation: str,
-        model: type[T],
-        *,
-        path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
-        body: BaseModel | Mapping[str, JsonValue] | None = None,
-        idempotency_key: str | None = None,
-    ) -> T: ...
-
-    @overload
-    async def call(
-        client: AsyncSynthClient,
-        operation: str,
-        model: None = None,
-        *,
-        path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
-        body: BaseModel | Mapping[str, JsonValue] | None = None,
-        idempotency_key: str | None = None,
-    ) -> BaseModel | bytes | None: ...
-
-    async def call(
-        client: AsyncSynthClient,
-        operation: str,
-        model: type[T] | None = None,
-        *,
-        path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
-        body: BaseModel | Mapping[str, JsonValue] | None = None,
-        idempotency_key: str | None = None,
-    ) -> T | BaseModel | bytes | None:
-        try:
-            result = await client._transport.invoke(
-                operation, path=path, query=query, body=body, idempotency_key=idempotency_key
-            )
-        except SwarmsAPIError as error:
-            receipt.operations[operation] = OperationObservation(
-                status=error.status, code=error.code
-            )
-            save()
-            raise
-        receipt.operations[operation] = OperationObservation(status="passed")
-        save()
-        if model is not None and not isinstance(result, model):
-            raise TypeError("operation returned the wrong model: " + operation)
-        return result
+        output.write_text(receipt.to_json())
 
     def key() -> str:
         return "public-sdk-smoke:" + str(uuid4())
@@ -217,115 +173,34 @@ async def run(output: Path, resume: bool = False) -> None:
         httpx.AsyncClient(event_hooks={"response": [capture]}) as http,
         AsyncSynthClient(http_client=http) as client,
     ):
-        session = os.getenv("SYNTH_CLERK_SESSION_TOKEN")
-        if session is not None and session != "" and not receipt.key_crud_positive:
-            async with httpx.AsyncClient(
-                headers={"X-Clerk-Session-Token": session}, event_hooks={"response": [capture]}
-            ) as http:
-                async with AsyncSynthClient(http_client=http) as admin:
-                    minted = await call(
-                        admin,
-                        "createApiKey",
-                        MintedApiKey,
-                        body={
-                            "name": "public-sdk-smoke",
-                            "purpose": "automation",
-                            "scopes": ["account:read"],
-                            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
-                        },
-                        idempotency_key=key(),
-                    )
-                    kid = minted.key_id
-                    try:
-                        await call(admin, "listApiKeys", query={"limit": 1})
-                        await call(
-                            admin,
-                            "updateApiKey",
-                            path={"key_id": kid},
-                            body={
-                                "name": "public-sdk-smoke-updated",
-                                "scopes": [scope for scope in minted.scopes],
-                                "expected_version": minted.authorization_version,
-                            },
-                        )
-                        rotated = await call(
-                            admin,
-                            "rotateApiKey",
-                            MintedApiKey,
-                            path={"key_id": kid},
-                            idempotency_key=key(),
-                        )
-                        kid = rotated.key_id
-                    finally:
-                        await call(admin, "revokeApiKey", path={"key_id": kid})
-            receipt.key_crud_positive = True
-            save()
-        elif not receipt.key_crud_positive:
-            for op in [
-                "createApiKey",
-                "listApiKeys",
-                "updateApiKey",
-                "rotateApiKey",
-                "revokeApiKey",
-            ]:
-                path = {
-                    name: "key_AAAAAAAAAAAAAAAAAAAAAQ" for name in OPERATIONS[op]["path_params"]
-                }
-                body: dict[str, JsonValue] | None = None
-                if op == "createApiKey":
-                    body = {"name": "public-sdk-smoke"}
-                if op == "updateApiKey":
-                    body = {
-                        "name": "public-sdk-smoke-updated",
-                        "scopes": ["account:read"],
-                        "expected_version": 1,
-                    }
-                try:
-                    await call(client, op, path=path, body=body)
-                except SwarmsAPIError as error:
-                    if error.status != 403 or error.code != "session_required":
-                        raise
-                else:
-                    raise RuntimeError("session boundary accepted API key: " + op)
-        await call(client, "getAccount")
-        await call(client, "getBalance")
-        await call(client, "listPlans")
-        await call(client, "listBillingHistory", query={"limit": 1})
-        await call(client, "listStatements", query={"limit": 1})
-        await call(client, "listLimits")
-        await call(client, "getUsageSummary")
-        await call(client, "listUsageRecords", query={"limit": 1})
-        await call(client, "listFamilies")
 
         async def launch(message: str, index: int) -> str:
-            if len(receipt.runs) > index:
-                return receipt.runs[index].run_id
             if index not in (0, 1):
                 raise ValueError("two-run budget exceeded")
+            if len(receipt.runs) > index:
+                return receipt.runs[index].run_id
             receipt.launch_keys.setdefault(str(index), key())
             save()
-            result = await call(
-                client,
-                "createRun",
-                RunSnapshot,
-                body={
-                    "message": message,
-                    "profile": "swarms-v2",
-                    "limits": {
-                        "maximum_charge": {"amount": "0.10", "currency": "USD"},
-                        "wall_time_seconds": 120,
-                    },
-                },
+            result = await client.swarms.launch(
+                message,
+                budget="0.10",
+                wall_time_seconds=120,
+                profile="swarms-v2",
                 idempotency_key=receipt.launch_keys[str(index)],
             )
             receipt.runs.append(ObservedRun(run_id=result.run_id))
             save()
             return result.run_id
 
+        async def cancel(run_id: str) -> None:
+            receipt.cancel_keys.setdefault(run_id, key())
+            save()
+            await client.swarms.cancel(run_id, idempotency_key=receipt.cancel_keys[run_id])
+
         async def closed(run_id: str) -> RunSnapshot:
-            end = time.monotonic() + 240
-            while time.monotonic() < end:
-                snapshot = await call(client, "getRun", RunSnapshot, path={"run_id": run_id})
+            deadline = time.monotonic() + 240
+            while time.monotonic() < deadline:
+                snapshot = await client.swarms.get(run_id)
                 for item in receipt.runs:
                     if item.run_id == run_id:
                         item.observe(snapshot)
@@ -340,40 +215,29 @@ async def run(output: Path, resume: bool = False) -> None:
         )
         try:
             require_successful_run(await closed(first))
-            await call(client, "listRuns", query={"limit": 1})
-            await call(client, "listRunEvents", path={"run_id": first}, query={"limit": 100})
             async with asyncio.timeout(15):
                 async for _ in client.swarms.follow(first):
                     pass
-            outputs = await call(client, "listRunOutputs", OutputPage, path={"run_id": first})
+            outputs = await client.swarms.outputs(first)
             if not outputs.items:
                 raise RuntimeError("first run produced no output; content gate is unverified")
-            out = await call(
-                client,
-                "getRunOutput",
-                RunOutput,
-                path={"run_id": first, "output_id": outputs.items[0].output_id},
-            )
-            ref = out.reference
-            if ref is None:
+            selected = await client.swarms.output(first, outputs.items[0].output_id)
+            if selected.reference is None:
                 raise RuntimeError("output reference missing")
-            content = await call(
-                client,
-                "getRunOutputContent",
-                path={"run_id": first, "output_id": out.output_id},
-                query={"revision_id": ref["revision_id"], "digest_sha256": ref["digest_sha256"]},
+            await client.swarms.output_content(
+                first,
+                selected.output_id,
+                revision_id=selected.reference["revision_id"],
+                digest_sha256=selected.reference["digest_sha256"],
             )
-            if not isinstance(content, bytes):
-                raise TypeError("output content must be bytes")
-            if hashlib.sha256(content).hexdigest() != ref["digest_sha256"]:
-                raise ValueError("download digest differs from immutable output reference")
-        except (RuntimeError, SwarmsAPIError, TimeoutError) as error:
+            receipt.output_verified = True
+            save()
+        except (RuntimeError, SynthError, TimeoutError) as error:
             receipt.failures["first_run"] = type(error).__name__
             save()
         finally:
-            snapshot = await client.swarms.get(first)
-            if not snapshot.execution_closed:
-                await client.swarms.cancel(first, idempotency_key=key())
+            if not (await client.swarms.get(first)).execution_closed:
+                await cancel(first)
                 try:
                     await closed(first)
                 except RuntimeError:
@@ -381,34 +245,19 @@ async def run(output: Path, resume: bool = False) -> None:
                     save()
         second = await launch("Write a short explanation of addition.", 1)
         try:
-            await call(client, "cancelRun", path={"run_id": second}, idempotency_key=key())
+            await cancel(second)
+            receipt.cancellation_requested = True
+            save()
         finally:
             try:
                 await closed(second)
             except RuntimeError:
                 receipt.failures["second_run_closure"] = "deadline_exceeded"
                 save()
-        if receipt.checkout_key is None:
-            receipt.checkout_key = key()
         save()
-        checkout = await call(
-            client,
-            "createCheckout",
-            CheckoutSession,
-            body={"pack_id": "credits.10"},
-            idempotency_key=receipt.checkout_key,
-        )
-        await call(client, "getCheckout", path={"id": checkout.checkout_id})
-        receipt.api_complete = (
-            not receipt.failures
-            and set(receipt.operations) == set(OPERATIONS)
-            and all(item.cleanup_complete for item in receipt.runs)
-        )
-        receipt.complete = receipt.api_complete
-        save()
-        if not receipt.complete:
+        if not receipt.smoke_complete:
             raise RuntimeError(
-                "qualification incomplete; resume the retained receipt after resolving failures"
+                "smoke incomplete; resume the retained receipt after resolving failures"
             )
 
 
@@ -417,7 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("--execute", action="store_true", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
-        "--resume", action="store_true", help="Reuse the receipt's two runs and mutation keys"
+        "--resume", action="store_true", help="Reuse the v4 receipt's two runs and mutation keys"
     )
     args = parser.parse_args()
     try:

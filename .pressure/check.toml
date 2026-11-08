@@ -42,3 +42,18 @@ file_contains = [
   { path = "tests/test_schema_reachability.py", pattern = "test_generated_files_and_registry_cannot_keep_unused_models_alive" },
 ]
 remedy = "Restore SDK schema reachability selection and run its orphan-definition and generator drift checks."
+
+
+[[checks]]
+id = "sdk_truthful_swarms_smoke"
+description = "Swarms smoke retains its explicit two-run scope and offline lifecycle/budget regressions"
+severity = "error"
+require_paths = ["tests/test_smoke.py", "RELEASING.md"]
+file_contains = [
+  { path = "scripts/smoke.py", pattern = "synth.public-sdk.swarms-smoke.v4" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_completes_two_run_journey_and_resumes_without_new_spend" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_digest_failure_still_closes_both_runs" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_requires_accounting_and_cleanup" },
+  { path = "RELEASING.md", pattern = "Full public API, hosted MCP" },
+]
+remedy = "Restore the scoped Swarms smoke and run its budget, resume, output-integrity and lifecycle regressions; keep full API/MCP qualification separate."

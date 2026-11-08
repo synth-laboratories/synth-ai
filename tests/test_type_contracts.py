@@ -68,8 +68,8 @@ def test_typed_smoke_receipt_round_trip_retains_recovery_identities():
         runs=[ObservedRun(run_id="run-retained")],
         launch_keys={"0": "idempotency-retained"},
     )
-    restored = SmokeReceipt.model_validate_json(receipt.model_dump_json(by_alias=True))
+    restored = SmokeReceipt.from_json(receipt.to_json())
     assert restored.runs[0].run_id == "run-retained"
     assert restored.launch_keys == {"0": "idempotency-retained"}
     assert not restored.runs[0].cleanup_complete
-    assert not restored.complete
+    assert not restored.smoke_complete
