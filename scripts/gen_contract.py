@@ -82,6 +82,7 @@ def generate() -> dict[Path, str]:
                 "query_params": [p["name"] for p in parameters if p["in"] == "query"],
                 "idempotent": op["x-synth-idempotency-key"],
                 "retry": op["x-synth-retry"],
+                "idempotency": op["x-synth-idempotency"],
                 "request_model": req,
                 "response_model": result,
                 "binary": binary,
@@ -132,6 +133,8 @@ def generate() -> dict[Path, str]:
             if dest:
                 args.append(dest + "=" + repr(v))
         metadata = ["Field(" + ", ".join(args) + ")"] if args else []
+        if s.get("x-synth-message-text"):
+            metadata.append("AfterValidator(message_text)")
         if "x-synth-max-bytes" in s:
             metadata.append("AfterValidator(utf8_max_bytes(" + str(s["x-synth-max-bytes"]) + "))")
         return "Annotated[" + base + ", " + ", ".join(metadata) + "]" if metadata else base
@@ -162,7 +165,7 @@ def generate() -> dict[Path, str]:
         "from __future__ import annotations",
         "from typing import Annotated, Any, Literal, TypeAlias",
         "from pydantic import AfterValidator, BaseModel, ConfigDict, Field",
-        "from synth_ai._validation import utf8_max_bytes",
+        "from synth_ai._validation import message_text, utf8_max_bytes",
         "",
     ]
     modelnames = []
@@ -217,6 +220,7 @@ class Operation(TypedDict):
     query_params: list[str]
     idempotent: bool
     retry: str
+    idempotency: str
     request_model: str | None
     response_model: str | None
     binary: bool

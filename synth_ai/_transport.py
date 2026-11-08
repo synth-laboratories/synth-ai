@@ -157,7 +157,7 @@ class Transport:
                 .model_dump(mode="json", exclude_unset=True)
             )
         headers = self.headers(op["auth"])
-        if op["idempotent"]:
+        if op["idempotency"] == "durable_key":
             headers["Idempotency-Key"] = idempotency_key or str(uuid4())
         deadline = time.monotonic() + self.retry_policy.deadline_seconds
         for attempt in range(self.retry_policy.attempts):

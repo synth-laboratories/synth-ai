@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from synth_ai._validation import utf8_max_bytes
+from synth_ai._validation import message_text, utf8_max_bytes
 
 
 class AccountTerms(BaseModel):
@@ -993,7 +993,12 @@ class EventPage(BaseModel):
 class LaunchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     message: (
-        Annotated[str, Field(min_length=1, max_length=8192), AfterValidator(utf8_max_bytes(8192))]
+        Annotated[
+            str,
+            Field(min_length=1, max_length=8192),
+            AfterValidator(message_text),
+            AfterValidator(utf8_max_bytes(8192)),
+        ]
         | None
     ) = None
     limits: Limits

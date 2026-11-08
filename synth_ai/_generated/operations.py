@@ -10,6 +10,7 @@ class Operation(TypedDict):
     query_params: list[str]
     idempotent: bool
     retry: str
+    idempotency: str
     request_model: str | None
     response_model: str | None
     binary: bool
@@ -20,6 +21,7 @@ OPERATIONS: dict[str, Operation] = {
     "acceptTerms": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/account/terms-acceptance",
@@ -27,12 +29,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "TermsAcceptanceRequest",
         "response_model": "TermsAcceptance",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "account:write",
     },
     "cancelRun": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/runs/{run_id}/cancel",
@@ -40,12 +43,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunSnapshot",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:control",
     },
     "createApiKey": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/api-keys",
@@ -53,12 +57,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "MintApiKeyRequest",
         "response_model": "MintedApiKey",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "account:write",
     },
     "createCheckout": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/billing/checkout",
@@ -72,6 +77,7 @@ OPERATIONS: dict[str, Operation] = {
     "createRun": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/runs",
@@ -85,6 +91,7 @@ OPERATIONS: dict[str, Operation] = {
     "createUpload": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/uploads",
@@ -92,12 +99,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UploadCreateRequest",
         "response_model": "Upload",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:write",
     },
     "createUsageExport": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/usage/exports",
@@ -105,12 +113,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UsageExportRequest",
         "response_model": "UsageExport",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "account:read",
     },
     "finalizeUpload": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/uploads/{upload_id}/finalize",
@@ -118,12 +127,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "Upload",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:write",
     },
     "getAccount": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/account",
@@ -137,6 +147,7 @@ OPERATIONS: dict[str, Operation] = {
     "getBalance": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/billing/balance",
@@ -150,6 +161,7 @@ OPERATIONS: dict[str, Operation] = {
     "getCheckout": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/billing/checkouts/{id}",
@@ -163,6 +175,7 @@ OPERATIONS: dict[str, Operation] = {
     "getFile": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/files/{file_id}",
@@ -176,6 +189,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRun": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}",
@@ -189,6 +203,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunConfiguration": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/configuration",
@@ -202,6 +217,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunOutput": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/outputs/{output_id}",
@@ -215,6 +231,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunOutputContent": {
         "auth": True,
         "binary": True,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/outputs/{output_id}/content",
@@ -228,6 +245,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunProgram": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/program",
@@ -241,6 +259,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunReport": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/report",
@@ -254,6 +273,7 @@ OPERATIONS: dict[str, Operation] = {
     "getRunSandboxes": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/sandboxes",
@@ -267,6 +287,7 @@ OPERATIONS: dict[str, Operation] = {
     "getUpload": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/uploads/{upload_id}",
@@ -280,6 +301,7 @@ OPERATIONS: dict[str, Operation] = {
     "getUsageExport": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/usage/exports/{export_id}",
@@ -293,6 +315,7 @@ OPERATIONS: dict[str, Operation] = {
     "getUsageSummary": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/usage/summary",
@@ -306,6 +329,7 @@ OPERATIONS: dict[str, Operation] = {
     "listApiKeys": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/api-keys",
@@ -319,6 +343,7 @@ OPERATIONS: dict[str, Operation] = {
     "listBillingHistory": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/billing/history",
@@ -332,6 +357,7 @@ OPERATIONS: dict[str, Operation] = {
     "listFamilies": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/families",
@@ -345,6 +371,7 @@ OPERATIONS: dict[str, Operation] = {
     "listFiles": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/files",
@@ -358,6 +385,7 @@ OPERATIONS: dict[str, Operation] = {
     "listLimits": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/limits",
@@ -371,6 +399,7 @@ OPERATIONS: dict[str, Operation] = {
     "listPlans": {
         "auth": False,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/billing/plans",
@@ -384,6 +413,7 @@ OPERATIONS: dict[str, Operation] = {
     "listRunEvents": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/events",
@@ -397,6 +427,7 @@ OPERATIONS: dict[str, Operation] = {
     "listRunOutputs": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/outputs",
@@ -410,6 +441,7 @@ OPERATIONS: dict[str, Operation] = {
     "listRunTasks": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs/{run_id}/tasks",
@@ -423,6 +455,7 @@ OPERATIONS: dict[str, Operation] = {
     "listRuns": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/runs",
@@ -436,6 +469,7 @@ OPERATIONS: dict[str, Operation] = {
     "listStatements": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/billing/statements",
@@ -449,6 +483,7 @@ OPERATIONS: dict[str, Operation] = {
     "listUsageRecords": {
         "auth": True,
         "binary": False,
+        "idempotency": "safe_read",
         "idempotent": False,
         "method": "GET",
         "path": "/v1/usage/records",
@@ -462,6 +497,7 @@ OPERATIONS: dict[str, Operation] = {
     "pauseRun": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/runs/{run_id}/pause",
@@ -469,12 +505,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunControlReceipt",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:control",
     },
     "resumeRun": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/runs/{run_id}/resume",
@@ -482,12 +519,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "RunControlReceipt",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:control",
     },
     "revokeApiKey": {
         "auth": True,
         "binary": False,
+        "idempotency": "none",
         "idempotent": False,
         "method": "DELETE",
         "path": "/v1/api-keys/{key_id}",
@@ -501,6 +539,7 @@ OPERATIONS: dict[str, Operation] = {
     "rotateApiKey": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/api-keys/{key_id}/rotate",
@@ -508,12 +547,13 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "MintedApiKey",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "account:write",
     },
     "updateApiKey": {
         "auth": True,
         "binary": False,
+        "idempotency": "none",
         "idempotent": False,
         "method": "PATCH",
         "path": "/v1/api-keys/{key_id}",
@@ -527,6 +567,7 @@ OPERATIONS: dict[str, Operation] = {
     "updateRunLabels": {
         "auth": True,
         "binary": False,
+        "idempotency": "none",
         "idempotent": False,
         "method": "PATCH",
         "path": "/v1/runs/{run_id}/labels",
@@ -540,6 +581,7 @@ OPERATIONS: dict[str, Operation] = {
     "uploadFile": {
         "auth": True,
         "binary": False,
+        "idempotency": "durable_key",
         "idempotent": True,
         "method": "POST",
         "path": "/v1/files",
@@ -547,7 +589,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "UploadFileRequest",
         "response_model": "File",
-        "retry": "never",
+        "retry": "deduplicated",
         "scope": "swarms:write",
     },
 }

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
     "row", json.loads((ROOT / "contracts/fixtures/message-limits.json").read_text())
 )
 def test_shared_utf8_boundaries(row, tmp_path):
-    text = row["unit"] * row["repeat"]
+    text = row["text"] if "text" in row else row["unit"] * row["repeat"]
     path = tmp_path / "task.txt"
     path.write_text(text)
     if row["accepted"]:
@@ -57,7 +57,7 @@ def test_user_agent_tracks_package_metadata():
 
 
 @pytest.mark.parametrize(
-    "operation,body", [("createApiKey", {}), ("createRun", {"outcome": "unknown"})]
+    "operation,body", [("updateApiKey", {}), ("createRun", {"outcome": "unknown"})]
 )
 async def test_unverified_or_ambiguous_mutations_are_not_replayed(operation, body):
     calls = []
@@ -74,7 +74,7 @@ async def test_unverified_or_ambiguous_mutations_are_not_replayed(operation, bod
             retry_policy=RetryPolicy(backoff_seconds=0, jitter_seconds=0),
         )
         with pytest.raises(SwarmsAPIError):
-            await transport.invoke(operation)
+            await transport.invoke(operation, path={"key_id": "key_one"} if operation == "updateApiKey" else None)
     assert len(calls) == 1
 
 

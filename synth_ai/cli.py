@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from . import auth
 from ._generated.operations import OPERATIONS
 from ._generated.policy import MESSAGE_MAX_BYTES
+from ._validation import message_text
 from .aclient import AsyncSynthClient
 from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
 
@@ -150,7 +151,7 @@ def read_task(path: str) -> str:
     raw = source.read_bytes()
     if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
         raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
-    return raw.decode("utf-8")
+    return message_text(raw.decode("utf-8"))
 
 
 async def execute(args: argparse.Namespace) -> None:

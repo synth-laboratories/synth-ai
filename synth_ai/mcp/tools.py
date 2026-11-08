@@ -216,6 +216,7 @@ TOOLS: list[dict[str, Any]] = [
                             "minLength": 1,
                             "type": ["string", "null"],
                             "x-synth-max-bytes": 8192,
+                            "x-synth-message-text": True,
                         },
                         "method": {
                             "additionalProperties": False,

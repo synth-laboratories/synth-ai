@@ -254,7 +254,8 @@
                   "string",
                   "null"
                 ],
-                "x-synth-max-bytes": 8192
+                "x-synth-max-bytes": 8192,
+                "x-synth-message-text": true
               },
               "method": {
                 "additionalProperties": false,

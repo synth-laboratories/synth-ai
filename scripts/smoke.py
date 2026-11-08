@@ -276,7 +276,8 @@ async def run(output: Path, resume: bool = False) -> None:
                 path={"run_id": first, "output_id": out.output_id},
                 query={"revision_id": ref["revision_id"], "digest_sha256": ref["digest_sha256"]},
             )
-            assert hashlib.sha256(content).hexdigest() == ref["digest_sha256"]
+            if hashlib.sha256(content).hexdigest() != ref["digest_sha256"]:
+                raise ValueError("download digest differs from immutable output reference")
         except (RuntimeError, SwarmsAPIError, TimeoutError) as error:
             receipt["failures"]["first_run"] = type(error).__name__
             save()
