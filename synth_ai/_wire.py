@@ -10,6 +10,8 @@ JSON_VALUE = TypeAdapter(JsonValue, config=ConfigDict(allow_inf_nan=False))
 
 
 class WireModel(BaseModel):
+    model_config = ConfigDict(strict=True, frozen=True, allow_inf_nan=False)
+
     @model_validator(mode="after")
     def validate_extensions(self) -> Self:
         # OpenAPI permits extension keys on some responses. They must still be JSON.

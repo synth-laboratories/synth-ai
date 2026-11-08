@@ -75,4 +75,35 @@ installation. The wheel ships its PEP 561 marker.
 [ty configuration](https://docs.astral.sh/ty/configuration/) is kept in
 `pyproject.toml`; all enabled diagnostics fail the check. Ruff checks errors,
 imports, bug patterns, modern syntax and Ruff-specific correctness rules. A
-source regression check prevents explicit `Any` annotations from returning.
+dedicated standards lint prevents explicit `Any` annotations and unchecked public
+keyword bags from returning.
+
+
+## Standards lint
+
+Run `uv run python scripts/lint_standards.py` from the repository root. To inspect
+specific files, pass their paths as arguments. The check parses source without
+importing it, includes generated SDK files, and exits nonzero with
+`path:line:column: code message` diagnostics. Invalid or missing inputs fail closed.
+Both CI and package publication run it.
+
+| Rule | Enforced constraint |
+| --- | --- |
+| SYN001 | No `Any` imports or type uses, including qualified aliases and forward annotations. |
+| SYN002 | Public functions and constructors name their keyword parameters; no `**kwargs` bags. |
+| SYN003 | Public boundary collections declare element types; model fields and public signatures do not use `dict[str, object]` or equivalent opaque maps. Use a named record or `JsonValue` at a real JSON boundary. |
+| SYN004 | Pydantic records enable `strict=True` and `frozen=True`. Direct BaseModel/WireModel subclasses and local inheritance are checked, including explicit weakening. |
+| SYN005 | No `model_construct`/legacy `construct`, copy-with-update validation bypass, or explicitly non-strict/dynamic strict validation. |
+
+Ruff's `ANN` rules require annotations throughout production SDK code; `PGH`
+rejects blanket `noqa` and type-ignore comments; `TRY002` rejects generic
+`Exception` raises. Scripts and tests remain exempt from annotation coverage.
+The custom rules do not accept inline suppressions. `JsonValue`, explicitly
+mutable lifecycle helpers, and private raw-input decoders remain supported.
+
+This is a syntax-level guard, not a replacement for `ty` or protocol tests.
+SYN004 understands the SDK's WireModel base and inheritance within a file; it
+is not a general cross-module Python type resolver. SYN005 reserves Pydantic's
+construction and copy-with-update method spellings within the SDK. Generated
+contract drift and behavioral tests still enforce event kinds, valid states,
+strict scalar parsing, and completion semantics.

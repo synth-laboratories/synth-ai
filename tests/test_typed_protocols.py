@@ -1,16 +1,13 @@
 """Boundary regressions: invalid inputs never turn into plausible wire values."""
 
-import ast
-import inspect
 import itertools
 import json
-from pathlib import Path
 
 import httpx
 import pytest
 from pydantic import ValidationError
 
-from synth_ai import AsyncSynthClient, CompletionMilestone, RunState, SynthClient
+from synth_ai import AsyncSynthClient, CompletionMilestone, RunState
 from synth_ai._generated.models import (
     LaunchRequest,
     OwnerResourceRequest,
@@ -192,17 +189,6 @@ def test_checkpoint_has_a_versioned_typed_persistence_format():
     for version in [2, "1", True]:
         with pytest.raises(ValidationError):
             StreamCheckpoint.from_dict({**state.to_dict(), "schema_version": version})
-
-
-def test_production_annotations_have_no_any_or_unchecked_keyword_bags():
-    root = Path(__file__).parents[1] / "synth_ai"
-    for path in root.rglob("*.py"):
-        tree = ast.parse(path.read_text())
-        assert not any(
-            isinstance(node, ast.Name) and node.id == "Any" for node in ast.walk(tree)
-        ), path
-    for cls in [SynthClient, AsyncSynthClient]:
-        assert not any(p.kind is p.VAR_KEYWORD for p in inspect.signature(cls).parameters.values())
 
 
 def test_integer_literal_does_not_accept_boolean_equality():

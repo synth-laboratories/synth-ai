@@ -31,7 +31,7 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.ty.src]
-include = ["synth_ai"]
+include = ["synth_ai", "scripts/lint_standards.py"]
 
 [tool.ty.rules]
 all = "error"
@@ -40,5 +40,9 @@ all = "error"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "RUF"]
+select = ["E", "F", "I", "B", "UP", "RUF", "ANN", "PGH", "TRY002"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**" = ["ANN"]
+"tests/**" = ["ANN"]

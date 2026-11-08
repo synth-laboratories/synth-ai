@@ -13,7 +13,9 @@ against their declared event kinds. Checkpoints have a typed, versioned persiste
 format and still read the original unversioned format. Local errors expose stable
 codes and categories. Credential records and auth status now use attribute access.
 
-CI uses `ty` and expanded Ruff rules. Production modules contain no `Any`
+CI uses `ty`, expanded Ruff annotation/suppression rules, and an AST standards
+lint for Any aliases, explicit API signatures, typed maps, strict frozen records,
+and validation bypasses. Production modules contain no `Any`
 annotations; intentional JSON extensions remain `JsonValue`.
 
 ## 0.29.0 (unreleased)
