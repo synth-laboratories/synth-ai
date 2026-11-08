@@ -30,11 +30,10 @@ class SwarmsClient:
         inputs: dict[str, Any] | None = None,
         labels: dict[str, str] | None = None,
         resources: list[dict[str, Any]] | None = None,
-        program: dict[str, str] | None = None,
+        profile: str | None = None,
+        research_task: str | None = None,
         routing: RoutingConstraints | dict[str, Any] | None = None,
         guidance: list[RunGuidance | dict[str, Any]] | None = None,
-        method: Any = None,
-        profile_overrides: ProfileOverrides | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
@@ -45,11 +44,10 @@ class SwarmsClient:
                 inputs=inputs,
                 labels=labels,
                 resources=resources,
-                program=program,
+                profile=profile,
+                research_task=research_task,
                 routing=routing,
                 guidance=guidance,
-                method=method,
-                profile_overrides=profile_overrides,
                 idempotency_key=idempotency_key,
             )
         )
@@ -66,6 +64,8 @@ class SwarmsClient:
         message: str | None = None,
         *,
         budget: str | Decimal,
+        profile: str | None = None,
+        research_task: str | None = None,
         timeout: float = 600,
         poll_interval: float = 1,
         until: Literal["finished", "execution_closed", "result_available"] = "finished",
@@ -76,6 +76,8 @@ class SwarmsClient:
             self._async.run(
                 message,
                 budget=budget,
+                profile=profile,
+                research_task=research_task,
                 timeout=timeout,
                 poll_interval=poll_interval,
                 until=until,
@@ -275,6 +277,9 @@ class SwarmsClient:
 
     def routing_catalog(self) -> RoutingCatalog:
         return self._runner.call(self._async.routing_catalog())
+
+    def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
+        return self._runner.call(self._async.profiles(research_task=research_task))
 
 
 class ApiKeysClient:

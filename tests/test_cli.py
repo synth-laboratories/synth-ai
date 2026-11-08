@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -100,14 +99,14 @@ def test_watch_streams_then_reports_terminal_state(contract, state, exit_code):
 
 
 @pytest.mark.parametrize(
-    "method,release,overrides",
+    "profile,task",
     [
-        ("status-quo", None, None),
-        ("fork-flush", "research.fork_flush@1", {"branches": 2}),
-        ("forgetting", "research.forgetting@1", {"peers": 2}),
+        ("swarms-v2", None),
+        ("fork-flush", TASK),
+        ("forgetting", TASK),
     ],
 )
-def test_launch_method_reaches_http_contract(contract, method, release, overrides):
+def test_launch_profile_reaches_http_contract(contract, profile, task):
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     from threading import Thread
 
@@ -143,13 +142,11 @@ def test_launch_method_reaches_http_contract(contract, method, release, override
         "Improve policy",
         "--budget",
         "2.00",
-        "--method",
-        method,
+        "--profile",
+        profile,
     ]
-    if release:
-        args += ["--method-task", TASK]
-    if overrides:
-        args += ["--method-overrides", json.dumps(overrides)]
+    if task:
+        args += ["--research-task", task]
     try:
         result = subprocess.run(
             args,
@@ -164,28 +161,21 @@ def test_launch_method_reaches_http_contract(contract, method, release, override
         worker.join()
     assert result.returncode == 0, result.stderr
     assert len(requests) == 1
-    expected = {"release": release, "task": TASK, "overrides": overrides} if release else None
-    assert requests[0].get("method") == expected
-    assert "project_id" not in requests[0]
-    if expected:
-        schema = contract["components"]["schemas"]["LaunchRequest"]["properties"]["method"]
-        assert set(schema["required"]) <= set(expected) and set(expected) <= set(
-            schema["properties"]
-        )
-        assert re.fullmatch(schema["properties"]["task"]["pattern"], expected["task"])
-        assert expected["release"] in schema["properties"]["release"]["enum"]
+    assert requests[0]["profile"] == profile
+    assert requests[0].get("research_task") == task
+    assert "method" not in requests[0] and "program" not in requests[0]
     assert requests[0]["limits"]["maximum_charge"]["amount"] == "2.00"
 
 
 @pytest.mark.parametrize(
     "extra,refusal",
     [
-        (["--method", "fork-flush"], "requires --method-task"),
-        (["--method", "status-quo", "--method-task", TASK], "require fork-flush or forgetting"),
-        (["--method-task", TASK], "require fork-flush or forgetting"),
+        (["--profile", "fork-flush"], "requires research_task"),
+        (["--profile", "swarms-v2", "--research-task", TASK], "requires a research profile"),
+        (["--research-task", TASK], "requires a research profile"),
     ],
 )
-def test_method_task_refuses_before_any_request(extra, refusal):
+def test_profile_task_refuses_before_any_request(extra, refusal):
     result = subprocess.run(
         [
             sys.executable,

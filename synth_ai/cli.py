@@ -37,6 +37,7 @@ COMMANDS: dict[str, dict[str, str]] = {
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
         "families": "listFamilies",
+        "profiles": "listProfiles",
         "upload-text": "uploadFile",
         "uploads-prepare": "createUpload",
         "uploads-get": "getUpload",
@@ -105,13 +106,8 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("message", nargs="?")
                 command.add_argument("--task")
                 command.add_argument("--budget", required=True)
-                selection = command.add_mutually_exclusive_group()
-                selection.add_argument("--program")
-                selection.add_argument(
-                    "--method", choices=["status-quo", "fork-flush", "forgetting"]
-                )
-                command.add_argument("--method-task", help="published task a named method runs on")
-                command.add_argument("--method-overrides", help="JSON research parameter object")
+                command.add_argument("--profile")
+                command.add_argument("--research-task")
                 command.add_argument("--idempotency-key")
                 command.add_argument("--timeout", type=float, default=600)
                 command.add_argument(
@@ -230,30 +226,6 @@ async def execute(args: argparse.Namespace) -> None:
             )
         elif args.verb in {"run", "launch"}:
             message = read_task(args.task) if args.task else args.message
-            program = None
-            if args.program:
-                name, separator, version = args.program.rpartition("@")
-                if not separator or not name or not version:
-                    raise ValueError("program must be FAMILY@VERSION")
-                program = {"id": name, "version": version}
-            method: dict[str, Any] | None = None
-            if args.method in {"fork-flush", "forgetting"}:
-                release = {
-                    "fork-flush": "research.fork_flush@1",
-                    "forgetting": "research.forgetting@1",
-                }[args.method]
-                if not args.method_task:
-                    raise ValueError(f"--method {args.method} requires --method-task")
-                method = {"release": release, "task": args.method_task}
-                if args.method_overrides:
-                    overrides = json.loads(args.method_overrides)
-                    if not isinstance(overrides, dict):
-                        raise ValueError("method overrides must be a JSON object")
-                    method["overrides"] = overrides
-            elif args.method_overrides or args.method_task:
-                raise ValueError(
-                    "--method-task and --method-overrides require fork-flush or forgetting"
-                )
             routing: dict[str, Any] = {}
             for dimension in ("providers", "models"):
                 for mode in ("only", "exclude"):
@@ -264,8 +236,8 @@ async def execute(args: argparse.Namespace) -> None:
                 message,
                 routing=RoutingConstraints.model_validate(routing) if routing else None,
                 budget=args.budget,
-                program=program,
-                method=method,
+                profile=args.profile,
+                research_task=args.research_task,
                 idempotency_key=args.idempotency_key,
             )
             emit(created)

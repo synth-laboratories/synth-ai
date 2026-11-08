@@ -20,3 +20,12 @@ funding. `RunGuidance` uses the same UTF-8 byte and NUL checks as Core.
 Malformed successful mutation responses raise `ResponseContractError` with
 `outcome="unknown"`, request identity and the original idempotency key. This is
 not evidence of rejection and must not trigger a new mutation identity.
+
+Launch contract 3 / SDK 0.29.0 replaces `program`, `method` and
+`profile_overrides` with a named `profile` and optional `research_task`.
+`GET /v1/profiles` is scoped read-only discovery; its availability is specific
+to caller and task and must not be shared across credentials. It includes no
+approval documents or secrets. Requests cannot author a profile configuration.
+The ordinary profile is Swarms v2; research profiles retain the existing
+approval checks and immutable parameters. Accepted runs persist their resolved
+profile pins with the existing program selection.

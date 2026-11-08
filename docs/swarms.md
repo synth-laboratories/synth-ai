@@ -1,7 +1,7 @@
 # Swarms
 
 `SynthClient().swarms` exposes launch, run, get, wait, cancel, list, events,
-iter_events, follow, outputs, output, output_content and families. `AsyncSynthClient` exposes the same methods with `await`;
+iter_events, follow, outputs, output, output_content, families and profiles. `AsyncSynthClient` exposes the same methods with `await`;
 its iter_events and follow methods are async iterators.
 
 Every launch requires `budget`, a positive decimal USD string or `Decimal`,
@@ -9,7 +9,7 @@ for example `budget="0.10"`. It must be exactly representable in millionths of a
 dollar. Floats and implicit budgets are rejected. Optional `wall_time_seconds`
 bounds the run; omit it to use Core's policy. Core owns task counts and concurrency.
 `maximum_tasks`, `maximum_parallel_tasks`, and the old top-level `providers` and
-`models` arguments have been removed in launch contract 2 (SDK 0.28.0).
+`models` arguments have been removed in launch contract 2 and remain absent in contract 3 (SDK 0.29.0).
 
 `launch_request(LaunchRequest(...))` is the typed low-level entry point. Request,
 guidance, routing and response types are available from `synth_ai.models`.
@@ -45,7 +45,7 @@ CLI examples:
 
 ```sh
 synth swarms launch 'Compare retrieval methods' --budget 0.10
-synth swarms run --task ./task.md --budget 0.10 --program swarms.general@1
+synth swarms run --task ./task.md --budget 0.10 --profile swarms-v2
 synth swarms events RUN_ID --limit 20
 synth swarms attach RUN_ID --last-event-id 12
 synth billing balance
@@ -57,21 +57,40 @@ file in the directory is refused. Task text is the launch message. To send files
 a run, upload them with `synth swarms upload` or `upload_file` and pass the references
 in `inputs`; see the README.
 
-## Execution methods
+## Named run profiles
 
-Three methods are available. Status Quo is the default program and needs no setup.
+Call `profiles()` or `profiles(research_task="TASK")` to discover published
+profiles. The result includes `default_profile` and entries with `id`, `name`,
+`description`, `revision`, `available`, optional `unavailable_reason`, and
+supported routing. Availability is a read-only check, not a funding reservation.
+It reflects caller permissions, served recipes and task approvals. Launch
+revalidates those facts and checks the requested budget and resources.
 
-| Method | CLI | Python `method=` |
+| Profile | ID | Additional input |
 | --- | --- | --- |
-| Status Quo | `--method status-quo` | omit `method` |
-| Fork & Flush | `--method fork-flush --method-task TASK` | `{"release": "research.fork_flush@1", "task": "TASK"}` |
-| Forgetting | `--method forgetting --method-task TASK` | `{"release": "research.forgetting@1", "task": "TASK"}` |
+| Swarms v2 | `swarms-v2` | None |
+| Fork & Flush | `fork-flush` | `research_task` |
+| Forgetting | `forgetting` | `research_task` |
 
-Fork & Flush and Forgetting run on a published task that has an approval for the method,
-which pins the evaluator, baseline, context and actor profile. A task with no approval is
-refused. Pass `overrides` to change a method's published settings, for example
-`{"release": "research.fork_flush@1", "task": "TASK", "overrides": {"branches": 2}}`, and read
-`run.method` for the release and execution pins retained with the run.
+Omit `profile` for Core's default. An explicit profile is never silently
+replaced. The public API does not accept `program`, `method`,
+`profile_overrides`, or arbitrary actor/algorithm settings. A research profile
+uses the task's approved immutable parameters, evaluator, baseline, context and
+actor profile. Missing, revoked or foreign approvals refuse before funding.
+
+```python
+run = client.swarms.run(
+    "Improve the policy", budget="2.00",
+    profile="fork-flush", research_task="published-task",
+)
+print(run.profile.id, run.profile.revision, run.profile.digest)
+```
+
+`run.profile` retains the named revision, compiled program definition and exact
+actor profile digests. Its digest binds the resolved recipe, including approved
+research settings. Updating the catalog does not relabel historical runs;
+runs predating named profiles omit this field. `run.method` continues to expose
+retained research details as readback, not as a launch selector.
 
 `run.selection` reports what a research run selected. Only `selected` has an incumbent
 and a downloadable `selected-snapshot.tar.gz`, a gzipped tar whose SHA-256 equals
@@ -110,14 +129,11 @@ Core preserves existing privacy restrictions, and validates fixed research or
 explicit profile choices against constraints rather than replacing them.
 
 
-Choose a provider with `profile_overrides={"launch": {"preset":
-"hosted.openrouter_zdr_us", "effort": "low"}}`. Role-specific choices belong
-under `profile_overrides["roles"]`. Hosted presets are
-`hosted.openrouter_zdr_us` (restricted OpenRouter routing) and
-`hosted.openai_direct` (the default). The direct preset makes no verified
-retention or residency guarantee and is not a fallback for the restricted preset. `test.codex_pool` is restricted to local slots and
-staging; production returns `provider_preset_not_allowed` (403).
-All three currently serve `gpt-6-luna`.
+Routing restrictions select a supported route within the chosen profile.
+Research profiles cannot rewrite their approved actor profiles. Consult the
+profile's `routing` catalog for compatible routes; incompatible restrictions
+refuse before funding. Internal actor presets and effort overrides are not
+public launch options.
 
 Pass owner resource intents in `resources`, for example:
 

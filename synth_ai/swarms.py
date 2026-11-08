@@ -20,7 +20,6 @@ from ._generated.models import (
     LaunchRequest,
     Limits,
     OutputPage,
-    ProfileOverrides,
     RoutingCatalog,
     RoutingConstraints,
     RunConfiguration,
@@ -30,6 +29,7 @@ from ._generated.models import (
     RunLabels,
     RunOutput,
     RunPage,
+    RunProfileCatalog,
     RunProgram,
     RunReport,
     RunSandboxes,
@@ -62,13 +62,16 @@ class AsyncSwarms:
         inputs: dict[str, Any] | None = None,
         labels: dict[str, str] | None = None,
         resources: list[dict[str, Any]] | None = None,
-        program: dict[str, str] | None = None,
+        profile: str | None = None,
+        research_task: str | None = None,
         routing: RoutingConstraints | dict[str, Any] | None = None,
         guidance: list[RunGuidance | dict[str, Any]] | None = None,
-        method: Any = None,
-        profile_overrides: ProfileOverrides | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
+        if profile in {"fork-flush", "forgetting"} and research_task is None:
+            raise ValueError("research profile requires research_task")
+        if (profile is None or profile == "swarms-v2") and research_task is not None:
+            raise ValueError("research_task requires a research profile")
         if not isinstance(budget, (str, Decimal)):
             raise ValueError("budget must be a decimal string or Decimal")
         try:
@@ -89,11 +92,10 @@ class AsyncSwarms:
             "inputs": inputs,
             "labels": labels,
             "resources": resources,
-            "program": program,
+            "profile": profile,
+            "research_task": research_task,
             "routing": routing,
             "guidance": guidance,
-            "method": method,
-            "profile_overrides": profile_overrides,
         }.items():
             if value is not None:
                 body[name] = value
@@ -113,13 +115,18 @@ class AsyncSwarms:
         message: str | None = None,
         *,
         budget: str | Decimal,
+        profile: str | None = None,
+        research_task: str | None = None,
         timeout: float = 600,
         poll_interval: float = 1,
         until: Literal["finished", "execution_closed", "result_available"] = "finished",
         raise_on_failure: bool = False,
         **launch: Any,
     ) -> RunSnapshot:
-        created = await self.launch(message, budget=budget, **launch)
+        _validate_wait(timeout, poll_interval, until)
+        created = await self.launch(
+            message, budget=budget, profile=profile, research_task=research_task, **launch
+        )
         return await self.wait(
             created.run_id,
             timeout=timeout,
@@ -264,15 +271,7 @@ class AsyncSwarms:
         until: Literal["finished", "execution_closed", "result_available"] = "finished",
         raise_on_failure: bool = False,
     ) -> RunSnapshot:
-        if (
-            not math.isfinite(timeout)
-            or not math.isfinite(poll_interval)
-            or timeout <= 0
-            or poll_interval <= 0
-        ):
-            raise ValueError("timeout and poll_interval must be finite and positive")
-        if until not in {"finished", "execution_closed", "result_available"}:
-            raise ValueError("unknown completion milestone")
+        _validate_wait(timeout, poll_interval, until)
         snapshot: RunSnapshot | None = None
         try:
             async with asyncio.timeout(timeout):
@@ -462,3 +461,20 @@ class AsyncSwarms:
         if catalog.routing is None:
             raise ValueError("Server does not expose a routing catalog")
         return catalog.routing
+
+    async def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
+        return await self._transport.request(
+            "listProfiles", RunProfileCatalog, query={"research_task": research_task}
+        )
+
+
+def _validate_wait(timeout: float, poll_interval: float, until: str) -> None:
+    if (
+        not math.isfinite(timeout)
+        or not math.isfinite(poll_interval)
+        or timeout <= 0
+        or poll_interval <= 0
+    ):
+        raise ValueError("timeout and poll_interval must be finite and positive")
+    if until not in {"finished", "execution_closed", "result_available"}:
+        raise ValueError("unknown completion milestone")

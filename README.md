@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.28.0 (launch contract 2).
+Typed Python 3.11+ client for the Synth public API v1. Version 0.29.0 (launch contract 3).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.
@@ -39,23 +39,27 @@ the full upload protocol. Pool resources use the public selector `pool`.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
 
-Choose the execution method with `--method status-quo`, `--method fork-flush`, or
-`--method forgetting`. Status Quo uses the default program. The two research
-methods run on a published task, named with `--method-task`, that has an approval
-for the method: the evaluator, baseline, context and actor profile are pinned by
-that approval. A task with no approval is refused.
+Choose a published run profile. Omit `profile` to let Core use its default.
 
-```sh
-synth swarms run "Improve the policy" --budget 2.00 --method status-quo
-synth swarms run "Improve the policy" --budget 2.00 --method fork-flush --method-task <task> --method-overrides '{"branches": 2}'
-synth swarms run "Improve the policy" --budget 2.00 --method forgetting --method-task <task> --method-overrides '{"peers": 2}'
+```python
+with SynthClient() as client:
+    print(client.swarms.profiles())
+    run = client.swarms.run("Solve this task", budget="2.00", profile="swarms-v2")
 ```
 
-The equivalent Python arguments are `method={"release": "research.fork_flush@1",
-"overrides": {"branches": 2}}` and `method={"release": "research.forgetting@1",
-"overrides": {"peers": 2}}`. Omit `method` for Status Quo. Read `run.method` to
-inspect the immutable release and execution pins retained with the run.
+```sh
+synth swarms profiles
+synth swarms run "Solve this task" --budget 2.00 --profile swarms-v2
+synth swarms profiles --research-task published-task
+synth swarms run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
+```
 
-Routing restrictions, mandatory budgets, completion milestones and resumable
-transfers are documented in [Swarms](docs/swarms.md). Version 0.28.0 removes
-public task-count controls and the old top-level provider/model mappings.
+The catalog reports each profile's description, revision, supported routing and
+caller-specific availability. Research profiles require a published task and
+its approval. Every run retains its exact resolved profile in `run.profile`.
+New configurations are published profiles; arbitrary actor overrides are not
+part of the public API.
+
+See [Swarms](docs/swarms.md) for routing, lifecycle and transfer details.
+Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
+launch fields with `profile` and, for research profiles, `research_task`.

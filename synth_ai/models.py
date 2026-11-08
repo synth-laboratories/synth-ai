@@ -6,7 +6,6 @@ from ._generated.models import (
     LaunchRequest,
     Limits,
     Only,
-    ProfileOverrides,
     RoutingActor,
     RoutingCatalog,
     RoutingConstraints,
@@ -14,6 +13,9 @@ from ._generated.models import (
     RunEvent,
     RunGuidance,
     RunOutput,
+    RunProfile,
+    RunProfileCatalog,
+    RunProfilePin,
     RunSnapshot,
 )
 from ._stream import StreamCheckpoint
@@ -24,7 +26,9 @@ __all__ = [
     "LaunchBudget",
     "LaunchRequest",
     "Limits",
-    "ProfileOverrides",
+    "RunProfile",
+    "RunProfileCatalog",
+    "RunProfilePin",
     "RoutingActor",
     "RoutingCatalog",
     "RoutingConstraints",

@@ -203,7 +203,7 @@ async def run(output: Path, resume: bool = False) -> None:
                 "createRun",
                 body={
                     "message": message,
-                    "program": {"id": "swarms.general", "version": "1"},
+                    "profile": "swarms-v2",
                     "limits": {
                         "maximum_charge": {"amount": "0.10", "currency": "USD"},
                         "wall_time_seconds": 120,

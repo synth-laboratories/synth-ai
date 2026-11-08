@@ -444,6 +444,17 @@ class RunLabelsRequest(BaseModel):
     expected_revision: Annotated[int, Field(ge=1)]
 
 
+class RunProfilePin(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    id: str
+    revision: str
+    digest: str
+    program_id: str
+    program_version: str
+    definition_digest: str
+    actor_profiles: dict[str, str]
+
+
 class RunProgram(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
     program: dict[str, Any]
@@ -1090,9 +1101,8 @@ class LaunchRequest(BaseModel):
     limits: Limits
     inputs: dict[str, Any] | None = None
     guidance: Annotated[list[RunGuidance], Field(max_length=32)] | None = None
-    method: dict[str, Any] | None = None
-    program: dict[str, Any] | None = None
-    profile_overrides: ProfileOverrides | None = None
+    profile: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    research_task: Annotated[str, Field(pattern="^[a-z0-9][a-z0-9._-]{0,127}$")] | None = None
     resources: Annotated[list[OwnerResourceRequest], Field(max_length=8)] | None = None
     labels: dict[str, str] | None = None
     routing: RoutingConstraints | None = None
@@ -1140,6 +1150,19 @@ class RunObjective(BaseModel):
     metric_state: ObjectiveMetricState | None
     claims: list[ObjectiveClaim]
     verdict: ObjectiveVerdict | None
+
+
+class RunProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    id: str
+    revision: str
+    name: str
+    description: str
+    requires_research_task: bool
+    default: bool
+    available: bool
+    unavailable_reason: str | None = None
+    routing: RoutingCatalog | None = None
 
 
 class RunReportSandbox(BaseModel):
@@ -1224,6 +1247,12 @@ class BillingHistoryPage(BaseModel):
     items: list[BillingHistoryEntry]
 
 
+class RunProfileCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    default_profile: str
+    profiles: list[RunProfile]
+
+
 class RunReport(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     run_id: RunId
@@ -1263,7 +1292,7 @@ class RunSnapshot(BaseModel):
     created_at: str
     started_at: str | None
     closed_at: str | None
-    profile_overrides: ProfileOverrideReadback | None = None
+    profile: RunProfilePin | None = None
     selection: RunSelection | None = None
     routing: RoutingReadback | None = None
 
@@ -1321,6 +1350,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
+    "RunProfilePin": RunProfilePin,
     "RunProgram": RunProgram,
     "RunReportRollout": RunReportRollout,
     "RunTaskPage": RunTaskPage,
@@ -1386,12 +1416,14 @@ MODELS: dict[str, type[BaseModel]] = {
     "ProfileOverrideReadback": ProfileOverrideReadback,
     "RoutingReadback": RoutingReadback,
     "RunObjective": RunObjective,
+    "RunProfile": RunProfile,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
     "RunSelection": RunSelection,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummary": UsageSummary,
     "BillingHistoryPage": BillingHistoryPage,
+    "RunProfileCatalog": RunProfileCatalog,
     "RunReport": RunReport,
     "RunSnapshot": RunSnapshot,
     "RunPage": RunPage,

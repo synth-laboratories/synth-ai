@@ -25,7 +25,6 @@ async def test_launch_exact_money_and_retry_identity(contract):
             "selection": {"pool_ids": ["craftax-control"]},
         }
     ]
-    overrides = {"launch": {"preset": "test.codex_pool", "effort": "low"}}
 
     def handle(request):
         requests.append(request)
@@ -42,7 +41,7 @@ async def test_launch_exact_money_and_retry_identity(contract):
                 budget="0.100001",
                 idempotency_key="launch-once",
                 resources=resources,
-                profile_overrides=overrides,
+                profile="swarms-v2",
             )
     assert len(requests) == 2
     assert (
@@ -53,7 +52,8 @@ async def test_launch_exact_money_and_retry_identity(contract):
     assert requests[0].content == requests[1].content
     body = json.loads(requests[0].content)
     assert body["resources"] == resources
-    assert body["profile_overrides"] == overrides
+    assert body["profile"] == "swarms-v2"
+    assert "profile_overrides" not in body
     assert json.loads(requests[0].content)["limits"]["maximum_charge"] == {
         "amount": "0.100001",
         "currency": "USD",
