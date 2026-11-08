@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 
-def require(condition, message):
+def require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
 

@@ -68,7 +68,7 @@ when an actual JSON representation is needed.
 ## Checks
 
 Run `uv sync --locked --extra mcp`, `uv run ty check`, `uv run ruff check synth_ai
-scripts tests`, and `uv run ruff format --check synth_ai scripts tests`. CI also
+scripts tests typing_tests`, and `uv run ruff format --check synth_ai scripts tests typing_tests`. CI also
 checks both generators, regression tests, wheel metadata and an isolated wheel
 installation. The wheel ships its PEP 561 marker.
 
@@ -97,7 +97,7 @@ Both CI and package publication run it.
 
 Ruff's `ANN` rules require annotations throughout production SDK code; `PGH`
 rejects blanket `noqa` and type-ignore comments; `TRY002` rejects generic
-`Exception` raises. Scripts and tests remain exempt from annotation coverage.
+`Exception` raises. Tooling scripts also require annotations; tests retain their annotation exemption.
 The custom rules do not accept inline suppressions. `JsonValue`, explicitly
 mutable lifecycle helpers, and private raw-input decoders remain supported.
 
@@ -107,3 +107,22 @@ is not a general cross-module Python type resolver. SYN005 reserves Pydantic's
 construction and copy-with-update method spellings within the SDK. Generated
 contract drift and behavioral tests still enforce event kinds, valid states,
 strict scalar parsing, and completion semantics.
+
+
+## Type-hint verification
+
+`uv run ty check` covers `synth_ai/`, every file in `scripts/`, and
+`typing_tests/accepted.py`. Tooling uses typed JSON accessors for the open schema
+vocabulary, typed mutable smoke-observation records, and explicit typed transport
+parameters. These are checked by ty and by Ruff's annotation rules.
+
+`uv run python scripts/check_type_contracts.py` checks the SDK from a consumer's
+perspective. Accepted sync/async examples use `assert_type` to check return values,
+stream items, records, and enums. Rejected examples must produce their exact
+expected diagnostic codes and locations: missing budgets, wrong input types,
+removed override fields, and wrong return types. Unexpected, duplicate or missing
+diagnostics fail the check; these comments never suppress errors. The invalid
+fixture is deliberately outside the default passing `ty check` source list.
+
+Both checks run in CI and before package publication. They are offline checks;
+none of the consumer examples or live smoke operations are executed.

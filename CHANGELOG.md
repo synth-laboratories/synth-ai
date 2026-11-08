@@ -2,6 +2,11 @@
 
 ## 0.30.0 (unreleased)
 
+Type verification now covers all SDK tooling and accepted consumer examples.
+Explicit negative type contracts guard budgets, models and sync/async return
+types. Generators and smoke receipts have typed boundaries; scripts require
+annotations. No provider-backed smoke run is needed for these checks.
+
 Strict, frozen generated records reject implicit scalar coercion. Nested file
 inputs, upload grants, resource selections and tasks have named models. Schema
 enums are `StrEnum` classes. Public clients and run helpers have explicit typed
