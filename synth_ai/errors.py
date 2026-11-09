@@ -230,12 +230,14 @@ def raise_for_response(response: httpx.Response) -> None:
                 status=response.status_code,
                 unknown=response.request.method not in {"GET", "HEAD"},
             ),
-            request_id=response.headers.get("x-request-id"),
+            request_id=response.headers.get("x-request-id")
+            or response.request.headers.get("x-request-id"),
             idempotency_key=response.request.headers.get("idempotency-key"),
         ) from None
     raise_problem(
         problem,
-        request_id=response.headers.get("x-request-id"),
+        request_id=response.headers.get("x-request-id")
+        or response.request.headers.get("x-request-id"),
         idempotency_key=response.request.headers.get("idempotency-key"),
     )
 

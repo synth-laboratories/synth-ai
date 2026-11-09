@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+from contextlib import aclosing, asynccontextmanager
 from pathlib import Path
 from typing import TypeVar
 from urllib.parse import quote
@@ -13,14 +14,14 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from ._generated.models import Problem, RunEvent, RunSnapshot, UploadGrant
+from ._event_stream import decode_events, validate_stream_response
+from ._generated.models import RunEvent, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
-from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH
 from ._operations import OperationExecutor
 from ._retry import RetryPolicy as RetryPolicy
 from ._retry import retry_delay as retry_delay
-from ._stream import StreamCheckpoint, bounded_lines, frames
+from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
 from ._version import __version__
 from .errors import (
@@ -29,7 +30,6 @@ from .errors import (
     SynthError,
     TransportFailureError,
     local_problem,
-    raise_problem,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -146,6 +146,36 @@ class Transport:
             raise SynthError("Unexpected response model for " + operation_id)
         return result
 
+    @asynccontextmanager
+    async def subscribe_events(
+        self, run_id: str, state: StreamCheckpoint
+    ) -> AsyncGenerator[AsyncIterator[RunEvent], None]:
+        """Open the durable feed before an observer performs its authoritative read."""
+        state.bind(run_id)
+        state.__post_init__()
+        headers = self.headers()
+        headers["Accept"] = "text/event-stream"
+        headers["Accept-Encoding"] = "identity"
+        if state.last_event_id is not None:
+            headers["Last-Event-ID"] = state.last_event_id
+        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
+        try:
+            async with self.client.stream(
+                "GET", self.base_url + route, headers=headers, timeout=self.timeout
+            ) as response:
+                if not response.is_success:
+                    await raise_stream_error(response)
+                validate_stream_response(response)
+                async with aclosing(decode_events(response, run_id, state)) as events:
+                    yield events
+        except SwarmsAPIError as error:
+            error.checkpoint = state
+            raise
+        except (ValueError, ValidationError) as cause:
+            error = ResponseContractError(local_problem("event_stream_invalid", "listRunEvents"))
+            error.checkpoint = state
+            raise error from cause
+
     async def stream_events(
         self,
         run_id: str,
@@ -153,7 +183,7 @@ class Transport:
         last_event_id: str | None = None,
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
-    ) -> AsyncIterator[RunEvent]:
+    ) -> AsyncGenerator[RunEvent, None]:
         if timeout is not None and (not math.isfinite(timeout) or timeout <= 0):
             raise ValueError("stream timeout must be finite and positive")
         state = checkpoint if checkpoint is not None else StreamCheckpoint()
@@ -163,58 +193,14 @@ class Transport:
                 raise ValueError("conflicting stream resume identities")
             state.last_event_id = last_event_id
         state.__post_init__()
-        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
         try:
             async with asyncio.timeout(timeout):
                 for attempt in range(self.retry_policy.attempts):
-                    headers = self.headers()
-                    headers["Accept"] = "text/event-stream"
-                    headers["Accept-Encoding"] = "identity"
-                    if state.last_event_id is not None:
-                        headers["Last-Event-ID"] = state.last_event_id
                     disconnected = False
                     try:
-                        async with self.client.stream(
-                            "GET", self.base_url + route, headers=headers, timeout=self.timeout
-                        ) as response:
-                            if not response.is_success:
-                                await raise_stream_error(response)
-                            if (
-                                response.headers.get("content-type", "").split(";")[0].strip()
-                                != "text/event-stream"
-                            ):
-                                raise ValueError("expected event stream")
-                            if response.headers.get("content-encoding", "identity") != "identity":
-                                raise ValueError("compressed event stream refused")
-                            async for frame in frames(bounded_lines(response.aiter_bytes())):
-                                if frame.event == "error":
-                                    raise_problem(
-                                        Problem.model_validate_json(frame.data),
-                                        request_id=response.headers.get("x-request-id"),
-                                    )
-                                if frame.event not in {"message", "event"}:
-                                    raise ValueError("unknown event frame type")
-                                item = (
-                                    RunEvent.model_validate_json(frame.data) if frame.data else None
-                                )
-                                if item is not None and item.run_id != run_id:
-                                    raise ValueError("event belongs to another run")
-                                duplicate = (
-                                    item is not None and item.event_id in state.pending_event_ids
-                                )
-                                if item is not None:
-                                    state.pending_event_ids.add(item.event_id)
-                                if len(state.pending_event_ids) > CHECKPOINT_MAX_EVENTS:
-                                    raise ValueError(
-                                        "expanded event sequence exceeds checkpoint bound"
-                                    )
-                                if frame.id is not None:
-                                    if len(frame.id) > CHECKPOINT_MAX_ID_LENGTH:
-                                        raise ValueError("event cursor exceeds checkpoint bound")
-                                    state.last_event_id = frame.id or None
-                                    state.pending_event_ids.clear()
-                                if item is not None and not duplicate:
-                                    yield item
+                        async with self.subscribe_events(run_id, state) as events:
+                            async for item in events:
+                                yield item
                     except httpx.TransportError:
                         disconnected = True
                     if not disconnected:

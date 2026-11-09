@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import builtins
 import hashlib
-import math
 from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -40,18 +39,15 @@ from ._generated.models import (
     Upload,
 )
 from ._limits import UPLOAD_MAX_BYTES
+from ._observer import RunObserver, validate_wait
 from ._protocol import CompletionMilestone
 from ._requests import launch_request
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from .errors import (
     DataIntegrityError,
-    ResultUnavailableError,
-    RunFailedError,
-    RunHistoryUnavailableError,
     SynthError,
     UploadTransferError,
-    WaitTimeoutError,
 )
 
 
@@ -114,7 +110,7 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        _validate_wait(timeout, poll_interval, until)
+        validate_wait(timeout, poll_interval, until)
         created = await self.launch(
             message,
             budget=budget,
@@ -272,32 +268,13 @@ class AsyncSwarms:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
     ) -> RunSnapshot:
-        _validate_wait(timeout, poll_interval, until)
-        snapshot: RunSnapshot | None = None
-        try:
-            async with asyncio.timeout(timeout):
-                while True:
-                    snapshot = await self.get(run_id)
-                    finished = snapshot.finished
-                    reached = snapshot.reached(until)
-                    if reached:
-                        if raise_on_failure and snapshot.state == "failed":
-                            raise RunFailedError("Run " + run_id + " failed", snapshot=snapshot)
-                        return snapshot
-                    if until == "result_available" and finished:
-                        raise ResultUnavailableError(
-                            "Run has finished without an available result", snapshot=snapshot
-                        )
-                    if snapshot.metadata.get("imported_history") is not None:
-                        raise RunHistoryUnavailableError(
-                            "This historical run cannot prove the requested milestone",
-                            snapshot=snapshot,
-                        )
-                    await asyncio.sleep(poll_interval)
-        except TimeoutError as error:
-            raise WaitTimeoutError(
-                "Timed out waiting for " + run_id, snapshot=snapshot, run_id=run_id
-            ) from error
+        return await RunObserver(self._transport).wait(
+            run_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            until=until,
+            raise_on_failure=raise_on_failure,
+        )
 
     async def list(
         self,
@@ -388,10 +365,13 @@ class AsyncSwarms:
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
     ) -> AsyncGenerator[RunEvent, None]:
-        async for event in self._transport.stream_events(
-            run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
-        ):
-            yield event
+        async with aclosing(
+            self._transport.stream_events(
+                run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+            )
+        ) as events:
+            async for event in events:
+                yield event
 
     async def outputs(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
@@ -459,15 +439,3 @@ class AsyncSwarms:
         return await self._transport.request(
             "listProfiles", RunProfileCatalog, query={"research_task": research_task}
         )
-
-
-def _validate_wait(timeout: float, poll_interval: float, until: str) -> None:
-    if (
-        not math.isfinite(timeout)
-        or not math.isfinite(poll_interval)
-        or timeout <= 0
-        or poll_interval <= 0
-    ):
-        raise ValueError("timeout and poll_interval must be finite and positive")
-    if until not in {"finished", "execution_closed", "result_available"}:
-        raise ValueError("unknown completion milestone")

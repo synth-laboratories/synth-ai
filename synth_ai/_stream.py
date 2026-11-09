@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, cast
 
@@ -35,6 +35,7 @@ class StreamCheckpoint:
     pending_event_ids: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        self.pending_event_ids = set(self.pending_event_ids)
         for value in (self.run_id, self.last_event_id, *self.pending_event_ids):
             if value is not None and (
                 not isinstance(value, str)
@@ -73,7 +74,7 @@ class StreamCheckpoint:
         )
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> StreamCheckpoint:
+    def from_dict(cls, value: Mapping[str, object]) -> StreamCheckpoint:
         # An absent version reads the original v1 checkpoint format.
         return cls.from_data(StreamCheckpointData.model_validate(value))
 

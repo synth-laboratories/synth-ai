@@ -1,6 +1,7 @@
 """Type-only consumer contracts. These functions are checked, never executed."""
 
 from collections.abc import AsyncGenerator, Iterator
+from contextlib import aclosing
 from typing import assert_type
 
 from pydantic import JsonValue
@@ -41,3 +42,18 @@ async def asynchronous(client: AsyncSynthClient) -> None:
     assert_type(client.swarms.follow("run"), AsyncGenerator[RunEvent, None])
     async for event in client.swarms.iter_events("run"):
         assert_type(event, RunEvent)
+
+
+async def managed_observation() -> None:
+    checkpoint = StreamCheckpoint()
+    assert_type(StreamCheckpoint.from_dict(checkpoint.to_dict()), StreamCheckpoint)
+    async with AsyncSynthClient("fixture") as client:
+        async with aclosing(client.swarms.follow("run", checkpoint=StreamCheckpoint())) as events:
+            async for event in events:
+                assert_type(event, RunEvent)
+                break
+
+
+def managed_sync_client() -> None:
+    with SynthClient("fixture") as client:
+        assert_type(client.swarms.wait("run"), RunSnapshot)

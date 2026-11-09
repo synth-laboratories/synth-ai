@@ -1,6 +1,7 @@
 """Execute generated operations under one identity, payload snapshot and deadline."""
 
 import asyncio
+import json
 import time
 from collections.abc import Callable, Mapping
 from urllib.parse import quote
@@ -16,14 +17,20 @@ from .errors import ResponseContractError, TransportFailureError, local_problem,
 
 
 def ambiguous_response(response: httpx.Response) -> bool:
-    """Honor the owner's explicit uncertainty even on a retryable HTTP status."""
+    """Only an authoritative not-accepted Problem permits a mutation retry."""
+    from ._generated.models import Problem
+
     try:
-        body = response.json()
-    except (ValueError, UnicodeError):
-        return False
-    return bool(
-        isinstance(body, dict)
-        and (body.get("outcome") == "unknown" or body.get("outcome_unknown") is True)
+        problem = Problem.model_validate_json(response.content)
+    except (ValueError, ValidationError):
+        return True
+    legacy_unknown = (
+        problem.model_extra is not None and problem.model_extra.get("outcome_unknown") is True
+    )
+    return (
+        problem.status != response.status_code
+        or problem.outcome != "not_accepted"
+        or legacy_unknown
     )
 
 
@@ -71,9 +78,14 @@ class OperationExecutor:
                 .model_validate(payload)
                 .model_dump(mode="json", exclude_unset=True)
             )
+        # Serialize once before any await. Caller-owned nested containers cannot
+        # change request semantics between retries under the same identity.
+        content = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
         headers = self.headers(op["auth"])
         if op["idempotency"] == "durable_key":
             headers["Idempotency-Key"] = idempotency_key or str(uuid4())
+        if content is not None:
+            headers["Content-Type"] = "application/json"
         deadline = time.monotonic() + self.retry_policy.deadline_seconds
         response: httpx.Response | None = None
         for attempt in range(self.retry_policy.attempts):
@@ -84,7 +96,7 @@ class OperationExecutor:
                         op["method"],
                         self.base_url + route,
                         params=params,
-                        json=payload,
+                        content=content,
                         headers=headers,
                         timeout=min(self.timeout, max(0, remaining)),
                     )
@@ -94,7 +106,10 @@ class OperationExecutor:
                     local_problem(
                         "transport_failed",
                         operation_id,
-                        unknown=op["method"] not in {"GET", "HEAD"},
+                        unknown=op["method"] not in {"GET", "HEAD"}
+                        and not isinstance(
+                            error, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+                        ),
                     ),
                     request_id=headers["X-Request-Id"],
                     idempotency_key=headers.get("Idempotency-Key"),
@@ -103,7 +118,7 @@ class OperationExecutor:
                 response.status_code not in {429, 503}
                 or attempt + 1 == self.retry_policy.attempts
                 or op["retry"] == "never"
-                or ambiguous_response(response)
+                or (op["method"] not in {"GET", "HEAD"} and ambiguous_response(response))
             ):
                 break
             delay = self.retry_policy.delay(response.headers.get("Retry-After"), attempt)
@@ -122,7 +137,7 @@ class OperationExecutor:
                     local_problem(
                         "response_contract_invalid",
                         operation_id,
-                        unknown=op["idempotency"] == "durable_key",
+                        unknown=op["method"] not in {"GET", "HEAD"},
                     ),
                     request_id=response.headers.get("x-request-id") or headers["X-Request-Id"],
                     idempotency_key=headers.get("Idempotency-Key"),
