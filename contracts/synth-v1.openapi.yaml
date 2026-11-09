@@ -4429,8 +4429,8 @@ components:
           - string
           - 'null'
           minLength: 1
-          maxLength: 8192
-          x-synth-max-bytes: 8192
+          maxLength: 32768
+          x-synth-max-bytes: 32768
           x-synth-message-text: true
         limits:
           $ref: '#/components/schemas/Limits'

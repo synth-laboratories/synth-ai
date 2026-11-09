@@ -7,4 +7,4 @@ SDK_OAUTH_SCOPES = (
     "synth:read",
     "synth:action",
 )
-MESSAGE_MAX_BYTES = 8192
+MESSAGE_MAX_BYTES = 32768
