@@ -42,6 +42,14 @@ class DataIntegrityError(SynthError, ValueError):
     code = "content_integrity_failed"
 
 
+class PaginationError(SynthError, ValueError):
+    code = "pagination_invalid"
+
+    def __init__(self, message: str, *, cursor: str | None) -> None:
+        super().__init__(message)
+        self.cursor = cursor
+
+
 class SwarmsAPIError(SynthError):
     kind = ErrorKind.API
     checkpoint: StreamCheckpoint | None = None
@@ -201,7 +209,14 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
 }
 
 
-def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = False) -> Problem:
+def local_problem(
+    code: str,
+    stage: str,
+    *,
+    status: int = 503,
+    unknown: bool = False,
+    upstream_status: int | None = None,
+) -> Problem:
     return Problem(
         type="about:blank",
         title=code,
@@ -212,6 +227,7 @@ def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = F
         service="synth-ai",
         stage=stage,
         outcome=ProblemOutcome.UNKNOWN if unknown else ProblemOutcome.NOT_ACCEPTED,
+        upstream_status=upstream_status,
     )
 
 
@@ -227,15 +243,18 @@ def raise_for_response(response: httpx.Response) -> None:
             local_problem(
                 "malformed_error_response",
                 "decode",
-                status=response.status_code,
+                status=response.status_code if 400 <= response.status_code <= 599 else 502,
+                upstream_status=response.status_code,
                 unknown=response.request.method not in {"GET", "HEAD"},
             ),
-            request_id=response.headers.get("x-request-id"),
+            request_id=response.headers.get("x-request-id")
+            or response.request.headers.get("x-request-id"),
             idempotency_key=response.request.headers.get("idempotency-key"),
         ) from None
     raise_problem(
         problem,
-        request_id=response.headers.get("x-request-id"),
+        request_id=response.headers.get("x-request-id")
+        or response.request.headers.get("x-request-id"),
         idempotency_key=response.request.headers.get("idempotency-key"),
     )
 

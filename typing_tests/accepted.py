@@ -1,12 +1,14 @@
 """Type-only consumer contracts. These functions are checked, never executed."""
 
 from collections.abc import AsyncGenerator, Iterator
+from contextlib import aclosing
 from typing import assert_type
 
 from pydantic import JsonValue
 
 from synth_ai import AsyncSynthClient, CompletionMilestone, RunState, SynthClient
 from synth_ai._generated.models import Balance, File, RunEvent, RunSnapshot
+from synth_ai.diagnostics import OperationDiagnostic
 from synth_ai.errors import WaitTimeoutError
 from synth_ai.models import InputFile, RunInputs, RunProfileCatalog, StreamCheckpoint
 
@@ -41,3 +43,30 @@ async def asynchronous(client: AsyncSynthClient) -> None:
     assert_type(client.swarms.follow("run"), AsyncGenerator[RunEvent, None])
     async for event in client.swarms.iter_events("run"):
         assert_type(event, RunEvent)
+
+
+async def managed_observation() -> None:
+    checkpoint = StreamCheckpoint()
+    assert_type(StreamCheckpoint.from_dict(checkpoint.to_dict()), StreamCheckpoint)
+    async with AsyncSynthClient("fixture") as client:
+        async with aclosing(client.swarms.follow("run", checkpoint=StreamCheckpoint())) as events:
+            async for event in events:
+                assert_type(event, RunEvent)
+                break
+
+
+def managed_sync_client() -> None:
+    with SynthClient("fixture") as client:
+        assert_type(client.swarms.wait("run"), RunSnapshot)
+
+
+def diagnostic_consumer(event: OperationDiagnostic) -> None:
+    assert_type(event.attempts, int)
+    assert_type(event.request_correlation, str | None)
+
+
+async def typed_iterators(client: AsyncSynthClient) -> None:
+    async for snapshot in client.swarms.iter_runs():
+        assert_type(snapshot, RunSnapshot)
+    async for file in client.swarms.iter_files():
+        assert_type(file, File)

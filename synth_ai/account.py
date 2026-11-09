@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+from collections.abc import AsyncGenerator
 
 from ._generated.models import (
     Account,
@@ -15,9 +16,11 @@ from ._generated.models import (
     Scope,
     UpdateApiKeyRequest,
     UsageExport,
+    UsageRecord,
     UsageRecordPage,
     UsageSummary,
 )
+from ._pagination import paginate
 from ._transport import Transport
 
 
@@ -71,6 +74,15 @@ class AsyncApiKeys:
 
     async def revoke(self, key_id: str) -> None:
         await self._transport.invoke("revokeApiKey", path={"key_id": key_id})
+
+    async def iter_keys(
+        self, *, purpose: str | None = None, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[ApiKey, None]:
+        async def fetch(next_cursor: str | None) -> ApiKeyPage:
+            return await self.list(purpose=purpose, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
 
 
 class AsyncAccount:
@@ -126,3 +138,20 @@ class AsyncAccount:
 
     async def limits(self) -> LimitList:
         return await self._transport.request("listLimits", LimitList)
+
+    async def iter_usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> AsyncGenerator[UsageRecord, None]:
+        async def fetch(next_cursor: str | None) -> UsageRecordPage:
+            return await self.usage_records(
+                since=since, until=until, run_id=run_id, cursor=next_cursor, limit=limit
+            )
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item

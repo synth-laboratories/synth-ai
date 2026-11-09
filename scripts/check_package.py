@@ -60,6 +60,21 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         cwd=directory,
         stdout=subprocess.DEVNULL,
     )
+    subprocess.run(
+        [str(python), "-I", str(ROOT / "scripts/check_installed.py")],
+        check=True,
+        cwd=directory,
+    )
+    subprocess.run(
+        ["uv", "pip", "install", "--python", str(python), "--no-cache", str(wheel) + "[mcp]"],
+        check=True,
+    )
+    subprocess.run(
+        [str(python), "-I", str(ROOT / "scripts/check_installed.py"), "--mcp"],
+        check=True,
+        cwd=directory,
+    )
+
 print(
     {
         "wheel_bytes": wheel.stat().st_size,

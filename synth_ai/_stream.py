@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, cast
 
@@ -35,6 +35,7 @@ class StreamCheckpoint:
     pending_event_ids: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        self.pending_event_ids = set(self.pending_event_ids)
         for value in (self.run_id, self.last_event_id, *self.pending_event_ids):
             if value is not None and (
                 not isinstance(value, str)
@@ -73,7 +74,7 @@ class StreamCheckpoint:
         )
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> StreamCheckpoint:
+    def from_dict(cls, value: Mapping[str, object]) -> StreamCheckpoint:
         # An absent version reads the original v1 checkpoint format.
         return cls.from_data(StreamCheckpointData.model_validate(value))
 
@@ -85,11 +86,46 @@ class Frame:
     id: str | None
 
 
+async def bounded_lines(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
+    """Bound bytes before line assembly/UTF-8 decoding, including missing newlines.
+
+    SSE permits LF, CRLF and CR. A delimiter may cross transport chunks; UTF-8
+    code points may too. No unbounded text decoder or HTTP line buffer precedes
+    this check. A trailing partial line cannot dispatch an event.
+    """
+    pending = bytearray()
+    skip_lf, first = False, True
+    async for chunk in chunks:
+        offset = 0
+        while offset < len(chunk):
+            if skip_lf:
+                skip_lf = False
+                if chunk[offset] == 10:
+                    offset += 1
+                    continue
+            lf, cr = chunk.find(b"\n", offset), chunk.find(b"\r", offset)
+            end = cr if lf < 0 else lf if cr < 0 else min(lf, cr)
+            stop = len(chunk) if end < 0 else end
+            if len(pending) + stop - offset > SSE_FRAME_MAX_BYTES:
+                raise ValueError("event line exceeds 1 MiB")
+            pending.extend(memoryview(chunk)[offset:stop])
+            if end < 0:
+                break
+            line = pending.decode("utf-8", errors="strict")
+            pending.clear()
+            if first:
+                line = line.removeprefix("\ufeff")
+                first = False
+            yield line
+            skip_lf = chunk[end] == 13
+            offset = end + 1
+
+
 async def frames(lines: AsyncIterator[str]) -> AsyncIterator[Frame]:
     data: list[str] = []
     event, event_id, size = "message", None, 0
     async for line in lines:
-        size += len(line.encode("utf-8"))
+        size += len(line.encode("utf-8")) + 1
         if size > SSE_FRAME_MAX_BYTES:
             raise ValueError("event frame exceeds 1 MiB")
         if line == "":

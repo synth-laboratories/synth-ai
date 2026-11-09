@@ -2,6 +2,7 @@
 
 from ._generated.models import (
     Exclude,
+    File,
     InputFile,
     LaunchBudget,
     LaunchRequest,
@@ -27,6 +28,7 @@ from ._generated.models import (
     RunState,
     RunTask,
     UploadGrant,
+    UsageSummary,
 )
 from ._protocol import CompletionMilestone
 from ._stream import StreamCheckpoint, StreamCheckpointData
@@ -34,6 +36,7 @@ from ._stream import StreamCheckpoint, StreamCheckpointData
 __all__ = [
     "CompletionMilestone",
     "Exclude",
+    "File",
     "InputFile",
     "LaunchBudget",
     "LaunchRequest",
@@ -61,4 +64,5 @@ __all__ = [
     "StreamCheckpoint",
     "StreamCheckpointData",
     "UploadGrant",
+    "UsageSummary",
 ]

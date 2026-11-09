@@ -10,6 +10,7 @@ from ._blocking import Runner
 from ._sync import AccountClient, BillingClient, SwarmsClient
 from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
+from .diagnostics import DiagnosticHook
 
 
 class SynthClient:
@@ -22,6 +23,7 @@ class SynthClient:
         timeout: float = 30,
         retries: int = 2,
         retry_policy: RetryPolicy | None = None,
+        diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
         self._async = AsyncSynthClient(
             api_key,
@@ -30,6 +32,7 @@ class SynthClient:
             timeout=timeout,
             retries=retries,
             retry_policy=retry_policy,
+            diagnostic_hook=diagnostic_hook,
         )
         self._runner = Runner()
         self.swarms = SwarmsClient(self._runner, self._async.swarms)

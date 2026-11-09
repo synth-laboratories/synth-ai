@@ -136,6 +136,12 @@ async def test_finished_waits_for_accounting_and_cleanup(contract):
     calls = []
 
     def handle(request):
+        if request.headers.get("accept") == "text/event-stream":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "text/event-stream"},
+                content=("data: " + json.dumps(event(states[0]["run_id"], "A")) + "\n\n").encode(),
+            )
         calls.append(request.method)
         return httpx.Response(200, json=states[len(calls) - 1])
 
@@ -155,7 +161,13 @@ async def test_failure_and_result_unavailable_preserve_snapshot(contract):
         result_available=False,
     )
     async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=state))
+        transport=httpx.MockTransport(
+            lambda r: (
+                httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=b"")
+                if r.headers.get("accept") == "text/event-stream"
+                else httpx.Response(200, json=state)
+            )
+        )
     ) as http:
         async with client(http) as api:
             assert (await api.swarms.wait(state["run_id"])).state == "failed"
@@ -177,6 +189,10 @@ async def test_wait_timeout_and_cancellation_never_cancel_run(contract):
 
     def handle(request):
         calls.append(request.method)
+        if request.headers.get("accept") == "text/event-stream":
+            return httpx.Response(
+                200, headers={"Content-Type": "text/event-stream"}, content=b": heartbeat\n\n"
+            )
         return httpx.Response(200, json=state)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:

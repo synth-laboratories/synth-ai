@@ -5,6 +5,8 @@ live. Creating or pushing a release tag is part of that gated publication.
 Use the version in `pyproject.toml`; do not create its release tag before approval.
 
 1. Verify the backend commit and contract SHA256 in `contracts/SOURCE.toml`.
+   Run `uv run python scripts/check_cohort.py --core-checkout <core>
+   --core-revision <frozen-commit>`; do not promote a mismatched cohort.
 2. Run the complete CI matrix, generation checks, wheel and sdist builds,
    `twine check`, package-size checks and fresh-venv install smoke.
 3. Install the exact wheel in a fresh venv with `uv pip install --no-cache`; verify

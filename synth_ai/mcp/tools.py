@@ -474,6 +474,12 @@ TOOLS: list[ToolDefinition] = [
                     },
                     "required": ["limits"],
                     "type": "object",
+                    "x-synth-default-profile": "swarms-v2",
+                    "x-synth-profile-requirements": {
+                        "forgetting": True,
+                        "fork-flush": True,
+                        "swarms-v2": False,
+                    },
                 },
                 "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
             },

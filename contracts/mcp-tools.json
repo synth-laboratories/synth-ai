@@ -482,7 +482,13 @@
             "required": [
               "limits"
             ],
-            "type": "object"
+            "type": "object",
+            "x-synth-default-profile": "swarms-v2",
+            "x-synth-profile-requirements": {
+              "forgetting": true,
+              "fork-flush": true,
+              "swarms-v2": false
+            }
           },
           "idempotency_key": {
             "maxLength": 128,

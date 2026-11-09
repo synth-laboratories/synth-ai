@@ -6,7 +6,7 @@ import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai._transport import retry_delay
 from synth_ai.cli import parser, read_task
-from synth_ai.errors import ConflictError, TransportFailureError
+from synth_ai.errors import ConflictError, TransportFailureError, local_problem
 
 
 def snapshot(contract):
@@ -29,7 +29,11 @@ async def test_launch_exact_money_and_retry_identity(contract):
     def handle(request):
         requests.append(request)
         if len(requests) == 1:
-            return httpx.Response(503, headers={"Retry-After": "0"}, json={})
+            return httpx.Response(
+                503,
+                headers={"Retry-After": "0"},
+                json=local_problem("unavailable", "admission").model_dump(mode="json"),
+            )
         return httpx.Response(202, json=snapshot(contract))
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:

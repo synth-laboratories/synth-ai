@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+
 from ._generated.models import (
     Balance,
+    BillingHistoryEntry,
     BillingHistoryPage,
+    BillingStatement,
     BillingStatementPage,
     CheckoutAttempt,
     CheckoutRequest,
@@ -12,6 +16,7 @@ from ._generated.models import (
     Money,
     PlanCatalog,
 )
+from ._pagination import paginate
 from ._transport import Transport
 
 
@@ -74,3 +79,35 @@ class AsyncBilling:
         return await self._transport.request(
             "createCheckout", CheckoutSession, body=body, idempotency_key=idempotency_key
         )
+
+    async def iter_history(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 20,
+        cause: str | None = None,
+        run_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> AsyncGenerator[BillingHistoryEntry, None]:
+        async def fetch(next_cursor: str | None) -> BillingHistoryPage:
+            return await self.history(
+                cursor=next_cursor,
+                limit=limit,
+                cause=cause,
+                run_id=run_id,
+                since=since,
+                until=until,
+            )
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_statements(
+        self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[BillingStatement, None]:
+        async def fetch(next_cursor: str | None) -> BillingStatementPage:
+            return await self.statements(months=months, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item

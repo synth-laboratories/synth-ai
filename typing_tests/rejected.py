@@ -27,3 +27,11 @@ async def invalid_async(client: AsyncSynthClient) -> None:
 
 def invalid_result(client: SynthClient) -> int:
     return client.swarms.get("run")  # type-error: invalid-return-type
+
+
+def invalid_hook(value: int) -> None:
+    pass
+
+
+def invalid_diagnostics() -> None:
+    AsyncSynthClient("fixture", diagnostic_hook=invalid_hook)  # type-error: invalid-argument-type

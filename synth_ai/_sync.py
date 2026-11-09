@@ -12,7 +12,9 @@ from ._generated.models import (
     ApiKey,
     ApiKeyPage,
     Balance,
+    BillingHistoryEntry,
     BillingHistoryPage,
+    BillingStatement,
     BillingStatementPage,
     CheckoutAttempt,
     CheckoutSession,
@@ -43,10 +45,12 @@ from ._generated.models import (
     RunReport,
     RunSandboxes,
     RunSnapshot,
+    RunTask,
     RunTaskPage,
     Scope,
     Upload,
     UsageExport,
+    UsageRecord,
     UsageRecordPage,
     UsageSummary,
 )
@@ -334,6 +338,33 @@ class SwarmsClient:
     def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
         return self._runner.call(self._async.profiles(research_task=research_task))
 
+    def iter_runs(
+        self,
+        *,
+        limit: int = 20,
+        cursor: str | None = None,
+        state: str | None = None,
+        created_after: str | None = None,
+    ) -> Iterator[RunSnapshot]:
+        return self._runner.iterate(
+            self._async.iter_runs(
+                limit=limit, cursor=cursor, state=state, created_after=created_after
+            )
+        )
+
+    def iter_tasks(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> Iterator[RunTask]:
+        return self._runner.iterate(self._async.iter_tasks(run_id, cursor=cursor, limit=limit))
+
+    def iter_outputs(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> Iterator[RunOutput]:
+        return self._runner.iterate(self._async.iter_outputs(run_id, cursor=cursor, limit=limit))
+
+    def iter_files(self, *, cursor: str | None = None, limit: int = 20) -> Iterator[File]:
+        return self._runner.iterate(self._async.iter_files(cursor=cursor, limit=limit))
+
 
 class ApiKeysClient:
     def __init__(self, runner: Runner, source: AsyncApiKeys) -> None:
@@ -386,6 +417,13 @@ class ApiKeysClient:
     def revoke(self, key_id: str) -> None:
         return self._runner.call(self._async.revoke(key_id))
 
+    def iter_keys(
+        self, *, purpose: str | None = None, cursor: str | None = None, limit: int = 20
+    ) -> Iterator[ApiKey]:
+        return self._runner.iterate(
+            self._async.iter_keys(purpose=purpose, cursor=cursor, limit=limit)
+        )
+
 
 class AccountClient:
     def __init__(self, runner: Runner, source: AsyncAccount) -> None:
@@ -426,6 +464,21 @@ class AccountClient:
 
     def limits(self) -> LimitList:
         return self._runner.call(self._async.limits())
+
+    def iter_usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> Iterator[UsageRecord]:
+        return self._runner.iterate(
+            self._async.iter_usage_records(
+                since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
+            )
+        )
 
 
 class BillingClient:
@@ -472,4 +525,27 @@ class BillingClient:
     ) -> CheckoutSession:
         return self._runner.call(
             self._async.checkout(plan_id=plan_id, credit=credit, idempotency_key=idempotency_key)
+        )
+
+    def iter_history(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 20,
+        cause: str | None = None,
+        run_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> Iterator[BillingHistoryEntry]:
+        return self._runner.iterate(
+            self._async.iter_history(
+                cursor=cursor, limit=limit, cause=cause, run_id=run_id, since=since, until=until
+            )
+        )
+
+    def iter_statements(
+        self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
+    ) -> Iterator[BillingStatement]:
+        return self._runner.iterate(
+            self._async.iter_statements(months=months, cursor=cursor, limit=limit)
         )

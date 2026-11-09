@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import builtins
 import hashlib
-import math
 from collections.abc import AsyncGenerator
-from decimal import Decimal, InvalidOperation
+from contextlib import aclosing
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
 
 from ._generated.models import (
     EventPage,
     FamilyList,
     File,
     FilePage,
-    LaunchBudget,
     LaunchRequest,
-    Limits,
     OutputPage,
     OwnerResourceRequest,
     RoutingCatalog,
@@ -38,27 +34,28 @@ from ._generated.models import (
     RunReport,
     RunSandboxes,
     RunSnapshot,
+    RunTask,
     RunTaskPage,
     Upload,
 )
-from ._limits import UPLOAD_MAX_BYTES
+from ._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
+from ._observer import RunObserver, validate_wait
+from ._pagination import paginate
 from ._protocol import CompletionMilestone
+from ._requests import launch_request
 from ._stream import StreamCheckpoint
 from ._transport import Transport
+from ._uploads import ArtifactUploads
 from .errors import (
     DataIntegrityError,
-    ResultUnavailableError,
-    RunFailedError,
-    RunHistoryUnavailableError,
-    SynthError,
-    UploadTransferError,
-    WaitTimeoutError,
 )
 
 
 class AsyncSwarms:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+        self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
+        self._default_profile = DEFAULT_RUN_PROFILE
 
     async def launch(
         self,
@@ -75,24 +72,10 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        if profile in {"fork-flush", "forgetting"} and research_task is None:
-            raise ValueError("research profile requires research_task")
-        if (profile is None or profile == "swarms-v2") and research_task is not None:
-            raise ValueError("research_task requires a research profile")
-        if not isinstance(budget, (str, Decimal)):
-            raise ValueError("budget must be a decimal string or Decimal")
-        try:
-            amount = Decimal(budget)
-            if not amount.is_finite() or amount <= 0:
-                raise ValueError("budget must be positive")
-        except InvalidOperation as error:
-            raise ValueError("budget must be a decimal string") from error
-        request = LaunchRequest(
-            limits=Limits(
-                maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
-                wall_time_seconds=wall_time_seconds,
-            ),
-            message=message,
+        request = launch_request(
+            message,
+            budget=budget,
+            wall_time_seconds=wall_time_seconds,
             inputs=inputs,
             labels=labels,
             resources=resources,
@@ -100,9 +83,9 @@ class AsyncSwarms:
             research_task=research_task,
             routing=routing,
             guidance=guidance,
+            profile_requirements=self._profile_requirements,
+            default_profile=self._default_profile,
         )
-        # Omitted convenience options stay absent on the wire, not explicit nulls.
-        request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
     async def launch_request(
@@ -131,7 +114,7 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        _validate_wait(timeout, poll_interval, until)
+        validate_wait(timeout, poll_interval, until)
         created = await self.launch(
             message,
             budget=budget,
@@ -160,56 +143,14 @@ class AsyncSwarms:
         media_type: str | None = None,
         idempotency_key: str | None = None,
     ) -> File:
-        source = Path(filename)
-        formats = {
-            ".txt": "text/plain",
-            ".md": "text/markdown",
-            ".markdown": "text/markdown",
-            ".json": "application/json",
-        }
-        media = media_type or formats.get(source.suffix.lower())
-        if media not in {"text/plain", "text/markdown", "application/json"}:
-            raise ValueError("Supported formats: text/plain, text/markdown, application/json")
-        with source.open("rb") as stream:
-            content = stream.read(UPLOAD_MAX_BYTES + 1)
-        if len(content) > UPLOAD_MAX_BYTES:
-            raise ValueError("File exceeds the 32 MiB limit")
-        key = idempotency_key or str(uuid4())
-        upload = await self.prepare_upload(
-            name=source.name,
-            media_type=media,
-            size_bytes=len(content),
-            digest_sha256=hashlib.sha256(content).hexdigest(),
-            idempotency_key=key,
+        return await ArtifactUploads(self._transport).upload_file(
+            filename, media_type=media_type, idempotency_key=idempotency_key
         )
-        return await self._finish_upload(upload, content, key)
-
-    async def _finish_upload(self, upload: Upload, content: bytes, key: str) -> File:
-        if upload.state == "committed":
-            return upload.file
-        if upload.put is None:
-            raise UploadTransferError(upload.upload_id, key)
-        try:
-            await self._transport.put_upload(upload.put, content, idempotency_key=key)
-            finalized = await self.finalize_upload(upload.upload_id, idempotency_key=key)
-            if finalized.state != "committed":
-                raise UploadTransferError(upload.upload_id, key)
-            return finalized.file
-        except SynthError as cause:
-            raise UploadTransferError(upload.upload_id, key) from cause
 
     async def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
-        upload = await self.upload(upload_id)
-        if upload.state == "committed":
-            return upload.file
-        with Path(filename).open("rb") as source:
-            content = source.read(UPLOAD_MAX_BYTES + 1)
-        if (
-            len(content) != upload.file.size_bytes
-            or hashlib.sha256(content).hexdigest() != upload.file.digest_sha256
-        ):
-            raise DataIntegrityError("resume content differs from the retained upload")
-        return await self._finish_upload(upload, content, idempotency_key)
+        return await ArtifactUploads(self._transport).resume(
+            upload_id, filename, idempotency_key=idempotency_key
+        )
 
     async def upload_text(
         self,
@@ -289,32 +230,13 @@ class AsyncSwarms:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
     ) -> RunSnapshot:
-        _validate_wait(timeout, poll_interval, until)
-        snapshot: RunSnapshot | None = None
-        try:
-            async with asyncio.timeout(timeout):
-                while True:
-                    snapshot = await self.get(run_id)
-                    finished = snapshot.finished
-                    reached = snapshot.reached(until)
-                    if reached:
-                        if raise_on_failure and snapshot.state == "failed":
-                            raise RunFailedError("Run " + run_id + " failed", snapshot=snapshot)
-                        return snapshot
-                    if until == "result_available" and finished:
-                        raise ResultUnavailableError(
-                            "Run has finished without an available result", snapshot=snapshot
-                        )
-                    if snapshot.metadata.get("imported_history") is not None:
-                        raise RunHistoryUnavailableError(
-                            "This historical run cannot prove the requested milestone",
-                            snapshot=snapshot,
-                        )
-                    await asyncio.sleep(poll_interval)
-        except TimeoutError as error:
-            raise WaitTimeoutError(
-                "Timed out waiting for " + run_id, snapshot=snapshot, run_id=run_id
-            ) from error
+        return await RunObserver(self._transport).wait(
+            run_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            until=until,
+            raise_on_failure=raise_on_failure,
+        )
 
     async def list(
         self,
@@ -387,15 +309,11 @@ class AsyncSwarms:
     async def iter_events(
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> AsyncGenerator[RunEvent, None]:
-        while True:
-            page = await self.events(run_id, cursor=cursor, limit=limit)
-            for item in page.items:
-                yield item
-            if not page.has_more:
-                return
-            if page.next_cursor is None or page.next_cursor == "" or page.next_cursor == cursor:
-                raise ValueError("nonadvancing event cursor")
-            cursor = page.next_cursor
+        async def fetch(next_cursor: str | None) -> EventPage:
+            return await self.events(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
 
     async def follow(
         self,
@@ -405,10 +323,13 @@ class AsyncSwarms:
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
     ) -> AsyncGenerator[RunEvent, None]:
-        async for event in self._transport.stream_events(
-            run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
-        ):
-            yield event
+        async with aclosing(
+            self._transport.stream_events(
+                run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+            )
+        ) as events:
+            async for event in events:
+                yield event
 
     async def outputs(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
@@ -473,18 +394,54 @@ class AsyncSwarms:
         return catalog.routing
 
     async def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
-        return await self._transport.request(
+        catalog = await self._transport.request(
             "listProfiles", RunProfileCatalog, query={"research_task": research_task}
         )
+        self._default_profile = catalog.default_profile
+        self._profile_requirements.update(
+            {item.id: item.requires_research_task for item in catalog.profiles}
+        )
+        return catalog
 
+    async def iter_runs(
+        self,
+        *,
+        limit: int = 20,
+        cursor: str | None = None,
+        state: str | None = None,
+        created_after: str | None = None,
+    ) -> AsyncGenerator[RunSnapshot, None]:
+        async def fetch(next_cursor: str | None) -> RunPage:
+            return await self.list(
+                limit=limit, cursor=next_cursor, state=state, created_after=created_after
+            )
 
-def _validate_wait(timeout: float, poll_interval: float, until: str) -> None:
-    if (
-        not math.isfinite(timeout)
-        or not math.isfinite(poll_interval)
-        or timeout <= 0
-        or poll_interval <= 0
-    ):
-        raise ValueError("timeout and poll_interval must be finite and positive")
-    if until not in {"finished", "execution_closed", "result_available"}:
-        raise ValueError("unknown completion milestone")
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_tasks(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[RunTask, None]:
+        async def fetch(next_cursor: str | None) -> RunTaskPage:
+            return await self.tasks(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_outputs(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[RunOutput, None]:
+        async def fetch(next_cursor: str | None) -> OutputPage:
+            return await self.outputs(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_files(
+        self, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[File, None]:
+        async def fetch(next_cursor: str | None) -> FilePage:
+            return await self.files(cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item

@@ -16,11 +16,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked --extra mcp
-      - run: uv run ruff check synth_ai scripts tests typing_tests
-      - run: uv run ruff format --check synth_ai scripts tests typing_tests
+      - run: uv run ruff check synth_ai scripts tests examples typing_tests
+      - run: uv run ruff format --check synth_ai scripts tests examples typing_tests
       - run: uv run ty check
       - run: uv run python scripts/check_type_contracts.py
       - run: uv run python scripts/lint_standards.py
+      - run: uv run python scripts/check_cohort.py
       - run: uv run python scripts/gen_contract.py --check && uv run python scripts/gen_sync.py --check
       - run: uv run pytest -q
       - run: uv build && uv run twine check dist/*
