@@ -30,7 +30,7 @@ def test_generated_drift():
 
 
 def test_wire_examples(contract):
-    for path, item in contract["paths"].items():
+    for _path, item in contract["paths"].items():
         for operation in item.values():
             for response in operation.get("responses", {}).values():
                 response = resolve(contract, response)
@@ -93,7 +93,7 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 14
+    assert len(by_name) == len(hosted["tools"]) == 15
     for tool in hosted["tools"]:
         local = by_name.pop(tool["name"])
         assert local["inputSchema"] == tool["inputSchema"]

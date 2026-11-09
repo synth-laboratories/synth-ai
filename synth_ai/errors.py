@@ -2,17 +2,58 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from ._stream import StreamCheckpoint
+
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem
+from ._generated.models import Problem, ProblemOutcome, RunSnapshot
+
+
+class ErrorKind(StrEnum):
+    API = "api"
+    TRANSPORT = "transport"
+    CONTRACT = "contract"
+    UPLOAD = "upload"
+    OBSERVATION = "observation"
+    CONFIGURATION = "configuration"
+    INTEGRITY = "integrity"
+    LIFECYCLE = "lifecycle"
 
 
 class SynthError(Exception):
-    """Base SDK error."""
+    """Base SDK error with a stable category and machine-readable code."""
+
+    kind: ClassVar[ErrorKind] = ErrorKind.CONFIGURATION
+    code: str = "sdk_error"
+
+
+class ClientClosedError(SynthError, RuntimeError):
+    kind = ErrorKind.LIFECYCLE
+    code = "client_closed"
+
+
+class DataIntegrityError(SynthError, ValueError):
+    kind = ErrorKind.INTEGRITY
+    code = "content_integrity_failed"
+
+
+class PaginationError(SynthError, ValueError):
+    code = "pagination_invalid"
+
+    def __init__(self, message: str, *, cursor: str | None) -> None:
+        super().__init__(message)
+        self.cursor = cursor
 
 
 class SwarmsAPIError(SynthError):
+    kind = ErrorKind.API
+    checkpoint: StreamCheckpoint | None = None
+
     def __init__(
         self, problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
     ) -> None:
@@ -76,19 +117,54 @@ class ResourceAdmissionError(InvalidRequestError):
 
 
 class MalformedErrorResponseError(SwarmsAPIError):
-    pass
+    kind = ErrorKind.CONTRACT
 
 
 class TransportFailureError(SwarmsAPIError):
-    pass
+    kind = ErrorKind.TRANSPORT
 
 
-class RunFailedError(SynthError):
-    pass
+class UploadTransferError(SynthError):
+    kind = ErrorKind.UPLOAD
+    code = "upload_incomplete"
+
+    def __init__(self, upload_id: str, idempotency_key: str) -> None:
+        super().__init__("Upload is incomplete; resume the retained upload")
+        self.upload_id = upload_id
+        self.idempotency_key = idempotency_key
 
 
-class WaitTimeoutError(SynthError):
-    pass
+class ResponseContractError(SwarmsAPIError):
+    """A response could not be decoded; mutation identity remains recoverable."""
+
+    kind = ErrorKind.CONTRACT
+
+
+class RunObservationError(SynthError):
+    kind = ErrorKind.OBSERVATION
+
+    def __init__(
+        self, message: str, *, snapshot: RunSnapshot | None = None, run_id: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.snapshot = snapshot
+        self.run_id = snapshot.run_id if snapshot is not None else run_id
+
+
+class RunFailedError(RunObservationError):
+    code = "run_failed"
+
+
+class WaitTimeoutError(RunObservationError):
+    code = "wait_timeout"
+
+
+class ResultUnavailableError(RunObservationError):
+    code = "result_unavailable"
+
+
+class RunHistoryUnavailableError(RunObservationError):
+    code = "run_history_unavailable"
 
 
 _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
@@ -116,17 +192,31 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
             "provider_policy_invalid",
             "provider_policy_mismatch",
             "provider_model_mismatch",
+            "routing_constraints_invalid",
+            "routing_constraints_unsatisfiable",
         ),
         ProviderPolicyError,
     ),
     **dict.fromkeys(
-        ("resource_request_invalid", "resource_limits_required", "grant_not_widenable"),
+        (
+            "resource_request_invalid",
+            "resource_limits_required",
+            "grant_not_widenable",
+            "resource_routing_unverified",
+        ),
         ResourceAdmissionError,
     ),
 }
 
 
-def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = False) -> Problem:
+def local_problem(
+    code: str,
+    stage: str,
+    *,
+    status: int = 503,
+    unknown: bool = False,
+    upstream_status: int | None = None,
+) -> Problem:
     return Problem(
         type="about:blank",
         title=code,
@@ -136,7 +226,8 @@ def local_problem(code: str, stage: str, *, status: int = 503, unknown: bool = F
         code=code,
         service="synth-ai",
         stage=stage,
-        outcome="unknown" if unknown else "not_accepted",
+        outcome=ProblemOutcome.UNKNOWN if unknown else ProblemOutcome.NOT_ACCEPTED,
+        upstream_status=upstream_status,
     )
 
 
@@ -152,17 +243,26 @@ def raise_for_response(response: httpx.Response) -> None:
             local_problem(
                 "malformed_error_response",
                 "decode",
-                status=response.status_code,
+                status=response.status_code if 400 <= response.status_code <= 599 else 502,
+                upstream_status=response.status_code,
                 unknown=response.request.method not in {"GET", "HEAD"},
             ),
-            request_id=response.headers.get("x-request-id"),
+            request_id=response.headers.get("x-request-id")
+            or response.request.headers.get("x-request-id"),
             idempotency_key=response.request.headers.get("idempotency-key"),
         ) from None
-    kind = _BY_CODE.get(problem.code) or _BY_STATUS.get(
-        response.status_code, ServerError if response.status_code >= 500 else InvalidRequestError
-    )
-    raise kind(
+    raise_problem(
         problem,
-        request_id=response.headers.get("x-request-id"),
+        request_id=response.headers.get("x-request-id")
+        or response.request.headers.get("x-request-id"),
         idempotency_key=response.request.headers.get("idempotency-key"),
     )
+
+
+def raise_problem(
+    problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
+) -> None:
+    kind = _BY_CODE.get(problem.code) or _BY_STATUS.get(
+        problem.status, ServerError if problem.status >= 500 else InvalidRequestError
+    )
+    raise kind(problem, request_id=request_id, idempotency_key=idempotency_key)

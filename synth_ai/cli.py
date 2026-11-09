@@ -8,14 +8,16 @@ import base64
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from . import auth
 from ._generated.operations import OPERATIONS
+from ._generated.policy import MESSAGE_MAX_BYTES
+from ._validation import message_text
 from .aclient import AsyncSynthClient
 from .errors import RunFailedError, SwarmsAPIError, SynthError, WaitTimeoutError
+from .models import RoutingConstraints
 
 COMMANDS: dict[str, dict[str, str]] = {
     "swarms": {
@@ -34,6 +36,7 @@ COMMANDS: dict[str, dict[str, str]] = {
         "output": "getRunOutput",
         "output-content": "getRunOutputContent",
         "families": "listFamilies",
+        "profiles": "listProfiles",
         "upload-text": "uploadFile",
         "uploads-prepare": "createUpload",
         "uploads-get": "getUpload",
@@ -86,7 +89,7 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument(
                     "--" + name.replace("_", "-"), type=int if name == "limit" else str
                 )
-            if op["request_model"]:
+            if op["request_model"] is not None:
                 command.add_argument("--json", default="{}", help="JSON request object")
             if op["idempotent"]:
                 command.add_argument("--idempotency-key")
@@ -102,24 +105,38 @@ def parser() -> argparse.ArgumentParser:
                 command.add_argument("message", nargs="?")
                 command.add_argument("--task")
                 command.add_argument("--budget", required=True)
-                selection = command.add_mutually_exclusive_group()
-                selection.add_argument("--program")
-                selection.add_argument(
-                    "--method", choices=["status-quo", "fork-flush", "forgetting"]
-                )
-                command.add_argument("--method-task", help="published task a named method runs on")
-                command.add_argument("--method-overrides", help="JSON research parameter object")
+                command.add_argument("--profile")
+                command.add_argument("--research-task")
                 command.add_argument("--idempotency-key")
                 command.add_argument("--timeout", type=float, default=600)
+                command.add_argument(
+                    "--until",
+                    choices=["finished", "execution_closed", "result_available"],
+                    default="finished",
+                )
+                for dimension in ("providers", "models"):
+                    choices = command.add_mutually_exclusive_group()
+                    choices.add_argument("--" + dimension + "-only", nargs="+")
+                    choices.add_argument("--" + dimension + "-exclude", nargs="+")
             command = verbs.add_parser("wait")
             command.add_argument("run_id")
             command.add_argument("--timeout", type=float, default=600)
+            command.add_argument(
+                "--until",
+                choices=["finished", "execution_closed", "result_available"],
+                default="finished",
+            )
             for verb in ["follow", "attach", "watch"]:
                 command = verbs.add_parser(verb)
                 command.add_argument("run_id")
                 command.add_argument("--last-event-id")
                 if verb == "watch":
                     command.add_argument("--timeout", type=float, default=600)
+                    command.add_argument(
+                        "--until",
+                        choices=["finished", "execution_closed", "result_available"],
+                        default="finished",
+                    )
     groups.add_parser("login")
     groups.add_parser("logout")
     auth_group = groups.add_parser("auth")
@@ -127,7 +144,7 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def emit(value: Any) -> None:
+def emit(value: BaseModel | bytes | JsonValue) -> None:
     if isinstance(value, BaseModel):
         print(value.model_dump_json(exclude_unset=True), flush=True)
     elif isinstance(value, bytes):
@@ -147,18 +164,51 @@ def read_task(path: str) -> str:
             raise ValueError("task bundle must contain exactly one task text file")
         source = files[0]
     raw = source.read_bytes()
-    if not raw.strip() or len(raw) > 8192:
-        raise ValueError("task must contain 1..8192 bytes")
-    return raw.decode("utf-8")
+    if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
+        raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
+    return message_text(raw.decode("utf-8"))
 
 
 async def execute(args: argparse.Namespace) -> None:
     async with AsyncSynthClient(base_url=args.base_url) as client:
+
+        async def wait_and_emit(run_id: str) -> None:
+            try:
+                emit(
+                    await client.swarms.wait(
+                        run_id, timeout=args.timeout, until=args.until, raise_on_failure=True
+                    )
+                )
+            except RunFailedError as error:
+                if error.snapshot is not None:
+                    emit(error.snapshot)
+                raise
+
         if hasattr(args, "operation"):
             op = OPERATIONS[args.operation]
             body = json.loads(args.json) if hasattr(args, "json") else None
             if getattr(args, "name", None):
                 body = {"name": args.name}
+            if args.operation == "getRunOutputContent":
+                if getattr(args, "out", None):
+                    saved = await client.swarms.download_output(
+                        args.run_id,
+                        args.output_id,
+                        args.out,
+                        revision_id=args.revision_id,
+                        digest_sha256=args.digest_sha256,
+                    )
+                    emit({"saved": str(saved)})
+                else:
+                    emit(
+                        await client.swarms.output_content(
+                            args.run_id,
+                            args.output_id,
+                            revision_id=args.revision_id,
+                            digest_sha256=args.digest_sha256,
+                        )
+                    )
+                return
             result = await client._transport.invoke(
                 args.operation,
                 path={name: getattr(args, name) for name in op["path_params"]},
@@ -182,42 +232,25 @@ async def execute(args: argparse.Namespace) -> None:
             )
         elif args.verb in {"run", "launch"}:
             message = read_task(args.task) if args.task else args.message
-            program = None
-            if args.program:
-                name, separator, version = args.program.rpartition("@")
-                if not separator or not name or not version:
-                    raise ValueError("program must be FAMILY@VERSION")
-                program = {"id": name, "version": version}
-            method: dict[str, Any] | None = None
-            if args.method in {"fork-flush", "forgetting"}:
-                release = {
-                    "fork-flush": "research.fork_flush@1",
-                    "forgetting": "research.forgetting@1",
-                }[args.method]
-                if not args.method_task:
-                    raise ValueError(f"--method {args.method} requires --method-task")
-                method = {"release": release, "task": args.method_task}
-                if args.method_overrides:
-                    overrides = json.loads(args.method_overrides)
-                    if not isinstance(overrides, dict):
-                        raise ValueError("method overrides must be a JSON object")
-                    method["overrides"] = overrides
-            elif args.method_overrides or args.method_task:
-                raise ValueError(
-                    "--method-task and --method-overrides require fork-flush or forgetting"
-                )
+            routing: dict[str, JsonValue] = {}
+            for dimension in ("providers", "models"):
+                for mode in ("only", "exclude"):
+                    value = getattr(args, dimension + "_" + mode)
+                    if value is not None:
+                        routing[dimension] = {mode: value}
             created = await client.swarms.launch(
                 message,
+                routing=RoutingConstraints.model_validate(routing) if routing else None,
                 budget=args.budget,
-                program=program,
-                method=method,
+                profile=args.profile,
+                research_task=args.research_task,
                 idempotency_key=args.idempotency_key,
             )
             emit(created)
             if args.verb == "run":
-                emit(await client.swarms.wait(created.run_id, timeout=args.timeout))
+                await wait_and_emit(created.run_id)
         elif args.verb == "wait":
-            emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
+            await wait_and_emit(args.run_id)
         elif args.verb == "watch":
             if args.timeout <= 0:
                 raise ValueError("timeout must be positive")
@@ -227,11 +260,7 @@ async def execute(args: argparse.Namespace) -> None:
                         args.run_id, last_event_id=args.last_event_id
                     ):
                         emit(event)
-                    try:
-                        emit(await client.swarms.wait(args.run_id, timeout=args.timeout))
-                    except RunFailedError:
-                        emit(await client.swarms.get(args.run_id))
-                        raise
+                    await wait_and_emit(args.run_id)
             except TimeoutError:
                 raise WaitTimeoutError("Timed out watching " + args.run_id) from None
         else:

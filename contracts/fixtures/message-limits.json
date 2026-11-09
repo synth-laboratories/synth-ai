@@ -1,0 +1,63 @@
+[
+  {
+    "name": "ascii_boundary",
+    "unit": "a",
+    "repeat": 32768,
+    "accepted": true
+  },
+  {
+    "name": "ascii_over",
+    "unit": "a",
+    "repeat": 32769,
+    "accepted": false
+  },
+  {
+    "name": "utf8_boundary",
+    "unit": "😀",
+    "repeat": 8192,
+    "accepted": true
+  },
+  {
+    "name": "utf8_over",
+    "unit": "😀",
+    "repeat": 8193,
+    "accepted": false
+  },
+  {
+    "name": "two_byte_boundary",
+    "unit": "é",
+    "repeat": 16384,
+    "accepted": true
+  },
+  {
+    "name": "two_byte_over",
+    "unit": "é",
+    "repeat": 16385,
+    "accepted": false
+  },
+  {
+    "name": "empty",
+    "text": "",
+    "accepted": false
+  },
+  {
+    "name": "unicode_whitespace",
+    "text": " ",
+    "accepted": false
+  },
+  {
+    "name": "embedded_nul",
+    "text": "task\u0000tail",
+    "accepted": false
+  },
+  {
+    "name": "unicode_next_line",
+    "text": "",
+    "accepted": false
+  },
+  {
+    "name": "information_separator_is_content",
+    "text": "\u001c",
+    "accepted": true
+  }
+]

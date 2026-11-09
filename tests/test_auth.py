@@ -1,4 +1,3 @@
-import json
 import stat
 import time
 
@@ -32,7 +31,7 @@ def test_private_atomic_store_and_environment_precedence(tokens, monkeypatch):
     monkeypatch.setenv("SYNTH_API_KEY", "environment")
     assert auth.credentials(BASE) == (BASE, "environment")
     assert auth.credentials(BASE, "explicit") == (BASE, "explicit")
-    assert "stored" not in json.dumps(auth.status(BASE))
+    assert "stored" not in auth.status(BASE).model_dump_json()
     tokens.chmod(0o644)
     with pytest.raises(SynthError, match="0600"):
         auth.read_tokens()
@@ -100,7 +99,7 @@ def test_refresh_rotates_and_logout_revokes_before_removal(tokens, monkeypatch):
         lambda **kwargs: original(transport=httpx.MockTransport(handle), **kwargs),
     )
     assert auth.credentials(BASE) == (BASE, "new")
-    assert auth.read_tokens()[BASE]["refresh_token"] == "refresh-new"
+    assert auth.read_tokens()[BASE].refresh_token == "refresh-new"
     auth.logout(BASE)
     assert auth.read_tokens() == {}
     assert len(calls) == 4

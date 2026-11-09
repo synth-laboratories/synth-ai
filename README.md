@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.26.0.
+Typed Python 3.11+ client for the Synth public API v1. Version 0.30.0 (launch contract 3).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.
@@ -23,12 +23,17 @@ Use `synth --help` for the CLI and `synth login` for browser authorization.
 Upload a task file and include its immutable reference at launch:
 
 ```python
+from synth_ai.models import InputFile, RunInputs
+
 with SynthClient() as client:
     file = client.swarms.upload_file("task.md")
     run = client.swarms.run(
         "Follow the uploaded task", budget="2.00",
-        inputs={"files": [{key: getattr(file, key) for key in
-            ("file_id", "revision_id", "digest_sha256")}]},
+        inputs=RunInputs(files=[InputFile(
+            file_id=file.file_id,
+            revision_id=file.revision_id,
+            digest_sha256=file.digest_sha256,
+        )]),
     )
 ```
 
@@ -39,19 +44,35 @@ the full upload protocol. Pool resources use the public selector `pool`.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
 
-Choose the execution method with `--method status-quo`, `--method fork-flush`, or
-`--method forgetting`. Status Quo uses the default program. The two research
-methods run on a published task, named with `--method-task`, that has an approval
-for the method: the evaluator, baseline, context and actor profile are pinned by
-that approval. A task with no approval is refused.
+Choose a published run profile. Omit `profile` to let Core use its default.
 
-```sh
-synth swarms run "Improve the policy" --budget 2.00 --method status-quo
-synth swarms run "Improve the policy" --budget 2.00 --method fork-flush --method-task <task> --method-overrides '{"branches": 2}'
-synth swarms run "Improve the policy" --budget 2.00 --method forgetting --method-task <task> --method-overrides '{"peers": 2}'
+```python
+with SynthClient() as client:
+    print(client.swarms.profiles())
+    run = client.swarms.run("Solve this task", budget="2.00", profile="swarms-v2")
 ```
 
-The equivalent Python arguments are `method={"release": "research.fork_flush@1",
-"overrides": {"branches": 2}}` and `method={"release": "research.forgetting@1",
-"overrides": {"peers": 2}}`. Omit `method` for Status Quo. Read `run.method` to
-inspect the immutable release and execution pins retained with the run.
+```sh
+synth swarms profiles
+synth swarms run "Solve this task" --budget 2.00 --profile swarms-v2
+synth swarms profiles --research-task published-task
+synth swarms run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
+```
+
+The catalog reports each profile's description, revision, supported routing and
+caller-specific availability. Research profiles require a published task and
+its approval. Every run retains its exact resolved profile in `run.profile`.
+New configurations are published profiles; arbitrary actor overrides are not
+part of the public API.
+
+See [Swarms](docs/swarms.md) for routing, lifecycle and transfer details.
+Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
+launch fields with `profile` and, for research profiles, `research_task`.
+
+Version 0.30.0 uses strict, frozen records, named nested models, and enum values.
+Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
+inspect it, and `run.known_state` when a known state enum is useful. Unknown server
+states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
+for migration details and the `ty`/Ruff checks.
+
+Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.

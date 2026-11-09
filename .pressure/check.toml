@@ -1,0 +1,59 @@
+scope = "repo"
+
+[[checks]]
+id = "sdk_strict_typed_protocols"
+description = "Generated strict models and semantic payloads remain guarded by ty and boundary regressions"
+severity = "error"
+require_paths = ["synth_ai/py.typed", "tests/test_typed_protocols.py", "tests/test_standards_lint.py"]
+file_contains = [
+  { path = "pyproject.toml", pattern = "[tool.ty.rules]" },
+  { path = ".github/workflows/ci.yml", pattern = "uv run ty check" },
+  { path = "scripts/gen_contract.py", pattern = "strict=True, frozen=True" },
+  { path = "scripts/gen_contract.py", pattern = "x-synth-event-kind" },
+  { path = "tests/test_typed_protocols.py", pattern = "test_wrong_wall_time_type_is_rejected_before_any_request" },
+  { path = "tests/test_standards_lint.py", pattern = "test_production_sdk_obeys_the_standards" },
+  { path = ".github/workflows/ci.yml", pattern = "uv run python scripts/lint_standards.py" },
+]
+remedy = "Restore the generated strict contract and ty CI checks; run the typed protocol regression suite and both generator drift checks."
+
+
+[[checks]]
+id = "sdk_type_verification"
+description = "SDK tooling and consumer type contracts retain complete ty and annotation checks"
+severity = "error"
+require_paths = ["scripts/check_type_contracts.py", "typing_tests/accepted.py", "typing_tests/rejected.py", "tests/test_type_contracts.py"]
+file_contains = [
+  { path = "pyproject.toml", pattern = 'include = ["synth_ai", "scripts", "typing_tests/accepted.py"]' },
+  { path = ".github/workflows/ci.yml", pattern = "uv run python scripts/check_type_contracts.py" },
+  { path = ".github/workflows/publish-dev.yml", pattern = "uv run python scripts/check_type_contracts.py" },
+  { path = "tests/test_type_contracts.py", pattern = "test_contract_gate_rejects_missing_or_unexpected_diagnostics" },
+]
+remedy = "Restore full SDK/tooling ty coverage and exact positive/negative type-contract verification."
+
+
+[[checks]]
+id = "sdk_generated_schema_reachability"
+description = "The SDK generator emits only the supported model dependency closure"
+severity = "error"
+require_paths = ["tests/test_schema_reachability.py"]
+file_contains = [
+  { path = "scripts/gen_contract.py", pattern = "select_sdk_schemas(schemas, sdk_model_roots(ops))" },
+  { path = "tests/test_schema_reachability.py", pattern = "test_generated_python_has_no_orphan_definitions" },
+  { path = "tests/test_schema_reachability.py", pattern = "test_generated_files_and_registry_cannot_keep_unused_models_alive" },
+]
+remedy = "Restore SDK schema reachability selection and run its orphan-definition and generator drift checks."
+
+
+[[checks]]
+id = "sdk_truthful_swarms_smoke"
+description = "Swarms smoke retains its explicit two-run scope and offline lifecycle/budget regressions"
+severity = "error"
+require_paths = ["tests/test_smoke.py", "RELEASING.md"]
+file_contains = [
+  { path = "scripts/smoke.py", pattern = "synth.public-sdk.swarms-smoke.v4" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_completes_two_run_journey_and_resumes_without_new_spend" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_digest_failure_still_closes_both_runs" },
+  { path = "tests/test_smoke.py", pattern = "test_smoke_requires_accounting_and_cleanup" },
+  { path = "RELEASING.md", pattern = "Full public API, hosted MCP" },
+]
+remedy = "Restore the scoped Swarms smoke and run its budget, resume, output-integrity and lifecycle regressions; keep full API/MCP qualification separate."

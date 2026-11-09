@@ -1,7 +1,8 @@
 openapi: 3.1.0
+x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.0.0
+  version: 1.2.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
   license:
@@ -35,6 +36,10 @@ paths:
       tags:
       - account
       operationId: getAccount
+      x-synth-scope: "account:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       summary: The caller's org, principal and limits.
       responses:
@@ -116,7 +121,6 @@ paths:
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/account
       x-synth-source: core/internal/public/account/http.go
-      x-synth-scope: account:read
       parameters:
       - name: If-None-Match
         in: header
@@ -128,6 +132,10 @@ paths:
       tags:
       - account
       operationId: acceptTerms
+      x-synth-scope: "account:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       x-synth-status: implemented
       x-synth-legacy-path: /v1/account/terms-acceptance
       summary: Record the org's acceptance of a terms version (idempotent per version).
@@ -211,7 +219,6 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/account/http.go
-      x-synth-scope: account:write
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /v1/api-keys:
@@ -219,6 +226,10 @@ paths:
       tags:
       - api-keys
       operationId: listApiKeys
+      x-synth-scope: "account:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: List the caller's personal and automation keys (session only).
@@ -284,11 +295,14 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/apikeys/http.go
-      x-synth-scope: account:read
     post:
       tags:
       - api-keys
       operationId: createApiKey
+      x-synth-scope: "account:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: Mint a key. The secret is returned once (session only).
@@ -359,7 +373,6 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/apikeys/http.go
-      x-synth-scope: account:write
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /v1/api-keys/{key_id}:
@@ -367,6 +380,10 @@ paths:
       tags:
       - api-keys
       operationId: revokeApiKey
+      x-synth-scope: "account:write"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Revoke a key (idempotent, session only).
@@ -423,11 +440,14 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/apikeys/http.go
-      x-synth-scope: account:write
     patch:
       tags:
       - api-keys
       operationId: updateApiKey
+      x-synth-scope: "account:write"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Replace a key's scopes (optimistic on authorization_version, session only).
@@ -523,12 +543,15 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/apikeys/http.go
-      x-synth-scope: account:write
   /v1/api-keys/{key_id}/rotate:
     post:
       tags:
       - api-keys
       operationId: rotateApiKey
+      x-synth-scope: "account:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}/rotate
       summary: Revoke a key and mint its replacement in the same rotation family (session only).
@@ -602,12 +625,15 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-source: core/internal/public/apikeys/http.go
-      x-synth-scope: account:write
   /.well-known/oauth-authorization-server:
     get:
       tags:
       - mcp
       operationId: getOAuthServerMetadata
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /.well-known/oauth-authorization-server
       summary: RFC 8414 authorization server metadata for hosted MCP.
@@ -655,13 +681,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /.well-known/oauth-protected-resource/mcp:
     get:
       tags:
       - mcp
       operationId: getMcpResourceMetadata
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /.well-known/oauth-protected-resource/mcp
       summary: RFC 9728 protected resource metadata for /mcp.
@@ -697,13 +726,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /mcp/oauth/register:
     post:
       tags:
       - mcp
       operationId: registerOAuthClient
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/register
       summary: RFC 7591 dynamic registration of a public (PKCE) client.
@@ -748,13 +780,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /mcp/oauth/authorize:
     get:
       tags:
       - mcp
       operationId: authorizeOAuth
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/authorize
       summary: Store an authorization request and redirect (303) to the console consent page.
@@ -784,7 +819,6 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
       parameters:
       - name: client_id
@@ -832,6 +866,10 @@ paths:
       tags:
       - mcp
       operationId: readOAuthRequest
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/request
       summary: Pending authorization request shown on the consent page.
@@ -867,7 +905,6 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
       parameters:
       - name: request
@@ -882,6 +919,10 @@ paths:
       tags:
       - mcp
       operationId: decideOAuthConsent
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/consent
       summary: Approve or deny a request (console origin, Clerk session only).
@@ -918,13 +959,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /mcp/oauth/token:
     post:
       tags:
       - mcp
       operationId: exchangeOAuthToken
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/token
       summary: authorization_code (PKCE S256) and refresh_token grants; rotation with reuse detection.
@@ -964,13 +1008,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /mcp/oauth/revoke:
     post:
       tags:
       - mcp
       operationId: revokeOAuthToken
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/revoke
       summary: RFC 7009 revocation; revokes the whole grant family.
@@ -1005,13 +1052,16 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: temporarily_unavailable
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
   /mcp:
     post:
       tags:
       - mcp
       operationId: mcpJsonRpc
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp
       summary: Streamable-HTTP MCP (JSON-RPC 2.0) - initialize, ping, tools/list, tools/call over the
@@ -1067,15 +1117,17 @@ paths:
                 detail: Origin not allowed
         '202':
           description: Notification accepted; no response body.
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
     get:
       operationId: getMcpTransport
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: getMcpTransport
       tags:
       - mcp
       x-synth-status: implemented
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
       x-synth-legacy-path: /mcp
       responses:
@@ -1125,11 +1177,14 @@ paths:
                 detail: Origin not allowed
     delete:
       operationId: deleteMcpSession
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       summary: deleteMcpSession
       tags:
       - mcp
       x-synth-status: implemented
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/routes.go
       x-synth-legacy-path: /mcp
       responses:
@@ -1175,11 +1230,14 @@ paths:
       tags:
       - runs
       operationId: listRuns
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: The caller's runs, newest first.
       description: Each run's state is its last recorded state. Read a single run for live pause state. A project_id query parameter is refused with 422 project_id_removed.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/Limit'
       - $ref: '#/components/parameters/Cursor'
@@ -1247,6 +1305,10 @@ paths:
       tags:
       - runs
       operationId: createRun
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Launch a run.
       description: 'Problem codes on 503: launch_refund_unavailable (The execution service refused the launch and the hold
         refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
@@ -1257,7 +1319,6 @@ paths:
         the same key was used for another task.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:run
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1338,10 +1399,13 @@ paths:
       tags:
       - runs
       operationId: getRun
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: One run snapshot.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       - name: If-None-Match
@@ -1435,6 +1499,10 @@ paths:
       tags:
       - runs
       operationId: listRunEvents
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Ordered run events, one cursor page at a time.
       description: 'Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes
         SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling
@@ -1445,7 +1513,6 @@ paths:
         streaming_unavailable means the server cannot re-authorize streams.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       - $ref: '#/components/parameters/Limit'
@@ -1526,11 +1593,14 @@ paths:
       tags:
       - runs
       operationId: cancelRun
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Cancel a run.
       description: The body must be empty (`422 control_body_must_be_empty`).
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:control
       x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/cancel
       parameters:
       - $ref: '#/components/parameters/RunId'
@@ -1608,6 +1678,10 @@ paths:
       tags:
       - runs
       operationId: getRunSandboxes
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: The sandboxes a run used, and whether they are gone.
       description: 'One record per admitted actor execution: role, provider, lifecycle state, image digest,
         requested CPU and memory, and created, ready and destroyed times. `teardown` is the run-level answer:
@@ -1615,7 +1689,6 @@ paths:
         least one record could not be established; it never means absent.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/sandboxes.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       responses:
@@ -1696,6 +1769,10 @@ paths:
       tags:
       - runs
       operationId: getRunReport
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: End-of-run charge, tokens, reward and timings.
       description: 'Charge and tokens per provider and model, per actor role and per sandbox, with the run''s
         rollouts and timings. Every amount is a sum of settlement lines, so the parts reach the settled total.
@@ -1705,7 +1782,6 @@ paths:
         sandboxes carry no charge at all, which is not a zero cost.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/report.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       responses:
@@ -1813,11 +1889,14 @@ paths:
       tags:
       - runs
       operationId: listRunOutputs
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: A run's outputs.
       description: Published outputs for a native run, paginated by cursor. A run whose `selection` has a stored incumbent snapshot also lists it as `selected-snapshot.tar.gz`, one gzipped tar holding the original archive bytes, with `reference.digest_sha256` equal to `selection.incumbent.artifact_digest`.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       - $ref: '#/components/parameters/Limit'
@@ -1880,10 +1959,13 @@ paths:
       tags:
       - runs
       operationId: getRunOutput
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: One output record.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       - name: output_id
@@ -1970,13 +2052,16 @@ paths:
       tags:
       - runs
       operationId: getRunOutputContent
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: The output's bytes at the revision and digest read from its record.
       description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox
         CSP). `422 output_revision_required` unless exactly `revision_id` and `digest_sha256` are given;
         `409 output_revision_changed` when they no longer name the published revision; `404 output_not_found`.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       parameters:
       - $ref: '#/components/parameters/RunId'
       - name: output_id
@@ -2056,10 +2141,13 @@ paths:
       tags:
       - families
       operationId: listFamilies
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: The launchable program families (GA set, swarms.general@1).
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
-      x-synth-scope: swarms:read
       responses:
         '200':
           description: Family list.
@@ -2111,14 +2199,88 @@ paths:
       x-synth-legacy-path: /api/v1/swarms/families
       parameters: []
       x-synth-mcp-name: swarms_families_list
+  /v1/profiles:
+    get:
+      tags:
+      - swarms
+      operationId: listProfiles
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Published run profiles and caller-specific availability.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/http.go
+      responses:
+        '200':
+          description: Run profile catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunProfileCatalog'
+              example:
+                default_profile: swarms-v2
+                profiles: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      parameters:
+      - name: research_task
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+        description: Check research profile availability for this published task. Omit to list those profiles as requiring a task.
+      x-synth-mcp-name: swarms_profiles_list
   /v1/usage/summary:
     get:
       tags:
       - usage
       operationId: getUsageSummary
+      x-synth-scope: "account:usage:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/usage/http.go
-      x-synth-scope: account:usage:read
       summary: Rollup of the caller's settled charge-usage rows by day, source and key.
       description: |
         A projection of settled `billing.charge_usage` rows, not a separate meter: `total` equals the sum of
@@ -2229,9 +2391,12 @@ paths:
       tags:
       - usage
       operationId: listUsageRecords
+      x-synth-scope: "account:usage:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/usage/http.go
-      x-synth-scope: account:usage:read
       summary: Cursor page of the settled charge-usage rows behind the usage summary, newest first.
       description: |
         The same rows and window as `GET /v1/usage/summary`. Resend the same filters with `next_cursor`.
@@ -2314,9 +2479,12 @@ paths:
       tags:
       - limits
       operationId: listLimits
+      x-synth-scope: "account:limits:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/limits/http.go
-      x-synth-scope: account:limits:read
       summary: The caller's plan limits with current use and reset times.
       description: |
         Plan limits, the concurrent Swarms run cap and the public API rate limit. `cap` is null when the limit is
@@ -2384,6 +2552,10 @@ paths:
       tags:
       - billing
       operationId: listPlans
+      x-synth-scope: ""
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       security: []
@@ -2447,16 +2619,18 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/billing/plans
-      x-synth-scope: ''
       parameters: []
   /v1/billing/balance:
     get:
       tags:
       - billing
       operationId: getBalance
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:read
       summary: Wallet position of the caller's org in integer microcents (1 USD = 10^8).
       responses:
         '200':
@@ -2526,9 +2700,12 @@ paths:
       tags:
       - billing
       operationId: listBillingHistory
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:read
       summary: Balance movements of the caller's org (ledger entries), newest first, cursor-paged.
       description: 'Each item is one append-only ledger entry: grants (weekly included usage, purchases,
 
@@ -2626,9 +2803,12 @@ paths:
       tags:
       - billing
       operationId: listStatements
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:read
       summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger,
         newest first.
       description: 'One row per month that has ledger entries. Movements are sums of entry deltas by kind:
@@ -2716,9 +2896,12 @@ paths:
       tags:
       - billing
       operationId: getCheckout
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:read
       summary: Read one Checkout attempt of the caller's org.
       description: |
         The attempt row is recorded before Stripe is called, and its id is the Stripe idempotency key, so a checkout
@@ -2795,9 +2978,12 @@ paths:
       tags:
       - billing
       operationId: createCheckout
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      x-synth-scope: account:billing:write
       summary: Create a hosted Stripe Checkout session for a plan or a custom credit amount.
       description: 'Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),
 
@@ -2876,11 +3062,14 @@ paths:
       tags:
       - mcp
       operationId: listOAuthGrants
+      x-synth-scope: "protocol"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: listOAuthGrants
       security:
       - clerkSession: []
       x-synth-status: implemented
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/grants.go
       x-synth-legacy-path: /v1/account/oauth-grants
       responses:
@@ -2904,11 +3093,14 @@ paths:
       tags:
       - mcp
       operationId: revokeOAuthGrant
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       summary: revokeOAuthGrant
       security:
       - clerkSession: []
       x-synth-status: implemented
-      x-synth-scope: protocol
       x-synth-source: core/internal/mcpoauth/grants.go
       x-synth-legacy-path: /v1/account/oauth-grants
       responses:
@@ -2938,11 +3130,14 @@ paths:
       tags:
       - swarms
       operationId: createUpload
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Prepare an immutable file upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:write
       x-synth-legacy-path: null
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -2977,11 +3172,15 @@ paths:
       tags:
       - swarms
       operationId: getUpload
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Read an upload.
+      description: Returns the retained upload. A caller with swarms:write also receives a renewed size/digest-bound PUT grant while it is pending. Read-only callers receive no write grant.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - name: upload_id
@@ -3004,11 +3203,14 @@ paths:
       tags:
       - swarms
       operationId: finalizeUpload
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Scan and finalize an upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:write
       x-synth-legacy-path: null
       parameters:
       - name: upload_id
@@ -3030,11 +3232,14 @@ paths:
     post:
       tags: [swarms]
       operationId: uploadFile
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Upload a text, Markdown or JSON file (up to 32 KiB inline).
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:write
       x-synth-legacy-path: null
       x-synth-mcp-name: swarms_upload_file
       parameters:
@@ -3072,11 +3277,14 @@ paths:
       tags:
       - swarms
       operationId: listFiles
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: List the organization's finalized files.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - $ref: '#/components/parameters/Limit'
@@ -3098,11 +3306,14 @@ paths:
       tags:
       - swarms
       operationId: getFile
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Read a finalized file manifest.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - name: file_id
@@ -3124,11 +3335,14 @@ paths:
       tags:
       - usage
       operationId: createUsageExport
+      x-synth-scope: "account:read"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Export settled usage records.
       x-synth-status: implemented
       x-synth-owner: W2-console
       x-synth-source: core/internal/public/usage/exports.go
-      x-synth-scope: account:read
       x-synth-legacy-path: null
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -3156,11 +3370,14 @@ paths:
       tags:
       - usage
       operationId: getUsageExport
+      x-synth-scope: "account:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Read an export and its download link.
       x-synth-status: implemented
       x-synth-owner: W2-console
       x-synth-source: core/internal/public/usage/exports.go
-      x-synth-scope: account:read
       x-synth-legacy-path: null
       parameters:
       - name: export_id
@@ -3185,12 +3402,15 @@ paths:
       tags:
       - swarms
       operationId: updateRunLabels
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
       summary: Replace run labels with a revision check.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-mcp-name: swarms_run_labels_update
       x-synth-source: core/internal/public/runs/labels.go
-      x-synth-scope: swarms:write
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3221,11 +3441,14 @@ paths:
       tags:
       - swarms
       operationId: pauseRun
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Pause a run.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
-      x-synth-scope: swarms:control
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3259,11 +3482,14 @@ paths:
       tags:
       - swarms
       operationId: resumeRun
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       summary: Resume a paused run.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
-      x-synth-scope: swarms:control
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3297,11 +3523,14 @@ paths:
       tags:
       - swarms
       operationId: getRunProgram
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Read the admitted program.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3327,11 +3556,14 @@ paths:
       tags:
       - swarms
       operationId: getRunConfiguration
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: Read the frozen run configuration.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3356,12 +3588,15 @@ paths:
       tags:
       - swarms
       operationId: listRunTasks
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       summary: List tasks from their current authority.
       description: Each page reads current tasks and states. A cursor stays valid while the run advances, but pages are not a snapshot, so a task added during paging can be missing until a fresh listing.
       x-synth-status: implemented
       x-synth-owner: W1-controls
       x-synth-source: core/internal/public/runs/controls.go
-      x-synth-scope: swarms:read
       x-synth-legacy-path: null
       parameters:
       - name: run_id
@@ -3993,32 +4228,164 @@ components:
         currency:
           type: string
           const: USD
+    LaunchBudget:
+      type: object
+      additionalProperties: false
+      required:
+      - amount
+      - currency
+      properties:
+        amount:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,8})?$
+          x-synth-budget: true
+        currency:
+          type: string
+          const: USD
+    Only:
+      type: object
+      additionalProperties: false
+      required:
+      - only
+      properties:
+        only:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+    Exclude:
+      type: object
+      additionalProperties: false
+      required:
+      - exclude
+      properties:
+        exclude:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+    RoutingConstraints:
+      type: object
+      additionalProperties: false
+      properties:
+        providers:
+          oneOf:
+          - $ref: '#/components/schemas/Only'
+          - $ref: '#/components/schemas/Exclude'
+        models:
+          oneOf:
+          - $ref: '#/components/schemas/Only'
+          - $ref: '#/components/schemas/Exclude'
+      description: Unordered hard restrictions across every managed inference actor. Provider restrictions
+        include intermediaries and serving hosts. Omission leaves assignment to Synth.
+    RoutingCatalogRoute:
+      type: object
+      additionalProperties: false
+      required:
+      - preset
+      - model
+      - providers
+      properties:
+        preset:
+          type: string
+        model:
+          type: string
+        providers:
+          type: array
+          items:
+            type: string
+    RoutingCatalog:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - models
+      - providers
+      - routes
+      properties:
+        revision:
+          type: string
+        models:
+          type: array
+          items:
+            type: string
+        providers:
+          type: array
+          items:
+            type: string
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingCatalogRoute'
+    RoutingActor:
+      type: object
+      additionalProperties: false
+      required:
+      - actor_id
+      - role
+      - model
+      - preset
+      - providers
+      - profile_digest
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+        model:
+          type: string
+        preset:
+          type: string
+        profile_digest:
+          type: string
+        providers:
+          type: array
+          items:
+            type: string
+    RoutingReadback:
+      type: object
+      additionalProperties: false
+      required:
+      - requested
+      - catalog_revision
+      - policy_revision
+      - request_digest
+      - actors
+      properties:
+        requested:
+          oneOf:
+          - $ref: '#/components/schemas/RoutingConstraints'
+          - type: 'null'
+        catalog_revision:
+          type: string
+        policy_revision:
+          type: string
+        request_digest:
+          type: string
+        actors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingActor'
     Limits:
       type: object
+      additionalProperties: false
       required:
       - maximum_charge
-      - wall_time_seconds
-      - maximum_tasks
-      - maximum_parallel_tasks
-      description: maximum_charge is required; explicit null requests operator-funded local execution.
-        maximum_parallel_tasks cannot exceed maximum_tasks.
+      description: An explicit positive USD budget is required. Task and parallelism limits are service-owned.
       properties:
         maximum_charge:
-          oneOf:
-          - $ref: '#/components/schemas/Money'
-          - type: 'null'
+          $ref: '#/components/schemas/LaunchBudget'
         wall_time_seconds:
           type: integer
           minimum: 1
           maximum: 86400
-        maximum_tasks:
-          type: integer
-          minimum: 1
-          maximum: 1000
-        maximum_parallel_tasks:
-          type: integer
-          minimum: 1
-          maximum: 1000
     Family:
       type: object
       required:
@@ -4049,7 +4416,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Family'
+        routing:
+          $ref: '#/components/schemas/RoutingCatalog'
     LaunchRequest:
+      x-synth-profile-requirements:
+        swarms-v2: false
+        fork-flush: true
+        forgetting: true
+      x-synth-default-profile: swarms-v2
       type: object
       additionalProperties: false
       required:
@@ -4060,7 +4434,9 @@ components:
           - string
           - 'null'
           minLength: 1
-          maxLength: 8192
+          maxLength: 32768
+          x-synth-max-bytes: 32768
+          x-synth-message-text: true
         limits:
           $ref: '#/components/schemas/Limits'
         inputs:
@@ -4090,58 +4466,21 @@ components:
           - array
           - 'null'
           maxItems: 32
-          description: What the run must address. The planner covers or declines each item. A metric on an item binds every objective derived from it, and the planner cannot change or drop it. Not accepted with method.
+          description: What the run must address. The planner covers or declines each item. A metric on an
+            item binds every objective derived from it, and the planner cannot change or drop it. Not accepted
+            with research profiles.
           items:
             $ref: '#/components/schemas/RunGuidance'
-        providers:
-          type:
-          - object
-          - 'null'
-        models:
-          type:
-          - object
-          - 'null'
-        method:
-          description: 'Runs a named method on a published task instead of a general run. Not accepted with program.
-            Refused with 422 research_task_required when task is missing, 422 research_task_invalid
-            when it is malformed, 404 research_task_not_found when no such task is published for this
-            organization, 422 research_method_unknown for an unknown release, 422 research_method_unseeded
-            when the task has no approval for this release, 422 research_method_revoked when that
-            approval is revoked, and 409 research_method_unavailable when the release is not being served.'
-          type:
-          - object
-          - 'null'
-          additionalProperties: false
-          required:
-          - release
-          - task
-          properties:
-            release:
-              type: string
-              enum:
-              - research.fork_flush@1
-              - research.forgetting@1
-            task:
-              type: string
-              pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
-              description: The published task this method runs on.
-              examples:
-              - craftax-classic-enginebench-policy-v1
-            overrides:
-              type: object
-              description: Values for the release's published parameters.
-        program:
-          type: object
-          properties:
-            id:
-              type: string
-            version:
-              type: string
-          required:
-          - id
-          additionalProperties: false
-        profile_overrides:
-          $ref: '#/components/schemas/ProfileOverrides'
+        profile:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Published run profile ID from GET /v1/profiles. Omit for Core's default. No silent substitution of an explicit choice.
+          examples: [swarms-v2]
+        research_task:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9._-]{0,127}$
+          description: Required by research profiles; names this organization's approved published task. Refused for a general profile.
         resources:
           type: array
           maxItems: 8
@@ -4151,6 +4490,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        routing:
+          $ref: '#/components/schemas/RoutingConstraints'
     OwnerResourceRequest:
       type: object
       additionalProperties: false
@@ -4233,6 +4574,61 @@ components:
           - applied
           - quiesced
           - refused
+    RunProfile:
+      type: object
+      additionalProperties: false
+      required: [id, revision, name, description, requires_research_task, default, available]
+      properties:
+        id:
+          type: string
+        revision:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        requires_research_task:
+          type: boolean
+        default:
+          type: boolean
+        available:
+          type: boolean
+        unavailable_reason:
+          type: string
+        routing:
+          $ref: '#/components/schemas/RoutingCatalog'
+    RunProfileCatalog:
+      type: object
+      additionalProperties: false
+      required: [default_profile, profiles]
+      properties:
+        default_profile:
+          type: string
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunProfile'
+    RunProfilePin:
+      type: object
+      additionalProperties: false
+      required: [id, revision, digest, program_id, program_version, definition_digest, actor_profiles]
+      properties:
+        id:
+          type: string
+        revision:
+          type: string
+        digest:
+          type: string
+        program_id:
+          type: string
+        program_version:
+          type: string
+        definition_digest:
+          type: string
+        actor_profiles:
+          type: object
+          additionalProperties:
+            type: string
     RunSnapshot:
       type: object
       required:
@@ -4274,7 +4670,8 @@ components:
           type:
           - array
           - 'null'
-          description: The run's objectives on launch and single-run reads. Read objectives_read before treating an empty list as no objectives. List pages do not read them and return an empty list.
+          description: The run's objectives on launch and single-run reads. Read objectives_read before treating
+            an empty list as no objectives. List pages do not read them and return an empty list.
           items:
             $ref: '#/components/schemas/RunObjective'
         objectives_read:
@@ -4282,7 +4679,8 @@ components:
           enum:
           - ok
           - unavailable
-          description: Whether objectives is the run's own answer. unavailable means it could not be read; the run read still succeeds. Absent on list pages.
+          description: Whether objectives is the run's own answer. unavailable means it could not be read;
+            the run read still succeeds. Absent on list pages.
         guidance_coverage:
           type:
           - array
@@ -4305,15 +4703,19 @@ components:
           type: string
         provider:
           type: string
-          description: The provider named at launch, or openai when none was named. It does not change as the run executes; the provider that served each call is on its usage record.
+          description: The provider named at launch, or openai when none was named. It does not change as
+            the run executes; the provider that served each call is on its usage record.
         result_available:
           type: boolean
-          description: True when the run completed or partially completed, or when it has ended and has at least one output, including a run that failed or was cancelled. False while the run is open, for a run that ended with no output, and for an imported run.
+          description: True when the run completed or partially completed, or when it has ended and has at
+            least one output, including a run that failed or was cancelled. False while the run is open, for
+            a run that ended with no output, and for an imported run.
         execution_closed:
           type: boolean
         accounting_final:
           type: boolean
-          description: True only once settlement has closed the run's books; releasing a hold does not flip it.
+          description: True only once settlement has closed the run's books; releasing a hold does not flip
+            it.
         cleanup_complete:
           type: boolean
         control:
@@ -4326,8 +4728,8 @@ components:
         problems_observed:
           type: boolean
         failure:
-          description: 'Open failure projection or null. Reasons include launch_not_dispatched (the worker found a
-            queued run that never reached the execution service; the hold was refunded).'
+          description: Open failure projection or null. Reasons include launch_not_dispatched (the worker
+            found a queued run that never reached the execution service; the hold was refunded).
         created_at:
           type: string
           format: date-time
@@ -4341,10 +4743,12 @@ components:
           - string
           - 'null'
           format: date-time
-        profile_overrides:
-          $ref: '#/components/schemas/ProfileOverrideReadback'
+        profile:
+          $ref: '#/components/schemas/RunProfilePin'
         selection:
           $ref: '#/components/schemas/RunSelection'
+        routing:
+          $ref: '#/components/schemas/RoutingReadback'
     RunSelection:
       type: object
       description: 'Which snapshot a research method selected and what a trusted score covers. Present on
@@ -4529,7 +4933,9 @@ components:
           description: The event's body on objective.progress and objective.claimed; null on every other kind. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence.
           oneOf:
           - $ref: '#/components/schemas/ObjectiveProgressPayload'
+            x-synth-event-kind: objective.progress
           - $ref: '#/components/schemas/ObjectiveClaimedPayload'
+            x-synth-event-kind: objective.claimed
           - type: 'null'
     RunGuidance:
       type: object
@@ -4551,18 +4957,24 @@ components:
           - any
         text:
           type: string
+          x-synth-message-text: true
           minLength: 1
           maxLength: 8192
+          x-synth-max-bytes: 8192
         evidence:
+          x-synth-no-nul: true
           type:
           - string
           - 'null'
           maxLength: 8192
+          x-synth-max-bytes: 8192
         acceptance:
+          x-synth-no-nul: true
           type:
           - string
           - 'null'
           maxLength: 8192
+          x-synth-max-bytes: 8192
         priority:
           type: string
           enum:
@@ -4587,6 +4999,8 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          x-synth-max-bytes: 128
+          x-synth-message-text: true
         direction:
           type: string
           enum:
@@ -4932,13 +5346,14 @@ components:
           enum:
           - docker
           - daytona
+          - modal
           - exe_dev
           - unobserved
         state:
           type: string
           description: pending has no provider session yet. requested awaits a box. created has a box whose
             environment is not ready. ready serves turns. stopping has destruction requested. retained was
-            deliberately kept past its session. destroyed has verified absence. never_allocated and
+            deliberately kept past its session. destroyed has verified cleanup of running compute; the provider may retain inactive metadata. never_allocated and
             never_created had no box. never_started left a box object that is owed a reap, so it is not
             absent. not_requested ran without a sandbox. unobserved could not be read.
           enum:
@@ -6860,3 +7275,155 @@ components:
     Content-Disposition:
       schema:
         type: string
+
+x-synth-scope-registry:
+  [
+    {
+      "name": "account:billing:read",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": true,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "account:billing:write",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": true,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "account:limits:read",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "account:read",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "account:write",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "account:usage:read",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "swarms:control",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "swarms:read",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "swarms:run",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "swarms:write",
+      "mint": true,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": false,
+      "aliases": [],
+      "challenge": false
+    },
+    {
+      "name": "offline_access",
+      "mint": false,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": true,
+      "aliases": [],
+      "challenge": true
+    },
+    {
+      "name": "user:org:read",
+      "mint": false,
+      "consent": true,
+      "discovery": true,
+      "required": true,
+      "sdk": true,
+      "aliases": [
+        "account:read"
+      ],
+      "challenge": true
+    },
+    {
+      "name": "synth:read",
+      "mint": false,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": true,
+      "aliases": [
+        "swarms:read"
+      ],
+      "challenge": true
+    },
+    {
+      "name": "synth:action",
+      "mint": false,
+      "consent": true,
+      "discovery": true,
+      "required": false,
+      "sdk": true,
+      "aliases": [
+        "swarms:run",
+        "swarms:write",
+        "swarms:control"
+      ],
+      "challenge": false
+    }
+  ]
