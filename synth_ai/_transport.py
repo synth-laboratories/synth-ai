@@ -23,8 +23,8 @@ from pydantic import BaseModel, JsonValue, ValidationError
 
 from ._generated.models import MODELS, Problem, RunEvent, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
-from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH
-from ._stream import StreamCheckpoint, frames
+from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH, ERROR_RESPONSE_MAX_BYTES
+from ._stream import StreamCheckpoint, bounded_lines, frames
 from ._version import __version__
 from .errors import (
     DataIntegrityError,
@@ -38,6 +38,33 @@ from .errors import (
 )
 
 T = TypeVar("T", bound=BaseModel)
+
+
+async def raise_stream_error(response: httpx.Response) -> None:
+    """Bound refused streaming responses before decoding their problem document."""
+
+    def invalid() -> ResponseContractError:
+        return ResponseContractError(
+            local_problem("error_response_bounds", "decode", status=response.status_code),
+            request_id=response.headers.get("x-request-id"),
+            idempotency_key=response.request.headers.get("idempotency-key"),
+        )
+
+    if response.headers.get("content-encoding", "identity").lower() != "identity":
+        raise invalid()
+    body = bytearray()
+    async for chunk in response.aiter_bytes():
+        if len(chunk) > ERROR_RESPONSE_MAX_BYTES - len(body):
+            raise invalid()
+        body.extend(chunk)
+    raise_for_response(
+        httpx.Response(
+            response.status_code,
+            headers=response.headers,
+            content=bytes(body),
+            request=response.request,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -294,8 +321,7 @@ class Transport:
                     timeout=self.timeout,
                 ) as response:
                     if not response.is_success:
-                        await response.aread()
-                        raise_for_response(response)
+                        await raise_stream_error(response)
                     if response.headers.get("X-Synth-Output-Revision", revision_id) != revision_id:
                         raise DataIntegrityError(
                             "output revision does not match the pinned reference"
@@ -374,6 +400,7 @@ class Transport:
                 for attempt in range(self.retry_policy.attempts):
                     headers = self.headers()
                     headers["Accept"] = "text/event-stream"
+                    headers["Accept-Encoding"] = "identity"
                     if state.last_event_id is not None:
                         headers["Last-Event-ID"] = state.last_event_id
                     disconnected = False
@@ -382,14 +409,15 @@ class Transport:
                             "GET", self.base_url + route, headers=headers, timeout=self.timeout
                         ) as response:
                             if not response.is_success:
-                                await response.aread()
-                                raise_for_response(response)
+                                await raise_stream_error(response)
                             if (
                                 response.headers.get("content-type", "").split(";")[0].strip()
                                 != "text/event-stream"
                             ):
                                 raise ValueError("expected event stream")
-                            async for frame in frames(response.aiter_lines()):
+                            if response.headers.get("content-encoding", "identity") != "identity":
+                                raise ValueError("compressed event stream refused")
+                            async for frame in frames(bounded_lines(response.aiter_bytes())):
                                 if frame.event == "error":
                                     raise_problem(
                                         Problem.model_validate_json(frame.data),
