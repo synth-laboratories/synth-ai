@@ -7,7 +7,7 @@ import builtins
 import hashlib
 import math
 from collections.abc import AsyncGenerator
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -17,9 +17,7 @@ from ._generated.models import (
     FamilyList,
     File,
     FilePage,
-    LaunchBudget,
     LaunchRequest,
-    Limits,
     OutputPage,
     OwnerResourceRequest,
     RoutingCatalog,
@@ -43,6 +41,7 @@ from ._generated.models import (
 )
 from ._limits import UPLOAD_MAX_BYTES
 from ._protocol import CompletionMilestone
+from ._requests import launch_request
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from .errors import (
@@ -75,24 +74,10 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        if profile in {"fork-flush", "forgetting"} and research_task is None:
-            raise ValueError("research profile requires research_task")
-        if (profile is None or profile == "swarms-v2") and research_task is not None:
-            raise ValueError("research_task requires a research profile")
-        if not isinstance(budget, (str, Decimal)):
-            raise ValueError("budget must be a decimal string or Decimal")
-        try:
-            amount = Decimal(budget)
-            if not amount.is_finite() or amount <= 0:
-                raise ValueError("budget must be positive")
-        except InvalidOperation as error:
-            raise ValueError("budget must be a decimal string") from error
-        request = LaunchRequest(
-            limits=Limits(
-                maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
-                wall_time_seconds=wall_time_seconds,
-            ),
-            message=message,
+        request = launch_request(
+            message,
+            budget=budget,
+            wall_time_seconds=wall_time_seconds,
             inputs=inputs,
             labels=labels,
             resources=resources,
@@ -101,8 +86,6 @@ class AsyncSwarms:
             routing=routing,
             guidance=guidance,
         )
-        # Omitted convenience options stay absent on the wire, not explicit nulls.
-        request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
     async def launch_request(
