@@ -222,3 +222,89 @@ frozen candidate's exact contract bytes. A mismatch exits nonzero; it does not
 rewrite generated models or assume that an older/newer commit implies
 compatibility. Run both generators in `--check` mode as well. This offline
 verification does not replace installed SDK/MCP and live lifecycle acceptance.
+
+## Profiles and authority (0.31)
+
+Profile IDs remain extensible strings. Core publishes each known profile's
+`requires_research_task` and default in its contract; generation supplies the
+SDK's local construction rules. Explicit `profiles()` discovery refreshes these
+rules for new catalog entries without adding a network request to every launch.
+Availability is advisory at discovery time: launch admission checks it again.
+The SDK never substitutes a different profile or relaxes an only/exclude set.
+An unknown ID remains representable and is sent to Core for a named decision.
+
+Core's policy now authorizes a 32768-byte UTF-8 message for this coordinated
+cohort. The generated SDK, CLI and MCP use that exact byte boundary. Install the
+qualified Core cohort first, then the SDK. This does not change guidance text
+limits or permit a newer SDK to assume an older server accepts larger messages.
+
+Resource authority narrows from organization/service ceilings to a run's
+explicit authorization to child reservations. Child allocation cannot widen a
+parent or multiply its money. Objectives describe desired outcomes; budgets,
+execution deadlines and concurrency bound authorized work. `timeout` on SDK
+observation only bounds client waiting; it is neither an execution deadline nor
+a billing ceiling. Core and Gateway, not SDK estimates, enforce admission and
+financial constraints. Requested routing, admitted assignments and observed
+providers remain separately readable in generated records.
+
+## Bounded transfers and iteration
+
+`upload_file` and `resume_upload` hash and stream regular files in 64 KiB chunks.
+Each client permits at most four outstanding disk operations; cancellation joins
+an outstanding operation before closing its file. Size remains bounded to 32 MiB.
+Device/inode, size, modification/change timestamps and a streaming digest must
+match the prepared source. Replacing or editing the file is refused before
+finalization. Prepare/finalize and retry requests retain the original upload key;
+an interrupted transfer can be reconciled with `resume_upload` and that key.
+Committed manifest size/digest must match the prepared source. Injected HTTP
+clients stay caller-owned; closing the SDK is idempotent and prevents new calls.
+Signed storage requests do not inherit API credentials or cookies. API, stream
+and download calls disable redirects even on an injected redirect-enabled
+client; unexpected redirect statuses remain available in the typed error.
+Download writes and the final durability flush use the same bounded I/O owner.
+
+`iter_runs`, `iter_tasks`, `iter_outputs`, `iter_files`, `iter_events`,
+`account.api_keys.iter_keys`, `account.iter_usage_records`,
+`billing.iter_history` and `billing.iter_statements` are lazy async/sync
+iterators. They preserve filters, fetch only on demand, and stop on an empty
+final page. Invalid or repeated cursors raise `PaginationError` with the cursor;
+no background prefetch is performed. Each traversal is capped at 10000 pages
+and cursor identities at 1024 characters to bound cycle-detection memory. Use
+the retained page-returning methods and explicit cursor continuation for larger
+traversals. Closing/cancelling an iterator does not mutate the resource.
+
+## Optional diagnostics
+
+Pass `diagnostic_hook` to either client to receive immutable
+`OperationDiagnostic` values from `synth_ai.diagnostics`. Operation, phase,
+attempt count and elapsed seconds describe generated API invocations; correlation
+values are SHA256 hashes of request/idempotency IDs. There are no prompts,
+response bodies, tokens, signed URLs or payment data in these records. No hook
+means no logging. A hook exception cannot change the operation's result. This
+hook is synchronous and should be cheap; it is not an exporter thread or a
+billing estimator. Transfer bytes and stream metrics remain independently
+measured in qualification rather than represented as API billing facts.
+
+## Open-data audit
+
+The remaining JSON boundaries follow Core's declared schemas rather than
+inventing SDK-only records:
+
+| Boundary | Why JSON remains | Validation/ownership |
+| --- | --- | --- |
+| `RunSnapshot.method`, `guidance_coverage`, `problems`, `failure` | Core intentionally publishes open historical projections | Strict recursive JSON; known event payloads use named models |
+| `RunEvent.usage` | Extensible owner usage facet | Event kind/payload pairing is validated separately |
+| `RunConfiguration.configuration` | Published program-specific configuration | Core owns its schema and historical versions |
+| Metadata and compute extensions | Genuine extension fields | Generated declared properties retain strict types |
+| Error extensions | Owner diagnosis beyond standard Problem fields | Stable Problem fields and outcome remain typed |
+
+Generated records remain shallowly frozen for compatibility. Operation identity
+uses serialized request snapshots; checkpoint constructors and serialization
+copy mutable sets/lists. There is no blanket tuple/map conversion and no
+`object` replacement for schema-defined domain data. Architecture regression
+checks prevent execution/observation/transfer strategies from importing public
+facades; generation and semantic fault tests retain the existing standards bar.
+
+See [executable recipes](../examples/README.md) for launch, profiles, routing,
+result/finality, timeout/cancel, restartable events, upload recovery, verified
+artifacts and usage readback.

@@ -11,7 +11,12 @@ async def raise_stream_error(response: httpx.Response) -> None:
 
     def invalid() -> ResponseContractError:
         return ResponseContractError(
-            local_problem("error_response_bounds", "decode", status=response.status_code),
+            local_problem(
+                "error_response_bounds",
+                "decode",
+                status=response.status_code if 400 <= response.status_code <= 599 else 502,
+                upstream_status=response.status_code,
+            ),
             request_id=response.headers.get("x-request-id"),
             idempotency_key=response.request.headers.get("idempotency-key"),
         )

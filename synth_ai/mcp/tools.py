@@ -233,10 +233,10 @@ TOOLS: list[ToolDefinition] = [
                             "type": "object",
                         },
                         "message": {
-                            "maxLength": 8192,
+                            "maxLength": 32768,
                             "minLength": 1,
                             "type": ["string", "null"],
-                            "x-synth-max-bytes": 8192,
+                            "x-synth-max-bytes": 32768,
                             "x-synth-message-text": True,
                         },
                         "profile": {
@@ -474,6 +474,12 @@ TOOLS: list[ToolDefinition] = [
                     },
                     "required": ["limits"],
                     "type": "object",
+                    "x-synth-default-profile": "swarms-v2",
+                    "x-synth-profile-requirements": {
+                        "forgetting": True,
+                        "fork-flush": True,
+                        "swarms-v2": False,
+                    },
                 },
                 "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
             },

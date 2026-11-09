@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Mapping
 from contextlib import aclosing, asynccontextmanager
 from pathlib import Path
 from typing import TypeVar
@@ -15,6 +15,7 @@ import httpx
 from pydantic import BaseModel, JsonValue, ValidationError
 
 from ._event_stream import decode_events, validate_stream_response
+from ._file_source import FileIO
 from ._generated.models import RunEvent, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
@@ -24,7 +25,9 @@ from ._retry import retry_delay as retry_delay
 from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
 from ._version import __version__
+from .diagnostics import DiagnosticHook
 from .errors import (
+    ClientClosedError,
     ResponseContractError,
     SwarmsAPIError,
     SynthError,
@@ -45,6 +48,7 @@ class Transport:
         timeout: float = 30,
         retries: int = 2,
         retry_policy: RetryPolicy | None = None,
+        diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         url = httpx.URL(self.base_url)
@@ -63,6 +67,7 @@ class Transport:
             raise ValueError("retries must be between 0 and 5")
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be finite and positive")
+        self.diagnostic_hook = diagnostic_hook
         self.timeout = timeout
         self.retry_policy = retry_policy or RetryPolicy(
             attempts=retries + 1, deadline_seconds=timeout * (retries + 1)
@@ -70,12 +75,19 @@ class Transport:
         self.token = token
         self.client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=False)
         self.owned = client is None
+        self.file_io = FileIO()
+        self._closed = False
 
     async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
         if self.owned:
             await self.client.aclose()
 
     def headers(self, auth: bool = True) -> dict[str, str]:
+        if self._closed:
+            raise ClientClosedError("client is closed")
         headers = {
             "Accept": "application/json",
             "User-Agent": "synth-ai/" + __version__,
@@ -97,15 +109,27 @@ class Transport:
         idempotency_key: str | None = None,
     ) -> BaseModel | bytes | None:
         return await OperationExecutor(
-            self.client, self.base_url, self.timeout, self.retry_policy, self.headers
+            self.client,
+            self.base_url,
+            self.timeout,
+            self.retry_policy,
+            self.headers,
+            self.diagnostic_hook,
         ).invoke(operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key)
 
     def _transfers(self) -> ArtifactTransfer:
         return ArtifactTransfer(
-            self.client, self.base_url, self.timeout, self.retry_policy, self.headers
+            self.client,
+            self.base_url,
+            self.timeout,
+            self.retry_policy,
+            self.headers,
+            self.file_io,
         )
 
-    async def put_upload(self, grant: UploadGrant, content: bytes, *, idempotency_key: str) -> None:
+    async def put_upload(
+        self, grant: UploadGrant, content: bytes | AsyncIterable[bytes], *, idempotency_key: str
+    ) -> None:
         await self._transfers().put_upload(grant, content, idempotency_key=idempotency_key)
 
     async def download_output(
@@ -161,7 +185,11 @@ class Transport:
         route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
         try:
             async with self.client.stream(
-                "GET", self.base_url + route, headers=headers, timeout=self.timeout
+                "GET",
+                self.base_url + route,
+                headers=headers,
+                timeout=self.timeout,
+                follow_redirects=False,
             ) as response:
                 if not response.is_success:
                     await raise_stream_error(response)

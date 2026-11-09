@@ -1490,9 +1490,9 @@ class LaunchRequest(WireModel):
     message: (
         Annotated[
             str,
-            Field(min_length=1, max_length=8192),
+            Field(min_length=1, max_length=32768),
             AfterValidator(message_text),
-            AfterValidator(utf8_max_bytes(8192)),
+            AfterValidator(utf8_max_bytes(32768)),
         ]
         | None
     ) = None

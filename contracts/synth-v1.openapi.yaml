@@ -4419,6 +4419,11 @@ components:
         routing:
           $ref: '#/components/schemas/RoutingCatalog'
     LaunchRequest:
+      x-synth-profile-requirements:
+        swarms-v2: false
+        fork-flush: true
+        forgetting: true
+      x-synth-default-profile: swarms-v2
       type: object
       additionalProperties: false
       required:
@@ -4429,8 +4434,8 @@ components:
           - string
           - 'null'
           minLength: 1
-          maxLength: 8192
-          x-synth-max-bytes: 8192
+          maxLength: 32768
+          x-synth-max-bytes: 32768
           x-synth-message-text: true
         limits:
           $ref: '#/components/schemas/Limits'

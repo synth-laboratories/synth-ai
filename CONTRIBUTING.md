@@ -5,8 +5,8 @@ The core OpenAPI document is the API authority. Update its pinned copy and
 then run `uv run python scripts/gen_contract.py`.
 After async method changes run `uv run python scripts/gen_sync.py`.
 
-Run `uv sync --extra mcp`, `uv run ruff check synth_ai scripts tests typing_tests`,
-`uv run ruff format --check synth_ai scripts tests typing_tests`, `uv run ty check`,
+Run `uv sync --extra mcp`, `uv run ruff check synth_ai scripts tests examples typing_tests`,
+`uv run ruff format --check synth_ai scripts tests examples typing_tests`, `uv run ty check`,
 `uv run python scripts/lint_standards.py`,
 `uv run python scripts/check_type_contracts.py` and
 `uv run pytest`. CI runs Python 3.11, 3.12 and 3.13.

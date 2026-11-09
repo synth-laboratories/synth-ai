@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synth-ai"
-version = "0.30.0"
+version = "0.31.0"
 description = "Typed Synth public API, CLI and MCP client"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.ty.src]
-include = ["synth_ai", "scripts", "typing_tests/accepted.py"]
+include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]
 
 [tool.ty.rules]
 all = "error"

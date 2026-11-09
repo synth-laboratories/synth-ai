@@ -575,6 +575,17 @@ OPERATIONS: dict[str, Operation] = """
         + str(schemas["LaunchRequest"].object("properties").object("message")["x-synth-max-bytes"])
         + "\n"
     )
+    requirements = schemas["LaunchRequest"].object("x-synth-profile-requirements")
+    policy_source += (
+        "PROFILE_REQUIRES_RESEARCH_TASK = "
+        + repr({name: requirements.flag(name) for name in sorted(requirements)})
+        + "\n"
+    )
+    policy_source += (
+        "DEFAULT_RUN_PROFILE = "
+        + repr(schemas["LaunchRequest"].text("x-synth-default-profile"))
+        + "\n"
+    )
     outputs: dict[Path, str] = {
         ROOT / "synth_ai/_generated/policy.py": policy_source,
         ROOT

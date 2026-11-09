@@ -1,6 +1,7 @@
 """Typed convenience request construction; wire models remain generated from Core."""
 
 import builtins
+from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 
 from ._generated.models import (
@@ -26,10 +27,13 @@ def launch_request(
     research_task: str | None,
     routing: RoutingConstraints | None,
     guidance: builtins.list[RunGuidance] | None,
+    profile_requirements: Mapping[str, bool],
+    default_profile: str,
 ) -> LaunchRequest:
-    if profile in {"fork-flush", "forgetting"} and research_task is None:
+    requires_task = profile_requirements.get(profile if profile is not None else default_profile)
+    if requires_task is True and research_task is None:
         raise ValueError("research profile requires research_task")
-    if (profile is None or profile == "swarms-v2") and research_task is not None:
+    if requires_task is False and research_task is not None:
         raise ValueError("research_task requires a research profile")
     if not isinstance(budget, (str, Decimal)):
         raise ValueError("budget must be a decimal string or Decimal")

@@ -9,7 +9,6 @@ from contextlib import aclosing
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
 
 from ._generated.models import (
     EventPage,
@@ -35,25 +34,28 @@ from ._generated.models import (
     RunReport,
     RunSandboxes,
     RunSnapshot,
+    RunTask,
     RunTaskPage,
     Upload,
 )
-from ._limits import UPLOAD_MAX_BYTES
+from ._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
 from ._observer import RunObserver, validate_wait
+from ._pagination import paginate
 from ._protocol import CompletionMilestone
 from ._requests import launch_request
 from ._stream import StreamCheckpoint
 from ._transport import Transport
+from ._uploads import ArtifactUploads
 from .errors import (
     DataIntegrityError,
-    SynthError,
-    UploadTransferError,
 )
 
 
 class AsyncSwarms:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+        self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
+        self._default_profile = DEFAULT_RUN_PROFILE
 
     async def launch(
         self,
@@ -81,6 +83,8 @@ class AsyncSwarms:
             research_task=research_task,
             routing=routing,
             guidance=guidance,
+            profile_requirements=self._profile_requirements,
+            default_profile=self._default_profile,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -139,56 +143,14 @@ class AsyncSwarms:
         media_type: str | None = None,
         idempotency_key: str | None = None,
     ) -> File:
-        source = Path(filename)
-        formats = {
-            ".txt": "text/plain",
-            ".md": "text/markdown",
-            ".markdown": "text/markdown",
-            ".json": "application/json",
-        }
-        media = media_type or formats.get(source.suffix.lower())
-        if media not in {"text/plain", "text/markdown", "application/json"}:
-            raise ValueError("Supported formats: text/plain, text/markdown, application/json")
-        with source.open("rb") as stream:
-            content = stream.read(UPLOAD_MAX_BYTES + 1)
-        if len(content) > UPLOAD_MAX_BYTES:
-            raise ValueError("File exceeds the 32 MiB limit")
-        key = idempotency_key or str(uuid4())
-        upload = await self.prepare_upload(
-            name=source.name,
-            media_type=media,
-            size_bytes=len(content),
-            digest_sha256=hashlib.sha256(content).hexdigest(),
-            idempotency_key=key,
+        return await ArtifactUploads(self._transport).upload_file(
+            filename, media_type=media_type, idempotency_key=idempotency_key
         )
-        return await self._finish_upload(upload, content, key)
-
-    async def _finish_upload(self, upload: Upload, content: bytes, key: str) -> File:
-        if upload.state == "committed":
-            return upload.file
-        if upload.put is None:
-            raise UploadTransferError(upload.upload_id, key)
-        try:
-            await self._transport.put_upload(upload.put, content, idempotency_key=key)
-            finalized = await self.finalize_upload(upload.upload_id, idempotency_key=key)
-            if finalized.state != "committed":
-                raise UploadTransferError(upload.upload_id, key)
-            return finalized.file
-        except SynthError as cause:
-            raise UploadTransferError(upload.upload_id, key) from cause
 
     async def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
-        upload = await self.upload(upload_id)
-        if upload.state == "committed":
-            return upload.file
-        with Path(filename).open("rb") as source:
-            content = source.read(UPLOAD_MAX_BYTES + 1)
-        if (
-            len(content) != upload.file.size_bytes
-            or hashlib.sha256(content).hexdigest() != upload.file.digest_sha256
-        ):
-            raise DataIntegrityError("resume content differs from the retained upload")
-        return await self._finish_upload(upload, content, idempotency_key)
+        return await ArtifactUploads(self._transport).resume(
+            upload_id, filename, idempotency_key=idempotency_key
+        )
 
     async def upload_text(
         self,
@@ -347,15 +309,11 @@ class AsyncSwarms:
     async def iter_events(
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> AsyncGenerator[RunEvent, None]:
-        while True:
-            page = await self.events(run_id, cursor=cursor, limit=limit)
-            for item in page.items:
-                yield item
-            if not page.has_more:
-                return
-            if page.next_cursor is None or page.next_cursor == "" or page.next_cursor == cursor:
-                raise ValueError("nonadvancing event cursor")
-            cursor = page.next_cursor
+        async def fetch(next_cursor: str | None) -> EventPage:
+            return await self.events(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
 
     async def follow(
         self,
@@ -436,6 +394,54 @@ class AsyncSwarms:
         return catalog.routing
 
     async def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
-        return await self._transport.request(
+        catalog = await self._transport.request(
             "listProfiles", RunProfileCatalog, query={"research_task": research_task}
         )
+        self._default_profile = catalog.default_profile
+        self._profile_requirements.update(
+            {item.id: item.requires_research_task for item in catalog.profiles}
+        )
+        return catalog
+
+    async def iter_runs(
+        self,
+        *,
+        limit: int = 20,
+        cursor: str | None = None,
+        state: str | None = None,
+        created_after: str | None = None,
+    ) -> AsyncGenerator[RunSnapshot, None]:
+        async def fetch(next_cursor: str | None) -> RunPage:
+            return await self.list(
+                limit=limit, cursor=next_cursor, state=state, created_after=created_after
+            )
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_tasks(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[RunTask, None]:
+        async def fetch(next_cursor: str | None) -> RunTaskPage:
+            return await self.tasks(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_outputs(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[RunOutput, None]:
+        async def fetch(next_cursor: str | None) -> OutputPage:
+            return await self.outputs(run_id, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def iter_files(
+        self, *, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[File, None]:
+        async def fetch(next_cursor: str | None) -> FilePage:
+            return await self.files(cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item

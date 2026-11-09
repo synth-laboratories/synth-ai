@@ -74,3 +74,5 @@ Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
 inspect it, and `run.known_state` when a known state enum is useful. Unknown server
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
+
+Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.

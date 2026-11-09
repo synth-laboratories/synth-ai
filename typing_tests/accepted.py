@@ -8,6 +8,7 @@ from pydantic import JsonValue
 
 from synth_ai import AsyncSynthClient, CompletionMilestone, RunState, SynthClient
 from synth_ai._generated.models import Balance, File, RunEvent, RunSnapshot
+from synth_ai.diagnostics import OperationDiagnostic
 from synth_ai.errors import WaitTimeoutError
 from synth_ai.models import InputFile, RunInputs, RunProfileCatalog, StreamCheckpoint
 
@@ -57,3 +58,15 @@ async def managed_observation() -> None:
 def managed_sync_client() -> None:
     with SynthClient("fixture") as client:
         assert_type(client.swarms.wait("run"), RunSnapshot)
+
+
+def diagnostic_consumer(event: OperationDiagnostic) -> None:
+    assert_type(event.attempts, int)
+    assert_type(event.request_correlation, str | None)
+
+
+async def typed_iterators(client: AsyncSynthClient) -> None:
+    async for snapshot in client.swarms.iter_runs():
+        assert_type(snapshot, RunSnapshot)
+    async for file in client.swarms.iter_files():
+        assert_type(file, File)

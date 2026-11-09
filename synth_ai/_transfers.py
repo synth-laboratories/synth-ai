@@ -4,12 +4,13 @@ import asyncio
 import hashlib
 import os
 import tempfile
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
 
+from ._file_source import FileIO
 from ._generated.models import UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
@@ -25,14 +26,18 @@ class ArtifactTransfer:
         timeout: float,
         retry_policy: RetryPolicy,
         headers: Callable[[], dict[str, str]],
+        file_io: FileIO,
     ) -> None:
         self.client = client
         self.base_url = base_url
         self.timeout = timeout
         self.retry_policy = retry_policy
         self.headers = headers
+        self.file_io = file_io
 
-    async def put_upload(self, grant: UploadGrant, content: bytes, *, idempotency_key: str) -> None:
+    async def put_upload(
+        self, grant: UploadGrant, content: bytes | AsyncIterable[bytes], *, idempotency_key: str
+    ) -> None:
         target = httpx.URL(grant.url)
         if (
             target.username
@@ -95,6 +100,7 @@ class ArtifactTransfer:
                     self.base_url + route,
                     params={"revision_id": revision_id, "digest_sha256": digest_sha256},
                     headers=self.headers(),
+                    follow_redirects=False,
                     timeout=self.timeout,
                 ) as response:
                     if not response.is_success:
@@ -120,14 +126,19 @@ class ArtifactTransfer:
                             if size > max_bytes:
                                 raise DataIntegrityError("output exceeds the download size bound")
                             digest.update(chunk)
-                            target.write(chunk)
-                        target.flush()
-                        os.fsync(target.fileno())
+                            await self.file_io.run(lambda chunk=chunk: target.write(chunk))
+
+                        def flush() -> None:
+                            target.flush()
+                            os.fsync(target.fileno())
+
+                        await self.file_io.run(flush)
                     if digest.hexdigest() != digest_sha256 or (
                         expected_bytes is not None and size != expected_bytes
                     ):
                         raise DataIntegrityError("download does not match the pinned output")
-                    os.replace(temporary, destination)
+                    source_path = temporary
+                    await self.file_io.run(lambda: os.replace(source_path, destination))
                     temporary = None
         except (httpx.TransportError, TimeoutError) as cause:
             raise TransportFailureError(
@@ -135,4 +146,5 @@ class ArtifactTransfer:
             ) from cause
         finally:
             if temporary is not None:
-                os.unlink(temporary)
+                source_path = temporary
+                await self.file_io.run(lambda: os.unlink(source_path))
