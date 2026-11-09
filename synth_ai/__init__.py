@@ -1,8 +1,32 @@
 """Synth public API v1."""
 
+from ._transport import RetryPolicy
+from ._version import __version__
 from .aclient import AsyncSynthClient
 from .client import SynthClient
 from .errors import SwarmsAPIError, SynthError
+from .models import (
+    CompletionMilestone,
+    Exclude,
+    LaunchRequest,
+    Only,
+    RoutingConstraints,
+    RunState,
+    StreamCheckpoint,
+)
 
-__version__ = "0.27.0"
-__all__ = ["AsyncSynthClient", "SynthClient", "SynthError", "SwarmsAPIError", "__version__"]
+__all__ = [
+    "AsyncSynthClient",
+    "CompletionMilestone",
+    "Exclude",
+    "LaunchRequest",
+    "Only",
+    "RetryPolicy",
+    "RoutingConstraints",
+    "RunState",
+    "StreamCheckpoint",
+    "SwarmsAPIError",
+    "SynthClient",
+    "SynthError",
+    "__version__",
+]

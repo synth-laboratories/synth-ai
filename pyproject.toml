@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synth-ai"
-version = "0.27.0"
+version = "0.31.0"
 description = "Typed Synth public API, CLI and MCP client"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ synth-ai = "synth_ai.cli:main"
 synth-ai-mcp = "synth_ai.mcp.server:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyyaml>=6", "types-PyYAML", "jsonschema>=4", "ruff>=0.9", "mypy>=1.14", "build>=1.2", "twine>=6"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyyaml>=6", "types-PyYAML", "jsonschema>=4", "ruff>=0.17.3", "ty>=0.0.99", "build>=1.2", "twine>=6"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["synth_ai"]
@@ -30,13 +30,18 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
-[tool.mypy]
-strict = true
-files = ["synth_ai"]
+[tool.ty.src]
+include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]
+
+[tool.ty.rules]
+all = "error"
 
 [tool.ruff]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "B", "UP", "RUF", "ANN", "PGH", "TRY002"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]

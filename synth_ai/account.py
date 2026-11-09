@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import builtins
-from typing import Any
+from collections.abc import AsyncGenerator
 
 from ._generated.models import (
     Account,
     ApiKey,
     ApiKeyPage,
     LimitList,
+    MintApiKeyRequest,
+    MintApiKeyRequestPurpose,
     MintedApiKey,
+    Scope,
+    UpdateApiKeyRequest,
     UsageExport,
+    UsageRecord,
     UsageRecordPage,
     UsageSummary,
 )
+from ._pagination import paginate
 from ._transport import Transport
 
 
@@ -29,7 +35,20 @@ class AsyncApiKeys:
             "listApiKeys", ApiKeyPage, query={"purpose": purpose, "cursor": cursor, "limit": limit}
         )
 
-    async def mint(self, *, idempotency_key: str | None = None, **body: Any) -> MintedApiKey:
+    async def mint(
+        self,
+        *,
+        purpose: MintApiKeyRequestPurpose | None = None,
+        name: str | None = None,
+        scopes: builtins.list[Scope] | None = None,
+        expires_at: str | None = None,
+        request_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> MintedApiKey:
+        body = MintApiKeyRequest(
+            purpose=purpose, name=name, scopes=scopes, expires_at=expires_at, request_id=request_id
+        )
+        body = MintApiKeyRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "createApiKey", MintedApiKey, body=body, idempotency_key=idempotency_key
         )
@@ -38,13 +57,12 @@ class AsyncApiKeys:
         self,
         key_id: str,
         *,
-        scopes: builtins.list[str],
+        scopes: builtins.list[Scope],
         expected_version: int,
         name: str | None = None,
     ) -> ApiKey:
-        body: dict[str, Any] = {"scopes": scopes, "expected_version": expected_version}
-        if name is not None:
-            body["name"] = name
+        body = UpdateApiKeyRequest(scopes=scopes, expected_version=expected_version, name=name)
+        body = UpdateApiKeyRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "updateApiKey", ApiKey, path={"key_id": key_id}, body=body
         )
@@ -56,6 +74,15 @@ class AsyncApiKeys:
 
     async def revoke(self, key_id: str) -> None:
         await self._transport.invoke("revokeApiKey", path={"key_id": key_id})
+
+    async def iter_keys(
+        self, *, purpose: str | None = None, cursor: str | None = None, limit: int = 20
+    ) -> AsyncGenerator[ApiKey, None]:
+        async def fetch(next_cursor: str | None) -> ApiKeyPage:
+            return await self.list(purpose=purpose, cursor=next_cursor, limit=limit)
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
 
 
 class AsyncAccount:
@@ -111,3 +138,20 @@ class AsyncAccount:
 
     async def limits(self) -> LimitList:
         return await self._transport.request("listLimits", LimitList)
+
+    async def iter_usage_records(
+        self,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        run_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> AsyncGenerator[UsageRecord, None]:
+        async def fetch(next_cursor: str | None) -> UsageRecordPage:
+            return await self.usage_records(
+                since=since, until=until, run_id=run_id, cursor=next_cursor, limit=limit
+            )
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item

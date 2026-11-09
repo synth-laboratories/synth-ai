@@ -15,6 +15,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_outputs | listRunOutputs | swarms:read |
 | swarms_run_output_get | getRunOutput | swarms:read |
 | swarms_families_list | listFamilies | swarms:read |
+| swarms_profiles_list | listProfiles | swarms:read |
 | account_billing_balance | getBalance | account:billing:read |
 | swarms_upload_file | uploadFile | swarms:write |
 | swarms_run_labels_update | updateRunLabels | swarms:write |

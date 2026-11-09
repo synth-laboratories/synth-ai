@@ -3,20 +3,37 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from collections.abc import AsyncIterator, Mapping
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
-from typing import Any, TypeVar
+import math
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Mapping
+from contextlib import aclosing, asynccontextmanager
+from pathlib import Path
+from typing import TypeVar
 from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, JsonValue, ValidationError
 
-from ._generated.models import MODELS, RunEvent
+from ._event_stream import decode_events, validate_stream_response
+from ._file_source import FileIO
+from ._generated.models import RunEvent, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
-from .errors import SynthError, TransportFailureError, local_problem, raise_for_response
+from ._http_errors import raise_stream_error
+from ._operations import OperationExecutor
+from ._retry import RetryPolicy as RetryPolicy
+from ._retry import retry_delay as retry_delay
+from ._stream import StreamCheckpoint
+from ._transfers import ArtifactTransfer
+from ._version import __version__
+from .diagnostics import DiagnosticHook
+from .errors import (
+    ClientClosedError,
+    ResponseContractError,
+    SwarmsAPIError,
+    SynthError,
+    TransportFailureError,
+    local_problem,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -30,6 +47,8 @@ class Transport:
         client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
+        retry_policy: RetryPolicy | None = None,
+        diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         url = httpx.URL(self.base_url)
@@ -46,23 +65,36 @@ class Transport:
             raise ValueError("credentials require HTTPS outside loopback")
         if retries < 0 or retries > 5:
             raise ValueError("retries must be between 0 and 5")
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        self.diagnostic_hook = diagnostic_hook
+        self.timeout = timeout
+        self.retry_policy = retry_policy or RetryPolicy(
+            attempts=retries + 1, deadline_seconds=timeout * (retries + 1)
+        )
         self.token = token
         self.client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=False)
         self.owned = client is None
-        self.retries = retries
+        self.file_io = FileIO()
+        self._closed = False
 
     async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
         if self.owned:
             await self.client.aclose()
 
     def headers(self, auth: bool = True) -> dict[str, str]:
+        if self._closed:
+            raise ClientClosedError("client is closed")
         headers = {
             "Accept": "application/json",
-            "User-Agent": "synth-ai/0.26.0",
+            "User-Agent": "synth-ai/" + __version__,
             "X-Request-Id": str(uuid4()),
         }
         if auth:
-            if not self.token:
+            if self.token is None or self.token == "":
                 raise SynthError("Set SYNTH_API_KEY or run synth login")
             headers["Authorization"] = "Bearer " + self.token
         return headers
@@ -72,144 +104,157 @@ class Transport:
         operation_id: str,
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, Any] | None = None,
-        body: BaseModel | Mapping[str, Any] | None = None,
+        query: Mapping[str, str | int | float | bool | None] | None = None,
+        body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
-    ) -> Any:
-        op = OPERATIONS[operation_id]
-        route = op["path"]
-        if set(path or {}) != set(op["path_params"]):
-            raise ValueError("path parameters do not match operation")
-        for name, value in (path or {}).items():
-            route = route.replace("{" + name + "}", quote(value, safe=""))
-        query = {k: v for k, v in (query or {}).items() if v is not None}
-        if set(query) - set(op["query_params"]):
-            raise ValueError("query parameters do not match operation")
-        payload = (
-            body.model_dump(mode="json", exclude_unset=True)
-            if isinstance(body, BaseModel)
-            else body
+    ) -> BaseModel | bytes | None:
+        return await OperationExecutor(
+            self.client,
+            self.base_url,
+            self.timeout,
+            self.retry_policy,
+            self.headers,
+            self.diagnostic_hook,
+        ).invoke(operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key)
+
+    def _transfers(self) -> ArtifactTransfer:
+        return ArtifactTransfer(
+            self.client,
+            self.base_url,
+            self.timeout,
+            self.retry_policy,
+            self.headers,
+            self.file_io,
         )
-        if op["request_model"] and payload is not None:
-            payload = (
-                MODELS[op["request_model"]]
-                .model_validate(payload)
-                .model_dump(mode="json", exclude_unset=True)
-            )
-        headers = self.headers(op["auth"])
-        if op["idempotent"]:
-            headers["Idempotency-Key"] = idempotency_key or str(uuid4())
-        for attempt in range(self.retries + 1):
-            try:
-                response = await self.client.request(
-                    op["method"], self.base_url + route, params=query, json=payload, headers=headers
-                )
-            except httpx.TransportError as error:
-                # A timeout after admission is unknown. Keep the same key for caller-directed retry.
-                raise TransportFailureError(
-                    local_problem(
-                        "transport_failed",
-                        operation_id,
-                        unknown=op["method"] not in {"GET", "HEAD"},
-                    ),
-                    request_id=headers["X-Request-Id"],
-                    idempotency_key=headers.get("Idempotency-Key"),
-                ) from error
-            if response.status_code not in {429, 503} or attempt == self.retries:
-                break
-            if op["method"] not in {"GET", "HEAD"} and not op["idempotent"]:
-                break
-            delay = retry_delay(response.headers.get("Retry-After"), attempt)
-            if delay is None:
-                break
-            await asyncio.sleep(delay)
-        raise_for_response(response)
-        if op["binary"]:
-            return response.content
-        if op["response_model"]:
-            try:
-                return MODELS[op["response_model"]].model_validate_json(response.content)
-            except ValidationError as error:
-                raise SynthError("Response does not conform to " + operation_id) from error
-        return None
 
     async def put_upload(
-        self, grant: dict[str, Any], content: bytes, *, idempotency_key: str
+        self, grant: UploadGrant, content: bytes | AsyncIterable[bytes], *, idempotency_key: str
     ) -> None:
-        target = httpx.URL(grant["url"])
-        if (
-            target.username
-            or target.password
-            or target.fragment
-            or target.scheme not in {"https", "http"}
-            or (target.scheme == "http" and target.host not in {"localhost", "127.0.0.1", "::1"})
-        ):
-            raise SynthError("Upload grant has an invalid URL")
-        headers = grant["headers"]
-        if any(
-            name.lower()
-            not in {"content-type", "x-amz-content-sha256", "if-none-match", "content-length"}
-            for name in headers
-        ):
-            raise SynthError("Upload grant has unsupported headers")
-        # Construct the request directly: never merge API/client headers, cookies
-        # or default authentication into a storage-origin request.
-        request = httpx.Request("PUT", target, content=content, headers=headers)
-        try:
-            response = await self.client.send(request, auth=None, follow_redirects=False)
-        except httpx.TransportError as error:
-            raise TransportFailureError(
-                local_problem("upload_transfer_failed", "uploadFile", unknown=True),
-                idempotency_key=idempotency_key,
-            ) from error
-        if response.status_code not in {200, 201, 204, 412}:
-            raise SynthError("Upload transfer refused: HTTP " + str(response.status_code))
+        await self._transfers().put_upload(grant, content, idempotency_key=idempotency_key)
 
-    async def request(self, operation_id: str, model: type[T], **kwargs: Any) -> T:
-        result = await self.invoke(operation_id, **kwargs)
+    async def download_output(
+        self,
+        run_id: str,
+        output_id: str,
+        destination: Path,
+        *,
+        revision_id: str,
+        digest_sha256: str,
+        max_bytes: int,
+        expected_bytes: int | None = None,
+    ) -> None:
+        await self._transfers().download_output(
+            run_id,
+            output_id,
+            destination,
+            revision_id=revision_id,
+            digest_sha256=digest_sha256,
+            max_bytes=max_bytes,
+            expected_bytes=expected_bytes,
+        )
+
+    async def request(
+        self,
+        operation_id: str,
+        model: type[T],
+        *,
+        path: Mapping[str, str] | None = None,
+        query: Mapping[str, str | int | float | bool | None] | None = None,
+        body: BaseModel | Mapping[str, JsonValue] | None = None,
+        idempotency_key: str | None = None,
+    ) -> T:
+        result = await self.invoke(
+            operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
+        )
         if not isinstance(result, model):
             raise SynthError("Unexpected response model for " + operation_id)
         return result
 
-    async def stream_events(
-        self, run_id: str, *, last_event_id: str | None = None
-    ) -> AsyncIterator[RunEvent]:
-        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
+    @asynccontextmanager
+    async def subscribe_events(
+        self, run_id: str, state: StreamCheckpoint
+    ) -> AsyncGenerator[AsyncIterator[RunEvent], None]:
+        """Open the durable feed before an observer performs its authoritative read."""
+        state.bind(run_id)
+        state.__post_init__()
         headers = self.headers()
         headers["Accept"] = "text/event-stream"
-        if last_event_id is not None:
-            headers["Last-Event-ID"] = last_event_id
+        headers["Accept-Encoding"] = "identity"
+        if state.last_event_id is not None:
+            headers["Last-Event-ID"] = state.last_event_id
+        route = OPERATIONS["listRunEvents"]["path"].replace("{run_id}", quote(run_id, safe=""))
         try:
             async with self.client.stream(
-                "GET", self.base_url + route, headers=headers, timeout=None
+                "GET",
+                self.base_url + route,
+                headers=headers,
+                timeout=self.timeout,
+                follow_redirects=False,
             ) as response:
                 if not response.is_success:
-                    await response.aread()
-                    raise_for_response(response)
-                if response.headers.get("content-type", "").split(";")[0] != "text/event-stream":
-                    raise SynthError("Expected event stream")
-                data: list[str] = []
-                async for line in response.aiter_lines():
-                    if line == "":
-                        if data:
-                            yield RunEvent.model_validate(json.loads("\n".join(data)))
-                            data = []
-                    elif line.startswith("data:"):
-                        data.append(line[5:].lstrip(" "))
-        except httpx.TransportError as error:
-            raise TransportFailureError(
-                local_problem("event_stream_interrupted", "listRunEvents")
-            ) from error
+                    await raise_stream_error(response)
+                validate_stream_response(response)
+                async with aclosing(decode_events(response, run_id, state)) as events:
+                    yield events
+        except SwarmsAPIError as error:
+            error.checkpoint = state
+            raise
+        except (ValueError, ValidationError) as cause:
+            error = ResponseContractError(local_problem("event_stream_invalid", "listRunEvents"))
+            error.checkpoint = state
+            raise error from cause
 
-
-def retry_delay(value: str | None, attempt: int) -> float | None:
-    if value is None:
-        return float(2**attempt)
-    try:
-        seconds = float(value)
-    except ValueError:
+    async def stream_events(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> AsyncGenerator[RunEvent, None]:
+        if timeout is not None and (not math.isfinite(timeout) or timeout <= 0):
+            raise ValueError("stream timeout must be finite and positive")
+        state = checkpoint if checkpoint is not None else StreamCheckpoint()
+        state.bind(run_id)
+        if last_event_id is not None:
+            if state.last_event_id is not None and state.last_event_id != last_event_id:
+                raise ValueError("conflicting stream resume identities")
+            state.last_event_id = last_event_id
+        state.__post_init__()
         try:
-            seconds = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
-        except (ValueError, TypeError, OverflowError):
-            return None
-    return max(0, seconds) if seconds <= 60 else None
+            async with asyncio.timeout(timeout):
+                for attempt in range(self.retry_policy.attempts):
+                    disconnected = False
+                    try:
+                        async with self.subscribe_events(run_id, state) as events:
+                            async for item in events:
+                                yield item
+                    except httpx.TransportError:
+                        disconnected = True
+                    if not disconnected:
+                        snapshot = await self.request(
+                            "getRun", RunSnapshot, path={"run_id": run_id}
+                        )
+                        if snapshot.execution_closed:
+                            return
+                    if attempt + 1 < self.retry_policy.attempts:
+                        delay = self.retry_policy.delay(None, attempt)
+                        await asyncio.sleep(delay or 0)
+                error = TransportFailureError(
+                    local_problem("event_stream_interrupted", "listRunEvents")
+                )
+                error.checkpoint = state
+                raise error
+        except SwarmsAPIError as api_error:
+            api_error.checkpoint = state
+            raise
+        except (ValueError, ValidationError) as invalid_frame:
+            contract_error = ResponseContractError(
+                local_problem("event_stream_invalid", "listRunEvents")
+            )
+            contract_error.checkpoint = state
+            raise contract_error from invalid_frame
+        except TimeoutError as cause:
+            error = TransportFailureError(local_problem("event_stream_timeout", "listRunEvents"))
+            error.checkpoint = state
+            raise error from cause

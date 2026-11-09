@@ -6,7 +6,7 @@ import pytest
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai._transport import retry_delay
 from synth_ai.cli import parser, read_task
-from synth_ai.errors import ConflictError, TransportFailureError
+from synth_ai.errors import ConflictError, TransportFailureError, local_problem
 
 
 def snapshot(contract):
@@ -25,12 +25,15 @@ async def test_launch_exact_money_and_retry_identity(contract):
             "selection": {"pool_ids": ["craftax-control"]},
         }
     ]
-    overrides = {"launch": {"preset": "test.codex_pool", "effort": "low"}}
 
     def handle(request):
         requests.append(request)
         if len(requests) == 1:
-            return httpx.Response(503, headers={"Retry-After": "0"}, json={})
+            return httpx.Response(
+                503,
+                headers={"Retry-After": "0"},
+                json=local_problem("unavailable", "admission").model_dump(mode="json"),
+            )
         return httpx.Response(202, json=snapshot(contract))
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
@@ -39,10 +42,10 @@ async def test_launch_exact_money_and_retry_identity(contract):
         ) as client:
             await client.swarms.launch(
                 "task",
-                budget="0.10000001",
+                budget="0.100001",
                 idempotency_key="launch-once",
                 resources=resources,
-                profile_overrides=overrides,
+                profile="swarms-v2",
             )
     assert len(requests) == 2
     assert (
@@ -53,9 +56,10 @@ async def test_launch_exact_money_and_retry_identity(contract):
     assert requests[0].content == requests[1].content
     body = json.loads(requests[0].content)
     assert body["resources"] == resources
-    assert body["profile_overrides"] == overrides
+    assert body["profile"] == "swarms-v2"
+    assert "profile_overrides" not in body
     assert json.loads(requests[0].content)["limits"]["maximum_charge"] == {
-        "amount": "0.10000001",
+        "amount": "0.100001",
         "currency": "USD",
     }
 
@@ -124,6 +128,10 @@ async def test_sse_resume_and_close(contract):
     }
 
     def stream(request):
+        if request.headers.get("accept") != "text/event-stream":
+            body = snapshot(contract).copy()
+            body["execution_closed"] = True
+            return httpx.Response(200, json=body)
         assert request.headers["Last-Event-ID"] == "12"
         return httpx.Response(
             200,
