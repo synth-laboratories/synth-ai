@@ -172,6 +172,7 @@ class RunReportSandboxObservation(StrEnum):
 class RunReportSandboxProviderKind(StrEnum):
     DOCKER = "docker"
     DAYTONA = "daytona"
+    MODAL = "modal"
     EXE_DEV = "exe_dev"
     UNOBSERVED = "unobserved"
 
@@ -228,6 +229,7 @@ class RunSandboxObservation(StrEnum):
 class RunSandboxProviderKind(StrEnum):
     DOCKER = "docker"
     DAYTONA = "daytona"
+    MODAL = "modal"
     EXE_DEV = "exe_dev"
     UNOBSERVED = "unobserved"
 

@@ -5341,13 +5341,14 @@ components:
           enum:
           - docker
           - daytona
+          - modal
           - exe_dev
           - unobserved
         state:
           type: string
           description: pending has no provider session yet. requested awaits a box. created has a box whose
             environment is not ready. ready serves turns. stopping has destruction requested. retained was
-            deliberately kept past its session. destroyed has verified absence. never_allocated and
+            deliberately kept past its session. destroyed has verified cleanup of running compute; the provider may retain inactive metadata. never_allocated and
             never_created had no box. never_started left a box object that is owed a reap, so it is not
             absent. not_requested ran without a sandbox. unobserved could not be read.
           enum:
