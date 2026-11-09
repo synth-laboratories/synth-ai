@@ -46,7 +46,7 @@ Synth remains its own API; this does not claim OpenResponses wire compatibility.
 
 `CompletionMilestone.FINISHED` requires `execution_closed`, `accounting_final`,
 and `cleanup_complete`. `RunSnapshot.finished` and `.reached(milestone)` share
-that definition with polling. `.known_state` returns a `RunState` enum or `None`;
+that definition with observation. `.known_state` returns a `RunState` enum or `None`;
 `.state` always retains the original server string. Unknown values never become
 successful completion by default.
 
@@ -133,3 +133,92 @@ fixture is deliberately outside the default passing `ty check` source list.
 
 Both checks run in CI and before package publication. They are offline checks;
 none of the consumer examples or live smoke operations are executed.
+
+## Notification-driven observation
+
+`wait()` opens the durable event feed before its first authoritative `getRun`.
+Events wake the observer; only a fresh snapshot can prove a milestone. Idle
+connections reconcile at `max(30 seconds, poll_interval)` to cover missing
+notifications. Heartbeats do not trigger reads. One monotonic `timeout` covers
+subscription, reads, reconnect delays and fallback, and cancels observation only.
+
+Reconnect attempts are bounded by `RetryPolicy.attempts`; delays respect both its
+backoff and `poll_interval`. Unexpected EOF or a transport disconnect does not
+prove completion. Once the server closes a feed for an execution-closed run,
+accounting and cleanup continue through explicit polling at
+`max(1 second, poll_interval)`. The same polling fallback applies when opening a
+feed returns a valid 406, 415 or 501 Problem. Authentication, cursor expiry,
+404, malformed feeds, and other server refusals propagate; they never silently
+switch to polling. No snapshot or history is discarded to recover an expired
+cursor. Exhausting reconnect attempts raises `TransportFailureError` with the
+checkpoint. `WaitTimeoutError` retains the latest snapshot and run identity.
+
+`poll_interval` remains accepted by sync and async methods, but now controls the
+minimum reconnect/fallback cadence, not continuous polling while a feed is open.
+Use `contextlib.aclosing` if stopping `follow()` before exhaustion:
+
+```python
+from contextlib import aclosing
+from synth_ai import StreamCheckpoint
+
+checkpoint = StreamCheckpoint()
+async with aclosing(client.swarms.follow(run_id, checkpoint=checkpoint)) as events:
+    async for event in events:
+        await consume(event)
+        save_checkpoint(checkpoint.to_dict())
+```
+
+A checkpoint means **received**, not **durably applied**. It advances before an
+event is yielded, and its cursor commits on the final frame of an expanded
+sequence. Pending event IDs suppress replay of a partially received expansion;
+a replayed final frame with the currently committed cursor is also suppressed.
+The SDK preserves owner-feed order within one run; it neither sorts event IDs
+nor promises global ordering. Unknown semantic kinds remain readable. It does
+not offer exactly-once application processing or an acknowledgement protocol.
+Persist the checkpoint only after applying the event if recovery must replay
+unprocessed deliveries; persist application state and checkpoint atomically if
+that is required by the application. Do not persist the live mutable checkpoint
+concurrently with unfinished processing. A crash after application but before
+checkpoint persistence can replay an event, so application handlers must tolerate
+that duplicate. Retention expiry remains an explicit owner error.
+
+Each frame/line is bounded to 1 MiB, a checkpoint to 4096 pending IDs and each
+identity to 1024 characters. Invalid/oversized frames do not advance a checkpoint.
+Checkpoint construction and serialization copy pending collections so mutation
+of caller-owned sets or serialized records cannot alter a live checkpoint.
+
+## Recovery and internal ownership
+
+The operation executor serializes a validated request once before awaiting I/O.
+Automatic retries retain identical payload bytes, request ID and idempotency key.
+A mutation retries 429/503 only when the operation permits it and a valid Problem
+with matching HTTP status explicitly says `not_accepted`. Malformed error bodies
+and ambiguous outcomes are not replayed. Connection/pool failures before send
+report `not_accepted`; write/read failures and malformed successful mutation
+responses report `unknown`, including operations without durable keys. Retain the
+original inputs and identity for caller-directed recovery; generating a fresh key
+is a new operation, not recovery. Credentials and entire request payloads are not
+attached to exceptions as recovery records.
+
+The public facade composes focused internal modules: `_requests` constructs
+launch requests; `_observer` owns milestone observation through a typed Protocol;
+`_operations` owns invocation/identity/decoding; `_retry` owns retry policy;
+`_transfers` owns artifact integrity and atomic download completion; `_stream`
+and `_event_stream` own checkpoint/framing and typed event decoding. `_transport`
+owns the shared HTTP client and stream connection lifetime. Injected clients
+remain caller-owned. Sync delegates remain generated from the async facade.
+
+## Contract and installed cohort check
+
+`uv run python scripts/check_cohort.py` verifies the local source pin and hash.
+Before installing against Core, run:
+
+```sh
+uv run python scripts/check_cohort.py --core-checkout /path/to/core --core-revision FULL_COMMIT
+```
+
+This verifies the pinned source bytes against Git and separately compares the
+frozen candidate's exact contract bytes. A mismatch exits nonzero; it does not
+rewrite generated models or assume that an older/newer commit implies
+compatibility. Run both generators in `--check` mode as well. This offline
+verification does not replace installed SDK/MCP and live lifecycle acceptance.

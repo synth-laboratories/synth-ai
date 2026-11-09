@@ -2,6 +2,21 @@
 
 ## 0.30.0 (unreleased)
 
+`wait()` now subscribes before reading run state, uses durable events as wakeups,
+and periodically reconciles dropped notifications. EOF, authentication failures,
+reconnect limits and the final accounting/cleanup polling phase are explicit.
+Observation cancellation closes its stream without cancelling execution.
+
+Request construction, operation execution, retries and artifact transfers have
+focused internal owners. Retry bodies are immutable snapshots; malformed mutation
+responses retain uncertainty and identity. Stream checkpoints explicitly mean
+receipt, isolate mutable collections, and suppress replayed committed frames.
+Checkpoint restoration accepts read-only mappings as well as dictionaries.
+
+A cohort checker verifies source provenance and exact Core contract bytes.
+Isolated wheel qualification now exercises notification-based SDK observation and
+the optional MCP server over stdio, in addition to imports and CLI help.
+
 The release smoke now checks a bounded two-run Swarms journey instead of an
 unreachable full-API gate. Its v4 receipt reports `smoke_complete`, verified output,
 final accounting and cleanup; launch and cancellation identities survive resume.

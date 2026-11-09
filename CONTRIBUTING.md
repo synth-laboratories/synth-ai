@@ -1,7 +1,8 @@
 # Contributing
 
 The core OpenAPI document is the API authority. Update its pinned copy and
-`contracts/SOURCE.toml`, then run `uv run python scripts/gen_contract.py`.
+`contracts/SOURCE.toml`, verify it with `uv run python scripts/check_cohort.py`,
+then run `uv run python scripts/gen_contract.py`.
 After async method changes run `uv run python scripts/gen_sync.py`.
 
 Run `uv sync --extra mcp`, `uv run ruff check synth_ai scripts tests typing_tests`,
