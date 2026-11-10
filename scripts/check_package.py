@@ -22,7 +22,9 @@ source_bytes = sum(
     if p.is_file() and "__pycache__" not in p.parts
 )
 require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
-require(source_bytes < 250 * 1024, "package acceptance invariant failed")
+# 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
+# The bound catches an accidental vendored tree, not ordinary growth.
+require(source_bytes < 400 * 1024, "package acceptance invariant failed")
 with zipfile.ZipFile(wheel) as archive:
     require("synth_ai/py.typed" in archive.namelist(), "wheel must ship PEP 561 types")
     require(
