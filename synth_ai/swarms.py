@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
 import builtins
 import hashlib
+import math
+import time
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from ._generated.models import (
+    CreateEvaluation,
+    EvaluationEvaluationRequest,
+    EvaluationInput,
+    EvaluationQuote,
+    EvaluationResponse,
+    EvaluationRevision,
+    EvaluationRevisionList,
     EventPage,
     FamilyList,
     File,
@@ -59,6 +69,101 @@ class AsyncSwarms:
         self._transport = transport
         self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
         self._default_profile = DEFAULT_RUN_PROFILE
+
+    async def register_evaluation_input(
+        self,
+        kind: Literal["task", "pool", "policy", "evaluator", "dataset"],
+        payload: EvaluationInput,
+        *,
+        idempotency_key: str | None = None,
+    ) -> EvaluationRevision:
+        """Register immutable input bytes. See contracts/synth-v1.openapi.yaml."""
+        return await self._transport.request(
+            "registerEvaluationInput",
+            EvaluationRevision,
+            path={"kind": kind},
+            body=payload,
+            idempotency_key=idempotency_key,
+        )
+
+    async def evaluation_inputs(
+        self, kind: str, *, name: str | None = None
+    ) -> EvaluationRevisionList:
+        return await self._transport.request(
+            "listEvaluationInputs",
+            EvaluationRevisionList,
+            path={"kind": kind},
+            query={"name": name},
+        )
+
+    async def evaluation_input(self, kind: str, revision_id: str) -> EvaluationRevision:
+        return await self._transport.request(
+            "getEvaluationInput",
+            EvaluationRevision,
+            path={"kind": kind, "revision_id": revision_id},
+        )
+
+    async def preflight_evaluation(
+        self,
+        request: EvaluationEvaluationRequest,
+        *,
+        maximum_charge_micros: int,
+        idempotency_key: str | None = None,
+    ) -> EvaluationQuote:
+        return await self._transport.request(
+            "preflightEvaluation",
+            EvaluationQuote,
+            body=CreateEvaluation(request=request, maximum_charge_micros=maximum_charge_micros),
+            idempotency_key=idempotency_key,
+        )
+
+    async def evaluate(
+        self,
+        request: EvaluationEvaluationRequest,
+        *,
+        maximum_charge_micros: int,
+        idempotency_key: str | None = None,
+    ) -> EvaluationResponse:
+        """Reserve the quoted budget and dispatch jobs. See contracts/synth-v1.openapi.yaml."""
+        return await self._transport.request(
+            "createEvaluation",
+            EvaluationResponse,
+            body=CreateEvaluation(request=request, maximum_charge_micros=maximum_charge_micros),
+            idempotency_key=idempotency_key,
+        )
+
+    async def evaluation(self, evaluation_id: str) -> EvaluationResponse:
+        return await self._transport.request(
+            "getEvaluation", EvaluationResponse, path={"evaluation_id": evaluation_id}
+        )
+
+    async def cancel_evaluation(
+        self, evaluation_id: str, *, idempotency_key: str | None = None
+    ) -> EvaluationResponse:
+        return await self._transport.request(
+            "cancelEvaluation",
+            EvaluationResponse,
+            path={"evaluation_id": evaluation_id},
+            idempotency_key=idempotency_key,
+        )
+
+    async def wait_evaluation(
+        self, evaluation_id: str, *, timeout: float = 600, poll_interval: float = 2
+    ) -> EvaluationResponse:
+        if (
+            not math.isfinite(timeout)
+            or not math.isfinite(poll_interval)
+            or timeout <= 0
+            or poll_interval <= 0
+        ):
+            raise ValueError("timeout and poll_interval must be finite and positive")
+        deadline = time.monotonic() + timeout
+        async with asyncio.timeout(timeout):
+            while True:
+                result = await self.evaluation(evaluation_id)
+                if result.status in {"completed", "failed", "cancelled"}:
+                    return result
+                await asyncio.sleep(min(poll_interval, max(0, deadline - time.monotonic())))
 
     async def launch(
         self,

@@ -15,6 +15,7 @@ from synth_ai._generated.operations import OPERATIONS
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
 EXPECTED_COMMANDS = [
+    "evaluations",
     "login",
     "whoami",
     "logout",
@@ -238,7 +239,7 @@ def test_wait_timeout_exits_two(api, capsys, contract):
     running.update(state="running", execution_closed=False)
     api.overrides["getRun"] = (200, running)
     code, out, err = invoke(api, capsys, "wait", RUN_ID, "--timeout", "0.2")
-    assert code == cli.EXIT_WAIT_TIMEOUT
+    assert code == cli.EXIT_WAIT_TIMEOUT, err
     assert out == "" and err.startswith("wait_timeout: ")
 
 
@@ -498,3 +499,13 @@ def test_result_without_charge_prints_no_charge_line(api, capsys, contract):
     code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
     assert code == cli.EXIT_OK, err
     assert json.loads(out)["charge"] is None
+
+
+def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contract):
+    _, body = example(contract, "getEvaluation")
+    body["status"] = "running"
+    api.overrides["getEvaluation"] = (200, body)
+    code, out, err = invoke(api, capsys, "evaluations", "wait", body["evaluation_id"], "--timeout", "0.02", "--json")
+    assert code == cli.EXIT_WAIT_TIMEOUT, err
+    assert out == ""
+    assert json.loads(err)["code"] == "wait_timeout"

@@ -386,7 +386,7 @@ def generate() -> dict[Path, str]:
         "from __future__ import annotations",
         "from typing import Annotated, Literal, TypeAlias",
         "from enum import StrEnum",
-        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue",
+        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, RootModel",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
         "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
@@ -462,6 +462,13 @@ def generate() -> dict[Path, str]:
     lines += (
         ["MODELS: dict[str, type[BaseModel]] = {"]
         + ["    " + repr(n) + ": " + n + "," for n in modelnames]
+        + [
+            "    " + repr(n) + ": RootModel[" + n + "],"
+            for n in sorted(
+                {op.text("request_model") for op in ops.values() if op["request_model"] is not None}
+                - set(modelnames)
+            )
+        ]
         + ["}", ""]
     )
     operations = (

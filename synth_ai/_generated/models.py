@@ -4,7 +4,15 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, JsonValue
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    JsonValue,
+    RootModel,
+)
 
 from synth_ai._protocol import CompletionMilestone
 from synth_ai._validation import (
@@ -61,6 +69,63 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_10 = "credits.10"
     CREDITS_25 = "credits.25"
     CREDITS_100 = "credits.100"
+
+
+class EvaluationAttestationIssuer(StrEnum):
+    RHODES = "rhodes"
+
+
+class EvaluationAttestationSchemaVersion(StrEnum):
+    SYNTH_EVALUATION_ATTESTATION_V1 = "synth.evaluation-attestation.v1"
+
+
+class EvaluationEvaluationRequestAggregation(StrEnum):
+    MEAN = "mean"
+    SUM = "sum"
+    MIN = "min"
+    MAX = "max"
+
+
+class EvaluationPoolProvider(StrEnum):
+    MODAL = "modal"
+    DOCKER = "docker"
+
+
+class EvaluationQuoteIsolation(StrEnum):
+    SEPARATE_CONTAINER = "separate_container"
+
+
+class EvaluationQuoteProvider(StrEnum):
+    DOCKER = "docker"
+    MODAL = "modal"
+
+
+class EvaluationResponseStatus(StrEnum):
+    PREPARED = "prepared"
+    PENDING = "pending"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class EvaluationRevisionKind(StrEnum):
+    POLICY = "policy"
+    EVALUATOR = "evaluator"
+    DATASET = "dataset"
+    TASK = "task"
+    POOL = "pool"
+
+
+class EvaluationRolloutStatus(StrEnum):
+    PENDING = "pending"
+    DISPATCHING = "dispatching"
+    RUNNING = "running"
+    RECOVERING = "recovering"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class MintApiKeyRequestPurpose(StrEnum):
@@ -120,6 +185,16 @@ class RefundDetailRefundCause(StrEnum):
     RUN_FAILED = "run_failed"
     RUN_EXPIRED = "run_expired"
     LAUNCH_FAILED = "launch_failed"
+
+
+class RunEvaluationStatus(StrEnum):
+    PREPARED = "prepared"
+    PENDING = "pending"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RunGuidanceKind(StrEnum):
@@ -388,6 +463,135 @@ class ControlRef(WireModel):
     state: str
 
 
+class EvaluationAttestation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Annotated[
+        EvaluationAttestationSchemaVersion,
+        BeforeValidator(enum_value(EvaluationAttestationSchemaVersion)),
+    ]
+    issuer: Annotated[
+        EvaluationAttestationIssuer, BeforeValidator(enum_value(EvaluationAttestationIssuer))
+    ]
+    key_id: str
+    evidence: dict[str, JsonValue]
+    evidence_digest: str
+    signature: str
+
+
+class EvaluationEvaluationRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation.v1"] | None = None
+    policy_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    evaluator_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    dataset_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    instance_ids: (
+        Annotated[
+            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]],
+            Field(max_length=1024),
+        ]
+        | None
+    ) = None
+    aggregation: (
+        Annotated[
+            EvaluationEvaluationRequestAggregation,
+            BeforeValidator(enum_value(EvaluationEvaluationRequestAggregation)),
+        ]
+        | None
+    ) = None
+    max_concurrency: Annotated[int, Field(le=128, ge=1)]
+
+
+class EvaluationLimits(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    timeout_seconds: Annotated[int, Field(le=3600, ge=1)]
+    cpu_cores: Annotated[int, Field(le=64, ge=1)]
+    memory_mb: Annotated[int, Field(le=262144, ge=128)]
+    storage_mb: Annotated[int, Field(le=1048576, ge=128)]
+
+
+class EvaluationPolicy(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.policy.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    files: dict[str, str]
+    command: Annotated[list[str], Field(min_length=1, max_length=64)]
+
+
+class EvaluationPool(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-pool.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    provider: Annotated[EvaluationPoolProvider, BeforeValidator(enum_value(EvaluationPoolProvider))]
+    concurrency: Annotated[int, Field(le=128, ge=1)]
+    region: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+
+
+class EvaluationQuote(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    jobs: Annotated[int, Field(ge=1, le=1024)]
+    concurrency: Annotated[int, Field(ge=1, le=128)]
+    provider: Annotated[
+        EvaluationQuoteProvider, BeforeValidator(enum_value(EvaluationQuoteProvider))
+    ]
+    region: str
+    per_job_maximum_micros: Annotated[int, Field(ge=0)]
+    maximum_charge_micros: Annotated[int, Field(ge=0)]
+    isolation: Annotated[
+        EvaluationQuoteIsolation, BeforeValidator(enum_value(EvaluationQuoteIsolation))
+    ]
+
+
+class EvaluationResult(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-result.v1"] | None = None
+    score: float
+    metrics: dict[str, float] | None = None
+
+
+class EvaluationRevisionSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    revision_id: str
+    name: str
+    created_at: str
+
+
+class EvaluationTask(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-task.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    description: Annotated[str, Field(max_length=65536)] | None = None
+    candidate_contract: dict[str, JsonValue] | None = None
+    input_schema: dict[str, JsonValue]
+
+
+class EvaluationTaskInstance(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    seed: Annotated[int, Field(le=9223372036854775807, ge=0)]
+    inputs: dict[str, JsonValue]
+
+
 EvtId: TypeAlias = Annotated[str, Field(pattern="^evt_[A-Za-z0-9_-]{22}$")]
 
 
@@ -584,7 +788,7 @@ class PoolSelection(WireModel):
     )
     pool_ids: (
         Annotated[
-            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")]],
+            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]],
             Field(min_length=1, max_length=8),
             AfterValidator(unique_items),
         ]
@@ -680,6 +884,19 @@ class RunControlReceipt(WireModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+
+
+class RunEvaluation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: Annotated[RunEvaluationStatus, BeforeValidator(enum_value(RunEvaluationStatus))]
+    policy_revision_id: str
+    evaluator_revision_id: str
+    dataset_revision_id: str
+    aggregate: dict[str, JsonValue] | None
+    attestation_digest: str | None
 
 
 class RunGuidanceMetric(WireModel):
@@ -986,6 +1203,62 @@ class CheckoutSession(WireModel):
     checkout_id: CheckoutId
     session_id: str
     url: str
+
+
+class CreateEvaluation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    request: EvaluationEvaluationRequest
+    maximum_charge_micros: Annotated[int, Field(ge=0, le=1000000000000)]
+
+
+class EvaluationDataset(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-dataset.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    instances: Annotated[list[EvaluationTaskInstance], Field(min_length=1, max_length=1024)]
+
+
+class EvaluationEvaluator(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluator.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    image: Annotated[str, Field(max_length=512, pattern="^[^\\s@]+@sha256:[0-9a-f]{64}$")]
+    candidate_image: Annotated[str, Field(max_length=512, pattern="^[^\\s@]+@sha256:[0-9a-f]{64}$")]
+    command: Annotated[list[str], Field(min_length=1, max_length=64)]
+    pool_id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    task_id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    task_digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    input_schema: dict[str, JsonValue]
+    limits: EvaluationLimits
+    region: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    isolation: Literal["separate_container"] | None = None
+    result_format: Literal["synth.evaluation-result.v1"] | None = None
+
+
+class EvaluationRevisionList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revisions: list[EvaluationRevisionSummary]
+
+
+class EvaluationRollout(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    ordinal: Annotated[int, Field(ge=0)]
+    instance_id: str
+    rollout_id: str | None
+    status: Annotated[EvaluationRolloutStatus, BeforeValidator(enum_value(EvaluationRolloutStatus))]
+    result: EvaluationResult | None
+    usage_fact_id: str | None
+    error_code: str | None
 
 
 class FilePage(WireModel):
@@ -1485,6 +1758,25 @@ class BillingStatementPage(WireModel):
     items: list[BillingStatement]
 
 
+EvaluationInput: TypeAlias = (
+    EvaluationPolicy | EvaluationEvaluator | EvaluationDataset | EvaluationTask | EvaluationPool
+)
+
+
+class EvaluationResponse(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: Annotated[
+        EvaluationResponseStatus, BeforeValidator(enum_value(EvaluationResponseStatus))
+    ]
+    request: EvaluationEvaluationRequest
+    rollouts: list[EvaluationRollout]
+    attestation: EvaluationAttestation | None
+    quote: EvaluationQuote | None = None
+
+
 class EventPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1662,6 +1954,16 @@ class BillingHistoryPage(WireModel):
     items: list[BillingHistoryEntry]
 
 
+class EvaluationRevision(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[EvaluationRevisionKind, BeforeValidator(enum_value(EvaluationRevisionKind))]
+    revision_id: str
+    name: str | None = None
+    payload: EvaluationInput
+
+
 class RunProfileCatalog(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1674,6 +1976,7 @@ class RunReport(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
     run_id: RunId
     settlement: RunSettlementSummary
     attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
@@ -1780,6 +2083,16 @@ MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
+    "EvaluationAttestation": EvaluationAttestation,
+    "EvaluationEvaluationRequest": EvaluationEvaluationRequest,
+    "EvaluationLimits": EvaluationLimits,
+    "EvaluationPolicy": EvaluationPolicy,
+    "EvaluationPool": EvaluationPool,
+    "EvaluationQuote": EvaluationQuote,
+    "EvaluationResult": EvaluationResult,
+    "EvaluationRevisionSummary": EvaluationRevisionSummary,
+    "EvaluationTask": EvaluationTask,
+    "EvaluationTaskInstance": EvaluationTaskInstance,
     "Exclude": Exclude,
     "Family": Family,
     "File": File,
@@ -1803,6 +2116,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunControlReceipt": RunControlReceipt,
+    "RunEvaluation": RunEvaluation,
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
@@ -1829,6 +2143,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
+    "CreateEvaluation": CreateEvaluation,
+    "EvaluationDataset": EvaluationDataset,
+    "EvaluationEvaluator": EvaluationEvaluator,
+    "EvaluationRevisionList": EvaluationRevisionList,
+    "EvaluationRollout": EvaluationRollout,
     "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
@@ -1867,6 +2186,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ApiKeyPage": ApiKeyPage,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
+    "EvaluationResponse": EvaluationResponse,
     "EventPage": EventPage,
     "FamilyList": FamilyList,
     "LaunchRequest": LaunchRequest,
@@ -1881,10 +2201,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageRecordPage": UsageRecordPage,
     "UsageSummaryBySource": UsageSummaryBySource,
     "BillingHistoryPage": BillingHistoryPage,
+    "EvaluationRevision": EvaluationRevision,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReport": RunReport,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
     "RunPage": RunPage,
     "RunWait": RunWait,
+    "EvaluationInput": RootModel[EvaluationInput],
 }
