@@ -41,21 +41,17 @@ If a file transfer or finalization is interrupted, `UploadTransferError` exposes
 grant (requiring a credential with read and write scopes) and verifies the local bytes against its retained size and digest; it does
 not create a second upload.
 
-CLI examples:
+CLI examples (all commands: [cli.md](cli.md)):
 
 ```sh
-synth swarms launch 'Compare retrieval methods' --budget 0.10
-synth swarms run --task ./task.md --budget 0.10 --profile swarms-v2
-synth swarms events RUN_ID --limit 20
-synth swarms attach RUN_ID --last-event-id 12
-synth billing balance
-synth billing checkout --json '{"credit":{"amount":"20.00","currency":"USD"}}'
+synth run 'Compare retrieval methods' --budget 0.10
+synth run 'Follow the attached task' --file ./task.md --budget 0.10 --profile swarms-v2
+synth logs RUN_ID -f
+synth billing
 ```
 
-Task directories must contain one task.md, TASK.md or task.txt file, and any other
-file in the directory is refused. Task text is the launch message. To send files with
-a run, upload them with `synth swarms upload` or `upload_file` and pass the references
-in `inputs`; see the README.
+`synth run --file PATH` uploads the file and attaches its reference; Python callers
+use `upload_file` and pass the references in `inputs`; see the README.
 
 ## Named run profiles
 
@@ -154,13 +150,12 @@ launches retain their existing behavior. The core verifies ownership and freezes
 resource's run limits; it cannot widen them. The pinned launch contract has no top-level `preset` or `max_output_tokens`
 field.
 
-`synth swarms watch RUN_ID --timeout 600` emits JSON events followed by the
-finished run snapshot. By default `wait`, `run` and `watch` require execution
+`synth wait RUN_ID` follows a run to its finished snapshot. By default `wait` and `run` require execution
 closed, accounting final and cleanup complete. Use `until="execution_closed"`
-or `until="result_available"` (CLI `--until`) for an earlier milestone.
+or `until="result_available"` for an earlier milestone.
 Python returns a failed snapshot normally; `raise_on_failure=True` raises
 `RunFailedError` with that snapshot. `WaitTimeoutError` also retains the last
 snapshot and run ID. Finished runs with no result raise `ResultUnavailableError`
 when waiting for a result; imported history that cannot prove the milestone is
-reported explicitly. A failed run exits 1; completed and cancelled runs exit 0.
+reported explicitly. CLI exit codes are listed in [cli.md](cli.md).
 The timeout bounds both streaming and final polling, and does not cancel the run.

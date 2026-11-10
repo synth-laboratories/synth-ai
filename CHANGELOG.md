@@ -2,6 +2,73 @@
 
 ## 0.32.0 (unreleased)
 
+Breaking: the `synth` CLI is replaced by task verbs (SYN-5564), with no
+compatibility period. Commands: `login [--no-browser]`, `whoami`, `logout`,
+`profiles`, `upload`, `run`, `status`, `wait`, `logs [-f]`, `tasks`, `ls`, `pause`,
+`resume`, `cancel`, `outputs`, `download`, `report`, `usage`, `billing`, `limits`.
+Output is aligned text; `--json` on every command prints the SDK record as one
+JSON document. Exit codes: 0 success, 1 client or usage error, 2 wait timeout,
+3 run failed or cancelled, 4 server refusal. `logs -f` resumes from a 0600
+checkpoint under `~/.config/synth/streams/` (`SYNTH_STATE_DIR`). See
+`docs/cli.md`. `auth.login(open_browser=False, redirect_source=...)` accepts a
+pasted loopback redirect.
+
+| Removed | Replacement |
+| --- | --- |
+| `synth swarms status` | `synth status RUN` |
+| `synth swarms report` | `synth report RUN` |
+| `synth swarms sandboxes` | removed, no replacement |
+| `synth swarms list` | `synth ls` |
+| `synth swarms events` | `synth logs RUN` |
+| `synth swarms cancel` | `synth cancel RUN` |
+| `synth swarms pause` | `synth pause RUN` |
+| `synth swarms resume` | `synth resume RUN` |
+| `synth swarms program` | removed, no replacement |
+| `synth swarms configuration` | removed, no replacement |
+| `synth swarms tasks` | `synth tasks RUN` |
+| `synth swarms outputs` | `synth outputs RUN` |
+| `synth swarms output` | `synth outputs RUN` |
+| `synth swarms output-content` | `synth download RUN OUTPUT` |
+| `synth swarms families` | removed, no replacement |
+| `synth swarms profiles` | `synth profiles` |
+| `synth swarms upload-text` | `synth upload PATH` |
+| `synth swarms uploads-prepare` | `synth upload PATH` |
+| `synth swarms uploads-get` | removed, no replacement |
+| `synth swarms uploads-finalize` | `synth upload PATH` |
+| `synth swarms files` | removed, no replacement |
+| `synth swarms file` | removed, no replacement |
+| `synth swarms labels` | `synth run --label k=v (at launch)` |
+| `synth swarms download` | `synth download RUN [OUTPUT] [-o DIR]` |
+| `synth swarms upload` | `synth upload PATH...` |
+| `synth swarms launch` | `synth run "goal" --budget B` |
+| `synth swarms run` | `synth run "goal" --budget B --wait` |
+| `synth swarms wait` | `synth wait RUN` |
+| `synth swarms follow` | `synth logs RUN -f` |
+| `synth swarms attach` | `synth logs RUN -f` |
+| `synth swarms watch` | `synth logs RUN -f, then synth wait RUN` |
+| `synth account get` | `synth whoami` |
+| `synth account accept-terms` | removed, no replacement |
+| `synth api-keys list` | removed, no replacement |
+| `synth api-keys mint` | removed, no replacement |
+| `synth api-keys update-grants` | removed, no replacement |
+| `synth api-keys rotate` | removed, no replacement |
+| `synth api-keys revoke` | removed, no replacement |
+| `synth billing balance` | `synth billing` |
+| `synth billing history` | removed, no replacement |
+| `synth billing statements` | removed, no replacement |
+| `synth billing plans` | removed, no replacement |
+| `synth billing checkout` | removed, no replacement |
+| `synth billing checkout-status` | removed, no replacement |
+| `synth usage summary` | `synth usage` |
+| `synth usage records` | `synth usage RUN` |
+| `synth usage export` | removed, no replacement |
+| `synth usage export-status` | removed, no replacement |
+| `synth limits list` | `synth limits` |
+| `synth auth status` | `synth whoami` |
+| `--json REQUEST bodies` | removed; typed flags only |
+| `--task PATH (launch/run)` | `synth run --file PATH` |
+| `--until, --providers-*/--models-*, --idempotency-key, --last-event-id` | removed, no replacement (logs -f keeps its own checkpoint) |
+
 Breaking: `message` is required on run launch. Core public contract 1.3.0
 (synth-backend `5403b03b1c30d59ab2aeb38ca28260827412f1c7`, SHA-256
 `94d95075bf0815e6d70363dc53b01c348db5bf4f75c90416f97a05f779f0a027`) makes
@@ -10,7 +77,7 @@ Core refuses a launch without one with 422 `invalid_launch_request`, cause
 `message`, before any run or hold. `swarms.launch()`/`run()` take `message: str`
 with no default and raise `ValueError` locally for a missing or blank message;
 the generated `LaunchRequest` and MCP `swarms_run_launch` schema require it; the
-CLI requires exactly one of MESSAGE or `--task`.
+CLI requires the goal.
 
 ## 0.31.0 (released 2026-11-09)
 

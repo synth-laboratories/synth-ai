@@ -18,7 +18,7 @@ Set `SYNTH_API_KEY` and optionally `SYNTH_API_BASE_URL`.
 `AsyncSynthClient` provides the same methods with `await`.
 
 `pip install synth-ai[mcp]` adds the `synth-ai-mcp` stdio server.
-Use `synth --help` for the CLI and `synth login` for browser authorization.
+The `synth` command line is documented in [docs/cli.md](docs/cli.md).
 
 Upload a task file and include its immutable reference at launch:
 
@@ -39,7 +39,7 @@ with SynthClient() as client:
 
 Uploads accept UTF-8 text, Markdown and JSON, at most 32 MiB per file and per
 launch, with at most 32 references. `upload_text` and MCP `swarms_upload_file`
-accept up to 32 KiB inline. `synth swarms upload task.md` uses
+accept up to 32 KiB inline. `synth upload task.md` uses
 the full upload protocol. Pool resources use the public selector `pool`.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
@@ -53,10 +53,12 @@ with SynthClient() as client:
 ```
 
 ```sh
-synth swarms profiles
-synth swarms run "Solve this task" --budget 2.00 --profile swarms-v2
-synth swarms profiles --research-task published-task
-synth swarms run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
+synth profiles
+synth run "Solve this task" --budget 2.00 --profile swarms-v2 --wait
+synth profiles --research-task published-task
+synth run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
+synth logs RUN_ID -f
+synth download RUN_ID -o results/
 ```
 
 The catalog reports each profile's description, revision, supported routing and

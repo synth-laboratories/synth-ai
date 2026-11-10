@@ -5,7 +5,7 @@ import pytest
 
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai._transport import retry_delay
-from synth_ai.cli import parser, read_task
+from synth_ai.cli import UsageError, parser, read_task
 from synth_ai.errors import ConflictError, TransportFailureError, local_problem
 
 
@@ -153,8 +153,9 @@ async def test_sse_resume_and_close(contract):
 
 
 def test_cli_inventory_and_task(tmp_path):
-    assert parser().parse_args(["billing", "statements"]).operation == "listStatements"
-    assert parser().parse_args(["api-keys", "rotate", "key_x"]).operation == "rotateApiKey"
+    assert parser().parse_args(["billing"]).command == "billing"
+    with pytest.raises(UsageError):
+        parser().parse_args(["api-keys", "rotate", "key_x"])
     (tmp_path / "task.md").write_text("Task text")
     assert read_task(str(tmp_path)) == "Task text"
     (tmp_path / "extra.txt").write_text("Must not silently disappear")
@@ -195,13 +196,9 @@ async def test_launch_without_message_is_refused_before_any_request():
         )
 
 
-def test_cli_launch_requires_a_message(tmp_path):
-    from synth_ai.cli import launch_message
-
-    task = tmp_path / "task.md"
-    task.write_text("Find the fault.")
-    assert launch_message("Find the fault.", None) == "Find the fault."
-    assert launch_message(None, str(task)) == "Find the fault."
-    for message, path in [(None, None), ("Find the fault.", str(task))]:
-        with pytest.raises(ValueError, match="exactly one of MESSAGE or --task"):
-            launch_message(message, path)
+def test_cli_launch_requires_a_message():
+    with pytest.raises(UsageError, match="goal"):
+        parser().parse_args(["run", "--budget", "1.00"])
+    assert parser().parse_args(["run", "Find the fault.", "--budget", "1"]).goal == (
+        "Find the fault."
+    )

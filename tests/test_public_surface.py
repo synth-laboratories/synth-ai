@@ -31,7 +31,7 @@ async def test_swarms_only_public_surface(contract):
     result = subprocess.run(
         [sys.executable, "-m", "synth_ai.cli", "inference", "session"], capture_output=True
     )
-    assert result.returncode == 2
+    assert result.returncode == 1
     assert b"invalid choice" in result.stderr
 
 

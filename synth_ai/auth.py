@@ -10,7 +10,7 @@ import secrets
 import tempfile
 import time
 import webbrowser
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -157,7 +157,42 @@ def discover(client: httpx.Client, base: str) -> OAuthMetadata:
     return value
 
 
-def login(base_url: str | None = None, *, timeout: float = 180) -> None:
+def callback_result(location: str, *, state: str, issuer: str) -> dict[str, str] | None:
+    """The authorization response at a loopback redirect, or None when it is not ours.
+
+    Accepts the request path or the full redirect URL pasted from a browser.
+    """
+    parsed = urlparse(location.strip())
+    query = parse_qs(parsed.query)
+    if (
+        parsed.path != "/callback"
+        or parsed.hostname not in {None, "127.0.0.1"}
+        or query.get("state") != [state]
+        or query.get("iss") != [issuer + "/"]
+    ):
+        return None
+    result: dict[str, str] = {}
+    for key in ["code", "error"]:
+        values = query.get(key, [])
+        if len(values) == 1:
+            result[key] = values[0]
+    return result
+
+
+def login(
+    base_url: str | None = None,
+    *,
+    timeout: float = 180,
+    open_browser: bool = True,
+    redirect_source: Callable[[str], str] | None = None,
+) -> None:
+    """Sign in with OAuth PKCE.
+
+    With ``open_browser=False`` the authorization URL goes to ``redirect_source``,
+    which returns the redirect URL the browser reached; no new server route is used.
+    """
+    if not open_browser and redirect_source is None:
+        raise ValueError("open_browser=False requires redirect_source")
     base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
     oauth = oauth_base(base)
     state = secrets.token_urlsafe(32)
@@ -169,21 +204,12 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
 
     class Callback(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
-            parsed = urlparse(self.path)
-            query = parse_qs(parsed.query)
-            valid = (
-                parsed.path == "/callback"
-                and query.get("state") == [state]
-                and query.get("iss") == [oauth + "/"]
-            )
-            if not valid:
+            received = callback_result(self.path, state=state, issuer=oauth)
+            if received is None:
                 self.send_response(400)
                 self.end_headers()
                 return
-            for key in ["code", "error"]:
-                values = query.get(key, [])
-                if len(values) == 1:
-                    result[key] = values[0]
+            result.update(received)
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
@@ -227,12 +253,18 @@ def login(base_url: str | None = None, *, timeout: float = 180) -> None:
                 }
             )
         )
-        if not webbrowser.open(authorization):
-            raise SynthError("Browser could not open OAuth authorization")
-        deadline = time.monotonic() + timeout
-        server.timeout = 1
-        while not result and time.monotonic() < deadline:
-            server.handle_request()
+        if redirect_source is not None and not open_browser:
+            received = callback_result(redirect_source(authorization), state=state, issuer=oauth)
+            if received is None:
+                raise SynthError("OAuth redirect does not match this sign-in")
+            result.update(received)
+        else:
+            if not webbrowser.open(authorization):
+                raise SynthError("Browser could not open OAuth authorization")
+            deadline = time.monotonic() + timeout
+            server.timeout = 1
+            while not result and time.monotonic() < deadline:
+                server.handle_request()
         if "code" not in result:
             raise SynthError("OAuth authorization denied or timed out")
         response = client.post(

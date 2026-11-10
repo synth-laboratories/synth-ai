@@ -1,200 +1,327 @@
+"""The `synth` task-verb CLI against an in-memory HTTP boundary."""
+
+import hashlib
 import json
-import os
+import re
+import stat
 import subprocess
 import sys
 
+import httpx
 import pytest
 
+from synth_ai import cli
 from synth_ai._generated.operations import OPERATIONS
-from synth_ai.cli import COMMANDS, parser
 
-TASK = "craftax-classic-enginebench-policy-v1"
-
-
-def test_cli_product_operation_inventory():
-    declared = {oid for commands in COMMANDS.values() for oid in commands.values()}
-    assert declared | {"createRun"} == set(OPERATIONS)
-    for group in COMMANDS:
-        result = subprocess.run(
-            [sys.executable, "-m", "synth_ai.cli", group, "--help"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        assert all(verb in result.stdout for verb in COMMANDS[group])
-    for verb in ("watch", "wait", "follow", "attach"):
-        assert parser().parse_args(["swarms", verb, "run_x"]).verb == verb
-    for command in (["login"], ["logout"], ["auth", "status"]):
-        parser().parse_args(command)
-
-
-@pytest.mark.parametrize("state,exit_code", [("completed", 0), ("failed", 1), ("cancelled", 0)])
-def test_watch_streams_then_reports_terminal_state(contract, state, exit_code):
-    snapshot = dict(
-        contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
-            "application/json"
-        ]["example"]
-    )
-    snapshot.update(
-        state=state, execution_closed=True, accounting_final=True, cleanup_complete=True
-    )
-    event = {
-        "event_id": "evt_AAAAAAAAAAAAAAAAAAAAAA",
-        "run_id": snapshot["run_id"],
-        "sequence": 1,
-        "kind": "progress",
-        "original_kind": "progress",
-        "observed_at": None,
-        "usage": None,
-        "approval_id": None,
-    }
-    # Exercise the real CLI entry point against loopback HTTP, including exit codes.
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-    from threading import Thread
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            if self.headers.get("Accept") == "text/event-stream":
-                payload = ("id: 1\ndata: " + json.dumps(event) + "\n\n").encode()
-                self.send_header("Content-Type", "text/event-stream")
-            else:
-                payload = json.dumps(snapshot).encode()
-                self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-
-        def log_message(self, *_):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    worker = Thread(target=server.serve_forever, daemon=True)
-    worker.start()
-    try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "synth_ai.cli",
-                "--base-url",
-                f"http://127.0.0.1:{server.server_port}",
-                "swarms",
-                "watch",
-                snapshot["run_id"],
-                "--timeout",
-                "5",
-            ],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "SYNTH_API_KEY": "fixture"},
-            timeout=10,
-        )
-    finally:
-        server.shutdown()
-        server.server_close()
-        worker.join()
-    assert result.returncode == exit_code, result.stderr
-    rows = [json.loads(line) for line in result.stdout.splitlines()]
-    assert rows[0]["sequence"] == 1
-    assert rows[-1]["state"] == state
+RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
+EXPECTED_COMMANDS = [
+    "login",
+    "whoami",
+    "logout",
+    "profiles",
+    "upload",
+    "run",
+    "status",
+    "wait",
+    "logs",
+    "tasks",
+    "ls",
+    "pause",
+    "resume",
+    "cancel",
+    "outputs",
+    "download",
+    "report",
+    "usage",
+    "billing",
+    "limits",
+]
 
 
-@pytest.mark.parametrize(
-    "profile,task",
-    [
-        ("swarms-v2", None),
-        ("fork-flush", TASK),
-        ("forgetting", TASK),
-    ],
-)
-def test_launch_profile_reaches_http_contract(contract, profile, task):
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-    from threading import Thread
-
-    snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
-        "application/json"
-    ]["example"]
-    requests = []
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
-            payload = json.dumps(snapshot).encode()
-            self.send_response(201)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-
-        def log_message(self, *_):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    worker = Thread(target=server.serve_forever, daemon=True)
-    worker.start()
-    args = [
-        sys.executable,
-        "-m",
-        "synth_ai.cli",
-        "--base-url",
-        f"http://127.0.0.1:{server.server_port}",
-        "swarms",
-        "launch",
-        "Improve policy",
-        "--budget",
-        "2.00",
-        "--profile",
-        profile,
-    ]
-    if task:
-        args += ["--research-task", task]
-    try:
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            env={**os.environ, "SYNTH_API_KEY": "fixture"},
-            timeout=10,
-        )
-    finally:
-        server.shutdown()
-        server.server_close()
-        worker.join()
-    assert result.returncode == 0, result.stderr
-    assert len(requests) == 1
-    assert requests[0]["profile"] == profile
-    assert requests[0].get("research_task") == task
-    assert "method" not in requests[0] and "program" not in requests[0]
-    assert requests[0]["limits"]["maximum_charge"]["amount"] == "2.00"
+def example(contract, operation_id):
+    op = OPERATIONS[operation_id]
+    responses = contract["paths"][op["path"]][op["method"].lower()]["responses"]
+    status = next(code for code in responses if code.startswith("2"))
+    return int(status), dict(responses[status]["content"]["application/json"]["example"])
 
 
-@pytest.mark.parametrize(
-    "extra,refusal",
-    [
-        (["--profile", "fork-flush"], "requires research_task"),
-        (["--profile", "swarms-v2", "--research-task", TASK], "requires a research profile"),
-        (["--research-task", TASK], "requires a research profile"),
-    ],
-)
-def test_profile_task_refuses_before_any_request(extra, refusal):
+def route(request):
+    for oid, op in OPERATIONS.items():
+        pattern = "^" + re.sub(r"\{[^}]+\}", "[^/]+", op["path"]) + "$"
+        if request.method == op["method"].upper() and re.match(pattern, request.url.path):
+            return oid
+    raise AssertionError("unrouted " + request.method + " " + request.url.path)
+
+
+class Api:
+    """Contract examples per operation, with per-test overrides."""
+
+    def __init__(self, contract):
+        self.contract = contract
+        self.calls = []
+        self.overrides = {}
+        self.events = []
+
+    def __call__(self, request):
+        if request.method == "PUT":
+            return httpx.Response(200)
+        oid = route(request)
+        self.calls.append((oid, request))
+        if oid == "listRunEvents" and request.headers.get("Accept") == "text/event-stream":
+            last = request.headers.get("Last-Event-ID")
+            start = 0 if last is None else int(last)
+            body = "".join(
+                "id: " + str(e["sequence"]) + "\ndata: " + json.dumps(e) + "\n\n"
+                for e in self.events[start:]
+            )
+            return httpx.Response(
+                200, headers={"Content-Type": "text/event-stream"}, content=body.encode()
+            )
+        override = self.overrides.get(oid)
+        if callable(override):
+            return override(request)
+        if override is not None:
+            return httpx.Response(override[0], json=override[1])
+        status, body = example(self.contract, oid)
+        return httpx.Response(status, json=body)
+
+
+@pytest.fixture
+def api(contract, monkeypatch, tmp_path):
+    monkeypatch.setenv("SYNTH_API_KEY", "fixture")
+    monkeypatch.setenv("SYNTH_API_BASE_URL", "https://api.example.test")
+    monkeypatch.setenv("SYNTH_AUTH_FILE", str(tmp_path / "credentials.json"))
+    monkeypatch.setenv("SYNTH_STATE_DIR", str(tmp_path / "state"))
+    return Api(contract)
+
+
+def invoke(api, capsys, *argv):
+    http = httpx.AsyncClient(transport=httpx.MockTransport(api))
+    code = cli.main(list(argv), http_client=http)
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def snapshot_in(contract, state):
+    _, body = example(contract, "getRun")
+    body.update(state=state, execution_closed=True, accounting_final=True, cleanup_complete=True)
+    return body
+
+
+def test_help_lists_exactly_the_task_verbs():
     result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "synth_ai.cli",
-            "--base-url",
-            "http://127.0.0.1:9",
-            "swarms",
-            "launch",
-            "Task",
-            "--budget",
-            "1.00",
-            *extra,
-        ],
-        capture_output=True,
-        text=True,
-        env={**os.environ, "SYNTH_API_KEY": "fixture"},
-        timeout=10,
+        [sys.executable, "-m", "synth_ai.cli", "--help"], capture_output=True, text=True
     )
-    assert result.returncode != 0 and refusal in result.stderr
+    assert result.returncode == 0
+    listed = re.findall(r"^    (\S+)\s", result.stdout, re.MULTILINE)
+    assert listed == EXPECTED_COMMANDS
+    for code in ("0", "1", "2", "3", "4"):
+        assert re.search("^  " + code + "  ", result.stdout, re.MULTILINE)
+    assert list(cli.COMMANDS) == EXPECTED_COMMANDS
+    for removed in ("swarms", "api-keys", "account", "auth"):
+        assert removed not in cli.COMMANDS
+
+
+@pytest.mark.parametrize(
+    "argv,oid,human",
+    [
+        (["status", RUN_ID], "getRun", "state"),
+        (["tasks", RUN_ID], "listRunTasks", "TASK"),
+        (["ls"], "listRuns", "RUN"),
+        (["logs", RUN_ID], "listRunEvents", ""),
+        (["pause", RUN_ID], "pauseRun", "command"),
+        (["resume", RUN_ID], "resumeRun", "command"),
+        (["cancel", RUN_ID], "cancelRun", "state"),
+        (["outputs", RUN_ID], "listRunOutputs", "OUTPUT"),
+        (["report", RUN_ID], "getRunReport", "settlement"),
+        (["profiles"], "listProfiles", "PROFILE"),
+        (["usage"], "getUsageSummary", "charge"),
+        (["usage", RUN_ID], "listUsageRecords", "RECORD"),
+        (["billing"], "getBalance", "available"),
+        (["limits"], "listLimits", "plan"),
+        (["whoami"], "getAccount", "org"),
+    ],
+)
+def test_command_human_and_json_output(api, capsys, contract, argv, oid, human):
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_OK, err
+    assert human in out and not out.lstrip().startswith("{")
+    assert api.calls[-1][0] == oid
+    code, out, err = invoke(api, capsys, *argv, "--json")
+    assert code == cli.EXIT_OK, err
+    document = json.loads(out)
+    _, served = example(contract, oid)
+    assert document.keys() <= served.keys() | {"items"}
+    assert len(out.strip().splitlines()) == 1
+
+
+def test_run_requires_a_goal(api, capsys):
+    code, out, err = invoke(api, capsys, "run", "--budget", "1.00")
+    assert code == cli.EXIT_CLIENT_ERROR and out == ""
+    assert err.startswith("usage_error: ")
+    assert api.calls == []
+
+
+def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, tmp_path):
+    content = b"# Notes\n"
+    path = tmp_path / "notes.md"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    pending = {
+        "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+        "state": "pending",
+        "file": manifest,
+        "put": {
+            "url": "https://storage.example.test/object",
+            "headers": {"content-type": "text/markdown"},
+            "expires_at": "2026-11-06T00:00:00Z",
+        },
+    }
+    api.overrides["createUpload"] = (201, pending)
+    api.overrides["finalizeUpload"] = (200, {**pending, "state": "committed", "put": None})
+    code, out, err = invoke(
+        api,
+        capsys,
+        *["run", "Find the fault", "--budget", "2.00", "--file", str(path)],
+        *["--label", "team=core", "--wall", "600"],
+    )
+    assert code == cli.EXIT_OK, err
+    _, created = example(contract, "createRun")
+    assert out == created["run_id"] + "\n"
+    launch = json.loads(next(r for oid, r in api.calls if oid == "createRun").content)
+    assert launch["message"] == "Find the fault"
+    assert launch["labels"] == {"team": "core"}
+    assert launch["limits"]["wall_time_seconds"] == 600
+    assert launch["limits"]["maximum_charge"]["amount"] == "2.00"
+    assert launch["inputs"]["files"] == [
+        {k: manifest[k] for k in ("file_id", "revision_id", "digest_sha256")}
+    ]
+
+
+def test_upload_is_one_step(api, capsys, contract, tmp_path):
+    content = b"{}"
+    path = tmp_path / "data.json"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    committed = {"upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA", "state": "committed", "file": manifest}
+    api.overrides["createUpload"] = (201, committed)
+    code, out, err = invoke(api, capsys, "upload", str(path), "--json")
+    assert code == cli.EXIT_OK, err
+    assert [item["file_id"] for item in json.loads(out)] == [manifest["file_id"]]
+    assert [oid for oid, _ in api.calls] == ["createUpload"]
+    code, out, _ = invoke(api, capsys, "upload", str(path))
+    assert out.splitlines()[0].split() == ["FILE", "NAME", "BYTES"]
+
+
+@pytest.mark.parametrize(
+    "state,expected",
+    [("completed", cli.EXIT_OK), ("failed", cli.EXIT_RUN_UNSUCCESSFUL), ("cancelled", 3)],
+)
+def test_wait_exit_codes(api, capsys, contract, state, expected):
+    api.overrides["getRun"] = (200, snapshot_in(contract, state))
+    code, out, err = invoke(api, capsys, "wait", RUN_ID, "--timeout", "5", "--json")
+    assert code == expected, err
+    assert json.loads(out)["state"] == state
+    code, out, _ = invoke(
+        api, capsys, "run", "Goal", "--budget", "1.00", "--wait", "--timeout", "5"
+    )
+    assert code == expected
+    assert out.splitlines()[-1] == "state  " + state
+
+
+def test_wait_timeout_exits_two(api, capsys, contract):
+    _, running = example(contract, "getRun")
+    running.update(state="running", execution_closed=False)
+    api.overrides["getRun"] = (200, running)
+    code, out, err = invoke(api, capsys, "wait", RUN_ID, "--timeout", "0.2")
+    assert code == cli.EXIT_WAIT_TIMEOUT
+    assert out == "" and err.startswith("wait_timeout: ")
+
+
+def test_server_refusal_exits_four_with_problem(api, capsys, contract):
+    problem = {
+        "type": "about:blank",
+        "title": "Not found",
+        "status": 404,
+        "detail": "run not found",
+        "instance": "urn:request",
+        "code": "run_not_found",
+        "service": "core",
+        "stage": "getRun",
+        "outcome": "not_accepted",
+    }
+    api.overrides["getRun"] = (404, problem)
+    code, out, err = invoke(api, capsys, "status", RUN_ID)
+    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
+    assert err == "run_not_found: run not found\n"
+    code, out, err = invoke(api, capsys, "status", RUN_ID, "--json")
+    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
+    assert json.loads(err)["code"] == "run_not_found"
+
+
+def test_logs_follow_resumes_from_checkpoint_without_duplicates(api, capsys, contract, tmp_path):
+    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
+
+    def event(sequence):
+        return {
+            "event_id": "evt_" + str(sequence).rjust(22, "A"),
+            "run_id": RUN_ID,
+            "sequence": sequence,
+            "kind": "progress",
+            "original_kind": "progress",
+            "observed_at": None,
+            "usage": None,
+            "approval_id": None,
+        }
+
+    api.events = [event(1), event(2)]
+    code, first, err = invoke(api, capsys, "logs", RUN_ID, "-f")
+    assert code == cli.EXIT_OK, err
+    assert [line.split()[0] for line in first.splitlines()] == ["1", "2"]
+    stored = tmp_path / "state" / "streams" / (RUN_ID + ".json")
+    assert stat.S_IMODE(stored.stat().st_mode) == 0o600
+    assert json.loads(stored.read_text())["last_event_id"] == "2"
+    api.events.append(event(3))
+    code, second, err = invoke(api, capsys, "logs", RUN_ID, "-f", "--json")
+    assert code == cli.EXIT_OK, err
+    assert [json.loads(line)["sequence"] for line in second.splitlines()] == [3]
+    resumed = [r for oid, r in api.calls if oid == "listRunEvents"]
+    assert resumed[-1].headers["Last-Event-ID"] == "2"
+
+
+def test_download_writes_verified_outputs(api, capsys, contract, tmp_path):
+    content = b"hello"
+    item = {
+        "run_id": RUN_ID,
+        "output_id": "out_AAAAAAAAAAAAAAAAAAAAAA",
+        "state": "available",
+        "filename": "../hello.txt",
+        "reference": {
+            "revision_id": "rev",
+            "digest_sha256": hashlib.sha256(content).hexdigest(),
+        },
+    }
+    api.overrides["listRunOutputs"] = (200, {"items": [item], "has_more": False})
+    api.overrides["getRunOutputContent"] = lambda _r: httpx.Response(
+        200, content=content, headers={"Content-Type": "application/octet-stream"}
+    )
+    target = tmp_path / "out"
+    code, out, err = invoke(api, capsys, "download", RUN_ID, "-o", str(target), "--json")
+    assert code == cli.EXIT_OK, err
+    assert (target / "hello.txt").read_bytes() == content
+    assert json.loads(out)[0]["path"] == str(target / "hello.txt")
+    code, _, err = invoke(api, capsys, "download", RUN_ID, "out_missing", "-o", str(target))
+    assert code == cli.EXIT_CLIENT_ERROR and "not found" in err
+
+
+def test_no_browser_login_accepts_the_pasted_redirect():
+    from synth_ai.auth import callback_result
+
+    issuer = "https://mcp.example.test"
+    pasted = "http://127.0.0.1:5555/callback?code=abc&state=s1&iss=" + issuer + "/\n"
+    assert callback_result(pasted, state="s1", issuer=issuer) == {"code": "abc"}
+    assert callback_result(pasted, state="other", issuer=issuer) is None
+    forged = pasted.replace("127.0.0.1:5555", "evil.example.test")
+    assert callback_result(forged, state="s1", issuer=issuer) is None
