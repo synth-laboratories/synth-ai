@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.8.0
+  version: 1.9.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -2222,6 +2222,98 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/outputs/{output_id}/content
+  /v1/runs/{run_id}/result:
+    get:
+      tags:
+      - runs
+      operationId: getRunResult
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: A finished run's answer, the output it came from, and its charge, in one read.
+      description: Never waits. A run that has not finished (execution_closed, accounting_final and
+        cleanup_complete all true) is refused 409 result_unavailable; wait for it with
+        GET /v1/runs/{run_id}/wait first. The answer is the most recently published available
+        `text/*` output whose reference carries revision_id and digest_sha256; without one, the most
+        recent such `application/json` output that is a `synth.objective-answer.v1` document (answer
+        is its `answer.text`, objective_answer the document). At most 8 JSON outputs are read. Without
+        either, answer, answer_output and objective_answer are null. An answer output over 1048576
+        bytes is refused 409 result_answer_too_large and one that is not UTF-8 409
+        result_answer_not_text; download either with getRunOutputContent. 409
+        output_revision_changed when the output changed during the read; 404 run_not_found.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/result.go
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_result
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The finished run and its answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResult'
+              example:
+                state: completed
+                answer: The answer.
+                answer_output:
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  output_id: out_AAAAAAAAAAAAAAAAAAAAAA
+                  state: available
+                  reference:
+                    revision_id: example
+                    digest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    byte_size: '11'
+                    media_type: text/plain
+                  filename: answer.txt
+                objective_answer: null
+                charge:
+                  amount:
+                    amount: '0.10'
+                    currency: USD
+                  final: true
+                run:
+                  metadata: {}
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  labels: {}
+                  labels_revision: 1
+                  objectives: []
+                  guidance_coverage: []
+                  state: completed
+                  model: example
+                  provider: example
+                  result_available: true
+                  execution_closed: true
+                  accounting_final: true
+                  cleanup_complete: true
+                  problems: []
+                  problems_observed: false
+                  created_at: '2026-11-04T18:00:00Z'
+                  started_at: '2026-11-04T18:00:00Z'
+                  closed_at: '2026-11-04T18:10:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/families:
     get:
       tags:
@@ -5877,6 +5969,80 @@ components:
           - content_ref: '...'
         filename:
           type: string
+    RunResult:
+      type: object
+      additionalProperties: false
+      description: A finished run's result as getRunResult serves it. The same fields as the SDK's
+        RunResult (run, answer, answer_output, objective_answer, charge).
+      required:
+      - run
+      - state
+      - answer
+      - answer_output
+      - objective_answer
+      - charge
+      properties:
+        run:
+          $ref: '#/components/schemas/RunSnapshot'
+        state:
+          type: string
+          description: The run's state (equal to run.state).
+        answer:
+          type:
+          - string
+          - 'null'
+          description: The answer text; the text output itself, or the objective answer's answer.text.
+        answer_output:
+          description: The output the answer came from, as getRunOutput serves it.
+          oneOf:
+          - $ref: '#/components/schemas/RunOutput'
+          - type: 'null'
+        objective_answer:
+          description: The synth.objective-answer.v1 document when the answer came from one.
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveAnswer'
+          - type: 'null'
+        charge:
+          description: The run's charge (equal to run.charge); null when Core does not report one.
+          oneOf:
+          - $ref: '#/components/schemas/RunCharge'
+          - type: 'null'
+    ObjectiveAnswer:
+      type: object
+      description: One objective's recorded answer (an application/json output).
+      required:
+      - schema_version
+      - objective_id
+      - answer
+      properties:
+        schema_version:
+          type: string
+          const: synth.objective-answer.v1
+        objective_id:
+          type: string
+        definition_revision:
+          type:
+          - integer
+          - 'null'
+        answer:
+          type: object
+          required:
+          - text
+          properties:
+            text:
+              type: string
+            by:
+              type:
+              - string
+              - 'null'
+            revision:
+              type:
+              - integer
+              - 'null'
+            sources:
+              type: array
+              items:
+                type: object
     OutputPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'

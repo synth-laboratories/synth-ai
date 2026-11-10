@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.33.0
+
+Contract: the SDK pins Core public contract 1.9.0 (Core `cf85aa84`, SHA-256
+`96ebcdea…d2a3b3`), which adds `GET /v1/runs/{run_id}/result` (`getRunResult`)
+and the MCP tool `swarms_run_result`, so an MCP client reads a run's answer in
+one call.
+
+Breaking (no support window): `swarms.result(run)` is now that one read and
+returns Core's `RunResult`: `run`, `state`, `answer`, `answer_output`,
+`objective_answer`, `charge`. `outputs` and `content` and the `max_outputs`,
+`max_bytes` and `max_json_outputs` arguments are gone; list outputs with
+`outputs()` / `iter_outputs()` and fetch bytes with `output_content()` or
+`download_output()`. Core chooses the answer in publication order; the old
+client-side choice used listing order, which Core sorts by output id, so with
+several text outputs it could return an older one. `ObjectiveAnswerBody` and
+`ObjectiveAnswerSource` are replaced by the generated `ObjectiveAnswerAnswer`
+(its `sources` are plain objects). `synth result RUN --json` prints the
+`RunResult` as Core returned it.
+
+`swarms.wait` outlasts a Core deploy: 502, 503 and 504 on its snapshot reads or
+event feed are retried with backoff until the caller's `timeout`, then the
+original error is raised. A Problem marked `retryable: false` still ends the wait
+at once. Launch and other mutations are never retried.
+
+`synth run` validates the budget, limits, labels and profile before uploading
+any `--file`, so an out-of-range `--parallel-workers` or `--wall` uploads nothing.
+
 ## 0.32.3
 
 Contract: the SDK pins Core public contract 1.8.0 (Core `f2f9ae9f`, SHA-256
