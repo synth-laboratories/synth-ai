@@ -55,6 +55,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
+from ._results import RunResult
 from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
@@ -68,7 +69,7 @@ class SwarmsClient:
 
     def launch(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
@@ -106,7 +107,7 @@ class SwarmsClient:
 
     def run(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         profile: str | None = None,
@@ -327,6 +328,13 @@ class SwarmsClient:
                 max_bytes=max_bytes,
                 expected_bytes=expected_bytes,
             )
+        )
+
+    def result(
+        self, run: RunSnapshot | str, *, max_outputs: int = 1000, max_bytes: int = 1 << 20
+    ) -> RunResult:
+        return self._runner.call(
+            self._async.result(run, max_outputs=max_outputs, max_bytes=max_bytes)
         )
 
     def families(self) -> FamilyList:

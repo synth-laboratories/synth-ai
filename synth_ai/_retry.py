@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
+from ._generated.models import Problem
+
+# Servers that predate contract 1.4.0's typed `retryable` Problem member still mark an event
+# owner handoff (for example during a deploy) only by this code and status.
+_LEGACY_RETRYABLE_STREAM_REFUSALS = frozenset({("event_owner_unavailable", 503)})
+
 
 @dataclass(frozen=True)
 class RetryPolicy:
@@ -55,3 +61,17 @@ def retry_delay(value: str | None, attempt: int) -> float | None:
         except (ValueError, TypeError, OverflowError):
             return None
     return max(0, seconds) if math.isfinite(seconds) and seconds <= 60 else None
+
+
+def stream_refusal_retryable(problem: Problem) -> bool:
+    """Whether an event-feed refusal permits a checkpointed reconnect.
+
+    Only the server decides: an explicit `retryable` member is authoritative; without
+    one, only the exact legacy owner-handoff refusal qualifies. Everything else (authentication, cursor expiry,
+    404, contract errors and local SDK problems) propagates unchanged.
+    """
+    if problem.service == "synth-ai":
+        return False
+    if problem.retryable is not None:
+        return problem.retryable
+    return (problem.code, problem.status) in _LEGACY_RETRYABLE_STREAM_REFUSALS

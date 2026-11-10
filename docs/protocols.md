@@ -147,11 +147,29 @@ backoff and `poll_interval`. Unexpected EOF or a transport disconnect does not
 prove completion. Once the server closes a feed for an execution-closed run,
 accounting and cleanup continue through explicit polling at
 `max(1 second, poll_interval)`. The same polling fallback applies when opening a
-feed returns a valid 406, 415 or 501 Problem. Authentication, cursor expiry,
-404, malformed feeds, and other server refusals propagate; they never silently
-switch to polling. No snapshot or history is discarded to recover an expired
-cursor. Exhausting reconnect attempts raises `TransportFailureError` with the
-checkpoint. `WaitTimeoutError` retains the latest snapshot and run identity.
+feed returns a valid 406, 415 or 501 Problem.
+
+A server refusal of the feed, whether returned when the feed opens or sent
+in-stream as an `error` frame, reconnects only when the server marks it
+retryable: its Problem carries `retryable: true`. Until every server sends that
+member, a Problem with code `event_owner_unavailable` and status 503 that has no
+`retryable` member is also retryable; an explicit `retryable: false` always
+propagates. Local SDK problems are never retryable. Every other refusal
+(authentication, cursor expiry, 404, malformed feeds and anything unmarked)
+propagates at once; none silently switches to polling. A retryable refusal is
+handled exactly like a disconnect: `wait()` and `follow()` (async and sync)
+resume from the checkpoint with `Last-Event-ID`, within the same
+`RetryPolicy.attempts` budget, backoff, `poll_interval` cadence and single
+monotonic `timeout`, and never yield an already-delivered event again. After
+each reconnect `wait()` takes a fresh authoritative snapshot before declaring a
+milestone. A refused snapshot read (`getRun`) is not a feed refusal and is not
+retried by this rule. No snapshot or history is discarded to recover an expired
+cursor. Exhausting reconnect attempts raises `TransportFailureError` with code
+`event_stream_interrupted`; its message states the connection attempts and
+reconnects made, `connection_attempts` holds the count, `checkpoint` the delivery
+state, `snapshot` the last authoritative snapshot read (if any), and the last
+disconnect or refusal is its `__cause__`. `WaitTimeoutError` retains the latest
+snapshot and run identity.
 
 `poll_interval` remains accepted by sync and async methods, but now controls the
 minimum reconnect/fallback cadence, not continuous polling while a feed is open.
@@ -262,6 +280,15 @@ Signed storage requests do not inherit API credentials or cookies. API, stream
 and download calls disable redirects even on an injected redirect-enabled
 client; unexpected redirect statuses remain available in the typed error.
 Download writes and the final durability flush use the same bounded I/O owner.
+
+`swarms.result(run)` reads a finished run's outputs and its final text answer
+in one call. It refuses an unfinished run with `ResultUnavailableError` (after
+rereading a stale snapshot) and never waits. It collects at most `max_outputs`
+outputs (default 1000) and reads at most `max_bytes` (default 1 MiB) of answer
+text, checking the declared `byte_size` before the request and the received
+length after; exceeding either raises `DataIntegrityError` rather than
+truncating. Answer bytes are digest-verified through `output_content` and must
+decode as UTF-8.
 
 `iter_runs`, `iter_tasks`, `iter_outputs`, `iter_files`, `iter_events`,
 `account.api_keys.iter_keys`, `account.iter_usage_records`,

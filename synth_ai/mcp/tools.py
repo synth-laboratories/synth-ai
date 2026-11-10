@@ -235,7 +235,7 @@ TOOLS: list[ToolDefinition] = [
                         "message": {
                             "maxLength": 32768,
                             "minLength": 1,
-                            "type": ["string", "null"],
+                            "type": "string",
                             "x-synth-max-bytes": 32768,
                             "x-synth-message-text": True,
                         },
@@ -472,7 +472,7 @@ TOOLS: list[ToolDefinition] = [
                             "type": "object",
                         },
                     },
-                    "required": ["limits"],
+                    "required": ["message", "limits"],
                     "type": "object",
                     "x-synth-default-profile": "swarms-v2",
                     "x-synth-profile-requirements": {
@@ -526,6 +526,26 @@ TOOLS: list[ToolDefinition] = [
         },
         "name": "swarms_run_events",
         "operationId": "listRunEvents",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Wait up to timeout_seconds for a run to reach a terminal state, then return its "
+        "snapshot.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+                "timeout_seconds": {"default": 30, "maximum": 50, "minimum": 1, "type": "integer"},
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_wait",
+        "operationId": "waitRun",
         "scope": "swarms:read",
     },
     {
@@ -653,6 +673,29 @@ TOOLS: list[ToolDefinition] = [
         "scope": "swarms:read",
     },
     {
+        "description": "Cursor page of the settled charge-usage rows behind the usage summary, newest "
+        "first.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "cursor": {"type": "string"},
+                "limit": {"default": 20, "maximum": 100, "minimum": 1, "type": "integer"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+                "since": {"format": "date-time", "type": "string"},
+                "until": {"format": "date-time", "type": "string"},
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "usage_for_run",
+        "operationId": "listUsageRecords",
+        "scope": "account:usage:read",
+    },
+    {
         "description": "Wallet position of the caller's org in integer microcents (1 USD = 10^8).",
         "inputSchema": {
             "additionalProperties": False,
@@ -717,5 +760,63 @@ TOOLS: list[ToolDefinition] = [
         "name": "swarms_run_labels_update",
         "operationId": "updateRunLabels",
         "scope": "swarms:write",
+    },
+    {
+        "description": "Pause a run.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "swarms_run_pause",
+        "operationId": "pauseRun",
+        "scope": "swarms:control",
+    },
+    {
+        "description": "Resume a paused run.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "swarms_run_resume",
+        "operationId": "resumeRun",
+        "scope": "swarms:control",
+    },
+    {
+        "description": "List tasks from their current authority.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "cursor": {"type": "string"},
+                "limit": {"default": 20, "maximum": 100, "minimum": 1, "type": "integer"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_tasks",
+        "operationId": "listRunTasks",
+        "scope": "swarms:read",
     },
 ]

@@ -121,7 +121,15 @@ class MalformedErrorResponseError(SwarmsAPIError):
 
 
 class TransportFailureError(SwarmsAPIError):
+    """A transport or retryable stream failure outlasted its bounded reconnects.
+
+    Observation failures retain the delivery checkpoint, the number of feed
+    connections attempted and the last authoritative snapshot, when one was read.
+    """
+
     kind = ErrorKind.TRANSPORT
+    snapshot: RunSnapshot | None = None
+    connection_attempts: int | None = None
 
 
 class UploadTransferError(SynthError):
@@ -216,12 +224,13 @@ def local_problem(
     status: int = 503,
     unknown: bool = False,
     upstream_status: int | None = None,
+    detail: str | None = None,
 ) -> Problem:
     return Problem(
         type="about:blank",
         title=code,
         status=status,
-        detail=code,
+        detail=detail if detail is not None else code,
         instance="urn:synth-ai:request",
         code=code,
         service="synth-ai",
@@ -229,6 +238,28 @@ def local_problem(
         outcome=ProblemOutcome.UNKNOWN if unknown else ProblemOutcome.NOT_ACCEPTED,
         upstream_status=upstream_status,
     )
+
+
+def stream_interrupted(
+    attempts: int, checkpoint: StreamCheckpoint, snapshot: RunSnapshot | None
+) -> TransportFailureError:
+    """Exhausted feed reconnects; recovery state stays on the error."""
+    reconnects = attempts - 1
+    error = TransportFailureError(
+        local_problem(
+            "event_stream_interrupted",
+            "listRunEvents",
+            detail=(
+                f"event stream ended without completion after {attempts} connection "
+                f"attempt{'s' if attempts != 1 else ''} ({reconnects} "
+                f"reconnect{'s' if reconnects != 1 else ''})"
+            ),
+        )
+    )
+    error.checkpoint = checkpoint
+    error.snapshot = snapshot
+    error.connection_attempts = attempts
+    return error
 
 
 def raise_for_response(response: httpx.Response) -> None:

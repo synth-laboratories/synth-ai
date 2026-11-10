@@ -606,4 +606,18 @@ OPERATIONS: dict[str, Operation] = {
         "retry": "deduplicated",
         "scope": "swarms:write",
     },
+    "waitRun": {
+        "auth": True,
+        "binary": False,
+        "idempotency": "safe_read",
+        "idempotent": False,
+        "method": "GET",
+        "path": "/v1/runs/{run_id}/wait",
+        "path_params": ["run_id"],
+        "query_params": ["timeout_seconds"],
+        "request_model": None,
+        "response_model": "RunWait",
+        "retry": "safe_read",
+        "scope": "swarms:read",
+    },
 }

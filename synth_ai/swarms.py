@@ -43,11 +43,13 @@ from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
 from ._requests import launch_request
+from ._results import RunResult, answer_output
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
 from .errors import (
     DataIntegrityError,
+    ResultUnavailableError,
 )
 
 
@@ -59,7 +61,7 @@ class AsyncSwarms:
 
     async def launch(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
@@ -97,7 +99,7 @@ class AsyncSwarms:
 
     async def run(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         profile: str | None = None,
@@ -383,6 +385,60 @@ class AsyncSwarms:
             expected_bytes=expected_bytes,
         )
         return destination
+
+    async def result(
+        self,
+        run: RunSnapshot | str,
+        *,
+        max_outputs: int = 1000,
+        max_bytes: int = 1 << 20,
+    ) -> RunResult:
+        """Read a finished run's outputs and the text of its final answer output.
+
+        Raises `ResultUnavailableError` (with the snapshot) when the run has not
+        finished; it never waits. The answer is the last available `text/*` output;
+        without one, `answer` and `content` are `None`. More than `max_outputs`
+        outputs, or an answer larger than `max_bytes`, raise rather than truncate.
+        """
+        if type(max_outputs) is not int or max_outputs <= 0:
+            raise ValueError("max_outputs must be a positive integer")
+        if type(max_bytes) is not int or max_bytes <= 0:
+            raise ValueError("max_bytes must be a positive integer")
+        snapshot = run if isinstance(run, RunSnapshot) else await self.get(run)
+        if not snapshot.finished:
+            # A caller's earlier snapshot may be stale; only a fresh read can refuse.
+            if isinstance(run, RunSnapshot):
+                snapshot = await self.get(run.run_id)
+            if not snapshot.finished:
+                raise ResultUnavailableError(
+                    "Run " + snapshot.run_id + " has not finished; wait() for it first",
+                    snapshot=snapshot,
+                )
+        outputs: builtins.list[RunOutput] = []
+        async for output in self.iter_outputs(snapshot.run_id, limit=100):
+            if len(outputs) == max_outputs:
+                raise DataIntegrityError("run outputs exceed the max_outputs bound")
+            outputs.append(output)
+        listed = tuple(outputs)
+        answer = answer_output(listed)
+        if answer is None or answer.reference is None:
+            return RunResult(run=snapshot, outputs=listed, answer=None, content=None)
+        declared = answer.reference.get("byte_size")
+        if declared is not None and (not declared.isdigit() or int(declared) > max_bytes):
+            raise DataIntegrityError("answer output exceeds the max_bytes bound")
+        raw = await self.output_content(
+            snapshot.run_id,
+            answer.output_id,
+            revision_id=answer.reference["revision_id"],
+            digest_sha256=answer.reference["digest_sha256"],
+        )
+        if len(raw) > max_bytes:
+            raise DataIntegrityError("answer output exceeds the max_bytes bound")
+        try:
+            content = raw.decode("utf-8")
+        except UnicodeDecodeError as cause:
+            raise DataIntegrityError("answer output is not UTF-8 text") from cause
+        return RunResult(run=snapshot, outputs=listed, answer=answer, content=content)
 
     async def families(self) -> FamilyList:
         return await self._transport.request("listFamilies", FamilyList)
