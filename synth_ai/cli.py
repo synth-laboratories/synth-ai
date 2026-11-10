@@ -15,7 +15,14 @@ from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
-from ._generated.models import CreateEvaluation, EvaluationInput, InputFile, LaunchRequest, RunInputs, RunSnapshot
+from ._generated.models import (
+    CreateEvaluation,
+    EvaluationInput,
+    InputFile,
+    LaunchRequest,
+    RunInputs,
+    RunSnapshot,
+)
 from ._generated.policy import MESSAGE_MAX_BYTES
 from ._requests import launch_request
 from ._validation import message_text
