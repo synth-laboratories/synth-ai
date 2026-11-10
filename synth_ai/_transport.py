@@ -22,6 +22,7 @@ from ._http_errors import raise_stream_error
 from ._operations import OperationExecutor
 from ._retry import RetryPolicy as RetryPolicy
 from ._retry import retry_delay as retry_delay
+from ._retry import stream_refusal_retryable
 from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
 from ._version import __version__
@@ -33,6 +34,7 @@ from .errors import (
     SynthError,
     TransportFailureError,
     local_problem,
+    stream_interrupted,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -223,28 +225,33 @@ class Transport:
         state.__post_init__()
         try:
             async with asyncio.timeout(timeout):
-                for attempt in range(self.retry_policy.attempts):
+                attempts = self.retry_policy.attempts
+                snapshot: RunSnapshot | None = None
+                cause: Exception | None = None
+                for attempt in range(attempts):
                     disconnected = False
                     try:
                         async with self.subscribe_events(run_id, state) as events:
                             async for item in events:
                                 yield item
-                    except httpx.TransportError:
-                        disconnected = True
+                    except httpx.TransportError as error:
+                        disconnected, cause = True, error
+                    except SwarmsAPIError as refusal:
+                        # Only a refusal the server marks retryable reconnects; the
+                        # checkpoint's Last-Event-ID suppresses already-delivered events.
+                        if not stream_refusal_retryable(refusal.problem):
+                            raise
+                        disconnected, cause = True, refusal
                     if not disconnected:
                         snapshot = await self.request(
                             "getRun", RunSnapshot, path={"run_id": run_id}
                         )
                         if snapshot.execution_closed:
                             return
-                    if attempt + 1 < self.retry_policy.attempts:
+                    if attempt + 1 < attempts:
                         delay = self.retry_policy.delay(None, attempt)
                         await asyncio.sleep(delay or 0)
-                error = TransportFailureError(
-                    local_problem("event_stream_interrupted", "listRunEvents")
-                )
-                error.checkpoint = state
-                raise error
+                raise stream_interrupted(attempts, state, snapshot) from cause
         except SwarmsAPIError as api_error:
             api_error.checkpoint = state
             raise

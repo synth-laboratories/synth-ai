@@ -31,6 +31,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
+from ._results import RunResult
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     "RunProfile",
     "RunProfileCatalog",
     "RunProfilePin",
+    "RunResult",
     "RunSnapshot",
     "RunState",
     "RunTask",
