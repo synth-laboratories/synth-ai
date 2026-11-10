@@ -17,7 +17,7 @@ import httpx
 
 from ._generated.models import RunEvent, RunSnapshot
 from ._protocol import CompletionMilestone
-from ._retry import RetryPolicy
+from ._retry import RetryPolicy, stream_refusal_retryable
 from ._stream import StreamCheckpoint
 from .errors import (
     ResponseContractError,
@@ -25,9 +25,8 @@ from .errors import (
     RunFailedError,
     RunHistoryUnavailableError,
     SwarmsAPIError,
-    TransportFailureError,
     WaitTimeoutError,
-    local_problem,
+    stream_interrupted,
 )
 
 # Independent from the old polling cadence: idle durable feeds need a safety
@@ -64,10 +63,14 @@ class RunObserver:
         validate_wait(timeout, poll_interval, until)
         checkpoint = StreamCheckpoint(run_id=run_id)
         snapshot: RunSnapshot | None = None
+        reading = False
 
         async def read() -> RunSnapshot:
-            nonlocal snapshot
+            # Marks snapshot failures so they are never mistaken for feed refusals.
+            nonlocal snapshot, reading
+            reading = True
             snapshot = await self._source.request("getRun", RunSnapshot, path={"run_id": run_id})
+            reading = False
             return snapshot
 
         def reached(current: RunSnapshot) -> bool:
@@ -97,8 +100,10 @@ class RunObserver:
 
         try:
             async with asyncio.timeout(timeout):
-                for attempt in range(self._source.retry_policy.attempts):
-                    subscribed, tail_poll = False, False
+                attempts = self._source.retry_policy.attempts
+                cause: Exception | None = None
+                for attempt in range(attempts):
+                    subscribed, tail_poll, reading = False, False, False
                     try:
                         async with self._source.subscribe_events(run_id, checkpoint) as events:
                             subscribed = True
@@ -136,9 +141,13 @@ class RunObserver:
                             await asyncio.sleep(max(_FALLBACK_MIN_SECONDS, poll_interval))
                             return await poll()
                     except SwarmsAPIError as error:
+                        # A feed refusal the server marks retryable reconnects from the
+                        # checkpoint; the next attempt rereads before any milestone.
+                        if not reading and stream_refusal_retryable(error.problem):
+                            cause = error
                         # Only explicit endpoint/capability refusals permit fallback.
                         # Authentication, expiry, malformed streams and 404 propagate.
-                        if (
+                        elif (
                             subscribed
                             or isinstance(error, ResponseContractError)
                             or error.status
@@ -149,21 +158,18 @@ class RunObserver:
                             }
                         ):
                             raise
-                        return await poll()
-                    except httpx.TransportError:
-                        pass
-                    if attempt + 1 < self._source.retry_policy.attempts:
+                        else:
+                            return await poll()
+                    except httpx.TransportError as error:
+                        cause = error
+                    if attempt + 1 < attempts:
                         delay = self._source.retry_policy.delay(None, attempt)
                         await asyncio.sleep(max(poll_interval, delay or 0))
-                error = TransportFailureError(
-                    local_problem("event_stream_interrupted", "listRunEvents")
-                )
-                error.checkpoint = checkpoint
-                raise error
-        except TimeoutError as cause:
+                raise stream_interrupted(attempts, checkpoint, snapshot) from cause
+        except TimeoutError as timed_out:
             raise WaitTimeoutError(
                 "Timed out waiting for " + run_id, snapshot=snapshot, run_id=run_id
-            ) from cause
+            ) from timed_out
 
 
 def validate_wait(timeout: float, poll_interval: float, until: str) -> None:

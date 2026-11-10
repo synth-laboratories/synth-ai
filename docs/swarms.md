@@ -1,7 +1,7 @@
 # Swarms
 
 `SynthClient().swarms` exposes launch, run, get, wait, cancel, list, events,
-iter_events, follow, outputs, output, output_content, families and profiles. `AsyncSynthClient` exposes the same methods with `await`;
+iter_events, follow, outputs, output, output_content, result, families and profiles. `AsyncSynthClient` exposes the same methods with `await`;
 its iter_events and follow methods are async iterators.
 
 Every launch requires `budget`, a positive decimal USD string or `Decimal`,
@@ -27,6 +27,22 @@ Output bytes require the revision and SHA256 from the output reference.
 streams into a temporary file, checks the digest and optional `expected_bytes`,
 and replaces the destination only after verification. Its default `max_bytes`
 is 64 MiB; set an explicit higher bound for larger outputs.
+
+`result(run)` takes a finished `RunSnapshot` (or a run ID) and returns a frozen
+`RunResult` (`synth_ai.models`): `run` (the snapshot), `outputs` (every output in
+publication order), `answer` (the last available output whose recorded
+`media_type` is `text/*`) and `content` (that output's digest-verified UTF-8 text).
+Without a text output, `answer` and `content` are `None`. An unfinished run raises
+`ResultUnavailableError` with its fresh snapshot; `result` never waits, so call
+`run()` or `wait()` first. `max_outputs` (1000) and `max_bytes` (1 MiB) bound the
+read and raise `DataIntegrityError` instead of truncating; use `download_output`
+for larger answers.
+
+```python
+run = client.swarms.run("Summarize the findings", budget="2.00")
+result = client.swarms.result(run)
+print(result.content if result.content is not None else [o.filename for o in result.outputs])
+```
 
 `StreamCheckpoint` retains the last committed SSE sequence and deduplicates
 already-delivered events within an interrupted expanded sequence. Pass it as

@@ -79,6 +79,21 @@ with no default and raise `ValueError` locally for a missing or blank message;
 the generated `LaunchRequest` and MCP `swarms_run_launch` schema require it; the
 CLI requires the goal.
 
+`wait()` and `follow()` survive a dropped event stream. A feed refusal returned
+on open or in-stream now reconnects from the checkpoint when its Problem carries
+`retryable: true`, or, for servers that predate that member, when it is
+`event_owner_unavailable` with status 503 (seen during server deploys). Reconnects
+share the `RetryPolicy.attempts` budget and the single `timeout`, never
+re-deliver an event, and `wait()` rereads the run before declaring a milestone.
+All other refusals still propagate at once. Exhausted reconnects raise
+`TransportFailureError` (`event_stream_interrupted`) whose message states the
+attempts made, with `connection_attempts`, `checkpoint` and the last `snapshot`.
+
+New `swarms.result(run)` (async and sync) returns a `RunResult` with the finished
+run's snapshot, all outputs and the UTF-8 text of its last `text/*` output
+(`content` is `None` when there is none). An unfinished run raises
+`ResultUnavailableError`; outputs (1000) and answer bytes (1 MiB) are bounded.
+
 ## 0.31.0 (released 2026-11-09)
 
 Aligns with the integrated Core public contract and its 32 KiB UTF-8 message
