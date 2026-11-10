@@ -29,3 +29,8 @@ approval documents or secrets. Requests cannot author a profile configuration.
 The ordinary profile is Swarms v2; research profiles retain the existing
 approval checks and immutable parameters. Accepted runs persist their resolved
 profile pins with the existing program selection.
+
+Launch contract 4 (Core contract 1.3.0) / SDK 0.32.0 makes `message` required.
+A launch without one, or with a blank one, is refused locally with `ValueError`
+and by Core with 422 `invalid_launch_request` (cause `message`) before any
+funding.

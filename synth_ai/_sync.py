@@ -68,7 +68,7 @@ class SwarmsClient:
 
     def launch(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
@@ -106,7 +106,7 @@ class SwarmsClient:
 
     def run(
         self,
-        message: str | None = None,
+        message: str,
         *,
         budget: str | Decimal,
         profile: str | None = None,

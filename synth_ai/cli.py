@@ -169,6 +169,15 @@ def read_task(path: str) -> str:
     return message_text(raw.decode("utf-8"))
 
 
+def launch_message(message: str | None, task: str | None) -> str:
+    """The required launch message (Core contract 1.3.0): MESSAGE or --task, not both."""
+    if task is not None and message is None:
+        return read_task(task)
+    if message is not None and task is None:
+        return message
+    raise ValueError("launch requires exactly one of MESSAGE or --task")
+
+
 async def execute(args: argparse.Namespace) -> None:
     async with AsyncSynthClient(base_url=args.base_url) as client:
 
@@ -231,7 +240,7 @@ async def execute(args: argparse.Namespace) -> None:
                 )
             )
         elif args.verb in {"run", "launch"}:
-            message = read_task(args.task) if args.task else args.message
+            message = launch_message(args.message, args.task)
             routing: dict[str, JsonValue] = {}
             for dimension in ("providers", "models"):
                 for mode in ("only", "exclude"):

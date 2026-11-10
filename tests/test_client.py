@@ -166,3 +166,42 @@ def test_retry_wait_is_bounded():
     assert retry_delay("61", 0) is None
     assert retry_delay("0", 0) == 0
     assert retry_delay("garbage", 0) is None
+
+
+async def test_launch_without_message_is_refused_before_any_request():
+    """Core contract 1.3.0 requires a launch message; none reaches the wire."""
+    from pydantic import ValidationError
+
+    from synth_ai.models import LaunchRequest
+
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            with pytest.raises(ValueError, match="launch requires a message"):
+                await client.swarms.launch(None, budget="1")  # ty: ignore[invalid-argument-type]
+            with pytest.raises(ValueError, match="nonblank"):
+                await client.swarms.launch("  ", budget="1")
+    assert requests == []
+    with pytest.raises(ValidationError, match="message"):
+        LaunchRequest.model_validate(
+            {"limits": {"maximum_charge": {"amount": "1", "currency": "USD"}}}
+        )
+
+
+def test_cli_launch_requires_a_message(tmp_path):
+    from synth_ai.cli import launch_message
+
+    task = tmp_path / "task.md"
+    task.write_text("Find the fault.")
+    assert launch_message("Find the fault.", None) == "Find the fault."
+    assert launch_message(None, str(task)) == "Find the fault."
+    for message, path in [(None, None), ("Find the fault.", str(task))]:
+        with pytest.raises(ValueError, match="exactly one of MESSAGE or --task"):
+            launch_message(message, path)

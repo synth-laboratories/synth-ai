@@ -235,7 +235,7 @@ TOOLS: list[ToolDefinition] = [
                         "message": {
                             "maxLength": 32768,
                             "minLength": 1,
-                            "type": ["string", "null"],
+                            "type": "string",
                             "x-synth-max-bytes": 32768,
                             "x-synth-message-text": True,
                         },
@@ -472,7 +472,7 @@ TOOLS: list[ToolDefinition] = [
                             "type": "object",
                         },
                     },
-                    "required": ["limits"],
+                    "required": ["message", "limits"],
                     "type": "object",
                     "x-synth-default-profile": "swarms-v2",
                     "x-synth-profile-requirements": {

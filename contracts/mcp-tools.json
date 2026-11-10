@@ -237,10 +237,7 @@
               "message": {
                 "maxLength": 32768,
                 "minLength": 1,
-                "type": [
-                  "string",
-                  "null"
-                ],
+                "type": "string",
                 "x-synth-max-bytes": 32768,
                 "x-synth-message-text": true
               },
@@ -480,6 +477,7 @@
               }
             },
             "required": [
+              "message",
               "limits"
             ],
             "type": "object",

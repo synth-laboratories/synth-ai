@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.32.0 (unreleased)
+
+Breaking: `message` is required on run launch. Core public contract 1.3.0
+(synth-backend `5403b03b1c30d59ab2aeb38ca28260827412f1c7`, SHA-256
+`94d95075bf0815e6d70363dc53b01c348db5bf4f75c90416f97a05f779f0a027`) makes
+`LaunchRequest.message` a required string (32 KiB UTF-8, not blank, no NUL);
+Core refuses a launch without one with 422 `invalid_launch_request`, cause
+`message`, before any run or hold. `swarms.launch()`/`run()` take `message: str`
+with no default and raise `ValueError` locally for a missing or blank message;
+the generated `LaunchRequest` and MCP `swarms_run_launch` schema require it; the
+CLI requires exactly one of MESSAGE or `--task`.
+
 ## 0.31.0 (released 2026-11-09)
 
 Aligns with the integrated Core public contract and its 32 KiB UTF-8 message

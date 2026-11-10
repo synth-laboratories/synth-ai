@@ -1489,15 +1489,12 @@ class LaunchRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    message: (
-        Annotated[
-            str,
-            Field(min_length=1, max_length=32768),
-            AfterValidator(message_text),
-            AfterValidator(utf8_max_bytes(32768)),
-        ]
-        | None
-    ) = None
+    message: Annotated[
+        str,
+        Field(min_length=1, max_length=32768),
+        AfterValidator(message_text),
+        AfterValidator(utf8_max_bytes(32768)),
+    ]
     limits: Limits
     inputs: RunInputs | None = None
     guidance: Annotated[list[RunGuidance], Field(max_length=32)] | None = None

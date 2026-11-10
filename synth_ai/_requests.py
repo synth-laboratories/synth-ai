@@ -16,7 +16,7 @@ from ._generated.models import (
 
 
 def launch_request(
-    message: str | None,
+    message: str,
     *,
     budget: str | Decimal,
     wall_time_seconds: int | None,
@@ -30,6 +30,9 @@ def launch_request(
     profile_requirements: Mapping[str, bool],
     default_profile: str,
 ) -> LaunchRequest:
+    # Core contract 1.3.0 requires a message; refuse locally before any request.
+    if not isinstance(message, str):
+        raise ValueError("launch requires a message (str); Core refuses a launch without one")
     requires_task = profile_requirements.get(profile if profile is not None else default_profile)
     if requires_task is True and research_task is None:
         raise ValueError("research profile requires research_task")
