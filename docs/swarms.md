@@ -7,7 +7,8 @@ its iter_events and follow methods are async iterators.
 Every launch requires `budget`, a positive decimal USD string or `Decimal`,
 for example `budget="0.10"`. It must be exactly representable in millionths of a
 dollar. Floats and implicit budgets are rejected. Optional `wall_time_seconds`
-bounds the run; omit it to use Core's policy. Core owns task counts and concurrency.
+bounds the run, from 1 to 3600 (one hour; Core refuses a larger value with 422
+`invalid_launch_request`, cause `limits.wall_time_seconds`); omit it to use Core's policy. Core owns task counts and concurrency.
 `maximum_tasks`, `maximum_parallel_tasks`, and the old top-level `providers` and
 `models` arguments have been removed in launch contract 2 and remain absent in contract 3 (SDK 0.29.0).
 

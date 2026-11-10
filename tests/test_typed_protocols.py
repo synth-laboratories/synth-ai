@@ -69,6 +69,27 @@ async def test_wrong_wall_time_type_is_rejected_before_any_request(value):
     assert not sent
 
 
+@pytest.mark.parametrize("value", [0, 3601, 86400])
+async def test_wall_time_outside_one_hour_is_rejected_before_any_request(value):
+    sent = []
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: sent.append(request))
+    ) as transport:
+        async with AsyncSynthClient("test", http_client=transport) as client:
+            with pytest.raises(ValidationError):
+                await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
+    assert not sent
+
+
+def test_wall_time_admits_one_hour():
+    request = LaunchRequest.model_validate(
+        launch(
+            limits={"maximum_charge": {"amount": "1", "currency": "USD"}, "wall_time_seconds": 3600}
+        )
+    )
+    assert request.limits.wall_time_seconds == 3600
+
+
 def test_named_inputs_tasks_and_upload_grants_are_records():
     request = LaunchRequest.model_validate(
         launch(

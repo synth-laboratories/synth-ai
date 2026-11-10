@@ -224,7 +224,42 @@ TOOLS: list[ToolDefinition] = [
                                     "type": "object",
                                 },
                                 "wall_time_seconds": {
-                                    "maximum": 86400,
+                                    "description": "Run "
+                                    "wall-clock "
+                                    "bound "
+                                    "in "
+                                    "seconds, "
+                                    "at "
+                                    "most "
+                                    "3600 "
+                                    "(one "
+                                    "hour, "
+                                    "the "
+                                    "actor "
+                                    "deadline "
+                                    "bound "
+                                    "until "
+                                    "deadline "
+                                    "renewal "
+                                    "exists). "
+                                    "Omitted, "
+                                    "the "
+                                    "profile's "
+                                    "default "
+                                    "applies. "
+                                    "A "
+                                    "larger "
+                                    "value "
+                                    "is "
+                                    "refused "
+                                    "at "
+                                    "launch "
+                                    "with "
+                                    "422 "
+                                    "invalid_launch_request, "
+                                    "cause "
+                                    "limits.wall_time_seconds.",
+                                    "maximum": 3600,
                                     "minimum": 1,
                                     "type": "integer",
                                 },

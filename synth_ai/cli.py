@@ -108,7 +108,9 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--profile")
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
-    run.add_argument("--wall", type=int, metavar="SECONDS")
+    run.add_argument(
+        "--wall", type=int, metavar="SECONDS", help="run wall-time bound, 1..3600 seconds"
+    )
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)

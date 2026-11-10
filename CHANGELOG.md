@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.32.2
+
+Contract: the SDK pins Core public contract 1.6.0 (Core `867e0819`, SHA-256
+`63d1af73…f2ebf1`). `limits.wall_time_seconds` is now at most 3600 (one hour),
+down from 86400: Agents refuses actor deadlines more than an hour away, so a
+longer run used to be admitted and then fail at start with `deadline_invalid`.
+Core now refuses it at launch with 422 `invalid_launch_request`, cause
+`limits.wall_time_seconds`. The generated `Limits` model enforces the bound, so the SDK rejects a larger
+value with a `ValidationError` before sending. `synth run --wall` help and
+`docs/swarms.md` state the bound.
+
 ## 0.32.1
 
 Contract: the SDK pins Core public contract 1.5.0 (Core `12ba622f`). Core now

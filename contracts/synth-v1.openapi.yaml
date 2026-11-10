@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.5.0
+  version: 1.6.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4477,7 +4477,10 @@ components:
         wall_time_seconds:
           type: integer
           minimum: 1
-          maximum: 86400
+          maximum: 3600
+          description: Run wall-clock bound in seconds, at most 3600 (one hour, the actor deadline
+            bound until deadline renewal exists). Omitted, the profile's default applies. A larger value is refused at launch with 422 invalid_launch_request,
+            cause limits.wall_time_seconds.
     Family:
       type: object
       required:
