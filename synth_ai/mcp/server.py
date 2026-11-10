@@ -12,8 +12,10 @@ from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from .._generated.operations import OPERATIONS
 from ..aclient import AsyncSynthClient
-from ..errors import SwarmsAPIError
-from .tools import TOOLS
+from ..errors import InvalidRequestError, SwarmsAPIError, check_upload_format, local_problem
+from .tools import TOOLS, ToolSchema
+
+UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
 
 
 async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, JsonValue]) -> str:
@@ -23,6 +25,7 @@ async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, Js
     schema = tool["inputSchema"]
     if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
         raise ValueError("Tool arguments do not match the contract")
+    validate_arguments(tool["operationId"], schema, arguments)
     op = OPERATIONS[tool["operationId"]]
     path = TypeAdapter(dict[str, str]).validate_python(
         {key: arguments[key] for key in op["path_params"]}, strict=True
@@ -46,6 +49,28 @@ async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, Js
     if isinstance(result, BaseModel):
         return result.model_dump_json(exclude_unset=True)
     raise ValueError("Unexpected tool response")
+
+
+def validate_arguments(
+    operation_id: str, schema: ToolSchema, arguments: dict[str, JsonValue]
+) -> None:
+    """Refuse invalid tool input with a typed Problem instead of a schema message.
+
+    An upload in a format Core does not accept is `upload_format_unsupported`
+    (422), exactly as the server would answer; any other schema violation is
+    `tool_arguments_invalid` (422).
+    """
+    from jsonschema import Draft202012Validator
+
+    body = arguments.get("body")
+    if operation_id in UPLOAD_OPERATIONS and isinstance(body, dict):
+        media_type = body.get("media_type")
+        check_upload_format(media_type if isinstance(media_type, str) else None)
+    error = next(iter(Draft202012Validator(schema).iter_errors(arguments)), None)
+    if error is not None:
+        raise InvalidRequestError(
+            local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=error.message)
+        )
 
 
 async def serve() -> None:
@@ -77,7 +102,8 @@ async def serve() -> None:
             return [TextContent(type="text", text=content)]
 
         server.list_tools()(list_tools)
-        server.call_tool()(invoke)
+        # call_tool validates input itself so refusals are Problems, not schema text.
+        server.call_tool(validate_input=False)(invoke)
         async with stdio_server() as (reader, writer):
             await server.run(reader, writer, server.create_initialization_options())
 

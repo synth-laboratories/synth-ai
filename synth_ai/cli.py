@@ -238,7 +238,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             final = await swarms.wait(created.run_id, timeout=args.timeout)
             out.record(final, lambda s: "state  " + s.state)
             if not args.json:
-                answer = (await swarms.result(final)).content
+                answer = (await swarms.result(final)).answer
                 if answer is not None:
                     print(answer, flush=True)
             return finished_code(final)

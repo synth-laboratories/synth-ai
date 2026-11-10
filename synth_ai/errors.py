@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem, ProblemOutcome, RunSnapshot
+from ._generated.models import Problem, ProblemOutcome, RunSnapshot, UploadFileRequestMediaType
 
 
 class ErrorKind(StrEnum):
@@ -48,6 +48,9 @@ class PaginationError(SynthError, ValueError):
     def __init__(self, message: str, *, cursor: str | None) -> None:
         super().__init__(message)
         self.cursor = cursor
+
+
+UPLOAD_FORMATS: tuple[str, ...] = tuple(m.value for m in UploadFileRequestMediaType)
 
 
 class SwarmsAPIError(SynthError):
@@ -119,6 +122,16 @@ class UpgradeRequiredError(SwarmsAPIError):
         super().__init__(problem, request_id=request_id, idempotency_key=idempotency_key)
         self.minimum_version: str | None = problem.minimum_version
         self.client_version: str | None = problem.client_version
+
+
+class UploadFormatUnsupportedError(InvalidRequestError):
+    """422 upload_format_unsupported: the media type is not an accepted upload format.
+
+    Raised by the SDK before any request for a format it knows Core refuses, and
+    mapped from the server's own refusal. `supported_formats` lists what is accepted.
+    """
+
+    supported_formats: tuple[str, ...] = UPLOAD_FORMATS
 
 
 class ProviderPolicyError(InvalidRequestError):
@@ -211,6 +224,7 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "client_upgrade_required": UpgradeRequiredError,
+    "upload_format_unsupported": UploadFormatUnsupportedError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
         (
@@ -316,3 +330,24 @@ def raise_problem(
         problem.status, ServerError if problem.status >= 500 else InvalidRequestError
     )
     raise kind(problem, request_id=request_id, idempotency_key=idempotency_key)
+
+
+def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupportedError:
+    """The typed local refusal for a media type Core does not accept for uploads."""
+    return UploadFormatUnsupportedError(
+        local_problem(
+            "upload_format_unsupported",
+            "upload",
+            status=422,
+            detail=f"{media_type or 'This file type'} is not supported. Supported upload formats: "
+            + ", ".join(UPLOAD_FORMATS)
+            + ".",
+        )
+    )
+
+
+def check_upload_format(media_type: str | None) -> str:
+    """Return `media_type` when Core accepts it as an upload, else raise the typed refusal."""
+    if media_type is None or media_type not in UPLOAD_FORMATS:
+        raise upload_format_unsupported(media_type)
+    return media_type

@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from synth_ai import AsyncSynthClient
+from synth_ai.errors import InvalidRequestError, UploadFormatUnsupportedError
 from synth_ai.mcp.server import call_tool
 
 
@@ -106,5 +107,38 @@ async def test_mcp_upload_text_uses_public_operation_and_formats(contract):
                 },
             )
             assert json.loads(result)["digest_sha256"] == file["digest_sha256"]
-            with pytest.raises(ValueError, match="Supported formats"):
+            with pytest.raises(UploadFormatUnsupportedError) as caught:
                 await client.swarms.upload_file("task.pdf")
+            assert caught.value.code == "upload_format_unsupported"
+            assert caught.value.status == 422
+            assert caught.value.supported_formats == (
+                "text/plain",
+                "text/markdown",
+                "application/json",
+            )
+            with pytest.raises(UploadFormatUnsupportedError):
+                await client.swarms.upload_text("x", name="a.pdf", media_type="application/pdf")
+            with pytest.raises(UploadFormatUnsupportedError):
+                await client.swarms.prepare_upload(
+                    name="a.pdf", media_type="application/pdf", size_bytes=1, digest_sha256="0" * 64
+                )
+            with pytest.raises(UploadFormatUnsupportedError) as tool:
+                await call_tool(
+                    client,
+                    "swarms_upload_file",
+                    {
+                        "idempotency_key": "pdf",
+                        "body": {"name": "a.pdf", "media_type": "application/pdf", "content": "x"},
+                    },
+                )
+            assert tool.value.problem.code == "upload_format_unsupported"
+            with pytest.raises(InvalidRequestError) as bad:
+                await call_tool(
+                    client,
+                    "swarms_upload_file",
+                    {
+                        "idempotency_key": "",
+                        "body": {"name": "a.md", "media_type": "text/markdown", "content": "x"},
+                    },
+                )
+            assert bad.value.problem.code == "tool_arguments_invalid"

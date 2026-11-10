@@ -152,28 +152,32 @@ def report(value: RunReport) -> str:
 
 def result(value: RunResult) -> str:
     """The answer text alone, so `synth result RUN > answer.md` captures it."""
-    if value.content is not None:
-        return value.content
+    if value.answer is not None:
+        return value.answer
     return facts(
         [
             ("run", value.run.run_id),
             ("state", value.run.state),
             ("outputs", len(value.outputs)),
-            ("answer", "none (no available text output)"),
+            ("answer", "none (no available text output or objective answer)"),
         ]
     )
 
 
 def result_json(value: RunResult) -> str:
-    """`RunResult` as one JSON document: run, outputs, answer and content."""
+    """`RunResult` as one JSON document: run, outputs, the answer and its source."""
     return json.dumps(
         {
             "run": value.run.model_dump(mode="json", exclude_unset=True),
             "outputs": [o.model_dump(mode="json", exclude_unset=True) for o in value.outputs],
-            "answer": None
-            if value.answer is None
-            else value.answer.model_dump(mode="json", exclude_unset=True),
+            "answer_output": None
+            if value.answer_output is None
+            else value.answer_output.model_dump(mode="json", exclude_unset=True),
             "content": value.content,
+            "answer": value.answer,
+            "objective_answer": None
+            if value.objective_answer is None
+            else value.objective_answer.model_dump(mode="json"),
         },
         separators=(",", ":"),
     )

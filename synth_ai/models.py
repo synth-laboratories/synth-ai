@@ -31,7 +31,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
-from ._results import RunResult
+from ._results import ObjectiveAnswer, ObjectiveAnswerBody, ObjectiveAnswerSource, RunResult
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 __all__ = [
@@ -43,6 +43,9 @@ __all__ = [
     "LaunchRequest",
     "Limits",
     "Money",
+    "ObjectiveAnswer",
+    "ObjectiveAnswerBody",
+    "ObjectiveAnswerSource",
     "Only",
     "OwnerResourceRequest",
     "PoolSelection",

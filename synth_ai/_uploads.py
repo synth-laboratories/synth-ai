@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from ._file_source import FileSource, open_source
 from ._generated.models import File, Upload
-from .errors import DataIntegrityError, SynthError, UploadTransferError
+from .errors import DataIntegrityError, SynthError, UploadTransferError, check_upload_format
 
 if TYPE_CHECKING:
     from ._transport import Transport
@@ -29,9 +29,7 @@ class ArtifactUploads:
             ".markdown": "text/markdown",
             ".json": "application/json",
         }
-        media = media_type or formats.get(path.suffix.lower())
-        if media not in {"text/plain", "text/markdown", "application/json"}:
-            raise ValueError("Supported formats: text/plain, text/markdown, application/json")
+        media = check_upload_format(media_type or formats.get(path.suffix.lower()))
         key = idempotency_key or str(uuid4())
         async with open_source(path, self._transport.file_io) as source:
             upload = await self._transport.request(
