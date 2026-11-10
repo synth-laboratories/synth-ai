@@ -34,7 +34,7 @@ The default `--timeout` for `wait` and `run --wait` is 3600 seconds.
 `synth result RUN` reads a finished run with `swarms.result`: it prints the
 answer (the last available `text/*` output, digest-verified, or else the latest
 objective answer's text) or, when there is none, the run, state and output count.
-When Core reports the run's charge, the last line is `charge  AMOUNT USD (final)`
+When Core reports the run's charge, stderr gets one line, `charge  AMOUNT USD (final)`
 or `(not final)`; usage still settling can raise a charge that is not final.
 `--json` carries it as `charge`. It never waits; on an unfinished run it
 exits 1 with `result_unavailable`. See [errors.md](errors.md) for every code.

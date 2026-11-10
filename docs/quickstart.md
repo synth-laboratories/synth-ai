@@ -47,8 +47,9 @@ synth download RUN -o results/
 synth usage RUN
 ```
 
-`synth run --wait` prints the run ID, the final state, the answer and then one
-line with the run's charge, for example `charge  0.0237 USD (final)`. Add
+`synth run --wait` prints the run ID, the final state and the answer on stdout,
+then one line with the run's charge on stderr, for example
+`charge  0.0237 USD (final)`. Add
 `--json` to any command for the SDK record. Exit codes are in [cli.md](cli.md).
 
 ## MCP

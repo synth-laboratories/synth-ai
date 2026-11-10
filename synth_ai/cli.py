@@ -243,7 +243,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                     print(finished.answer, flush=True)
                 closing = view.charge_line(finished.charge)
                 if closing is not None:
-                    print(closing, flush=True)
+                    print(closing, file=sys.stderr, flush=True)
             return finished_code(final)
         elif command == "status":
             out.record(await swarms.get(args.run_id), view.snapshot)
@@ -279,6 +279,9 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "result":
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
+            closing = view.charge_line(finished.charge)
+            if closing is not None and not args.json:
+                print(closing, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)

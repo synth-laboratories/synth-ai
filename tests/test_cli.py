@@ -477,17 +477,19 @@ def test_result_and_run_wait_end_with_the_run_charge(api, capsys, contract):
     api.overrides["getRun"] = (200, charged)
     code, out, err = invoke(api, capsys, "result", RUN_ID)
     assert code == cli.EXIT_OK, err
-    assert out == "The answer is 42.\ncharge  0.02365822 USD (final)\n"
+    assert out == "The answer is 42.\n"
+    assert err.splitlines()[-1] == "charge  0.02365822 USD (final)"
     code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
     assert code == cli.EXIT_OK, err
     assert json.loads(out)["charge"] == CHARGE
     code, out, err = invoke(api, capsys, "run", "Goal", "--budget", "1.00", "--wait")
     assert code == cli.EXIT_OK, err
-    assert out.splitlines()[-2:] == ["The answer is 42.", "charge  0.02365822 USD (final)"]
+    assert out.splitlines()[-1] == "The answer is 42."
+    assert err.splitlines()[-1] == "charge  0.02365822 USD (final)"
     charged["charge"] = {"amount": {"amount": "0.01", "currency": "USD"}, "final": False}
     code, out, err = invoke(api, capsys, "result", RUN_ID)
     assert code == cli.EXIT_OK, err
-    assert out.splitlines()[-1] == "charge  0.01 USD (not final)"
+    assert err.splitlines()[-1] == "charge  0.01 USD (not final)"
 
 
 def test_result_without_charge_prints_no_charge_line(api, capsys, contract):

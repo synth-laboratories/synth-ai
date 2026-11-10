@@ -159,10 +159,9 @@ def charge_line(value: RunCharge | None) -> str | None:
 
 
 def result(value: RunResult) -> str:
-    """The answer text, then one charge line when Core reported the charge."""
-    closing = charge_line(value.charge)
+    """The answer text alone, so stdout can be captured; the CLI prints the charge on stderr."""
     if value.answer is not None:
-        return value.answer if closing is None else value.answer.rstrip("\n") + "\n" + closing
+        return value.answer
     summary = facts(
         [
             ("run", value.run.run_id),
@@ -171,7 +170,7 @@ def result(value: RunResult) -> str:
             ("answer", "none (no available text output or objective answer)"),
         ]
     )
-    return summary if closing is None else summary + "\n" + closing
+    return summary
 
 
 def result_json(value: RunResult) -> str:
