@@ -1011,7 +1011,7 @@ class Limits(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     maximum_charge: LaunchBudget
-    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+    wall_time_seconds: Annotated[int, Field(ge=1, le=3600)] | None = None
 
 
 class MintApiKeyRequest(WireModel):
@@ -1125,6 +1125,14 @@ class RoutingConstraints(WireModel):
     )
     providers: Only | Exclude | None = None
     models: Only | Exclude | None = None
+
+
+class RunCharge(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    amount: Money
+    final: bool
 
 
 class RunConfiguration(WireModel):
@@ -1705,6 +1713,7 @@ class RunSnapshot(WireModel):
     control: ControlRef | None = None
     problems: list[JsonValue] | None
     problems_observed: bool
+    charge: RunCharge | None = None
     failure: JsonValue | None = None
     created_at: str
     started_at: str | None
@@ -1830,6 +1839,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RefundDetail": RefundDetail,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
+    "RunCharge": RunCharge,
     "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,

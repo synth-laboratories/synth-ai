@@ -20,6 +20,7 @@ from ._generated.models import (
     LimitList,
     Money,
     OutputPage,
+    RunCharge,
     RunControlReceipt,
     RunEvent,
     RunOutput,
@@ -150,30 +151,45 @@ def report(value: RunReport) -> str:
     return text
 
 
+def charge_line(value: RunCharge | None) -> str | None:
+    """One closing line: the run's charge and whether it is final."""
+    if value is None:
+        return None
+    return "charge  " + money(value.amount) + (" (final)" if value.final else " (not final)")
+
+
 def result(value: RunResult) -> str:
-    """The answer text alone, so `synth result RUN > answer.md` captures it."""
-    if value.content is not None:
-        return value.content
-    return facts(
+    """The answer text alone, so stdout can be captured; the CLI prints the charge on stderr."""
+    if value.answer is not None:
+        return value.answer
+    summary = facts(
         [
             ("run", value.run.run_id),
             ("state", value.run.state),
             ("outputs", len(value.outputs)),
-            ("answer", "none (no available text output)"),
+            ("answer", "none (no available text output or objective answer)"),
         ]
     )
+    return summary
 
 
 def result_json(value: RunResult) -> str:
-    """`RunResult` as one JSON document: run, outputs, answer and content."""
+    """`RunResult` as one JSON document: run, outputs, the answer and its source."""
     return json.dumps(
         {
             "run": value.run.model_dump(mode="json", exclude_unset=True),
             "outputs": [o.model_dump(mode="json", exclude_unset=True) for o in value.outputs],
-            "answer": None
-            if value.answer is None
-            else value.answer.model_dump(mode="json", exclude_unset=True),
+            "answer_output": None
+            if value.answer_output is None
+            else value.answer_output.model_dump(mode="json", exclude_unset=True),
             "content": value.content,
+            "answer": value.answer,
+            "charge": None
+            if value.charge is None
+            else value.charge.model_dump(mode="json", exclude_unset=True),
+            "objective_answer": None
+            if value.objective_answer is None
+            else value.objective_answer.model_dump(mode="json"),
         },
         separators=(",", ":"),
     )

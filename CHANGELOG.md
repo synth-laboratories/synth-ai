@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.32.2
+
+Contract: the SDK pins Core public contract 1.7.0 (Core `3a62a087`, SHA-256
+`7f60260f…1dcab`). The run snapshot gains a read-only `charge` (`RunCharge`:
+`amount` Money, `final` bool) on launch, single-run and wait reads (list pages
+omit it), and `started_at` is now populated for new runs. `RunResult.charge`
+exposes it; `synth result RUN` and `synth run --wait` print one line on stderr,
+`charge  AMOUNT USD (final|not final)` (stdout stays the answer alone), and
+`--json` includes `charge`.
+
+Contract 1.6.0 (Core `867e0819`) bounded `limits.wall_time_seconds` is now at most 3600 (one hour),
+down from 86400: Agents refuses actor deadlines more than an hour away, so a
+longer run used to be admitted and then fail at start with `deadline_invalid`.
+Core now refuses it at launch with 422 `invalid_launch_request`, cause
+`limits.wall_time_seconds`. The generated `Limits` model enforces the bound, so the SDK rejects a larger
+value with a `ValidationError` before sending. `synth run --wall` help and
+`docs/swarms.md` state the bound.
+
+SDK (SYN-5583): `swarms.result()` reads an objective answer. A run whose only
+output is an `application/json` `synth.objective-answer.v1` document (empty
+filename) used to return `answer=None`. Without a text output, `result()` now
+uses the most recent objective answer: `answer` is its `answer.text`, `content`
+the raw JSON, `objective_answer` the typed `ObjectiveAnswer`, and the source
+output moves to the new `answer_output` field (`answer` is now the answer text,
+not the output record). `synth result RUN` and `synth run --wait` print it.
+
+SDK (SYN-5583): unsupported upload formats are one typed refusal,
+`UploadFormatUnsupportedError` (`InvalidRequestError`, code
+`upload_format_unsupported`, 422, `supported_formats`). It replaces the plain
+`ValueError` from `upload_file`, the pydantic `ValidationError` from
+`upload_text` (and `prepare_upload`), and the stdio MCP schema text; the stdio
+MCP server now returns an `isError` Problem for it, and `tool_arguments_invalid`
+for other invalid input. The server's own 422 maps to the same class. The CLI
+prints it like any refusal and exits 4.
+
 ## 0.32.1
 
 Contract: the SDK pins Core public contract 1.5.0 (Core `12ba622f`). Core now
