@@ -30,6 +30,7 @@ expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 | `resource_request_invalid` | 422 | `ResourceAdmissionError` |
 | `resource_limits_required` | 422 | `ResourceAdmissionError` |
 | `grant_not_widenable` | 422 | `ResourceAdmissionError` |
+| `launch_budget_below_actor_floor` | 422 | `LaunchBudgetBelowActorFloorError` |
 | `project_not_found` | 404 | `NotFoundError` |
 | `mutation_identity_required` | 422 | `InvalidRequestError` |
 | `gateway_url_missing` | 503 | `UpstreamUnavailableError` |
@@ -37,6 +38,12 @@ expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 | `resource_authority_unavailable` | 503 | `UpstreamUnavailableError` |
 | `plugin_not_qualified` | 409 | `ConflictError` |
 | `gateway_issue_malformed` | 502 | `UpstreamUnavailableError` |
+
+`launch_budget_below_actor_floor` (an `InvalidRequestError`): `maximum_charge`
+cannot fund the planner, the reviewer and every one of `limits.parallel_workers`
+workers at once (each parallel worker holds an equal slice of the budget). The
+Problem `detail` states the minimum in micro-USD. Raise `budget` or lower
+`parallel_workers` (`--parallel-workers`).
 
 ## Upload codes
 

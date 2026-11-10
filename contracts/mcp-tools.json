@@ -202,7 +202,7 @@
               },
               "limits": {
                 "additionalProperties": false,
-                "description": "An explicit positive USD budget is required. Task and parallelism limits are service-owned.",
+                "description": "An explicit positive USD budget is required. Task limits are service-owned; worker parallelism defaults to 1 and may be raised with parallel_workers.",
                 "properties": {
                   "maximum_charge": {
                     "additionalProperties": false,
@@ -222,6 +222,13 @@
                       "currency"
                     ],
                     "type": "object"
+                  },
+                  "parallel_workers": {
+                    "default": 1,
+                    "description": "The planner may run up to this many workers at once (one worker per task). The service default is 1. Out of range is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds an equal slice of the budget); a smaller maximum_charge is refused at launch with 422 launch_budget_below_actor_floor, whose detail states the minimum in micro-USD. Not accepted with research profiles.",
+                    "maximum": 10,
+                    "minimum": 1,
+                    "type": "integer"
                   },
                   "wall_time_seconds": {
                     "description": "Run wall-clock bound in seconds, at most 3600 (one hour, the actor deadline bound until deadline renewal exists). Omitted, the profile's default applies. A larger value is refused at launch with 422 invalid_launch_request, cause limits.wall_time_seconds.",

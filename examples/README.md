@@ -38,8 +38,8 @@ tolerate replay after application succeeds but checkpoint persistence fails.
 
 Migration: remove `program`, `method`, and `profile_overrides`; select `profile`
 from discovery and supply `research_task` only when it is required. Remove
-`maximum_tasks` and parallelism knobs; supply `budget` and optional
-`wall_time_seconds`. Use `RunSnapshot.finished` for finality and
+`maximum_tasks` and `maximum_parallel_tasks`; supply `budget` and optional
+`wall_time_seconds` and `parallel_workers`. Use `RunSnapshot.finished` for finality and
 `result_available` for output availability. A timeout does not cancel a run.
 Unknown future profile IDs and run-state strings stay representable.
 

@@ -19,7 +19,13 @@ from synth_ai._generated.models import (
     UploadGrant,
 )
 from synth_ai._stream import StreamCheckpoint, StreamCheckpointData
-from synth_ai.errors import ErrorKind, ResponseContractError, WaitTimeoutError
+from synth_ai.errors import (
+    ErrorKind,
+    InvalidRequestError,
+    LaunchBudgetBelowActorFloorError,
+    ResponseContractError,
+    WaitTimeoutError,
+)
 from synth_ai.models import InputFile, RunInputs
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
@@ -88,6 +94,62 @@ def test_wall_time_admits_one_hour():
         )
     )
     assert request.limits.wall_time_seconds == 3600
+
+
+@pytest.mark.parametrize("value", [0, 11, -1])
+async def test_parallel_workers_outside_one_to_ten_is_rejected_before_any_request(value):
+    sent = []
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: sent.append(request))
+    ) as transport:
+        async with AsyncSynthClient("test", http_client=transport) as client:
+            with pytest.raises(ValidationError):
+                await client.swarms.launch("hello", budget="1", parallel_workers=value)
+    assert not sent
+
+
+@pytest.mark.parametrize("value", [1, 10])
+async def test_parallel_workers_reaches_the_wire_and_omitted_stays_absent(value):
+    sent = []
+
+    def handle(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(422, json=budget_floor_problem())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as transport:
+        async with AsyncSynthClient("test", http_client=transport) as client:
+            with pytest.raises(LaunchBudgetBelowActorFloorError):
+                await client.swarms.launch("hello", budget="1", parallel_workers=value)
+            with pytest.raises(LaunchBudgetBelowActorFloorError):
+                await client.swarms.launch("hello", budget="1")
+    assert sent[0]["limits"]["parallel_workers"] == value
+    assert "parallel_workers" not in sent[1]["limits"]
+
+
+def budget_floor_problem():
+    return dict(
+        type="about:blank",
+        title="launch_budget_below_actor_floor",
+        detail="maximum_charge must be at least 3000000 micro-USD",
+        status=422,
+        instance="urn:test",
+        code="launch_budget_below_actor_floor",
+        service="core",
+        stage="launch",
+        outcome="not_accepted",
+    )
+
+
+async def test_budget_below_actor_floor_is_a_typed_invalid_request():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(422, json=budget_floor_problem()))
+    ) as transport:
+        async with AsyncSynthClient("test", http_client=transport) as client:
+            with pytest.raises(LaunchBudgetBelowActorFloorError) as caught:
+                await client.swarms.launch("hello", budget="0.01", parallel_workers=10)
+    assert isinstance(caught.value, InvalidRequestError)
+    assert caught.value.code == "launch_budget_below_actor_floor"
+    assert caught.value.status == 422
 
 
 def test_named_inputs_tasks_and_upload_grants_are_records():
