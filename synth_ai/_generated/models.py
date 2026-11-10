@@ -845,7 +845,7 @@ class Problem(WireModel):
     cause: str | None = None
     outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
     retryable: bool | None = None
-    last_event_id: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    last_event_id: Annotated[str, Field(pattern="^[0-9]+(\\.[1-3])?$")] | None = None
     minimum_version: str | None = None
     client_version: str | None = None
 

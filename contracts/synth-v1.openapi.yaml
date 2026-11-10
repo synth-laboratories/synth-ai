@@ -1514,12 +1514,15 @@ paths:
         credential, org membership or scope is revoked the server sends a final `event: error` whose data
         is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must
         re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code
-        streaming_unavailable means the server cannot re-authorize streams. Every in-stream `event: error`
-        Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id.
-        event_owner_unavailable (the change subscription closed, for example during a deploy) and
-        owner reads that are unavailable or time out are retryable: the run is unaffected and
-        reopening with Last-Event-ID resumes without loss or duplication. credential_revoked,
-        run_not_found, event_too_large and encoding failures are final.'
+        streaming_unavailable means the server cannot re-authorize streams. Once the run''s execution has
+        closed and its event journal is complete, the stream sends run milestones as `event: milestone`
+        frames whose data is a RunMilestone, in this order and each at most once per resume position:
+        execution_closed, accounting_final, cleanup_complete. The stream stays open (heartbeats continue)
+        until cleanup_complete, whose frame has final true, and then ends. Milestone frame ids are
+        `<sequence>.<level>` (level 1-3 in the order above); resuming with such an id replays events after
+        the sequence and only the milestones above the level. Usage closure is not a separate milestone:
+        accounting_final is written only after usage receipts are closed.
+        Every in-stream `event: error` Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id. event_owner_unavailable (the change subscription closed, for example during a deploy) and owner reads that are unavailable or time out are retryable: the run is unaffected and reopening with Last-Event-ID resumes without loss or duplication. credential_revoked, run_not_found, event_too_large and encoding failures are final.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       parameters:
@@ -1528,10 +1531,11 @@ paths:
       - $ref: '#/components/parameters/Cursor'
       - name: Last-Event-ID
         in: header
-        description: Nonnegative sequence of the last received SSE event.
+        description: Id of the last received SSE frame, a nonnegative event sequence optionally followed
+          by `.<level>` of the last received milestone.
         schema:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
       responses:
         '200':
           description: One page of events.
@@ -1551,6 +1555,13 @@ paths:
                 event: event
 
                 data: {"sequence":1}
+
+
+                id: 1.1
+
+                event: milestone
+
+                data: {"milestone":"execution_closed","final":false}
 
 
                 '
@@ -6334,6 +6345,46 @@ components:
           description: Basis points, 0 to 10000, when the reviewer gave a score.
         reason:
           type: string
+    RunMilestone:
+      type: object
+      description: 'Data of an SSE `event: milestone` frame on listRunEvents. Flags are cumulative and
+        match getRun at the time the milestone was observed; a later milestone never reports an earlier
+        one as unreached.'
+      required:
+      - milestone
+      - run_id
+      - state
+      - execution_closed
+      - accounting_final
+      - cleanup_complete
+      - result_available
+      - failure
+      - final
+      additionalProperties: false
+      properties:
+        milestone:
+          type: string
+          enum:
+          - execution_closed
+          - accounting_final
+          - cleanup_complete
+        run_id:
+          type: string
+        state:
+          type: string
+        execution_closed:
+          type: boolean
+        accounting_final:
+          type: boolean
+        cleanup_complete:
+          type: boolean
+        result_available:
+          type: boolean
+        failure:
+          description: The run's typed failure, or null.
+        final:
+          type: boolean
+          description: True on cleanup_complete; the server ends the stream after this frame.
     EventPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'
@@ -7563,7 +7614,7 @@ components:
             be delivered).
         last_event_id:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
           description: On an in-stream error, the last SSE id the stream delivered (or the resume point
             it opened at). When retryable is true it stays valid as the Last-Event-ID to resume from.
         minimum_version:
