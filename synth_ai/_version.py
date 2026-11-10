@@ -1,2 +1,2 @@
 # Generated from pyproject.toml; do not edit.
-__version__ = "0.32.3"
+__version__ = "0.34.0"

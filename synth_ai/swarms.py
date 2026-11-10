@@ -42,6 +42,7 @@ from ._generated.models import (
     RunProfileCatalog,
     RunProgram,
     RunReport,
+    RunResult,
     RunSandboxes,
     RunSnapshot,
     RunTask,
@@ -53,11 +54,11 @@ from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
 from ._requests import launch_request
-from ._results import RunResult, answer_output, json_answer_candidates, parse_objective_answer
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
 from .errors import (
+    ConflictError,
     DataIntegrityError,
     ResultUnavailableError,
     check_upload_format,
@@ -496,86 +497,25 @@ class AsyncSwarms:
         )
         return destination
 
-    async def result(
-        self,
-        run: RunSnapshot | str,
-        *,
-        max_outputs: int = 1000,
-        max_bytes: int = 1 << 20,
-        max_json_outputs: int = 8,
-    ) -> RunResult:
-        """Read a finished run's outputs and the text of its final answer output.
+    async def result(self, run: RunSnapshot | str) -> RunResult:
+        """A finished run's answer, its source output, objective answer and charge.
 
-        Raises `ResultUnavailableError` (with the snapshot) when the run has not
-        finished; it never waits. The answer is the last available `text/*` output;
-        without one, the most recent `application/json` objective answer
-        (`synth.objective-answer.v1`; `answer` is its `answer.text`). At most
-        `max_json_outputs` JSON outputs are read looking for one. Without either,
-        `answer`, `answer_output` and `content` are `None`. More than `max_outputs`
-        outputs, or an answer larger than `max_bytes`, raise rather than truncate.
+        One `getRunResult` read: Core picks the most recently published available
+        `text/*` output, else the most recent `synth.objective-answer.v1` JSON output
+        (`answer` is its `answer.text`); without either, `answer`, `answer_output`
+        and `objective_answer` are `None`. It never waits: an unfinished run raises
+        `ResultUnavailableError` carrying a fresh snapshot.
         """
-        if type(max_outputs) is not int or max_outputs <= 0:
-            raise ValueError("max_outputs must be a positive integer")
-        if type(max_bytes) is not int or max_bytes <= 0:
-            raise ValueError("max_bytes must be a positive integer")
-        if type(max_json_outputs) is not int or max_json_outputs <= 0:
-            raise ValueError("max_json_outputs must be a positive integer")
-        snapshot = run if isinstance(run, RunSnapshot) else await self.get(run)
-        if not snapshot.finished:
-            # A caller's earlier snapshot may be stale; only a fresh read can refuse.
-            if isinstance(run, RunSnapshot):
-                snapshot = await self.get(run.run_id)
-            if not snapshot.finished:
-                raise ResultUnavailableError(
-                    "Run " + snapshot.run_id + " has not finished; wait() for it first",
-                    snapshot=snapshot,
-                )
-        outputs: builtins.list[RunOutput] = []
-        async for output in self.iter_outputs(snapshot.run_id, limit=100):
-            if len(outputs) == max_outputs:
-                raise DataIntegrityError("run outputs exceed the max_outputs bound")
-            outputs.append(output)
-        listed = tuple(outputs)
-        text = answer_output(listed)
-        if text is not None:
-            content = await self._answer_text(snapshot.run_id, text, max_bytes)
-            return RunResult(
-                run=snapshot, outputs=listed, answer_output=text, content=content, answer=content
-            )
-        # Without a text output, the most recent objective answer is the answer.
-        for candidate in json_answer_candidates(listed)[:max_json_outputs]:
-            content = await self._answer_text(snapshot.run_id, candidate, max_bytes)
-            objective = parse_objective_answer(content)
-            if objective is not None:
-                return RunResult(
-                    run=snapshot,
-                    outputs=listed,
-                    answer_output=candidate,
-                    content=content,
-                    answer=objective.answer.text,
-                    objective_answer=objective,
-                )
-        return RunResult(
-            run=snapshot, outputs=listed, answer_output=None, content=None, answer=None
-        )
-
-    async def _answer_text(self, run_id: str, output: RunOutput, max_bytes: int) -> str:
-        reference = output.reference or {}
-        declared = reference.get("byte_size")
-        if declared is not None and (not declared.isdigit() or int(declared) > max_bytes):
-            raise DataIntegrityError("answer output exceeds the max_bytes bound")
-        raw = await self.output_content(
-            run_id,
-            output.output_id,
-            revision_id=reference["revision_id"],
-            digest_sha256=reference["digest_sha256"],
-        )
-        if len(raw) > max_bytes:
-            raise DataIntegrityError("answer output exceeds the max_bytes bound")
+        run_id = run if isinstance(run, str) else run.run_id
         try:
-            return raw.decode("utf-8")
-        except UnicodeDecodeError as cause:
-            raise DataIntegrityError("answer output is not UTF-8 text") from cause
+            return await self._transport.request("getRunResult", RunResult, path={"run_id": run_id})
+        except ConflictError as refusal:
+            if refusal.code != "result_unavailable":
+                raise
+            snapshot = await self.get(run_id)
+            raise ResultUnavailableError(
+                "Run " + run_id + " has not finished; wait() for it first", snapshot=snapshot
+            ) from refusal
 
     async def families(self) -> FamilyList:
         return await self._transport.request("listFamilies", FamilyList)

@@ -27,6 +27,8 @@ from ._generated.models import (
     LaunchRequest,
     Limits,
     Money,
+    ObjectiveAnswer,
+    ObjectiveAnswerAnswer,
     Only,
     OwnerResourceRequest,
     PoolSelection,
@@ -44,6 +46,7 @@ from ._generated.models import (
     RunProfile,
     RunProfileCatalog,
     RunProfilePin,
+    RunResult,
     RunSnapshot,
     RunState,
     RunTask,
@@ -51,7 +54,6 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
-from ._results import ObjectiveAnswer, ObjectiveAnswerBody, ObjectiveAnswerSource, RunResult
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 __all__ = [
@@ -83,8 +85,7 @@ __all__ = [
     "Limits",
     "Money",
     "ObjectiveAnswer",
-    "ObjectiveAnswerBody",
-    "ObjectiveAnswerSource",
+    "ObjectiveAnswerAnswer",
     "Only",
     "OwnerResourceRequest",
     "PoolSelection",

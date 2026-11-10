@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.32.3 (Core contract 1.8.0, launch contract 3).
+Typed Python 3.11+ client for the Synth public API v1. Version 0.34.0 (Core contract 1.10.0, launch contract 3).
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 
@@ -17,8 +17,8 @@ from synth_ai import SynthClient
 with SynthClient() as client:
     run = client.swarms.run("Compare retrieval methods", budget="2.00")
     print(run.run_id, run.state)
-    result = client.swarms.result(run)  # outputs plus the final text answer
-    print(result.content)
+    result = client.swarms.result(run)  # the final answer, its source and the charge
+    print(result.answer)
 ```
 
 Set `SYNTH_API_KEY` and optionally `SYNTH_API_BASE_URL`.

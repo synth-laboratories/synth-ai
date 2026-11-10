@@ -770,6 +770,24 @@ TOOLS: list[ToolDefinition] = [
         "scope": "swarms:read",
     },
     {
+        "description": "A finished run's answer, the output it came from, and its charge, in one read.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_result",
+        "operationId": "getRunResult",
+        "scope": "swarms:read",
+    },
+    {
         "description": "The launchable program families (GA set, swarms.general@1).",
         "inputSchema": {
             "additionalProperties": False,

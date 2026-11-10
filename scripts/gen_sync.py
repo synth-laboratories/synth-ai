@@ -20,7 +20,7 @@ def generate() -> str:
         "from ._blocking import Runner",
         "from ._stream import StreamCheckpoint",
         "from ._protocol import CompletionMilestone",
-        "from ._results import RunResult",
+        "from ._generated.models import RunResult",
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
         "from .swarms import AsyncSwarms",
