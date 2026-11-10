@@ -1011,6 +1011,7 @@ class Limits(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     maximum_charge: LaunchBudget
+    parallel_workers: Annotated[int, Field(ge=1, le=10)] | None = None
     wall_time_seconds: Annotated[int, Field(ge=1, le=3600)] | None = None
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.32.3
+
+Contract: the SDK pins Core public contract 1.8.0 (Core `f2f9ae9f`, SHA-256
+`bebc837c…42a32e`). Launch accepts `limits.parallel_workers`, an integer from 1
+to 10 (default 1): the planner may run up to that many workers at once, one per
+task. `swarms.launch` and `swarms.run` (async and sync) take
+`parallel_workers=`, `synth run` takes `--parallel-workers N`, and the MCP launch
+tool schema carries the field. The generated `Limits` model enforces the range,
+so the SDK rejects an out-of-range value with a `ValidationError` before
+sending; Core refuses it with 422 `invalid_launch_request`, cause
+`limits.parallel_workers`. The budget must fund the planner, the reviewer and
+every parallel worker at once; a smaller budget is refused with 422
+`launch_budget_below_actor_floor`, now mapped to
+`LaunchBudgetBelowActorFloorError` (an `InvalidRequestError`). Research profiles
+do not accept `parallel_workers`.
+
 ## 0.32.2
 
 Contract: the SDK pins Core public contract 1.7.0 (Core `3a62a087`, SHA-256

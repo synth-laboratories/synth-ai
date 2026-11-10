@@ -185,7 +185,7 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
         api,
         capsys,
         *["run", "Find the fault", "--budget", "2.00", "--file", str(path)],
-        *["--label", "team=core", "--wall", "600"],
+        *["--label", "team=core", "--wall", "600", "--parallel-workers", "4"],
     )
     assert code == cli.EXIT_OK, err
     _, created = example(contract, "createRun")
@@ -194,6 +194,7 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
     assert launch["message"] == "Find the fault"
     assert launch["labels"] == {"team": "core"}
     assert launch["limits"]["wall_time_seconds"] == 600
+    assert launch["limits"]["parallel_workers"] == 4
     assert launch["limits"]["maximum_charge"]["amount"] == "2.00"
     assert launch["inputs"]["files"] == [
         {k: manifest[k] for k in ("file_id", "revision_id", "digest_sha256")}

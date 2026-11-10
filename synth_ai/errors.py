@@ -134,6 +134,15 @@ class UploadFormatUnsupportedError(InvalidRequestError):
     supported_formats: tuple[str, ...] = UPLOAD_FORMATS
 
 
+class LaunchBudgetBelowActorFloorError(InvalidRequestError):
+    """422 launch_budget_below_actor_floor: maximum_charge cannot fund every actor at once.
+
+    The budget must cover the planner, the reviewer and each of
+    `limits.parallel_workers` workers; the Problem detail states the minimum in
+    micro-USD. Raise the budget or lower parallel_workers.
+    """
+
+
 class ProviderPolicyError(InvalidRequestError):
     pass
 
@@ -225,6 +234,7 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
+    "launch_budget_below_actor_floor": LaunchBudgetBelowActorFloorError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
         (
