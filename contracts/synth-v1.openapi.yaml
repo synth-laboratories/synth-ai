@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.9.0
+  version: 1.12.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1514,12 +1514,15 @@ paths:
         credential, org membership or scope is revoked the server sends a final `event: error` whose data
         is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must
         re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code
-        streaming_unavailable means the server cannot re-authorize streams. Every in-stream `event: error`
-        Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id.
-        event_owner_unavailable (the change subscription closed, for example during a deploy) and
-        owner reads that are unavailable or time out are retryable: the run is unaffected and
-        reopening with Last-Event-ID resumes without loss or duplication. credential_revoked,
-        run_not_found, event_too_large and encoding failures are final.'
+        streaming_unavailable means the server cannot re-authorize streams. Once the run''s execution has
+        closed and its event journal is complete, the stream sends run milestones as `event: milestone`
+        frames whose data is a RunMilestone, in this order and each at most once per resume position:
+        execution_closed, accounting_final, cleanup_complete. The stream stays open (heartbeats continue)
+        until cleanup_complete, whose frame has final true, and then ends. Milestone frame ids are
+        `<sequence>.<level>` (level 1-3 in the order above); resuming with such an id replays events after
+        the sequence and only the milestones above the level. Usage closure is not a separate milestone:
+        accounting_final is written only after usage receipts are closed.
+        Every in-stream `event: error` Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id. event_owner_unavailable (the change subscription closed, for example during a deploy) and owner reads that are unavailable or time out are retryable: the run is unaffected and reopening with Last-Event-ID resumes without loss or duplication. credential_revoked, run_not_found, event_too_large and encoding failures are final.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       parameters:
@@ -1528,10 +1531,11 @@ paths:
       - $ref: '#/components/parameters/Cursor'
       - name: Last-Event-ID
         in: header
-        description: Nonnegative sequence of the last received SSE event.
+        description: Id of the last received SSE frame, a nonnegative event sequence optionally followed
+          by `.<level>` of the last received milestone.
         schema:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
       responses:
         '200':
           description: One page of events.
@@ -1551,6 +1555,13 @@ paths:
                 event: event
 
                 data: {"sequence":1}
+
+
+                id: 1.1
+
+                event: milestone
+
+                data: {"milestone":"execution_closed","final":false}
 
 
                 '
@@ -2222,6 +2233,98 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/outputs/{output_id}/content
+  /v1/runs/{run_id}/result:
+    get:
+      tags:
+      - runs
+      operationId: getRunResult
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: A finished run's answer, the output it came from, and its charge, in one read.
+      description: Never waits. A run that has not finished (execution_closed, accounting_final and
+        cleanup_complete all true) is refused 409 result_unavailable; wait for it with
+        GET /v1/runs/{run_id}/wait first. The answer is the most recently published available
+        `text/*` output whose reference carries revision_id and digest_sha256; without one, the most
+        recent such `application/json` output that is a `synth.objective-answer.v1` document (answer
+        is its `answer.text`, objective_answer the document). At most 8 JSON outputs are read. Without
+        either, answer, answer_output and objective_answer are null. An answer output over 1048576
+        bytes is refused 409 result_answer_too_large and one that is not UTF-8 409
+        result_answer_not_text; download either with getRunOutputContent. 409
+        output_revision_changed when the output changed during the read; 404 run_not_found.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/result.go
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_result
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The finished run and its answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResult'
+              example:
+                state: completed
+                answer: The answer.
+                answer_output:
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  output_id: out_AAAAAAAAAAAAAAAAAAAAAA
+                  state: available
+                  reference:
+                    revision_id: example
+                    digest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    byte_size: '11'
+                    media_type: text/plain
+                  filename: answer.txt
+                objective_answer: null
+                charge:
+                  amount:
+                    amount: '0.10'
+                    currency: USD
+                  final: true
+                run:
+                  metadata: {}
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  labels: {}
+                  labels_revision: 1
+                  objectives: []
+                  guidance_coverage: []
+                  state: completed
+                  model: example
+                  provider: example
+                  result_available: true
+                  execution_closed: true
+                  accounting_final: true
+                  cleanup_complete: true
+                  problems: []
+                  problems_observed: false
+                  created_at: '2026-11-04T18:00:00Z'
+                  started_at: '2026-11-04T18:00:00Z'
+                  closed_at: '2026-11-04T18:10:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/families:
     get:
       tags:
@@ -3704,7 +3807,7 @@ paths:
                 $ref: '#/components/schemas/RunLimitsProgress'
               example:
                 run_id: run_AAAAAAAAAAAAAAAAAAAAAA
-                schema_version: orchestra.limits-progress.v1
+                schema_version: synth.limits-progress.v1
                 revision: 0
                 as_of_ms: 1794300000000
                 status: running
@@ -3714,6 +3817,54 @@ paths:
                 history: []
                 allocation: {}
                 funding: {held: "1.00", settled: "0.00", currency: USD}
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [swarms]
+      operationId: updateRunLimits
+      x-synth-mcp-name: swarms_run_limits_update
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      summary: Change a live run's limits.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5601
+      x-synth-source: core/internal/public/runs/limit_updates.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunLimitUpdate'
+      responses:
+        '200':
+          description: Applied limits and durable operation identity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunLimitsProgress'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                schema_version: synth.limits-progress.v1
+                operation_id: lim_example
+                revision: 1
+                as_of_ms: 1794300000000
+                status: paused
+                primary: []
+                secondary: []
+                actors: []
+                history: []
+                allocation: {}
+                funding: {held: "2.00", settled: "0.00", currency: USD}
         default:
           $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}/tasks:
@@ -4532,10 +4683,19 @@ components:
         wall_time_seconds:
           type: integer
           minimum: 1
-          maximum: 3600
-          description: Run wall-clock bound in seconds, at most 3600 (one hour, the actor deadline
-            bound until deadline renewal exists). Omitted, the profile's default applies. A larger value is refused at launch with 422 invalid_launch_request,
-            cause limits.wall_time_seconds.
+          maximum: 86400
+          description: Total unpaused seconds since creation, including queued time. Omitted, the profile default applies.
+        maximum_tokens:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Run token cap. Omitted, derived from the budget.
+        pause_retention_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+          default: 86400
+          description: Retention bound for each pause; expiry ends the run.
     Family:
       type: object
       required:
@@ -4778,6 +4938,56 @@ components:
           type: object
           additionalProperties:
             type: string
+    RunPause:
+      type: object
+      additionalProperties: false
+      required: [cause, operation_id, limit, requested_at_ms, drained_at_ms, mode]
+      properties:
+        cause:
+          type: string
+          enum: [customer, limit, platform]
+        operation_id:
+          type: string
+        limit:
+          oneOf:
+          - $ref: '#/components/schemas/RunPauseLimit'
+          - type: 'null'
+        requested_at_ms:
+          type: integer
+        drained_at_ms:
+          type: [integer, 'null']
+        mode:
+          type: string
+          enum: [cold, warm]
+    RunPauseLimit:
+      type: object
+      additionalProperties: false
+      required: [scope, assignment, dimension, layer, cap, used, reserved, unknown_reserved, revision]
+      properties:
+        scope:
+          type: string
+          enum: [run, actor]
+        assignment:
+          type: [string, 'null']
+        dimension:
+          type: string
+        layer:
+          type: [string, 'null']
+        cap:
+          type: integer
+          minimum: 0
+        used:
+          type: integer
+          minimum: 0
+        reserved:
+          type: integer
+          minimum: 0
+        unknown_reserved:
+          type: integer
+          minimum: 0
+        revision:
+          type: integer
+          minimum: 0
     RunSnapshot:
       type: object
       required:
@@ -4800,6 +5010,14 @@ components:
       - started_at
       - closed_at
       properties:
+        pause:
+          $ref: '#/components/schemas/RunPause'
+        limits_revision:
+          type: integer
+          minimum: 0
+        pause_expires_at_ms:
+          type: integer
+          minimum: 0
         metadata:
           type: object
           additionalProperties: true
@@ -5444,6 +5662,46 @@ components:
           description: Basis points, 0 to 10000, when the reviewer gave a score.
         reason:
           type: string
+    RunMilestone:
+      type: object
+      description: 'Data of an SSE `event: milestone` frame on listRunEvents. Flags are cumulative and
+        match getRun at the time the milestone was observed; a later milestone never reports an earlier
+        one as unreached.'
+      required:
+      - milestone
+      - run_id
+      - state
+      - execution_closed
+      - accounting_final
+      - cleanup_complete
+      - result_available
+      - failure
+      - final
+      additionalProperties: false
+      properties:
+        milestone:
+          type: string
+          enum:
+          - execution_closed
+          - accounting_final
+          - cleanup_complete
+        run_id:
+          type: string
+        state:
+          type: string
+        execution_closed:
+          type: boolean
+        accounting_final:
+          type: boolean
+        cleanup_complete:
+          type: boolean
+        result_available:
+          type: boolean
+        failure:
+          description: The run's typed failure, or null.
+        final:
+          type: boolean
+          description: True on cleanup_complete; the server ends the stream after this frame.
     EventPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'
@@ -5919,6 +6177,80 @@ components:
           - content_ref: '...'
         filename:
           type: string
+    RunResult:
+      type: object
+      additionalProperties: false
+      description: A finished run's result as getRunResult serves it. The same fields as the SDK's
+        RunResult (run, answer, answer_output, objective_answer, charge).
+      required:
+      - run
+      - state
+      - answer
+      - answer_output
+      - objective_answer
+      - charge
+      properties:
+        run:
+          $ref: '#/components/schemas/RunSnapshot'
+        state:
+          type: string
+          description: The run's state (equal to run.state).
+        answer:
+          type:
+          - string
+          - 'null'
+          description: The answer text; the text output itself, or the objective answer's answer.text.
+        answer_output:
+          description: The output the answer came from, as getRunOutput serves it.
+          oneOf:
+          - $ref: '#/components/schemas/RunOutput'
+          - type: 'null'
+        objective_answer:
+          description: The synth.objective-answer.v1 document when the answer came from one.
+          oneOf:
+          - $ref: '#/components/schemas/ObjectiveAnswer'
+          - type: 'null'
+        charge:
+          description: The run's charge (equal to run.charge); null when Core does not report one.
+          oneOf:
+          - $ref: '#/components/schemas/RunCharge'
+          - type: 'null'
+    ObjectiveAnswer:
+      type: object
+      description: One objective's recorded answer (an application/json output).
+      required:
+      - schema_version
+      - objective_id
+      - answer
+      properties:
+        schema_version:
+          type: string
+          const: synth.objective-answer.v1
+        objective_id:
+          type: string
+        definition_revision:
+          type:
+          - integer
+          - 'null'
+        answer:
+          type: object
+          required:
+          - text
+          properties:
+            text:
+              type: string
+            by:
+              type:
+              - string
+              - 'null'
+            revision:
+              type:
+              - integer
+              - 'null'
+            sources:
+              type: array
+              items:
+                type: object
     OutputPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'
@@ -6573,9 +6905,28 @@ components:
             be delivered).
         last_event_id:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
           description: On an in-stream error, the last SSE id the stream delivered (or the resume point
             it opened at). When retryable is true it stays valid as the Last-Event-ID to resume from.
+        current_revision:
+          type: integer
+          minimum: 0
+          description: Current owner revision on limits_revision_conflict.
+        window:
+          type: string
+          enum: [day, week]
+        cap:
+          type: string
+          pattern: ^[0-9]+$
+        current:
+          type: string
+          pattern: ^[0-9]+$
+        requested:
+          type: string
+          pattern: ^[0-9]+$
+        unit:
+          type: string
+          enum: [microcents]
         minimum_version:
           type: string
           description: On 426 client_upgrade_required only, the oldest synth-ai version the API
@@ -6596,7 +6947,8 @@ components:
           enum:
           - terminal
           - timeout
-          description: terminal when the run reached a terminal state; timeout when timeout_seconds
+          - paused
+          description: paused when the run has drained into a resumable pause; terminal when the run reached a terminal state; timeout when timeout_seconds
             elapsed first.
         run:
           $ref: '#/components/schemas/RunSnapshot'
@@ -7428,10 +7780,47 @@ components:
           type: array
           items: {$ref: '#/components/schemas/LimitMeter'}
       required: [assignment, actor_id, limits]
+    RunLimitUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, limits]
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0
+        limits:
+          $ref: '#/components/schemas/RunLimitChanges'
+        resume:
+          type: boolean
+          default: false
+        reason:
+          type: string
+          maxLength: 1000
+    RunLimitChanges:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        maximum_charge:
+          $ref: '#/components/schemas/Money'
+        maximum_tokens:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        wall_time_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+        pause_retention_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
     RunLimitsProgress:
       type: object
       properties:
-        schema_version: {type: string, const: orchestra.limits-progress.v1}
+        operation_id:
+          type: string
+        schema_version: {type: string, const: synth.limits-progress.v1}
         run_id: {$ref: '#/components/schemas/RunId'}
         revision: {type: integer, minimum: 0}
         sequence: {type: integer, minimum: 0}

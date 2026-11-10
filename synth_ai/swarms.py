@@ -22,6 +22,9 @@ from ._generated.models import (
     RoutingConstraints,
     RunConfiguration,
     RunLimitsProgress,
+    RunLimitChanges,
+    RunLimitUpdate,
+    Money,
     RunControlReceipt,
     RunEvent,
     RunGuidance,
@@ -67,6 +70,8 @@ class AsyncSwarms:
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -81,6 +86,8 @@ class AsyncSwarms:
             message,
             budget=budget,
             wall_time_seconds=wall_time_seconds,
+            maximum_tokens=maximum_tokens,
+            pause_retention_seconds=pause_retention_seconds,
             parallel_workers=parallel_workers,
             inputs=inputs,
             labels=labels,
@@ -113,6 +120,8 @@ class AsyncSwarms:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -128,6 +137,8 @@ class AsyncSwarms:
             profile=profile,
             research_task=research_task,
             wall_time_seconds=wall_time_seconds,
+            maximum_tokens=maximum_tokens,
+            pause_retention_seconds=pause_retention_seconds,
             parallel_workers=parallel_workers,
             inputs=inputs,
             labels=labels,
@@ -281,6 +292,29 @@ class AsyncSwarms:
     async def limits(self, run_id: str) -> RunLimitsProgress:
         return await self._transport.request(
             "getRunLimits", RunLimitsProgress, path={"run_id": run_id}
+        )
+
+    async def update_limits(
+        self, run_id: str, *, expected_revision: int,
+        budget: str | Decimal | None = None, wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        resume: bool = False, reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> RunLimitsProgress:
+        if budget is not None and (not isinstance(budget, (str, Decimal)) or not Decimal(budget).is_finite() or Decimal(budget) <= 0):
+            raise ValueError("budget must be a positive decimal string or Decimal")
+        changes = RunLimitChanges(
+            maximum_charge=Money(amount=format(Decimal(budget), "f"), currency="USD") if budget is not None else None,
+            maximum_tokens=maximum_tokens, wall_time_seconds=wall_time_seconds,
+            pause_retention_seconds=pause_retention_seconds,
+        )
+        if not changes.model_dump(exclude_none=True):
+            raise ValueError("at least one limit is required")
+        request = RunLimitUpdate(expected_revision=expected_revision, limits=changes, resume=resume, reason=reason)
+        return await self._transport.request(
+            "updateRunLimits", RunLimitsProgress, path={"run_id": run_id},
+            body=request.model_dump(exclude_none=True), idempotency_key=idempotency_key,
         )
 
     async def configuration(self, run_id: str) -> RunConfiguration:

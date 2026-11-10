@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.36.0
+
+- Adopt Core contract 1.12.0 and expose assignment limits, parked actor state and revision history through the limits projection.
+
+## 0.35.0
+
+- Add revision-fenced `update_limits` and `synth limits set`, with typed revision, entitlement and exhausted-limit errors (Core contract 1.11.0).
+- Launch accepts `maximum_tokens` and `pause_retention_seconds`; CLI flags are `--tokens` and `--pause-retention`. Run time supports up to 86400 unpaused seconds; pause retention defaults to 86400 seconds.
+- Launch and budget raises now check plan daily/weekly spend entitlements, including open funding holds, as well as wallet credit. Existing customers may receive `spend_entitlement_exceeded` at launch.
+
+## 0.34.0
+
+- `wait` stops on a paused run with `RunPausedError` carrying its pause record. CLI pause has a distinct exit status (Core contract 1.10.0).
+
 ## 0.33.0
 
 - Add `swarms.limits(run_id)` and the `swarms_run_limits` MCP tool, using Core contract 1.9.0. Reads preserve unknown quantities and expose owner observation freshness and funding separately from usage.

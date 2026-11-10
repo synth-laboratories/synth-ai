@@ -74,6 +74,8 @@ class SwarmsClient:
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -89,6 +91,8 @@ class SwarmsClient:
                 message,
                 budget=budget,
                 wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
                 parallel_workers=parallel_workers,
                 inputs=inputs,
                 labels=labels,
@@ -120,6 +124,8 @@ class SwarmsClient:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -139,6 +145,8 @@ class SwarmsClient:
                 until=until,
                 raise_on_failure=raise_on_failure,
                 wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
                 parallel_workers=parallel_workers,
                 inputs=inputs,
                 labels=labels,
@@ -262,6 +270,33 @@ class SwarmsClient:
 
     def limits(self, run_id: str) -> RunLimitsProgress:
         return self._runner.call(self._async.limits(run_id))
+
+    def update_limits(
+        self,
+        run_id: str,
+        *,
+        expected_revision: int,
+        budget: str | Decimal | None = None,
+        wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        resume: bool = False,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> RunLimitsProgress:
+        return self._runner.call(
+            self._async.update_limits(
+                run_id,
+                expected_revision=expected_revision,
+                budget=budget,
+                wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
+                resume=resume,
+                reason=reason,
+                idempotency_key=idempotency_key,
+            )
+        )
 
     def configuration(self, run_id: str) -> RunConfiguration:
         return self._runner.call(self._async.configuration(run_id))

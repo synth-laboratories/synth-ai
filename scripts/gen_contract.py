@@ -440,6 +440,8 @@ def generate() -> dict[Path, str]:
                     "",
                     "    def reached(self, milestone: CompletionMilestone) -> bool:",
                     "        milestone = CompletionMilestone(milestone)",
+                    "        if milestone is CompletionMilestone.PAUSED:",
+                    '            return self.state == "paused"',
                     "        if milestone is CompletionMilestone.FINISHED:",
                     "            return self.finished",
                     "        if milestone is CompletionMilestone.EXECUTION_CLOSED:",
