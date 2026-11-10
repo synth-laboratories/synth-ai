@@ -16,10 +16,10 @@ async def test_swarms_only_public_surface(contract):
             for op in path.values()
             if isinstance(op, dict)
         )
-        == 55
+        == 56
     )
-    assert len(OPERATIONS) == 42
-    assert len(TOOLS) == 15
+    assert len(OPERATIONS) == 43
+    assert len(TOOLS) == 20
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
     assert all("inference" not in op["path"] for op in OPERATIONS.values())
@@ -31,7 +31,7 @@ async def test_swarms_only_public_surface(contract):
     result = subprocess.run(
         [sys.executable, "-m", "synth_ai.cli", "inference", "session"], capture_output=True
     )
-    assert result.returncode == 2
+    assert result.returncode == 1
     assert b"invalid choice" in result.stderr
 
 

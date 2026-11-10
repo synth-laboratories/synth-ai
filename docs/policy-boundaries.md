@@ -6,7 +6,7 @@ Core owns the pinned public OpenAPI, scope registry and per-operation retry elig
 
 `x-synth-idempotency-key` means the operation uses a stable key header, not that all failures can be replayed. `x-synth-retry` separately declares `safe_read`, `deduplicated` or `never`. Verified reads and public POST operations declared `x-synth-idempotency: durable_key` retry 429/503 responses automatically. Core audits these through its durable tenant/subject/operation/body-bound reserve-and-replay middleware. Transport failures or explicit unknown outcomes return immediately with request/key identity retained. PATCH/DELETE and protocol mutations never automatically replay. The contract records each audit and the existing 24-hour completed-response retention window.
 
-`RetryPolicy` bounds attempts, total monotonic deadline, exponential backoff and additive jitter. Retry-After is a minimum wait and is never shortened to fit a budget; if it cannot fit, the last response is returned as a typed API error. Existing `timeout` and `retries` arguments remain supported and derive the default policy. Cancellation propagates. User-Agent and exported version are generated from project metadata.
+`RetryPolicy` bounds attempts, total monotonic deadline, exponential backoff and additive jitter. Retry-After is a minimum wait and is never shortened to fit a budget; if it cannot fit, the last response is returned as a typed API error. Existing `timeout` and `retries` arguments remain supported and derive the default policy. Event-feed reconnects in `wait()`/`follow()` use the same attempts and backoff; a feed refusal is reconnected only when its Problem says `retryable: true` (or is the legacy `event_owner_unavailable` 503 without that member), as specified in [protocols](protocols.md#notification-driven-observation). Cancellation propagates. User-Agent and exported version are generated from project metadata.
 
 Run `uv run pytest -q`, `uv run ty check`, and both generator checks. These are offline checks; no hosted acceptance or release is implied. Package acceptance checks use explicit errors and also fail under optimized Python.
 
@@ -29,3 +29,8 @@ approval documents or secrets. Requests cannot author a profile configuration.
 The ordinary profile is Swarms v2; research profiles retain the existing
 approval checks and immutable parameters. Accepted runs persist their resolved
 profile pins with the existing program selection.
+
+Launch contract 4 (Core contract 1.3.0) / SDK 0.32.0 makes `message` required.
+A launch without one, or with a blank one, is refused locally with `ValueError`
+and by Core with 422 `invalid_launch_request` (cause `message`) before any
+funding.

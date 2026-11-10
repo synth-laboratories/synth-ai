@@ -5,6 +5,8 @@ from synth_ai import AsyncSynthClient, SynthClient
 
 def invalid_calls(client: SynthClient) -> None:
     client.swarms.launch("task")  # type-error: missing-argument
+    client.swarms.launch(budget="1")  # type-error: missing-argument
+    client.swarms.launch(None, budget="1")  # type-error: invalid-argument-type
     client.swarms.launch("task", budget=1.5)  # type-error: invalid-argument-type
     client.swarms.launch(
         "task",
