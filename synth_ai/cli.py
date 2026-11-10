@@ -111,6 +111,12 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--wall", type=int, metavar="SECONDS", help="run wall-time bound, 1..3600 seconds"
     )
+    run.add_argument(
+        "--parallel-workers",
+        type=int,
+        metavar="N",
+        help="workers the planner may run at once, 1..10 (default 1); the budget must fund all N",
+    )
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
@@ -227,6 +233,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile=args.profile,
                 research_task=args.research_task,
                 wall_time_seconds=args.wall,
+                parallel_workers=args.parallel_workers,
                 inputs=inputs,
                 labels=labels,
             )

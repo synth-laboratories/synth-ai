@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.7.0
+  version: 1.8.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4470,10 +4470,23 @@ components:
       additionalProperties: false
       required:
       - maximum_charge
-      description: An explicit positive USD budget is required. Task and parallelism limits are service-owned.
+      description: An explicit positive USD budget is required. Task limits are service-owned; worker
+        parallelism defaults to 1 and may be raised with parallel_workers.
       properties:
         maximum_charge:
           $ref: '#/components/schemas/LaunchBudget'
+        parallel_workers:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          description: The planner may run up to this many workers at once (one worker per task). The service
+            default is 1. Out of range
+            is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget
+            must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds
+            an equal slice of the budget); a smaller maximum_charge is refused at launch with 422
+            launch_budget_below_actor_floor, whose detail states the minimum in micro-USD.
+            Not accepted with research profiles.
         wall_time_seconds:
           type: integer
           minimum: 1

@@ -8,7 +8,14 @@ Every launch requires `budget`, a positive decimal USD string or `Decimal`,
 for example `budget="0.10"`. It must be exactly representable in millionths of a
 dollar. Floats and implicit budgets are rejected. Optional `wall_time_seconds`
 bounds the run, from 1 to 3600 (one hour; Core refuses a larger value with 422
-`invalid_launch_request`, cause `limits.wall_time_seconds`); omit it to use Core's policy. Core owns task counts and concurrency.
+`invalid_launch_request`, cause `limits.wall_time_seconds`); omit it to use Core's policy.
+Optional `parallel_workers`, from 1 to 10 (default 1), lets the planner run up to
+that many workers at once, one per task. The budget must fund the planner, the
+reviewer and every parallel worker at once; a smaller budget is refused with 422
+`launch_budget_below_actor_floor` (`LaunchBudgetBelowActorFloorError`, whose detail
+states the minimum), and an out-of-range value with 422 `invalid_launch_request`,
+cause `limits.parallel_workers` (the SDK rejects it with a `ValidationError` before
+sending). Research profiles do not accept it. Core owns task counts.
 `maximum_tasks`, `maximum_parallel_tasks`, and the old top-level `providers` and
 `models` arguments have been removed in launch contract 2 and remain absent in contract 3 (SDK 0.29.0).
 

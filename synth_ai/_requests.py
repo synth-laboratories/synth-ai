@@ -20,6 +20,7 @@ def launch_request(
     *,
     budget: str | Decimal,
     wall_time_seconds: int | None,
+    parallel_workers: int | None,
     inputs: RunInputs | None,
     labels: dict[str, str] | None,
     resources: builtins.list[OwnerResourceRequest] | None,
@@ -49,6 +50,7 @@ def launch_request(
     request = LaunchRequest(
         limits=Limits(
             maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
+            parallel_workers=parallel_workers,
             wall_time_seconds=wall_time_seconds,
         ),
         message=message,
