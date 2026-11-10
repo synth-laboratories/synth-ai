@@ -155,15 +155,21 @@ async def test_non_retryable_in_stream_refusal_raises_at_once(contract, refusal,
             return response(feed)
         return httpx.Response(200, json=state)
 
+    # A wait outlasts an unmarked gateway refusal (a deploy) until its own timeout,
+    # then raises that refusal; follow and every other refusal raise at once.
+    outlasted = method == "wait" and refusal["code"] == "refused"
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with client(http, attempts=3) as api:
             with pytest.raises(SwarmsAPIError) as caught:
                 if method == "wait":
-                    await api.swarms.wait(state["run_id"], poll_interval=0.001)
+                    await api.swarms.wait(
+                        state["run_id"], timeout=0.5 if outlasted else 600, poll_interval=0.001
+                    )
                 else:
                     [item async for item in api.swarms.follow(state["run_id"])]
     assert not isinstance(caught.value, TransportFailureError)
-    assert caught.value.code == refusal["code"] and subscriptions == 1
+    assert caught.value.code == refusal["code"]
+    assert subscriptions >= 2 if outlasted else subscriptions == 1
     assert caught.value.checkpoint is not None
 
 
@@ -179,7 +185,8 @@ async def test_exhausted_reconnects_report_attempts_checkpoint_and_snapshot(cont
             feed = Feed()
             if not feeds:
                 feed.queue.put_nowait(data(event(state["run_id"], "A"), "8"))
-            feed.queue.put_nowait(error_frame(problem()))
+            # Not a gateway status: a deploy's 502/503/504 never spends a wait's attempts.
+            feed.queue.put_nowait(error_frame(problem("owner_handoff", 500, retryable=True)))
             feeds.append(feed)
             return response(feed)
         return httpx.Response(200, json=state)
@@ -197,7 +204,7 @@ async def test_exhausted_reconnects_report_attempts_checkpoint_and_snapshot(cont
     assert error.connection_attempts == 2 and len(feeds) == 2
     assert error.checkpoint is not None and error.checkpoint.last_event_id == "8"
     assert isinstance(error.__cause__, SwarmsAPIError)
-    assert error.__cause__.code == "event_owner_unavailable"
+    assert error.__cause__.code == "owner_handoff"
     if method == "wait":
         assert error.snapshot is not None and error.snapshot.run_id == state["run_id"]
     assert all(feed.closed for feed in feeds)

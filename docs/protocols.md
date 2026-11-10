@@ -281,14 +281,10 @@ and download calls disable redirects even on an injected redirect-enabled
 client; unexpected redirect statuses remain available in the typed error.
 Download writes and the final durability flush use the same bounded I/O owner.
 
-`swarms.result(run)` reads a finished run's outputs and its final text answer
-in one call. It refuses an unfinished run with `ResultUnavailableError` (after
-rereading a stale snapshot) and never waits. It collects at most `max_outputs`
-outputs (default 1000) and reads at most `max_bytes` (default 1 MiB) of answer
-text, checking the declared `byte_size` before the request and the received
-length after; exceeding either raises `DataIntegrityError` rather than
-truncating. Answer bytes are digest-verified through `output_content` and must
-decode as UTF-8.
+`swarms.result(run)` is one `getRunResult` read of a finished run's answer, its
+source output, objective answer and charge; Core chooses the answer output in
+publication order. It refuses an unfinished run with `ResultUnavailableError`
+(carrying a fresh snapshot) and never waits.
 
 `iter_runs`, `iter_tasks`, `iter_outputs`, `iter_files`, `iter_events`,
 `account.api_keys.iter_keys`, `account.iter_usage_records`,

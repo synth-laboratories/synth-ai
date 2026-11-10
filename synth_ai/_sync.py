@@ -44,6 +44,7 @@ from ._generated.models import (
     RunProfileCatalog,
     RunProgram,
     RunReport,
+    RunResult,
     RunSandboxes,
     RunSnapshot,
     RunTask,
@@ -56,7 +57,6 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
-from ._results import RunResult
 from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
@@ -373,19 +373,8 @@ class SwarmsClient:
             )
         )
 
-    def result(
-        self,
-        run: RunSnapshot | str,
-        *,
-        max_outputs: int = 1000,
-        max_bytes: int = 1 << 20,
-        max_json_outputs: int = 8,
-    ) -> RunResult:
-        return self._runner.call(
-            self._async.result(
-                run, max_outputs=max_outputs, max_bytes=max_bytes, max_json_outputs=max_json_outputs
-            )
-        )
+    def result(self, run: RunSnapshot | str) -> RunResult:
+        return self._runner.call(self._async.result(run))
 
     def families(self) -> FamilyList:
         return self._runner.call(self._async.families())

@@ -34,6 +34,20 @@ from .errors import (
 # read, not one GET per second. Older servers get a slower explicit fallback.
 _RECONCILE_SECONDS = 30.0
 _FALLBACK_MIN_SECONDS = 1.0
+# Gateway statuses a Core deploy produces on reads. Reads are safe to repeat, so a
+# wait backs off and retries them until its own timeout; mutations never do.
+_TRANSIENT_READ_STATUSES = frozenset({502, 503, 504})
+_TRANSIENT_BACKOFF_MAX_SECONDS = 5.0
+
+
+def transient_read_failure(error: SwarmsAPIError) -> bool:
+    """A gateway failure on a read that a wait outlasts, unless the server says otherwise."""
+    return (
+        not isinstance(error, ResponseContractError)
+        and error.status in _TRANSIENT_READ_STATUSES
+        and error.problem.service != "synth-ai"
+        and error.problem.retryable is not False
+    )
 
 
 class ObservationSource(Protocol):
@@ -65,12 +79,38 @@ class RunObserver:
         checkpoint = StreamCheckpoint(run_id=run_id)
         snapshot: RunSnapshot | None = None
         reading = False
+        # Per channel, the latest gateway failure not yet followed by a success there
+        # (a snapshot read, or a delivered event); raised instead of a bare timeout when
+        # the outage outlasts the caller's deadline. Reads succeeding does not clear a
+        # feed that keeps failing, and the reverse.
+        outages: dict[str, SwarmsAPIError] = {}
+        outage_counts = {"read": 0, "feed": 0}
+
+        async def outlast(channel: str, error: SwarmsAPIError) -> None:
+            outages[channel] = error
+            delay = self._source.retry_policy.delay(None, min(outage_counts[channel], 6))
+            outage_counts[channel] += 1
+            await asyncio.sleep(max(poll_interval, min(delay or 0, _TRANSIENT_BACKOFF_MAX_SECONDS)))
+
+        def recovered(channel: str) -> None:
+            outages.pop(channel, None)
+            outage_counts[channel] = 0
 
         async def read() -> RunSnapshot:
             # Marks snapshot failures so they are never mistaken for feed refusals.
             nonlocal snapshot, reading
             reading = True
-            snapshot = await self._source.request("getRun", RunSnapshot, path={"run_id": run_id})
+            while True:
+                try:
+                    snapshot = await self._source.request(
+                        "getRun", RunSnapshot, path={"run_id": run_id}
+                    )
+                    break
+                except SwarmsAPIError as error:
+                    if not transient_read_failure(error):
+                        raise
+                    await outlast("read", error)
+            recovered("read")
             reading = False
             return snapshot
 
@@ -105,7 +145,8 @@ class RunObserver:
             async with asyncio.timeout(timeout):
                 attempts = self._source.retry_policy.attempts
                 cause: Exception | None = None
-                for attempt in range(attempts):
+                attempt = 0
+                while attempt < attempts:
                     subscribed, tail_poll, reading = False, False, False
                     try:
                         async with self._source.subscribe_events(run_id, checkpoint) as events:
@@ -123,6 +164,7 @@ class RunObserver:
                                     if done:
                                         try:
                                             pending.result()
+                                            recovered("feed")
                                         except StopAsyncIteration:
                                             ended = True
                                     if reached(await read()):
@@ -144,6 +186,11 @@ class RunObserver:
                             await asyncio.sleep(max(_FALLBACK_MIN_SECONDS, poll_interval))
                             return await poll()
                     except SwarmsAPIError as error:
+                        # A deploy's gateway failures on the feed reconnect from the
+                        # checkpoint without spending an attempt; the timeout bounds them.
+                        if not reading and transient_read_failure(error):
+                            await outlast("feed", error)
+                            continue
                         # A feed refusal the server marks retryable reconnects from the
                         # checkpoint; the next attempt rereads before any milestone.
                         if not reading and stream_refusal_retryable(error.problem):
@@ -168,8 +215,12 @@ class RunObserver:
                     if attempt + 1 < attempts:
                         delay = self._source.retry_policy.delay(None, attempt)
                         await asyncio.sleep(max(poll_interval, delay or 0))
+                    attempt += 1
                 raise stream_interrupted(attempts, checkpoint, snapshot) from cause
         except TimeoutError as timed_out:
+            outage = outages.get("read") or outages.get("feed")
+            if outage is not None:
+                raise outage from timed_out
             raise WaitTimeoutError(
                 "Timed out waiting for " + run_id, snapshot=snapshot, run_id=run_id
             ) from timed_out

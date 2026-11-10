@@ -17,8 +17,8 @@ from synth_ai import SynthClient
 with SynthClient() as client:
     run = client.swarms.run("Compare retrieval methods", budget="2.00")
     print(run.run_id, run.state)
-    result = client.swarms.result(run)  # outputs plus the final text answer
-    print(result.content)
+    result = client.swarms.result(run)  # the final answer, its source and the charge
+    print(result.answer)
 ```
 
 Set `SYNTH_API_KEY` and optionally `SYNTH_API_BASE_URL`.

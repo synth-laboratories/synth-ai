@@ -36,26 +36,25 @@ streams into a temporary file, checks the digest and optional `expected_bytes`,
 and replaces the destination only after verification. Its default `max_bytes`
 is 64 MiB; set an explicit higher bound for larger outputs.
 
-`result(run)` takes a finished `RunSnapshot` (or a run ID) and returns a frozen
-`RunResult` (`synth_ai.models`): `run` (the snapshot), `outputs` (every output in
-publication order), `answer_output` (the last available output whose recorded
-`media_type` is `text/*` or, without one, the last available `application/json`
-objective answer, schema `synth.objective-answer.v1`), `content` (that output's
-digest-verified UTF-8 text; the raw JSON for an objective answer), `answer` (the
-answer text: the text output, or the objective answer's `answer.text`) and
-`objective_answer` (the parsed `ObjectiveAnswer`, when that is the source) and
-`charge` (the snapshot's `RunCharge`: `amount` and `final`; `None` when Core
-omits it, as list pages do).
-Without either kind of output, `answer`, `answer_output` and `content` are `None`. An unfinished run raises
-`ResultUnavailableError` with its fresh snapshot; `result` never waits, so call
-`run()` or `wait()` first. `max_outputs` (1000) and `max_bytes` (1 MiB) bound the
-read and raise `DataIntegrityError` instead of truncating; use `download_output`
-for larger answers.
+`result(run)` takes a `RunSnapshot` or a run ID and returns Core's `RunResult`
+(`synth_ai.models`) from one `getRunResult` read, the same record the MCP tool
+`swarms_run_result` returns: `run` (the snapshot), `state`, `answer` (the answer
+text), `answer_output` (the `RunOutput` it came from), `objective_answer` (the
+parsed `ObjectiveAnswer`, when that is the source) and `charge` (`RunCharge`:
+`amount` and `final`; `None` when Core omits it). Core picks the most recently
+published available `text/*` output or, without one, the most recent available
+`application/json` objective answer (schema `synth.objective-answer.v1`; `answer`
+is its `answer.text`). Without either, `answer`, `answer_output` and
+`objective_answer` are `None`. An unfinished run raises `ResultUnavailableError`
+with a fresh snapshot; `result` never waits, so call `run()` or `wait()` first.
+An answer over 1 MiB (`result_answer_too_large`) or not UTF-8
+(`result_answer_not_text`) raises `ConflictError`; use `download_output` for
+those. List every output with `outputs()` / `iter_outputs()`.
 
 ```python
 run = client.swarms.run("Summarize the findings", budget="2.00")
 result = client.swarms.result(run)
-print(result.content if result.content is not None else [o.filename for o in result.outputs])
+print(result.answer)
 ```
 
 `StreamCheckpoint` retains the last committed SSE sequence and deduplicates

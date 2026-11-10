@@ -7763,7 +7763,7 @@ components:
         used: {type: [integer, 'null'], minimum: 0}
         reserved: {type: [integer, 'null'], minimum: 0}
         unknown_reserved: {type: [integer, 'null'], minimum: 0}
-        unknown_receipts: {type: integer, minimum: 0}
+        unknown_receipts: {type: [integer, 'null'], minimum: 0}
         remaining: {type: [integer, 'null'], minimum: 0}
         overshoot: {type: [integer, 'null'], minimum: 0}
         state: {type: string}

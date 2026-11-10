@@ -17,8 +17,9 @@ from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
-from ._generated.models import InputFile, RunInputs, RunSnapshot
+from ._generated.models import InputFile, LaunchRequest, RunInputs, RunSnapshot
 from ._generated.policy import MESSAGE_MAX_BYTES
+from ._requests import launch_request
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
@@ -234,7 +235,25 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "upload":
             out.records([await swarms.upload_file(path) for path in args.paths], view.files)
         elif command == "run":
-            labels = parse_labels(args.label)
+            # Every flag is validated before any upload: a refused limit or label must
+            # not leave uploaded files behind. Files join the validated request after.
+            request = launch_request(
+                args.goal,
+                budget=args.budget,
+                profile=args.profile,
+                research_task=args.research_task,
+                wall_time_seconds=args.wall,
+                maximum_tokens=args.tokens,
+                pause_retention_seconds=args.pause_retention,
+                parallel_workers=args.parallel_workers,
+                inputs=None,
+                labels=parse_labels(args.label),
+                resources=None,
+                routing=None,
+                guidance=None,
+                profile_requirements=swarms._profile_requirements,
+                default_profile=swarms._default_profile,
+            )
             uploaded = [await swarms.upload_file(path) for path in args.file]
             inputs = (
                 RunInputs(
@@ -250,18 +269,14 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 if uploaded
                 else None
             )
-            created = await swarms.launch(
-                args.goal,
-                budget=args.budget,
-                profile=args.profile,
-                research_task=args.research_task,
-                wall_time_seconds=args.wall,
-                maximum_tokens=args.tokens,
-                pause_retention_seconds=args.pause_retention,
-                parallel_workers=args.parallel_workers,
-                inputs=inputs,
-                labels=labels,
-            )
+            if inputs is not None:
+                request = LaunchRequest.model_validate(
+                    {
+                        **request.model_dump(exclude_none=True),
+                        "inputs": inputs.model_dump(exclude_none=True),
+                    }
+                )
+            created = await swarms.launch_request(request)
             if not args.wait:
                 out.record(created, lambda s: s.run_id)
                 return EXIT_OK
