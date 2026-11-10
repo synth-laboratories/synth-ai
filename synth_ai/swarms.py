@@ -21,6 +21,7 @@ from ._generated.models import (
     RoutingCatalog,
     RoutingConstraints,
     RunConfiguration,
+    RunLimitsProgress,
     RunControlReceipt,
     RunEvent,
     RunGuidance,
@@ -276,6 +277,11 @@ class AsyncSwarms:
 
     async def program(self, run_id: str) -> RunProgram:
         return await self._transport.request("getRunProgram", RunProgram, path={"run_id": run_id})
+
+    async def limits(self, run_id: str) -> RunLimitsProgress:
+        return await self._transport.request(
+            "getRunLimits", RunLimitsProgress, path={"run_id": run_id}
+        )
 
     async def configuration(self, run_id: str) -> RunConfiguration:
         return await self._transport.request(

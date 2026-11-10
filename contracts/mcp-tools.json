@@ -955,6 +955,28 @@
       "scope": "swarms:control"
     },
     {
+      "description": "Read authoritative run limits and usage.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_limits",
+      "operationId": "getRunLimits",
+      "scope": "swarms:read"
+    },
+    {
       "description": "List tasks from their current authority.",
       "inputSchema": {
         "additionalProperties": false,

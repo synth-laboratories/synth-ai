@@ -63,6 +63,12 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_100 = "credits.100"
 
 
+class LimitMeterAction(StrEnum):
+    NOTIFY = "notify"
+    PAUSE = "pause"
+    STOP = "stop"
+
+
 class MintApiKeyRequestPurpose(StrEnum):
     PERSONAL = "personal"
     AUTOMATION = "automation"
@@ -458,6 +464,27 @@ class Limit(WireModel):
     cap: float
 
 
+class LimitMeter(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    dimension: str
+    unit: str | None = None
+    scope: str | None = None
+    requested_cap: Annotated[int, Field(ge=0)] | None = None
+    effective_cap: Annotated[int, Field(ge=0)] | None = None
+    binding_layer: str | None = None
+    cap: Annotated[int, Field(ge=0)] | None = None
+    used: Annotated[int, Field(ge=0)] | None = None
+    reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_receipts: Annotated[int, Field(ge=0)] | None = None
+    remaining: Annotated[int, Field(ge=0)] | None = None
+    overshoot: Annotated[int, Field(ge=0)] | None = None
+    state: str | None = None
+    action: Annotated[LimitMeterAction, BeforeValidator(enum_value(LimitMeterAction))] | None = None
+
+
 class LimitRow(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -721,6 +748,15 @@ class RunLabelsRequest(WireModel):
     expected_revision: Annotated[int, Field(ge=1)]
 
 
+class RunLimitsProgressFunding(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    held: str
+    settled: str
+    currency: Literal["USD"]
+
+
 class RunProfilePin(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -885,6 +921,17 @@ class Account(WireModel):
     principal: Principal
     limits: list[Limit]
     terms: AccountTerms | None = None
+
+
+class ActorLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    assignment: str
+    actor_id: str | None
+    role: str | None = None
+    state: str | None = None
+    limits: list[LimitMeter]
 
 
 class ApiKey(WireModel):
@@ -1552,6 +1599,27 @@ class RoutingReadback(WireModel):
     actors: list[RoutingActor]
 
 
+class RunLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["orchestra.limits-progress.v1"]
+    run_id: RunId
+    revision: Annotated[int, Field(ge=0)]
+    sequence: Annotated[int, Field(ge=0)] | None = None
+    as_of_ms: Annotated[int, Field(ge=0)]
+    status: str
+    pause: dict[str, JsonValue] | None = None
+    primary: list[LimitMeter]
+    secondary: list[LimitMeter]
+    actors: list[ActorLimitsProgress]
+    allocation: dict[str, JsonValue]
+    history: list[dict[str, JsonValue]]
+    freshness: dict[str, JsonValue] | None = None
+    funding: RunLimitsProgressFunding
+    charge: dict[str, JsonValue] | None = None
+
+
 class RunObjective(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1786,6 +1854,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "InputFile": InputFile,
     "LaunchBudget": LaunchBudget,
     "Limit": Limit,
+    "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
     "Money": Money,
     "ObjectiveClaim": ObjectiveClaim,
@@ -1806,6 +1875,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
+    "RunLimitsProgressFunding": RunLimitsProgressFunding,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
     "RunReportRollout": RunReportRollout,
@@ -1822,6 +1892,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageExport": UsageExport,
     "UsageExportRequest": UsageExportRequest,
     "Account": Account,
+    "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
@@ -1873,6 +1944,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
+    "RunLimitsProgress": RunLimitsProgress,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,
     "RunReportSandbox": RunReportSandbox,

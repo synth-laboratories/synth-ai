@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.32.3 (Core contract 1.8.0, launch contract 3).
+Typed Python 3.11+ client for the Synth public API v1. Version 0.33.0 (Core contract 1.9.0, launch contract 3).
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 

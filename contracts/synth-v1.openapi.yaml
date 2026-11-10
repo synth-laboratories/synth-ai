@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.8.0
+  version: 1.9.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -3672,6 +3672,48 @@ paths:
               example:
                 run_id: run_AAAAAAAAAAAAAAAAAAAAAA
                 configuration: {}
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/limits:
+    get:
+      tags:
+      - swarms
+      operationId: getRunLimits
+      x-synth-mcp-name: swarms_run_limits
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Read authoritative run limits and usage.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5591
+      x-synth-source: core/internal/public/runs/limits.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      responses:
+        '200':
+          description: Read authoritative run limits and usage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunLimitsProgress'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                schema_version: orchestra.limits-progress.v1
+                revision: 0
+                as_of_ms: 1794300000000
+                status: running
+                primary: []
+                secondary: []
+                actors: []
+                history: []
+                allocation: {}
+                funding: {held: "1.00", settled: "0.00", currency: USD}
         default:
           $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}/tasks:
@@ -7356,6 +7398,70 @@ components:
           - version
       required:
       - program
+    LimitMeter:
+      type: object
+      properties:
+        dimension: {type: string}
+        unit: {type: string}
+        scope: {type: string}
+        requested_cap: {type: [integer, 'null'], minimum: 0}
+        effective_cap: {type: [integer, 'null'], minimum: 0}
+        binding_layer: {type: [string, 'null']}
+        cap: {type: [integer, 'null'], minimum: 0}
+        used: {type: [integer, 'null'], minimum: 0}
+        reserved: {type: [integer, 'null'], minimum: 0}
+        unknown_reserved: {type: [integer, 'null'], minimum: 0}
+        unknown_receipts: {type: integer, minimum: 0}
+        remaining: {type: [integer, 'null'], minimum: 0}
+        overshoot: {type: [integer, 'null'], minimum: 0}
+        state: {type: string}
+        action: {type: string, enum: [notify, pause, stop]}
+      required: [dimension]
+    ActorLimitsProgress:
+      type: object
+      properties:
+        assignment: {type: string}
+        actor_id: {type: [string, 'null']}
+        role: {type: string}
+        state: {type: string}
+        limits:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+      required: [assignment, actor_id, limits]
+    RunLimitsProgress:
+      type: object
+      properties:
+        schema_version: {type: string, const: orchestra.limits-progress.v1}
+        run_id: {$ref: '#/components/schemas/RunId'}
+        revision: {type: integer, minimum: 0}
+        sequence: {type: integer, minimum: 0}
+        as_of_ms: {type: integer, minimum: 0}
+        status: {type: string}
+        pause: {type: [object, 'null']}
+        primary:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+        secondary:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+        actors:
+          type: array
+          items: {$ref: '#/components/schemas/ActorLimitsProgress'}
+        allocation: {type: object}
+        history:
+          type: array
+          items: {type: object}
+        freshness: {type: object}
+        funding:
+          type: object
+          properties:
+            held: {type: string}
+            settled: {type: string}
+            currency: {type: string, const: USD}
+          required: [held, settled, currency]
+        charge: {type: object}
+      required: [schema_version, run_id, revision, as_of_ms, status, primary, secondary, actors, allocation, history, funding]
+
     RunConfiguration:
       type: object
       additionalProperties: false

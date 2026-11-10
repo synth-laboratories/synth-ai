@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.33.0
+
+- Add `swarms.limits(run_id)` and the `swarms_run_limits` MCP tool, using Core contract 1.9.0. Reads preserve unknown quantities and expose owner observation freshness and funding separately from usage.
+
+
 ## 0.32.3
 
 Contract: the SDK pins Core public contract 1.8.0 (Core `f2f9ae9f`, SHA-256

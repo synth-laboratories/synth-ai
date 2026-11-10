@@ -145,7 +145,7 @@ def parser() -> argparse.ArgumentParser:
     download.add_argument("-o", "--out", default=".", metavar="DIR")
     add("usage").add_argument("run_id", nargs="?", metavar="RUN")
     add("billing")
-    add("limits")
+    add("limits").add_argument("run_id", nargs="?", metavar="RUN")
     return root
 
 
@@ -298,7 +298,10 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "billing":
             out.record(await client.billing.balance(), view.balance)
         elif command == "limits":
-            out.record(await client.account.limits(), view.limits)
+            if args.run_id is None:
+                out.record(await client.account.limits(), view.limits)
+            else:
+                out.record(await swarms.limits(args.run_id), view.run_limits)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK

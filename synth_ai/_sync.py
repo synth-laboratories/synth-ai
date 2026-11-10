@@ -38,6 +38,7 @@ from ._generated.models import (
     RunGuidance,
     RunInputs,
     RunLabels,
+    RunLimitsProgress,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -258,6 +259,9 @@ class SwarmsClient:
 
     def program(self, run_id: str) -> RunProgram:
         return self._runner.call(self._async.program(run_id))
+
+    def limits(self, run_id: str) -> RunLimitsProgress:
+        return self._runner.call(self._async.limits(run_id))
 
     def configuration(self, run_id: str) -> RunConfiguration:
         return self._runner.call(self._async.configuration(run_id))
