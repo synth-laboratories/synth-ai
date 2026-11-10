@@ -31,6 +31,7 @@ from ._generated.models import (
     UsageRecordPage,
     UsageSummary,
 )
+from ._results import RunResult
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 
@@ -147,6 +148,35 @@ def report(value: RunReport) -> str:
             [[m.provider, m.model, m.calls, money(m.charge)] for m in value.by_model],
         )
     return text
+
+
+def result(value: RunResult) -> str:
+    """The answer text alone, so `synth result RUN > answer.md` captures it."""
+    if value.content is not None:
+        return value.content
+    return facts(
+        [
+            ("run", value.run.run_id),
+            ("state", value.run.state),
+            ("outputs", len(value.outputs)),
+            ("answer", "none (no available text output)"),
+        ]
+    )
+
+
+def result_json(value: RunResult) -> str:
+    """`RunResult` as one JSON document: run, outputs, answer and content."""
+    return json.dumps(
+        {
+            "run": value.run.model_dump(mode="json", exclude_unset=True),
+            "outputs": [o.model_dump(mode="json", exclude_unset=True) for o in value.outputs],
+            "answer": None
+            if value.answer is None
+            else value.answer.model_dump(mode="json", exclude_unset=True),
+            "content": value.content,
+        },
+        separators=(",", ":"),
+    )
 
 
 def usage_summary(value: UsageSummary) -> str:

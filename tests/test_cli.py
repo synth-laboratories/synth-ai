@@ -32,6 +32,7 @@ EXPECTED_COMMANDS = [
     "outputs",
     "download",
     "report",
+    "result",
     "usage",
     "billing",
     "limits",
@@ -314,6 +315,67 @@ def test_download_writes_verified_outputs(api, capsys, contract, tmp_path):
     assert json.loads(out)[0]["path"] == str(target / "hello.txt")
     code, _, err = invoke(api, capsys, "download", RUN_ID, "out_missing", "-o", str(target))
     assert code == cli.EXIT_CLIENT_ERROR and "not found" in err
+
+
+def serve_answer(api, contract, text):
+    content = text.encode()
+    item = {
+        "run_id": RUN_ID,
+        "output_id": "out_AAAAAAAAAAAAAAAAAAAAAA",
+        "state": "available",
+        "filename": "answer.md",
+        "reference": {
+            "revision_id": "rev",
+            "digest_sha256": hashlib.sha256(content).hexdigest(),
+            "media_type": "text/markdown",
+        },
+    }
+    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
+    api.overrides["listRunOutputs"] = (200, {"items": [item], "has_more": False})
+    api.overrides["getRunOutputContent"] = lambda _r: httpx.Response(
+        200, content=content, headers={"Content-Type": "application/octet-stream"}
+    )
+
+
+def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
+    serve_answer(api, contract, "The answer is 42.")
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer is 42.\n"
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    document = json.loads(out)
+    assert document["run"]["state"] == "completed"
+    assert document["content"] == "The answer is 42."
+    assert document["answer"]["output_id"] == document["outputs"][0]["output_id"]
+    assert len(out.strip().splitlines()) == 1
+
+
+def test_result_without_a_text_answer_says_so(api, capsys, contract):
+    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
+    api.overrides["listRunOutputs"] = (200, {"items": [], "has_more": False})
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert "answer" in out and "none" in out
+
+
+def test_result_on_an_unfinished_run_exits_one_with_its_code(api, capsys, contract):
+    _, running = example(contract, "getRun")
+    running.update(state="running", execution_closed=False)
+    api.overrides["getRun"] = (200, running)
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_CLIENT_ERROR and out == ""
+    assert err.startswith("result_unavailable: ")
+
+
+def test_run_wait_prints_the_answer_last(api, capsys, contract):
+    serve_answer(api, contract, "Done: shipped.")
+    code, out, err = invoke(api, capsys, "run", "Goal", "--budget", "1.00", "--wait")
+    assert code == cli.EXIT_OK, err
+    assert out.splitlines()[-2:] == ["state  completed", "Done: shipped."]
+    code, out, err = invoke(api, capsys, "run", "Goal", "--budget", "1.00", "--wait", "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["state"] == "completed"
 
 
 def test_no_browser_login_accepts_the_pasted_redirect():

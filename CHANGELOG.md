@@ -2,10 +2,35 @@
 
 ## 0.32.0 (unreleased)
 
+Contract: the SDK pins Core public contract 1.4.0 (Core `817056b9`, SHA-256
+`4c3e45cc…f365`). The generated `Problem` model has `retryable` and
+`last_event_id`; stream reconnects read the typed `retryable` member and keep the
+`event_owner_unavailable`/503 fallback for servers that omit it. The new read-only
+`GET /v1/runs/{run_id}/wait` (`waitRun`, `RunWait`) backs the MCP
+`swarms_run_wait` tool; the typed client keeps `wait()`, which already follows
+the event stream to completion, and adds no method for it.
+
+MCP: the stdio server adds `swarms_run_pause`, `swarms_run_resume`,
+`swarms_run_tasks`, `usage_for_run` and `swarms_run_wait`, with the same names,
+scopes and argument schemas as Core's hosted catalog (20 tools; the catalog file
+is byte-identical to Core's). The generator honours `x-synth-mcp-required`.
+
+CLI: `synth result RUN` prints the answer text, or the `RunResult` as JSON.
+`synth run --wait` ends with the answer text in human mode.
+
+Tests: `tests/test_journey.py` drives one customer journey (profiles, upload,
+launch, watch through a retryable stream drop, pause/resume, outputs, answer,
+usage) through the SDK, the CLI and the MCP tools, and fails naming any step a
+surface lacks.
+
+Docs: `docs/quickstart.md` (one per surface), an error guide in
+`docs/errors.md`, and the support policy: only the latest release is supported.
+
 Breaking: the `synth` CLI is replaced by task verbs (SYN-5564), with no
 compatibility period. Commands: `login [--no-browser]`, `whoami`, `logout`,
 `profiles`, `upload`, `run`, `status`, `wait`, `logs [-f]`, `tasks`, `ls`, `pause`,
-`resume`, `cancel`, `outputs`, `download`, `report`, `usage`, `billing`, `limits`.
+`resume`, `cancel`, `outputs`, `download`, `report`, `result`, `usage`, `billing`,
+`limits`.
 Output is aligned text; `--json` on every command prints the SDK record as one
 JSON document. Exit codes: 0 success, 1 client or usage error, 2 wait timeout,
 3 run failed or cancelled, 4 server refusal. `logs -f` resumes from a 0600

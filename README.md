@@ -1,6 +1,11 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.31.0 (launch contract 3).
+Typed Python 3.11+ client for the Synth public API v1. Version 0.32.0 (Core contract 1.4.0, launch contract 3).
+
+Only the latest release is supported; upgrade with `pip install -U synth-ai`.
+
+Start with the [quickstart](docs/quickstart.md) (SDK, CLI and MCP) and the
+[error guide](docs/errors.md).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.

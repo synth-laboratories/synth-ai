@@ -54,6 +54,7 @@ COMMANDS: dict[str, str] = {
     "outputs": "Run outputs",
     "download": "Download run outputs",
     "report": "Run report",
+    "result": "Run answer",
     "usage": "Usage",
     "billing": "Balance",
     "limits": "Limits",
@@ -109,7 +110,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
-    for name in ("status", "pause", "resume", "cancel", "report"):
+    for name in ("status", "pause", "resume", "cancel", "report", "result"):
         add(name).add_argument("run_id", metavar="RUN")
     wait = add("wait")
     wait.add_argument("run_id", metavar="RUN")
@@ -232,6 +233,10 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 print(created.run_id, flush=True)
             final = await swarms.wait(created.run_id, timeout=args.timeout)
             out.record(final, lambda s: "state  " + s.state)
+            if not args.json:
+                answer = (await swarms.result(final)).content
+                if answer is not None:
+                    print(answer, flush=True)
             return finished_code(final)
         elif command == "status":
             out.record(await swarms.get(args.run_id), view.snapshot)
@@ -264,6 +269,9 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             out.records(await download(swarms, args.run_id, args.output_id, args.out), view.saved)
         elif command == "report":
             out.record(await swarms.report(args.run_id), view.report)
+        elif command == "result":
+            finished = await swarms.result(args.run_id)
+            print(view.result_json(finished) if args.json else view.result(finished), flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)
@@ -367,7 +375,10 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_SERVER_REFUSAL
-    except (SynthError, ValueError, OSError, UsageError) as error:
+    except SynthError as error:
+        fail(error.code, str(error), as_json)
+        return EXIT_CLIENT_ERROR
+    except (ValueError, OSError, UsageError) as error:
         fail("client_error", str(error), as_json)
         return EXIT_CLIENT_ERROR
 
