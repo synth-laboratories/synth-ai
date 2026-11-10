@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.30.0 (launch contract 3).
+Typed Python 3.11+ client for the Synth public API v1. Version 0.31.0 (launch contract 3).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.
@@ -69,7 +69,7 @@ See [Swarms](docs/swarms.md) for routing, lifecycle and transfer details.
 Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
 launch fields with `profile` and, for research profiles, `research_task`.
 
-Version 0.30.0 uses strict, frozen records, named nested models, and enum values.
+Since 0.31.0, the SDK uses strict, frozen records, named nested models, and enum values.
 Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
 inspect it, and `run.known_state` when a known state enum is useful. Unknown server
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)

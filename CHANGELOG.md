@@ -1,15 +1,15 @@
 # Changelog
 
-## 0.31.0 (unreleased)
+## 0.31.0 (released 2026-11-09)
 
 Aligns with the integrated Core public contract and its 32 KiB UTF-8 message
 limit. Profile eligibility comes from generated metadata and explicit discovery.
 Adds typed lazy iterators, payload-free diagnostic hooks, bounded streaming
 uploads with source identity/digest verification, and runnable fixture-tested
 recipes. Closing either client prevents new requests and preserves injected
-HTTP ownership. Publication still requires installed-cohort acceptance.
+HTTP ownership.
 
-## 0.30.0 (unreleased)
+## 0.30.0 (not published; changes ship in 0.31.0)
 
 `wait()` now subscribes before reading run state, uses durable events as wakeups,
 and periodically reconciles dropped notifications. EOF, authentication failures,
