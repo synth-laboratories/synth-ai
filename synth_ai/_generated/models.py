@@ -478,6 +478,16 @@ class Money(WireModel):
     currency: Literal["USD"]
 
 
+class ObjectiveAnswerAnswer(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    text: str
+    by: str | None = None
+    revision: int | None = None
+    sources: list[dict[str, JsonValue]] | None = None
+
+
 class ObjectiveClaim(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1048,6 +1058,16 @@ class MintedApiKey(WireModel):
     expires_at: str | None = None
     revoked_at: str | None = None
     key: Annotated[str, Field(pattern="^sk_(live|test)_[0-9a-f]{48}$")]
+
+
+class ObjectiveAnswer(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.objective-answer.v1"]
+    objective_id: str
+    definition_revision: int | None = None
+    answer: ObjectiveAnswerAnswer
 
 
 class ObjectiveMetricState(WireModel):
@@ -1768,6 +1788,18 @@ class RunPage(WireModel):
     items: list[RunSnapshot]
 
 
+class RunResult(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    run: RunSnapshot
+    state: str
+    answer: str | None
+    answer_output: RunOutput | None
+    objective_answer: ObjectiveAnswer | None
+    charge: RunCharge | None
+
+
 class RunWait(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1788,6 +1820,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Limit": Limit,
     "LimitRow": LimitRow,
     "Money": Money,
+    "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
     "ObjectiveMetric": ObjectiveMetric,
@@ -1834,6 +1867,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Limits": Limits,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
+    "ObjectiveAnswer": ObjectiveAnswer,
     "ObjectiveMetricState": ObjectiveMetricState,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
@@ -1886,5 +1920,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
     "RunPage": RunPage,
+    "RunResult": RunResult,
     "RunWait": RunWait,
 }

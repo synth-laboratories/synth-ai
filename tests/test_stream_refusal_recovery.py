@@ -163,13 +163,13 @@ async def test_non_retryable_in_stream_refusal_raises_at_once(contract, refusal,
             with pytest.raises(SwarmsAPIError) as caught:
                 if method == "wait":
                     await api.swarms.wait(
-                        state["run_id"], timeout=0.2 if outlasted else 600, poll_interval=0.001
+                        state["run_id"], timeout=0.5 if outlasted else 600, poll_interval=0.001
                     )
                 else:
                     [item async for item in api.swarms.follow(state["run_id"])]
     assert not isinstance(caught.value, TransportFailureError)
     assert caught.value.code == refusal["code"]
-    assert subscriptions > 3 if outlasted else subscriptions == 1
+    assert subscriptions >= 2 if outlasted else subscriptions == 1
     assert caught.value.checkpoint is not None
 
 

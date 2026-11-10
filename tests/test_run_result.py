@@ -1,13 +1,11 @@
-"""`swarms.result()` reads a finished run's outputs and final text answer."""
-
-import hashlib
+"""`swarms.result()` is one `getRunResult` read: the answer, its source and the charge."""
 
 import httpx
 import pytest
 
 from synth_ai import AsyncSynthClient, SynthClient
-from synth_ai.errors import DataIntegrityError, ResultUnavailableError
-from synth_ai.models import RunResult
+from synth_ai.errors import ConflictError, ResultUnavailableError
+from synth_ai.models import RunCharge, RunResult
 
 
 def snapshot(contract, **changes):
@@ -21,215 +19,151 @@ def snapshot(contract, **changes):
     return value
 
 
-def output(run_id, suffix, media_type, content, *, state="available"):
+def output(run_id, suffix, media_type):
     return dict(
         run_id=run_id,
         output_id="out_" + suffix * 22,
-        state=state,
+        state="available",
         filename=suffix + ".out",
         reference=dict(
             run_id=run_id,
             output_id="out_" + suffix * 22,
-            revision_id="out_" + suffix * 22,
-            digest_sha256=hashlib.sha256(content).hexdigest(),
-            byte_size=str(len(content)),
+            revision_id="rev_" + suffix,
+            digest_sha256="0" * 64,
+            byte_size="18",
             media_type=media_type,
         ),
     )
 
 
-def handler(state, outputs, contents, calls):
+def body(state, *, answer=None, answer_output=None, objective_answer=None):
+    return dict(
+        run=state,
+        state=state["state"],
+        answer=answer,
+        answer_output=answer_output,
+        objective_answer=objective_answer,
+        charge=state.get("charge"),
+    )
+
+
+def problem(code, status=409):
+    return dict(
+        type="about:blank",
+        title="refused",
+        detail=code,
+        status=status,
+        instance="urn:test",
+        code=code,
+        service="core",
+        stage="getRunResult",
+        outcome="not_accepted",
+    )
+
+
+def handler(state, result, calls):
     def handle(request):
         calls.append(request.url.path)
-        path = request.url.path
-        if path.endswith("/outputs"):
-            cursor = request.url.params.get("cursor")
-            # Two pages prove the record holds every output, in order.
-            if cursor is None and len(outputs) > 1:
-                return httpx.Response(
-                    200, json=dict(has_more=True, next_cursor="page-2", items=outputs[:1])
-                )
-            items = outputs[1:] if cursor == "page-2" else outputs
-            return httpx.Response(200, json=dict(has_more=False, items=items))
-        if path.endswith("/content"):
-            output_id = path.split("/")[-2]
-            assert request.url.params["revision_id"] == output_id
-            return httpx.Response(200, content=contents[output_id])
+        if request.url.path.endswith("/result"):
+            if isinstance(result, tuple):
+                return httpx.Response(result[0], json=result[1])
+            return httpx.Response(200, json=result)
         return httpx.Response(200, json=state)
 
     return handle
 
 
-async def test_result_returns_outputs_and_last_text_answer(contract):
-    state = snapshot(contract)
-    answer_text = b"The answer is 42.\n"
-    items = [
-        output(state["run_id"], "A", "text/markdown", b"draft"),
-        output(state["run_id"], "B", "application/gzip", b"\x1f\x8b"),
-        output(state["run_id"], "C", "text/plain; charset=utf-8", answer_text),
-    ]
-    contents = {
-        item["output_id"]: c for item, c in zip(items, [b"draft", b"", answer_text], strict=True)
-    }
-    calls = []
+async def read(state, result, calls, run=None):
     async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, items, contents, calls))
+        transport=httpx.MockTransport(handler(state, result, calls))
     ) as http:
         async with AsyncSynthClient(
             "fixture", base_url="https://example.test", http_client=http
         ) as client:
-            finished = await client.swarms.get(state["run_id"])
-            calls.clear()
-            result = await client.swarms.result(finished)
-    assert isinstance(result, RunResult)
-    assert result.run == finished
-    assert [item.output_id for item in result.outputs] == [item["output_id"] for item in items]
-    assert result.answer_output is not None
-    assert result.answer_output.output_id == items[2]["output_id"]
-    assert result.content == result.answer == "The answer is 42.\n"
-    assert result.objective_answer is None
-    # A finished snapshot is not reread; only the answer's bytes are fetched.
-    assert not any(path.endswith(state["run_id"]) for path in calls)
-    assert sum(path.endswith("/content") for path in calls) == 1
+            return await client.swarms.result(run or state["run_id"])
 
 
-def test_sync_result_without_text_output_leaves_content_absent(contract):
+async def test_result_is_one_read_of_core_choice(contract):
     state = snapshot(contract)
-    items = [output(state["run_id"], "B", "application/gzip", b"\x1f\x8b")]
+    source = output(state["run_id"], "C", "text/plain; charset=utf-8")
     calls = []
-    http = httpx.AsyncClient(transport=httpx.MockTransport(handler(state, items, {}, calls)))
+    result = await read(
+        state, body(state, answer="The answer is 42.\n", answer_output=source), calls
+    )
+    assert isinstance(result, RunResult)
+    assert result.run.run_id == state["run_id"] and result.state == state["state"]
+    assert result.answer == "The answer is 42.\n"
+    assert (
+        result.answer_output is not None and result.answer_output.output_id == source["output_id"]
+    )
+    assert result.objective_answer is None
+    assert calls == ["/v1/runs/" + state["run_id"] + "/result"]
+
+
+def test_sync_result_accepts_a_snapshot_and_reports_no_answer(contract):
+    state = snapshot(contract)
+    calls = []
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler(state, body(state), calls)))
     with SynthClient("fixture", base_url="https://example.test", http_client=http) as client:
-        result = client.swarms.result(state["run_id"])
-    assert result.run.run_id == state["run_id"]
-    assert [item.output_id for item in result.outputs] == [items[0]["output_id"]]
-    assert result.answer is None and result.content is None and result.answer_output is None
-    assert not any(path.endswith("/content") for path in calls)
+        finished = client.swarms.get(state["run_id"])
+        calls.clear()
+        result = client.swarms.result(finished)
+    assert result.answer is None and result.answer_output is None
+    assert calls == ["/v1/runs/" + state["run_id"] + "/result"]
 
 
-async def test_result_refuses_unfinished_run_after_a_fresh_read(contract):
+async def test_result_reads_an_objective_answer(contract):
+    state = snapshot(contract)
+    objective = dict(
+        schema_version="synth.objective-answer.v1",
+        objective_id="codename",
+        definition_revision=1,
+        answer=dict(text="nonce-6b98", by="planner", revision=1, sources=[]),
+    )
+    result = await read(
+        state,
+        body(
+            state,
+            answer="nonce-6b98",
+            answer_output=output(state["run_id"], "J", "application/json"),
+            objective_answer=objective,
+        ),
+        [],
+    )
+    assert result.answer == "nonce-6b98"
+    assert result.objective_answer is not None
+    assert result.objective_answer.objective_id == "codename"
+    assert result.objective_answer.answer.text == "nonce-6b98"
+
+
+async def test_unfinished_run_raises_result_unavailable_with_a_fresh_snapshot(contract):
     state = snapshot(
         contract, execution_closed=True, accounting_final=False, cleanup_complete=False
     )
     calls = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, [], {}, calls))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            stale = await client.swarms.get(state["run_id"])
-            calls.clear()
-            with pytest.raises(ResultUnavailableError) as caught:
-                await client.swarms.result(stale)
-    assert caught.value.snapshot is not None and not caught.value.snapshot.finished
+    with pytest.raises(ResultUnavailableError) as caught:
+        await read(state, (409, problem("result_unavailable")), calls)
     assert caught.value.code == "result_unavailable"
-    assert calls == ["/v1/runs/" + state["run_id"]]
+    assert caught.value.snapshot is not None and not caught.value.snapshot.finished
+    assert isinstance(caught.value.__cause__, ConflictError)
+    assert calls == ["/v1/runs/" + state["run_id"] + "/result", "/v1/runs/" + state["run_id"]]
 
 
-@pytest.mark.parametrize("bound", ["outputs", "bytes"])
-async def test_result_bounds_refuse_instead_of_truncating(contract, bound):
+@pytest.mark.parametrize("code", ["result_answer_too_large", "result_answer_not_text"])
+async def test_other_result_refusals_propagate(contract, code):
     state = snapshot(contract)
-    big = b"x" * 64
-    items = [
-        output(state["run_id"], "A", "text/plain", big),
-        output(state["run_id"], "C", "text/plain", big),
-    ]
-    contents = {item["output_id"]: big for item in items}
-    calls = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, items, contents, calls))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(DataIntegrityError, match="max_" + bound):
-                if bound == "outputs":
-                    await client.swarms.result(state["run_id"], max_outputs=1)
-                else:
-                    await client.swarms.result(state["run_id"], max_bytes=63)
-    assert not any(path.endswith("/content") for path in calls)
+    with pytest.raises(ConflictError) as caught:
+        await read(state, (409, problem(code)), [])
+    assert caught.value.code == code
 
 
-# The real staging shape (SYN-5583): the run's only output is an objective
-# answer, media type application/json, with an empty filename.
-OBJECTIVE_ANSWER = (
-    b'{"answer":{"by":"planner","revision":1,"sources":[{"authority":"artifacts",'
-    b'"digest_sha256":"c69d3b525ea90780def18d7dc0e99dd249cc23cd4e3e36ff6777076ccb94b6bb",'
-    b'"kind":"artifact","record_id":"f839b58d-26b3-929f-2357-19a10afb983c","revision":"1"}],'
-    b'"text":"nonce-6b986119d8504e8eb130b89ff392a483"},"definition_revision":1,'
-    b'"objective_id":"codename","schema_version":"synth.objective-answer.v1",'
-    b'"sublinear_receipt":{"digest":"8024","operation_id":"b321","owner":"sublinear",'
-    b'"receipt_id":"8024"}}'
-)
-
-
-def objective_output(run_id, suffix, content):
-    item = output(run_id, suffix, "application/json", content)
-    item["filename"] = ""
-    return item
-
-
-async def test_result_reads_the_objective_answer_when_there_is_no_text_output(contract):
-    state = snapshot(contract)
-    items = [
-        objective_output(state["run_id"], "J", OBJECTIVE_ANSWER),
-        output(state["run_id"], "B", "application/gzip", b"\x1f\x8b"),
-    ]
-    contents = {items[0]["output_id"]: OBJECTIVE_ANSWER}
-    calls = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, items, contents, calls))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            result = await client.swarms.result(state["run_id"])
-    assert result.answer == "nonce-6b986119d8504e8eb130b89ff392a483"
-    assert result.answer_output is not None
-    assert result.answer_output.output_id == items[0]["output_id"]
-    assert result.content == OBJECTIVE_ANSWER.decode()
-    objective = result.objective_answer
-    assert objective is not None and objective.objective_id == "codename"
-    assert objective.answer.by == "planner"
-    assert objective.answer.sources[0].record_id == "f839b58d-26b3-929f-2357-19a10afb983c"
-
-
-async def read_result(state, items, contents):
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, items, contents, []))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            return await client.swarms.result(state["run_id"])
-
-
-async def test_result_prefers_a_text_output_and_ignores_other_json(contract):
-    state = snapshot(contract)
-    items = [
-        output(state["run_id"], "T", "text/markdown", b"text answer"),
-        objective_output(state["run_id"], "J", OBJECTIVE_ANSWER),
-    ]
-    contents = {items[0]["output_id"]: b"text answer", items[1]["output_id"]: OBJECTIVE_ANSWER}
-    result = await read_result(state, items, contents)
-    assert result.answer == "text answer" and result.objective_answer is None
-    other = b'{"schema_version":"something.else","value":1}'
-    only_json = [objective_output(state["run_id"], "K", other)]
-    unrelated = await read_result(state, only_json, {only_json[0]["output_id"]: other})
-    assert unrelated.answer is None and unrelated.answer_output is None
-    assert unrelated.content is None
-
-
-async def test_result_carries_the_run_charge_and_list_pages_parse_without_it(contract):
-    from synth_ai.models import RunCharge, RunSnapshot
-
+async def test_result_carries_the_run_charge(contract):
     state = snapshot(
         contract, charge={"amount": {"amount": "0.02365822", "currency": "USD"}, "final": True}
     )
-    result = await read_result(state, [], {})
+    result = await read(state, body(state), [])
     assert isinstance(result.charge, RunCharge)
     assert result.charge.amount.amount == "0.02365822" and result.charge.final is True
-    listed = snapshot(contract)
-    listed.pop("charge", None)
-    assert RunSnapshot.model_validate(listed).charge is None
-    assert (await read_result(listed, [], {})).charge is None
+    uncharged = snapshot(contract)
+    uncharged.pop("charge", None)
+    assert (await read(uncharged, body(uncharged), [])).charge is None

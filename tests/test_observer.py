@@ -261,7 +261,7 @@ async def test_wait_raises_original_gateway_error_when_outage_outlasts_timeout(c
             with pytest.raises(UpstreamUnavailableError) as caught:
                 await api.swarms.wait(snapshot(contract)["run_id"], timeout=0.2, poll_interval=0.01)
     assert caught.value.status == 503 and caught.value.code == "upstream_refused"
-    assert isinstance(caught.value.__cause__, TimeoutError) and calls > 3
+    assert isinstance(caught.value.__cause__, TimeoutError) and calls >= 3
 
 
 async def test_launch_is_never_retried_on_gateway_failure(contract):

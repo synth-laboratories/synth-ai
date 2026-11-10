@@ -38,11 +38,7 @@ STEPS: dict[str, dict[str, set[str]]] = {
     "resume": {"*": {"resumeRun"}},
     "watch": {"sdk": {"listRunEvents"}, "cli": {"listRunEvents"}, "mcp": {"waitRun"}},
     "outputs": {"*": {"listRunOutputs"}},
-    "answer": {
-        "sdk": {"getRunOutputContent"},
-        "cli": {"getRunOutputContent"},
-        "mcp": {"getRunOutput"},
-    },
+    "answer": {"*": {"getRunResult"}},
     "usage": {"*": {"listUsageRecords"}},
 }
 
@@ -179,6 +175,19 @@ class FakeApi:
             return httpx.Response(200, json={"items": [self.output], "has_more": False})
         if oid == "getRunOutput":
             return httpx.Response(200, json=self.output)
+        if oid == "getRunResult":
+            run = self.snapshot()
+            return httpx.Response(
+                200,
+                json={
+                    "run": run,
+                    "state": run["state"],
+                    "answer": ANSWER.decode(),
+                    "answer_output": self.output,
+                    "objective_answer": None,
+                    "charge": run.get("charge"),
+                },
+            )
         if oid == "getRunOutputContent":
             return httpx.Response(
                 200, content=ANSWER, headers={"Content-Type": "application/octet-stream"}
@@ -269,7 +278,7 @@ def sdk_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
         ]
 
     async def answer():
-        facts.answer = (await swarms.result(RUN_ID)).content
+        facts.answer = (await swarms.result(RUN_ID)).answer
 
     async def usage():
         facts.usage_records = len((await client.account.usage_records(run_id=RUN_ID)).items)
@@ -328,7 +337,7 @@ def cli_surface(api: FakeApi, task: Path, facts: Facts, capsys) -> dict[str, Ste
         ]
 
     async def answer():
-        facts.answer = (await synth("result", RUN_ID))["content"]
+        facts.answer = (await synth("result", RUN_ID))["answer"]
 
     async def usage():
         facts.usage_records = len((await synth("usage", RUN_ID))["items"])
@@ -399,9 +408,8 @@ def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
         ]
 
     async def answer():
-        # MCP returns output metadata; the content is fetched by digest outside the tool.
-        output = await tool("swarms_run_output_get", run_id=RUN_ID, output_id=OUTPUT_ID)
-        facts.answer = output["reference"]["digest_sha256"]
+        # One tool call returns the answer text, as result() does in the SDK.
+        facts.answer = (await tool("swarms_run_result", run_id=RUN_ID))["answer"]
 
     async def usage():
         facts.usage_records = len((await tool("usage_for_run", run_id=RUN_ID))["items"])
@@ -467,7 +475,6 @@ async def test_the_same_journey_on_every_surface(contract, env, capsys, surface)
     assert [f["file_id"] for f in launch["inputs"]["files"]] == [api.manifest()["file_id"]]
     if surface == "mcp":
         assert api.waits == 2  # one bounded-wait timeout, then terminal
-        assert facts.answer == hashlib.sha256(ANSWER).hexdigest()
     else:
         assert api.stream_opens == [None, "1"]  # one retryable drop, resumed after event 1
-        assert facts.answer == ANSWER.decode()
+    assert facts.answer == ANSWER.decode()

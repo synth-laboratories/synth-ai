@@ -64,7 +64,8 @@ Then the agent calls, in order: `swarms_profiles_list`, `swarms_upload_file`
 (`body: {name, media_type, content}`), `swarms_run_launch`
 (`body: {message, limits: {maximum_charge: {amount, currency}}, inputs}`),
 `swarms_run_wait` (repeat while `outcome` is `timeout`), `swarms_run_pause` /
-`swarms_run_resume`, `swarms_run_outputs`, `swarms_run_output_get` and
+`swarms_run_resume`, `swarms_run_result` (the answer in one call), `swarms_run_outputs`,
+`swarms_run_output_get` and
 `usage_for_run`. Mutating tools require an `idempotency_key`. The hosted `/mcp`
 endpoint lists the same tools; see [mcp.md](mcp.md) and [tools](mcp-tools.md).
 

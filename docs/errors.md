@@ -131,7 +131,11 @@ with the same key, which never runs it twice.
 - `run_failed` (`RunFailedError`): the run finished `failed` (only with
   `raise_on_failure=True`). Read `report()` and outputs.
 - `result_unavailable` (`ResultUnavailableError`): `result()` was called before
-  the run finished. `wait()` first.
+  the run finished (Core's 409 `result_unavailable`; the error carries a fresh
+  snapshot). `wait()` first.
+- `result_answer_too_large`, `result_answer_not_text` (`ConflictError`, 409):
+  the answer output is over 1 MiB or not UTF-8 text. Fetch it with
+  `download_output`.
 - `run_history_unavailable` (`RunHistoryUnavailableError`): the run's event
   history is no longer retained. Read the snapshot and outputs instead.
 - `content_integrity_failed` (`DataIntegrityError`): downloaded bytes did not

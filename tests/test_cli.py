@@ -242,6 +242,7 @@ def test_upload_is_one_step(api, capsys, contract, tmp_path):
     [("completed", cli.EXIT_OK), ("failed", cli.EXIT_RUN_UNSUCCESSFUL), ("cancelled", 3)],
 )
 def test_wait_exit_codes(api, capsys, contract, state, expected):
+    serve_result(api, contract, None)
     api.overrides["getRun"] = (200, snapshot_in(contract, state))
     code, out, err = invoke(api, capsys, "wait", RUN_ID, "--timeout", "5", "--json")
     assert code == expected, err
@@ -338,24 +339,36 @@ def test_download_writes_verified_outputs(api, capsys, contract, tmp_path):
     assert code == cli.EXIT_CLIENT_ERROR and "not found" in err
 
 
-def serve_answer(api, contract, text):
-    content = text.encode()
-    item = {
+def serve_result(api, contract, answer, *, media_type="text/markdown", objective=None):
+    """Serve getRunResult from whatever getRun currently returns (so charge edits apply)."""
+    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
+    source = {
         "run_id": RUN_ID,
         "output_id": "out_AAAAAAAAAAAAAAAAAAAAAA",
         "state": "available",
         "filename": "answer.md",
-        "reference": {
-            "revision_id": "rev",
-            "digest_sha256": hashlib.sha256(content).hexdigest(),
-            "media_type": "text/markdown",
-        },
+        "reference": {"revision_id": "rev", "digest_sha256": "0" * 64, "media_type": media_type},
     }
-    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
-    api.overrides["listRunOutputs"] = (200, {"items": [item], "has_more": False})
-    api.overrides["getRunOutputContent"] = lambda _r: httpx.Response(
-        200, content=content, headers={"Content-Type": "application/octet-stream"}
-    )
+
+    def result(_request):
+        run = api.overrides["getRun"][1]
+        return httpx.Response(
+            200,
+            json={
+                "run": run,
+                "state": run["state"],
+                "answer": answer,
+                "answer_output": None if answer is None else source,
+                "objective_answer": objective,
+                "charge": run.get("charge"),
+            },
+        )
+
+    api.overrides["getRunResult"] = result
+
+
+def serve_answer(api, contract, text):
+    serve_result(api, contract, text)
 
 
 def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
@@ -366,39 +379,21 @@ def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
     code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
     assert code == cli.EXIT_OK, err
     document = json.loads(out)
-    assert document["run"]["state"] == "completed"
-    assert document["content"] == "The answer is 42."
+    assert document["run"]["state"] == "completed" and document["state"] == "completed"
     assert document["answer"] == "The answer is 42."
-    assert document["answer_output"]["output_id"] == document["outputs"][0]["output_id"]
+    assert document["answer_output"]["output_id"] == "out_AAAAAAAAAAAAAAAAAAAAAA"
     assert document["objective_answer"] is None
     assert len(out.strip().splitlines()) == 1
 
 
 def serve_objective_answer(api, contract, text):
-    content = json.dumps(
-        {
-            "schema_version": "synth.objective-answer.v1",
-            "objective_id": "codename",
-            "definition_revision": 1,
-            "answer": {"text": text, "by": "planner", "revision": 1, "sources": []},
-        }
-    ).encode()
-    item = {
-        "run_id": RUN_ID,
-        "output_id": "out_JJJJJJJJJJJJJJJJJJJJJJ",
-        "state": "available",
-        "filename": "",
-        "reference": {
-            "revision_id": "rev",
-            "digest_sha256": hashlib.sha256(content).hexdigest(),
-            "media_type": "application/json",
-        },
+    objective = {
+        "schema_version": "synth.objective-answer.v1",
+        "objective_id": "codename",
+        "definition_revision": 1,
+        "answer": {"text": text, "by": "planner", "revision": 1, "sources": []},
     }
-    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
-    api.overrides["listRunOutputs"] = (200, {"items": [item], "has_more": False})
-    api.overrides["getRunOutputContent"] = lambda _r: httpx.Response(
-        200, content=content, headers={"Content-Type": "application/octet-stream"}
-    )
+    serve_result(api, contract, text, media_type="application/json", objective=objective)
 
 
 def test_result_prints_an_objective_answer(api, capsys, contract):
@@ -423,8 +418,7 @@ def test_upload_in_an_unsupported_format_is_a_typed_refusal(api, capsys, tmp_pat
 
 
 def test_result_without_a_text_answer_says_so(api, capsys, contract):
-    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
-    api.overrides["listRunOutputs"] = (200, {"items": [], "has_more": False})
+    serve_result(api, contract, None)
     code, out, err = invoke(api, capsys, "result", RUN_ID)
     assert code == cli.EXIT_OK, err
     assert "answer" in out and "none" in out
@@ -434,6 +428,20 @@ def test_result_on_an_unfinished_run_exits_one_with_its_code(api, capsys, contra
     _, running = example(contract, "getRun")
     running.update(state="running", execution_closed=False)
     api.overrides["getRun"] = (200, running)
+    api.overrides["getRunResult"] = (
+        409,
+        {
+            "type": "about:blank",
+            "title": "refused",
+            "detail": "run has not finished",
+            "status": 409,
+            "instance": "urn:test",
+            "code": "result_unavailable",
+            "service": "core",
+            "stage": "getRunResult",
+            "outcome": "not_accepted",
+        },
+    )
     code, out, err = invoke(api, capsys, "result", RUN_ID)
     assert code == cli.EXIT_CLIENT_ERROR and out == ""
     assert err.startswith("result_unavailable: ")
