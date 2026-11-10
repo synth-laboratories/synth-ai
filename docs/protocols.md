@@ -142,19 +142,28 @@ connections reconcile at `max(30 seconds, poll_interval)` to cover missing
 notifications. Heartbeats do not trigger reads. One monotonic `timeout` covers
 subscription, reads, reconnect delays and fallback, and cancels observation only.
 
-Reconnect attempts are bounded by `RetryPolicy.attempts`; delays respect both its
-backoff and `poll_interval`. Unexpected EOF or a transport disconnect does not
-prove completion. Once the server closes a feed for an execution-closed run,
-accounting and cleanup continue through explicit polling at
-`max(1 second, poll_interval)`. The same polling fallback applies when opening a
-feed returns a valid 406, 415 or 501 Problem. Authentication, cursor expiry,
-404, malformed feeds, and other server refusals propagate; they never silently
-switch to polling. No snapshot or history is discarded to recover an expired
-cursor. Exhausting reconnect attempts raises `TransportFailureError` with the
-checkpoint. `WaitTimeoutError` retains the latest snapshot and run identity.
+Core keeps the feed open after execution closes and sends the run milestones
+`execution_closed`, `accounting_final` and `cleanup_complete` as
+`event: milestone` frames, then ends it after the last (`final: true`). Each
+milestone wakes one `getRun`; nothing polls after closure. Milestone frame ids
+(`<sequence>.<level>`) are checkpointed like event ids, so a resumed feed
+neither loses nor repeats a milestone. `follow()` yields run events only;
+milestones advance its checkpoint.
 
-`poll_interval` remains accepted by sync and async methods, but now controls the
-minimum reconnect/fallback cadence, not continuous polling while a feed is open.
+Reconnect attempts are bounded by `RetryPolicy.attempts`; delays respect both its
+backoff and `poll_interval`. Unexpected EOF before the final milestone, or a
+transport disconnect, does not prove completion and resumes from the checkpoint.
+A feed that ends after its final milestone while the snapshot still lacks the
+requested milestone raises `ResponseContractError`
+(`event_stream_ended_before_milestone`). Feed refusals, including 406, 415 and
+501, authentication, cursor expiry, 404 and malformed feeds propagate; the
+observer never switches to polling. No snapshot or history is discarded to
+recover an expired cursor. Exhausting reconnect attempts raises
+`TransportFailureError` with the checkpoint. `WaitTimeoutError` retains the
+latest snapshot and run identity.
+
+`poll_interval` remains accepted by sync and async methods, but now controls only
+the minimum reconnect and reconcile cadence; it never drives polling.
 Use `contextlib.aclosing` if stopping `follow()` before exhaustion:
 
 ```python

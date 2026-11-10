@@ -170,7 +170,7 @@ async def test_disconnect_resumes_checkpoint_and_rereads(contract):
     assert cursors == [None, "8"] and feed.closed
 
 
-@pytest.mark.parametrize("status", [401, 403, 404, 410, 503])
+@pytest.mark.parametrize("status", [401, 403, 404, 406, 410, 415, 501, 503])
 async def test_feed_refusals_do_not_silently_fallback(contract, status):
     calls = []
 
@@ -196,42 +196,6 @@ async def test_feed_refusals_do_not_silently_fallback(contract, status):
             with pytest.raises(SwarmsAPIError) as caught:
                 await api.swarms.wait(snapshot(contract)["run_id"])
     assert caught.value.status == status and len(calls) == 1
-
-
-async def test_unavailable_feed_has_bounded_explicit_fallback(contract, monkeypatch):
-    monkeypatch.setattr(_observer, "_FALLBACK_MIN_SECONDS", 0.01)
-    state = snapshot(
-        contract, execution_closed=False, accounting_final=False, cleanup_complete=False
-    )
-    subscriptions, reads = 0, 0
-
-    def handle(request):
-        nonlocal subscriptions, reads
-        if request.headers["accept"] == "text/event-stream":
-            subscriptions += 1
-            return httpx.Response(
-                501,
-                json=dict(
-                    type="about:blank",
-                    title="unsupported",
-                    detail="unsupported",
-                    status=501,
-                    instance="urn:test",
-                    code="unsupported",
-                    service="core",
-                    stage="events",
-                    outcome="not_accepted",
-                ),
-            )
-        reads += 1
-        if reads == 2:
-            state.update(execution_closed=True, accounting_final=True, cleanup_complete=True)
-        return httpx.Response(200, json=state)
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
-        async with client(http) as api:
-            assert (await api.swarms.wait(state["run_id"], poll_interval=0.001)).finished
-    assert subscriptions == 1 and reads == 2
 
 
 async def test_eof_is_not_completion_and_reconnects_are_bounded(contract):
@@ -277,27 +241,134 @@ async def test_historical_and_malformed_feed_fail_clearly(contract):
                     await api.swarms.wait(state["run_id"])
 
 
-async def test_execution_closed_eof_polls_finality_without_reconnecting(contract, monkeypatch):
-    monkeypatch.setattr(_observer, "_FALLBACK_MIN_SECONDS", 0.01)
+def milestone(run_id, name, level, sequence=8, final=False, **flags):
+    data = dict(
+        milestone=name,
+        run_id=run_id,
+        state="completed",
+        execution_closed=True,
+        accounting_final=level >= 2,
+        cleanup_complete=level >= 3,
+        result_available=True,
+        failure=None,
+        final=final,
+    )
+    data.update(flags)
+    return (
+        "id: "
+        + str(sequence)
+        + "."
+        + str(level)
+        + "\nevent: milestone\ndata: "
+        + json.dumps(data)
+        + "\n\n"
+    ).encode()
+
+
+async def test_closed_run_follows_milestones_without_polling(contract, monkeypatch):
+    monkeypatch.setattr(_observer, "_RECONCILE_SECONDS", 5)
     state = snapshot(
         contract, execution_closed=True, accounting_final=False, cleanup_complete=False
     )
-    subscriptions, reads = 0, 0
+    feed, subscriptions, reads = Feed(), 0, 0
+    run_id = state["run_id"]
+    feed.queue.put_nowait(milestone(run_id, "execution_closed", 1))
 
     def handle(request):
         nonlocal subscriptions, reads
         if request.headers["accept"] == "text/event-stream":
             subscriptions += 1
-            return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=b"")
+            return response(feed)
         reads += 1
-        if reads == 4:
-            state.update(accounting_final=True, cleanup_complete=True)
         return httpx.Response(200, json=state)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with client(http) as api:
-            assert (await api.swarms.wait(state["run_id"], timeout=1, poll_interval=0.001)).finished
-    assert subscriptions == 1 and reads == 4
+            waiting = asyncio.create_task(api.swarms.wait(run_id, timeout=2, poll_interval=0.001))
+            await asyncio.sleep(0.05)
+            # Closed but not settled: the observer waits on the feed, not on getRun.
+            assert reads == 2 and not waiting.done()
+            state.update(accounting_final=True)
+            feed.queue.put_nowait(milestone(run_id, "accounting_final", 2))
+            await asyncio.sleep(0.05)
+            assert reads == 3 and not waiting.done()
+            state.update(cleanup_complete=True)
+            feed.queue.put_nowait(milestone(run_id, "cleanup_complete", 3, final=True))
+            assert (await asyncio.wait_for(waiting, 1)).finished
+    assert subscriptions == 1 and reads == 4 and feed.closed
+
+
+async def test_feed_cut_before_final_milestone_resumes_past_it(contract):
+    state = snapshot(
+        contract, execution_closed=True, accounting_final=False, cleanup_complete=False
+    )
+    run_id, cursors = state["run_id"], []
+
+    def handle(request):
+        if request.headers["accept"] == "text/event-stream":
+            cursors.append(request.headers.get("last-event-id"))
+            feed = Feed()
+            if len(cursors) == 1:
+                feed.queue.put_nowait(milestone(run_id, "execution_closed", 1))
+                feed.queue.put_nowait(None)  # lifetime cap: no final milestone
+            else:
+                state.update(accounting_final=True, cleanup_complete=True)
+                feed.queue.put_nowait(milestone(run_id, "accounting_final", 2))
+                feed.queue.put_nowait(milestone(run_id, "cleanup_complete", 3, final=True))
+            return response(feed)
+        return httpx.Response(200, json=state)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http) as api:
+            assert (await api.swarms.wait(run_id, timeout=1, poll_interval=0.001)).finished
+    assert cursors == [None, "8.1"]
+
+
+async def test_final_milestone_without_requested_state_fails_clearly(contract):
+    state = snapshot(
+        contract, execution_closed=True, accounting_final=False, cleanup_complete=False
+    )
+    run_id, subscriptions = state["run_id"], 0
+
+    def handle(request):
+        nonlocal subscriptions
+        if request.headers["accept"] == "text/event-stream":
+            subscriptions += 1
+            feed = Feed()
+            feed.queue.put_nowait(milestone(run_id, "cleanup_complete", 3, final=True))
+            feed.queue.put_nowait(None)
+            return response(feed)
+        return httpx.Response(200, json=state)  # getRun never shows the milestone
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http) as api:
+            with pytest.raises(ResponseContractError, match="event_stream_ended_before_milestone"):
+                await api.swarms.wait(run_id, timeout=1, poll_interval=0.001)
+    assert subscriptions == 1
+
+
+async def test_follow_yields_events_and_checkpoints_milestones(contract):
+    run_id = snapshot(contract)["run_id"]
+    feed = Feed()
+    feed.queue.put_nowait(("id: 8\ndata: " + json.dumps(event(run_id, "A")) + "\n\n").encode())
+    feed.queue.put_nowait(milestone(run_id, "execution_closed", 1))
+    feed.queue.put_nowait(milestone(run_id, "cleanup_complete", 3, final=True))
+    feed.queue.put_nowait(None)
+    state = snapshot(contract, execution_closed=True, accounting_final=True, cleanup_complete=True)
+
+    def handle(request):
+        if request.headers["accept"] == "text/event-stream":
+            return response(feed)
+        return httpx.Response(200, json=state)
+
+    from synth_ai._stream import StreamCheckpoint
+
+    checkpoint = StreamCheckpoint()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http) as api:
+            items = [item async for item in api.swarms.follow(run_id, checkpoint=checkpoint)]
+    assert [item.event_id for item in items] == ["evt_" + "A" * 22]
+    assert checkpoint.last_event_id == "8.3"
 
 
 async def test_snapshot_refusal_cannot_be_mistaken_for_unavailable_feed(contract):

@@ -10,7 +10,7 @@ forbidden access, missing resources, conflicts, rate limits and upstream/server
 failures. Unknown codes remain intact. Malformed responses and transport failures
 have distinct classes; a mutation transport failure has outcome `unknown`.
 
-`RunFailedError` means a closed run failed. `WaitTimeoutError` means polling
+`RunFailedError` means a closed run failed. `WaitTimeoutError` means waiting
 expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 
 ## Admission codes

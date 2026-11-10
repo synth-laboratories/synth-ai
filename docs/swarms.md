@@ -163,4 +163,4 @@ Python returns a failed snapshot normally; `raise_on_failure=True` raises
 snapshot and run ID. Finished runs with no result raise `ResultUnavailableError`
 when waiting for a result; imported history that cannot prove the milestone is
 reported explicitly. A failed run exits 1; completed and cancelled runs exit 0.
-The timeout bounds both streaming and final polling, and does not cancel the run.
+The timeout bounds the whole wait, including reconnects, and does not cancel the run.

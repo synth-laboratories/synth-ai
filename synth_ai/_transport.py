@@ -14,7 +14,7 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from ._event_stream import decode_events, validate_stream_response
+from ._event_stream import RunMilestone, decode_events, validate_stream_response
 from ._file_source import FileIO
 from ._generated.models import RunEvent, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
@@ -173,7 +173,7 @@ class Transport:
     @asynccontextmanager
     async def subscribe_events(
         self, run_id: str, state: StreamCheckpoint
-    ) -> AsyncGenerator[AsyncIterator[RunEvent], None]:
+    ) -> AsyncGenerator[AsyncIterator[RunEvent | RunMilestone], None]:
         """Open the durable feed before an observer performs its authoritative read."""
         state.bind(run_id)
         state.__post_init__()
@@ -228,7 +228,10 @@ class Transport:
                     try:
                         async with self.subscribe_events(run_id, state) as events:
                             async for item in events:
-                                yield item
+                                # Milestones advance the checkpoint; this public
+                                # iterator yields run events only.
+                                if isinstance(item, RunEvent):
+                                    yield item
                     except httpx.TransportError:
                         disconnected = True
                     if not disconnected:
