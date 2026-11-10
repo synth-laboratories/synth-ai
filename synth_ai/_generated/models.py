@@ -294,6 +294,11 @@ class RunState(StrEnum):
     CANCELLED = "cancelled"
 
 
+class RunWaitOutcome(StrEnum):
+    TERMINAL = "terminal"
+    TIMEOUT = "timeout"
+
+
 class SandboxImageStatus(StrEnum):
     PENDING = "pending"
     RESOLVED = "resolved"
@@ -625,6 +630,8 @@ class Problem(WireModel):
     upstream_status: int | None = None
     cause: str | None = None
     outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
+    retryable: bool | None = None
+    last_event_id: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
 
 
 class RefundDetailRunUsage1(WireModel):
@@ -1749,6 +1756,14 @@ class RunPage(WireModel):
     items: list[RunSnapshot]
 
 
+class RunWait(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    outcome: Annotated[RunWaitOutcome, BeforeValidator(enum_value(RunWaitOutcome))]
+    run: RunSnapshot
+
+
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
     "ChargeUsageUnits": ChargeUsageUnits,
@@ -1858,4 +1873,5 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
     "RunPage": RunPage,
+    "RunWait": RunWait,
 }

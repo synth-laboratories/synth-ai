@@ -8,7 +8,7 @@ from email.utils import parsedate_to_datetime
 
 from ._generated.models import Problem
 
-# Servers that predate the explicit `retryable` Problem member still mark an event
+# Servers that predate contract 1.4.0's typed `retryable` Problem member still mark an event
 # owner handoff (for example during a deploy) only by this code and status.
 _LEGACY_RETRYABLE_STREAM_REFUSALS = frozenset({("event_owner_unavailable", 503)})
 
@@ -72,7 +72,6 @@ def stream_refusal_retryable(problem: Problem) -> bool:
     """
     if problem.service == "synth-ai":
         return False
-    extra = problem.model_extra or {}
-    if "retryable" in extra:
-        return extra["retryable"] is True
+    if problem.retryable is not None:
+        return problem.retryable
     return (problem.code, problem.status) in _LEGACY_RETRYABLE_STREAM_REFUSALS

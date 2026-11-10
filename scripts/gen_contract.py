@@ -518,6 +518,12 @@ OPERATIONS: dict[str, Operation] = """
                 for p in params
                 if p["in"] in ("path", "query") and p.flag("required")
             ]
+            # x-synth-mcp-required narrows a tool to a filtered use of its operation.
+            for narrowed in operation.array("x-synth-mcp-required", optional=True):
+                if narrowed not in properties:
+                    raise ValueError("x-synth-mcp-required names an unknown query parameter")
+                if narrowed not in required:
+                    required.append(narrowed)
             if "requestBody" in operation:
                 body = operation.object("requestBody")
                 properties["body"] = expand(
