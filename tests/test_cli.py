@@ -201,6 +201,26 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
     ]
 
 
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--parallel-workers", "11"],
+        ["--parallel-workers", "0"],
+        ["--wall", "3601"],
+        ["--wall", "0"],
+        ["--label", "no-equals-sign"],
+        ["--budget", "-1"],
+    ],
+)
+def test_run_refuses_bad_flags_before_any_upload(api, capsys, tmp_path, flags):
+    path = tmp_path / "notes.md"
+    path.write_bytes(b"# Notes\n")
+    argv = ["run", "Find the fault", "--budget", "2.00", "--file", str(path), *flags]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "", err
+    assert api.calls == []
+
+
 def test_upload_is_one_step(api, capsys, contract, tmp_path):
     content = b"{}"
     path = tmp_path / "data.json"
