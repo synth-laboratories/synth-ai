@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.6.0
+  version: 1.7.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4821,6 +4821,15 @@ components:
           items: {}
         problems_observed:
           type: boolean
+          description: Whether `problems` is a complete, current observation, not whether the run had a
+            problem. True with an empty `problems` means the run was observed and has no open problem; a clean
+            completed run reads true and `[]`. False means `problems` may be incomplete - the run's problems
+            could not be read (the reason is listed in `problems`), the observation is stale, or this is a list
+            page, which does not read problems. A run with a launch failure always reads true, with that failure
+            in `problems`. `problems` lists open problems only; a problem the run got past (for example an owner
+            refusal on a run that then completed) is not listed.
+        charge:
+          $ref: '#/components/schemas/RunCharge'
         failure:
           description: Open failure projection or null. Reasons include launch_not_dispatched (the worker
             found a queued run that never reached the execution service; the hold was refunded).
@@ -4832,6 +4841,9 @@ components:
           - string
           - 'null'
           format: date-time
+          description: When the execution service accepted the run's start. Null while queued, for a run
+            refused before it started, and for runs launched before Core recorded the start (before 1.7.0) or
+            whose start was recovered by reconciliation rather than seen at launch.
         closed_at:
           type:
           - string
@@ -4843,6 +4855,24 @@ components:
           $ref: '#/components/schemas/RunSelection'
         routing:
           $ref: '#/components/schemas/RoutingReadback'
+    RunCharge:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      description: The run's charge, present on launch, single-run and wait reads; list pages omit it.
+        `amount` is the sum of `charge` over `GET /v1/usage/records?run_id=` for this run, with no time
+        window. Usage rows are written when the run settles, so `amount` can grow until `final` is true.
+        This is money charged, not usage; token counts stay on the usage records.
+      required:
+      - amount
+      - final
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        final:
+          type: boolean
+          description: True once settlement has closed the run's books (equal to `accounting_final`); the
+            amount no longer changes.
     RunSelection:
       type: object
       description: 'Which snapshot a research method selected and what a trusted score covers. Present on

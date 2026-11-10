@@ -36,7 +36,9 @@ publication order), `answer_output` (the last available output whose recorded
 objective answer, schema `synth.objective-answer.v1`), `content` (that output's
 digest-verified UTF-8 text; the raw JSON for an objective answer), `answer` (the
 answer text: the text output, or the objective answer's `answer.text`) and
-`objective_answer` (the parsed `ObjectiveAnswer`, when that is the source).
+`objective_answer` (the parsed `ObjectiveAnswer`, when that is the source) and
+`charge` (the snapshot's `RunCharge`: `amount` and `final`; `None` when Core
+omits it, as list pages do).
 Without either kind of output, `answer`, `answer_output` and `content` are `None`. An unfinished run raises
 `ResultUnavailableError` with its fresh snapshot; `result` never waits, so call
 `run()` or `wait()` first. `max_outputs` (1000) and `max_bytes` (1 MiB) bound the

@@ -218,3 +218,18 @@ async def test_result_prefers_a_text_output_and_ignores_other_json(contract):
     unrelated = await read_result(state, only_json, {only_json[0]["output_id"]: other})
     assert unrelated.answer is None and unrelated.answer_output is None
     assert unrelated.content is None
+
+
+async def test_result_carries_the_run_charge_and_list_pages_parse_without_it(contract):
+    from synth_ai.models import RunCharge, RunSnapshot
+
+    state = snapshot(
+        contract, charge={"amount": {"amount": "0.02365822", "currency": "USD"}, "final": True}
+    )
+    result = await read_result(state, [], {})
+    assert isinstance(result.charge, RunCharge)
+    assert result.charge.amount.amount == "0.02365822" and result.charge.final is True
+    listed = snapshot(contract)
+    listed.pop("charge", None)
+    assert RunSnapshot.model_validate(listed).charge is None
+    assert (await read_result(listed, [], {})).charge is None

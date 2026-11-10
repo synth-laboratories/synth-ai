@@ -20,6 +20,7 @@ from ._generated.models import (
     LimitList,
     Money,
     OutputPage,
+    RunCharge,
     RunControlReceipt,
     RunEvent,
     RunOutput,
@@ -150,11 +151,19 @@ def report(value: RunReport) -> str:
     return text
 
 
+def charge_line(value: RunCharge | None) -> str | None:
+    """One closing line: the run's charge and whether it is final."""
+    if value is None:
+        return None
+    return "charge  " + money(value.amount) + (" (final)" if value.final else " (not final)")
+
+
 def result(value: RunResult) -> str:
-    """The answer text alone, so `synth result RUN > answer.md` captures it."""
+    """The answer text, then one charge line when Core reported the charge."""
+    closing = charge_line(value.charge)
     if value.answer is not None:
-        return value.answer
-    return facts(
+        return value.answer if closing is None else value.answer.rstrip("\n") + "\n" + closing
+    summary = facts(
         [
             ("run", value.run.run_id),
             ("state", value.run.state),
@@ -162,6 +171,7 @@ def result(value: RunResult) -> str:
             ("answer", "none (no available text output or objective answer)"),
         ]
     )
+    return summary if closing is None else summary + "\n" + closing
 
 
 def result_json(value: RunResult) -> str:
@@ -175,6 +185,9 @@ def result_json(value: RunResult) -> str:
             else value.answer_output.model_dump(mode="json", exclude_unset=True),
             "content": value.content,
             "answer": value.answer,
+            "charge": None
+            if value.charge is None
+            else value.charge.model_dump(mode="json", exclude_unset=True),
             "objective_answer": None
             if value.objective_answer is None
             else value.objective_answer.model_dump(mode="json"),

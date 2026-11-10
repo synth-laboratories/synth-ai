@@ -10,7 +10,7 @@ Every command accepts `--json`; the global `--base-url` selects the API.
 | | `synth logout` | `AuthStatus` |
 | Discover | `synth profiles [--research-task T]` | `RunProfileCatalog` |
 | Inputs | `synth upload PATH...` | array of `File` |
-| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--label k=v ...] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one) |
+| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--label k=v ...] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
 | Watch | `synth status RUN` | `RunSnapshot` |
 | | `synth wait RUN [--timeout S]` | `RunSnapshot` |
 | | `synth logs RUN [-f] [--limit N] [--cursor C]` | `EventPage`; with `-f`, one `RunEvent` per line |
@@ -21,7 +21,7 @@ Every command accepts `--json`; the global `--base-url` selects the API.
 | Collect | `synth outputs RUN [--limit N] [--cursor C]` | `OutputPage` |
 | | `synth download RUN [OUTPUT] [-o DIR]` | array of `{output, path}` |
 | | `synth report RUN` | `RunReport` |
-| | `synth result RUN` | `RunResult` as `{run, outputs, answer_output, content, answer, objective_answer}`; human output is the answer text (a text output, or an objective answer's text) |
+| | `synth result RUN` | `RunResult` as `{run, outputs, answer_output, content, answer, objective_answer}`; human output is the answer text (a text output, or an objective answer's text), then the charge line; `--json` adds `charge` |
 | Account | `synth usage` | `UsageSummary` |
 | | `synth usage RUN` | `UsageRecordPage` |
 | | `synth billing` | `Balance` |
@@ -32,8 +32,11 @@ each file (prepare, transfer, finalize in one step) and attaches its reference.
 The default `--timeout` for `wait` and `run --wait` is 3600 seconds.
 
 `synth result RUN` reads a finished run with `swarms.result`: it prints the
-answer (the last available `text/*` output, digest-verified) or, when there is
-none, the run, state and output count. It never waits; on an unfinished run it
+answer (the last available `text/*` output, digest-verified, or else the latest
+objective answer's text) or, when there is none, the run, state and output count.
+When Core reports the run's charge, the last line is `charge  AMOUNT USD (final)`
+or `(not final)`; usage still settling can raise a charge that is not final.
+`--json` carries it as `charge`. It never waits; on an unfinished run it
 exits 1 with `result_unavailable`. See [errors.md](errors.md) for every code.
 
 `synth login --no-browser` prints the authorization URL to stderr and reads the

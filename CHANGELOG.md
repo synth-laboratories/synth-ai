@@ -2,8 +2,14 @@
 
 ## 0.32.2
 
-Contract: the SDK pins Core public contract 1.6.0 (Core `867e0819`, SHA-256
-`63d1af73…f2ebf1`). `limits.wall_time_seconds` is now at most 3600 (one hour),
+Contract: the SDK pins Core public contract 1.7.0 (Core `3a62a087`, SHA-256
+`7f60260f…1dcab`). The run snapshot gains a read-only `charge` (`RunCharge`:
+`amount` Money, `final` bool) on launch, single-run and wait reads (list pages
+omit it), and `started_at` is now populated for new runs. `RunResult.charge`
+exposes it; `synth result RUN` and `synth run --wait` end with one line,
+`charge  AMOUNT USD (final|not final)`, and `--json` includes `charge`.
+
+Contract 1.6.0 (Core `867e0819`) bounded `limits.wall_time_seconds` is now at most 3600 (one hour),
 down from 86400: Agents refuses actor deadlines more than an hour away, so a
 longer run used to be admitted and then fail at start with `deadline_invalid`.
 Core now refuses it at launch with 422 `invalid_launch_request`, cause

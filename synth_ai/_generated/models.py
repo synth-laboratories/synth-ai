@@ -1127,6 +1127,14 @@ class RoutingConstraints(WireModel):
     models: Only | Exclude | None = None
 
 
+class RunCharge(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    amount: Money
+    final: bool
+
+
 class RunConfiguration(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1705,6 +1713,7 @@ class RunSnapshot(WireModel):
     control: ControlRef | None = None
     problems: list[JsonValue] | None
     problems_observed: bool
+    charge: RunCharge | None = None
     failure: JsonValue | None = None
     created_at: str
     started_at: str | None
@@ -1830,6 +1839,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RefundDetail": RefundDetail,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
+    "RunCharge": RunCharge,
     "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,

@@ -238,9 +238,12 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             final = await swarms.wait(created.run_id, timeout=args.timeout)
             out.record(final, lambda s: "state  " + s.state)
             if not args.json:
-                answer = (await swarms.result(final)).answer
-                if answer is not None:
-                    print(answer, flush=True)
+                finished = await swarms.result(final)
+                if finished.answer is not None:
+                    print(finished.answer, flush=True)
+                closing = view.charge_line(finished.charge)
+                if closing is not None:
+                    print(closing, flush=True)
             return finished_code(final)
         elif command == "status":
             out.record(await swarms.get(args.run_id), view.snapshot)

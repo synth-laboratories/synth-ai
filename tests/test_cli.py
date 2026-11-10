@@ -465,3 +465,33 @@ def test_upgrade_required_prints_one_line_upgrade_hint(api, capsys, contract):
     code, out, err = invoke(api, capsys, "status", RUN_ID, "--json")
     assert code == cli.EXIT_SERVER_REFUSAL
     assert json.loads(err)["minimum_version"] == "0.32.0"
+
+
+CHARGE = {"amount": {"amount": "0.02365822", "currency": "USD"}, "final": True}
+
+
+def test_result_and_run_wait_end_with_the_run_charge(api, capsys, contract):
+    serve_answer(api, contract, "The answer is 42.")
+    charged = snapshot_in(contract, "completed")
+    charged["charge"] = CHARGE
+    api.overrides["getRun"] = (200, charged)
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer is 42.\ncharge  0.02365822 USD (final)\n"
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["charge"] == CHARGE
+    code, out, err = invoke(api, capsys, "run", "Goal", "--budget", "1.00", "--wait")
+    assert code == cli.EXIT_OK, err
+    assert out.splitlines()[-2:] == ["The answer is 42.", "charge  0.02365822 USD (final)"]
+    charged["charge"] = {"amount": {"amount": "0.01", "currency": "USD"}, "final": False}
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out.splitlines()[-1] == "charge  0.01 USD (not final)"
+
+
+def test_result_without_charge_prints_no_charge_line(api, capsys, contract):
+    serve_answer(api, contract, "The answer is 42.")
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["charge"] is None
