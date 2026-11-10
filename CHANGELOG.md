@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.34.0
+
+Contract: the SDK pins Core public contract 1.11.0 (Core `bc0c7198`, SHA-256
+`8f42597f…6e6ca1`). It adds self-serve billing lifecycle operations. None is an
+MCP tool; like `createCheckout`, they are SDK and HTTP only.
+
+New on `billing` (async and sync), each a read or write of Core's
+operation of the same name:
+
+- `subscription()` returns the org's `Subscription`, or `None` when it has never
+  had one (`getSubscription`).
+- `cancel_subscription()` and `resume_subscription()` (`Subscription`).
+- `preview_subscription_change(plan_id)` returns a `SubscriptionChangePreview`
+  (amount due now, credit applied, new period end) without changing anything.
+- `change_subscription_plan(plan_id)` (`Subscription`).
+- `payment_method_session()` returns a `PaymentMethodSession` whose `url` is the
+  hosted page for updating the card.
+- `auto_reload()` and `set_auto_reload(enabled=, threshold=, amount=)`
+  (`AutoReload`).
+- `spend_alerts()` and `set_spend_alerts(monthly_amount=, enabled=)`
+  (`SpendAlerts`); `monthly_amount=None` clears the amount.
+
+Mutations take an optional `idempotency_key`. `Account` carries
+`billing_attention` (`BillingAttention`: `kind`, `since`) when billing needs the
+org's action. `checkout` now documents that an org holding a subscription Stripe
+has not ended (`active`, `past_due`, `incomplete`, `unpaid`, `paused`) is refused
+with `subscription_already_active`.
+
+Generator: `scripts/gen_contract.py` accepts PUT operations and a response that is
+a schema or `null`; the operation table gains `nullable_response`.
+
 ## 0.33.0
 
 Contract: the SDK pins Core public contract 1.9.0 (Core `cf85aa84`, SHA-256

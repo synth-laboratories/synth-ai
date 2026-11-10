@@ -319,6 +319,11 @@ class SelectionCandidateState(StrEnum):
     FAILED = "failed"
 
 
+class SubscriptionChangeRequestPlanId(StrEnum):
+    STANDARD_MONTHLY = "standard.monthly"
+    MAX_MONTHLY = "max.monthly"
+
+
 class UploadCreateRequestMediaType(StrEnum):
     TEXT_PLAIN = "text/plain"
     TEXT_MARKDOWN = "text/markdown"
@@ -361,6 +366,14 @@ class AccountTerms(WireModel):
     )
     version: str
     accepted_at: str
+
+
+class BillingAttention(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    since: str
 
 
 class ChargeUsageUnits(WireModel):
@@ -586,6 +599,13 @@ class Org(WireModel):
 OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 
 OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
+
+
+class PaymentMethodSession(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    url: str
 
 
 class PoolSelection(WireModel):
@@ -818,6 +838,35 @@ class SelectionScore(WireModel):
     denominator: Annotated[int, Field(ge=1)]
 
 
+class SpendAlertsLastNotified0(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    threshold: int
+    at: str
+
+
+class Subscription(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: str
+    status: str
+    current_period_end: str | None
+    cancel_at_period_end: bool
+    cancel_at: str | None
+
+
+class SubscriptionChangeRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: Annotated[
+        SubscriptionChangeRequestPlanId,
+        BeforeValidator(enum_value(SubscriptionChangeRequestPlanId)),
+    ]
+
+
 class TermsAcceptance(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -895,6 +944,7 @@ class Account(WireModel):
     principal: Principal
     limits: list[Limit]
     terms: AccountTerms | None = None
+    billing_attention: BillingAttention | None = None
 
 
 class ApiKey(WireModel):
@@ -915,6 +965,26 @@ class ApiKey(WireModel):
     last_used_at: str | None = None
     expires_at: str | None = None
     revoked_at: str | None = None
+
+
+class AutoReload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None
+    amount: Money | None
+    disabled_reason: str | None
+    payment_method_on_file: bool
+
+
+class AutoReloadRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None = None
+    amount: Money | None = None
 
 
 class Balance(WireModel):
@@ -1379,6 +1449,34 @@ class SelectionCandidate(WireModel):
     candidate_files: list[SelectionFile] | None
 
 
+class SetSpendAlertsRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool | None = None
+    monthly_amount: Money | None
+
+
+class SpendAlerts(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    monthly_amount: Money | None
+    thresholds: list[int]
+    last_notified: SpendAlertsLastNotified0 | None
+
+
+class SubscriptionChangePreview(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: str
+    amount_due_now: Money
+    credit_applied: Money
+    new_period_end: str | None
+
+
 class UpdateApiKeyRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1810,6 +1908,7 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
     "Exclude": Exclude,
@@ -1829,6 +1928,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveVerdict": ObjectiveVerdict,
     "Only": Only,
     "Org": Org,
+    "PaymentMethodSession": PaymentMethodSession,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
     "Problem": Problem,
@@ -1847,6 +1947,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "SandboxMoment": SandboxMoment,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
+    "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
+    "Subscription": Subscription,
+    "SubscriptionChangeRequest": SubscriptionChangeRequest,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,
@@ -1856,6 +1959,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageExportRequest": UsageExportRequest,
     "Account": Account,
     "ApiKey": ApiKey,
+    "AutoReload": AutoReload,
+    "AutoReloadRequest": AutoReloadRequest,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
     "ChargeUsage": ChargeUsage,
@@ -1890,6 +1995,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunTimings": RunTimings,
     "RunUsage": RunUsage,
     "SelectionCandidate": SelectionCandidate,
+    "SetSpendAlertsRequest": SetSpendAlertsRequest,
+    "SpendAlerts": SpendAlerts,
+    "SubscriptionChangePreview": SubscriptionChangePreview,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "Upload": Upload,
     "UsageDayBucket": UsageDayBucket,

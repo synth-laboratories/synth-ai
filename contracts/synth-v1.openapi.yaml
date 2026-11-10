@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.9.0
+  version: 1.11.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -3173,7 +3173,7 @@ paths:
         or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown`
         (422),
 
-        `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org has a live subscription), `config_missing` (503, names the variable),
+        `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable),
         `stripe_price_missing` (503, names the lookup key),
 
         `stripe_checkout_failed` (502, `upstream_kind: stripe`).
@@ -3236,6 +3236,821 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/billing/checkout
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/billing/subscription:
+    get:
+      tags:
+      - billing
+      operationId: getSubscription
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/subscription.go
+      summary: The caller's org subscription, or null on the Free plan.
+      description: |
+        `status` is Core's stored status, an open string (today `active`, `past_due`, `unpaid`, `paused`, `incomplete`; Stripe trialing is stored as `active`; `paused` confers the Free plan);
+        clients must tolerate values they do not know. A pending cancel shows `cancel_at_period_end: true` and
+        `cancel_at`, the time Stripe ends the plan; the plan stays active until then. A row whose `cancel_at` passed
+        more than five minutes ago is re-read from Stripe before answering. Refusals:
+        `stripe_subscription_read_failed` (502, `upstream_kind: stripe`), `subscription_binding_conflict` (409),
+        `config_missing` (503). Any member with `account:billing:read` may read it.
+      responses:
+        '200':
+          description: Subscription, or null on the Free plan.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/Subscription'
+                - type: 'null'
+              example:
+                plan_id: standard.monthly
+                status: active
+                current_period_end: '2026-12-10T00:00:00Z'
+                cancel_at_period_end: false
+                cancel_at: null
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/subscription
+      parameters: []
+  /v1/billing/subscription/cancel:
+    post:
+      tags:
+      - billing
+      operationId: cancelSubscription
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/subscription.go
+      summary: Cancel the org subscription at period end (now when past due).
+      description: |
+        Requires an org admin or owner in addition to `account:billing:write` (owner decision 2026-11-10; buying
+        stays open to any member). An API key or OAuth grant acts with its owning user's current role, read on every
+        request. Ends the plan at the end of the current period, with no refund; the plan stays active until then. A
+        `past_due`, `unpaid` or `paused` subscription ends now. Already ending or already ended: answers the stored state and
+        writes nothing to Stripe. The request takes no body (or `{}`). A refusal before the Stripe write (403, 404, 409)
+        leaves the Idempotency-Key unused; a 5xx releases it, so the same key may retry. Refusals:
+        `billing_admin_required` (403, not an org admin), `subscription_not_found` (404), `subscription_not_self_serve` (409, no Stripe subscription),
+        `subscription_not_cancelable` (409, `incomplete` or `incomplete_expired`), `subscription_binding_conflict` (409),
+        `idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),
+        `stripe_subscription_cancel_failed` (502, `upstream_status` and Stripe's code as `cause`),
+        `config_missing` (503).
+      responses:
+        '200':
+          description: The subscription as Stripe now holds it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+              example:
+                plan_id: standard.monthly
+                status: active
+                current_period_end: '2026-12-10T00:00:00Z'
+                cancel_at_period_end: true
+                cancel_at: '2026-12-10T00:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/subscription/cancel
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/billing/subscription/resume:
+    post:
+      tags:
+      - billing
+      operationId: resumeSubscription
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/subscription.go
+      summary: Resume a subscription whose cancel is pending.
+      description: |
+        Requires an org admin or owner in addition to `account:billing:write`; an API key acts with its owning user's
+        current role. Undoes a pending cancel; the plan renews at period end. The request takes no body (or `{}`).
+        A refusal before the Stripe write (403, 404, 409) leaves the Idempotency-Key unused; a 5xx releases it.
+        Refusals: `billing_admin_required` (403), `subscription_not_found` (404), `subscription_not_self_serve` (409), `subscription_not_resumable` (409, no
+        cancel pending or the subscription already ended), `subscription_binding_conflict` (409),
+        `idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),
+        `stripe_subscription_resume_failed` (502, `upstream_status` and Stripe's code as `cause`), `config_missing` (503).
+      responses:
+        '200':
+          description: The subscription as Stripe now holds it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+              example:
+                plan_id: standard.monthly
+                status: active
+                current_period_end: '2026-12-10T00:00:00Z'
+                cancel_at_period_end: false
+                cancel_at: null
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/subscription/resume
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  # Lane A (SYN-5570 W1): plan switch, Morph's rule. Contract 1.11.0.
+  /v1/billing/subscription/change-preview:
+    get:
+      tags:
+      - billing
+      operationId: previewSubscriptionChange
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/subscription.go
+      summary: What switching the org subscription to another plan would charge now.
+      description: |
+        Stripe's invoice preview of the switch `changeSubscriptionPlan` would make: the new plan starts a new monthly
+        period now and the unused part of the current plan is credited against it. `amount_due_now` is what the
+        saved card is charged now; `credit_applied` is the unused part of the current plan; a credit larger than
+        the new price stays as account credit for later invoices. Writes nothing. Any member with
+        `account:billing:read` may read it. Refusals: `plan_unknown` (400), `subscription_not_found` (404),
+        `subscription_cancel_pending` (409), `subscription_not_changeable` (409, `past_due`, `unpaid`, `paused` or
+        `incomplete`), `subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),
+        `subscription_binding_conflict` (409), `stripe_subscription_read_failed` (502),
+        `stripe_invoice_preview_failed` (502), `stripe_price_missing` (503), `config_missing` (503).
+      parameters:
+      - name: plan_id
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - standard.monthly
+          - max.monthly
+      responses:
+        '200':
+          description: The charge a switch would make now.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionChangePreview'
+              example:
+                plan_id: max.monthly
+                amount_due_now:
+                  amount: '186.67'
+                  currency: USD
+                credit_applied:
+                  amount: '13.33'
+                  currency: USD
+                new_period_end: '2026-12-10T00:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/subscription/change-preview
+  /v1/billing/subscription/change:
+    post:
+      tags:
+      - billing
+      operationId: changeSubscriptionPlan
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/subscription.go
+      summary: Switch the org subscription to another plan now.
+      description: |
+        Requires an org admin or owner in addition to `account:billing:write`; an API key acts with its owning
+        user's current role. The switch takes effect now, upgrade or downgrade: the new plan starts a new monthly
+        period now, the unused part of the current plan is credited against the first charge (any excess stays
+        as account credit, never refunded), and the saved card is charged the rest. The switch applies only if that
+        payment succeeds; otherwise the plan is unchanged. The weekly allowance restarts at the new plan's amount;
+        the unused allowance of the current week is not carried over. Prepaid credit is untouched.
+        A refusal before the Stripe write (400, 403, 404, 409) leaves the Idempotency-Key unused; a 5xx releases it,
+        so the same key may retry. Refusals: `plan_unknown` (400), `billing_admin_required` (403),
+        `subscription_change_payment_failed` (402, the payment was declined; the plan is unchanged and the
+        declined switch is final: its open invoice is voided, so paying it later applies nothing),
+        `subscription_not_found` (404), `subscription_cancel_pending` (409, resume first),
+        `subscription_not_changeable` (409, `past_due`, `unpaid`, `paused` or `incomplete`; update the card first),
+        `subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),
+        `subscription_binding_conflict` (409), `idempotency_in_progress` (409, `Retry-After: 1`),
+        `stripe_subscription_read_failed` (502), `stripe_subscription_change_failed` (502, `upstream_status` and
+        Stripe's code as `cause`), `stripe_price_missing` (503), `config_missing` (503).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionChangeRequest'
+      responses:
+        '200':
+          description: The subscription as Stripe now holds it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+              example:
+                plan_id: max.monthly
+                status: active
+                current_period_end: '2026-12-10T00:00:00Z'
+                cancel_at_period_end: false
+                cancel_at: null
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '402':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/subscription/change
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  # --- lane B (SYN-5570 W2/W5): card update and auto-reload; contract 1.11.0 ---
+  /v1/billing/payment-method/session:
+    post:
+      tags:
+      - billing
+      operationId: createPaymentMethodSession
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/auto_reload.go
+      summary: Open Stripe's hosted page to update the org's card.
+      description: |
+        Requires an org admin or owner in addition to `account:billing:write`. Returns a short-lived Stripe portal URL
+        limited to updating payment methods and viewing invoices (a dedicated portal configuration Core creates on first
+        use and finds again by its metadata `synth_purpose=payment_methods`; the account's default configuration is
+        never used). The portal returns to the console's Billing page. Paying a past-due or unpaid invoice with the new
+        card returns the subscription to `active` through Stripe's webhooks. The request takes no body (or `{}`).
+        A refusal before the Stripe call leaves the Idempotency-Key unused; a 5xx releases it. Refusals:
+        `billing_admin_required` (403), `billing_customer_not_found` (404, the org has no Stripe customer),
+        `portal_configuration_unsafe` (503, Core's tagged configuration allows more than payment methods and invoices),
+        `stripe_portal_configuration_read_failed`, `stripe_portal_configuration_create_failed`,
+        `stripe_portal_session_failed` (502, `upstream_kind: stripe`), `config_missing` (503).
+      responses:
+        '200':
+          description: Hosted portal session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodSession'
+              example:
+                url: https://billing.stripe.com/p/session/example
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/payment-method/session
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/billing/auto-reload:
+    get:
+      tags:
+      - billing
+      operationId: getAutoReload
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/auto_reload.go
+      summary: The org's auto-reload setting.
+      description: |
+        Off by default for every org. When on, a debit that leaves the org's purchased-credit balance below `threshold`
+        charges the saved card `amount` off-session, at most one charge in flight and at most 3 per UTC day; the credits
+        are granted when Stripe confirms the payment. A declined charge, or one the bank asks the customer to
+        authenticate, turns auto-reload off and sets `disabled_reason` (for example `card_declined`,
+        `authentication_required`, `payment_method_missing`). `payment_method_on_file` reads the Stripe customer's saved
+        card. Any member with `account:billing:read` may read it. Refusals: `stripe_customer_read_failed` (502),
+        `config_missing` (503).
+      responses:
+        '200':
+          description: Auto-reload setting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoReload'
+              example:
+                enabled: true
+                threshold:
+                  amount: '10.00'
+                  currency: USD
+                amount:
+                  amount: '25.00'
+                  currency: USD
+                disabled_reason: null
+                payment_method_on_file: true
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/auto-reload
+      parameters: []
+    put:
+      tags:
+      - billing
+      operationId: setAutoReload
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/auto_reload.go
+      summary: Save the org's auto-reload setting.
+      description: |
+        Requires an org admin or owner in addition to `account:billing:write`. `enabled` is required; a `threshold` or
+        `amount` left out (or null) keeps the stored value. Turning it on needs both, a saved card, and clears
+        `disabled_reason`; only debits after that moment start a reload. Bounds: `threshold` $5.00 to $10,000.00,
+        `amount` $10.00 (the smallest credit pack) to $10,000.00, whole cents. Turning it off cancels a charge not yet
+        sent to Stripe. A refusal before the save leaves the Idempotency-Key unused; a 5xx releases it. Refusals:
+        `auto_reload_invalid` (400, names the `field`), `billing_admin_required` (403), `payment_method_required` (409,
+        no saved card), `stripe_customer_read_failed` (502), `config_missing` (503).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoReloadRequest'
+      responses:
+        '200':
+          description: The saved setting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoReload'
+              example:
+                enabled: true
+                threshold:
+                  amount: '10.00'
+                  currency: USD
+                amount:
+                  amount: '25.00'
+                  currency: USD
+                disabled_reason: null
+                payment_method_on_file: true
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/auto-reload
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  # --- end lane B paths ---
+  /v1/billing/spend-alerts:
+    get:
+      tags:
+      - billing
+      operationId: getSpendAlerts
+      x-synth-scope: "account:billing:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/spend_alerts.go
+      summary: The org's spend alert settings and its most recent alert.
+      description: |
+        Alerts fire when the org's settled spend in the current UTC month (the charges behind `getUsageSummary`)
+        reaches 50, 75, 90 and 100 percent of `monthly_amount`, once per threshold per month. `monthly_amount` is
+        null until the org sets one, and no alert fires then. `last_notified` is the most recent recorded alert,
+        or null. No email is sent; this field and the console are the notice.
+        Any member with `account:billing:read` may read it.
+      responses:
+        '200':
+          description: Spend alert settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendAlerts'
+              example:
+                enabled: true
+                monthly_amount:
+                  amount: '100.00'
+                  currency: USD
+                thresholds: [50, 75, 90, 100]
+                last_notified:
+                  threshold: 50
+                  at: '2026-11-10T12:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      parameters: []
+    put:
+      tags:
+      - billing
+      operationId: setSpendAlerts
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/billing/spend_alerts.go
+      summary: Replace the org's spend alert settings (org admin only).
+      description: |
+        Replaces the whole setting. `monthly_amount: null` turns alerts off until an amount is set; `enabled`
+        defaults to true. The amount is USD in whole cents, positive, at most 10000000.00. Refusals:
+        `billing_admin_required` (403, not an org admin), `spend_alerts_invalid` (400). Like every PUT setting
+        save, it takes an Idempotency-Key: a refusal before the save leaves the key unused and a 5xx releases it.
+        One audit event is recorded with the change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSpendAlertsRequest'
+      responses:
+        '200':
+          description: The settings as saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendAlerts'
+              example:
+                enabled: true
+                monthly_amount:
+                  amount: '100.00'
+                  currency: USD
+                thresholds: [50, 75, 90, 100]
+                last_notified:
+                  threshold: 50
+                  at: '2026-11-10T12:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: /v1/billing/spend-alerts
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /mcp/oauth/grants:
@@ -4227,6 +5042,13 @@ components:
           description: The org's most recently recorded terms acceptance, or null when none is recorded.
           oneOf:
           - $ref: '#/components/schemas/AccountTerms'
+          - type: 'null'
+        billing_attention:
+          description: Lane B (SYN-5570). A billing state the org must act on, or null. `past_due` (a payment failed;
+            the plan stays during Stripe's retries), `unpaid` (suspended to Free; paying restores the plan), `paused`, or
+            `auto_reload_disabled` (a reload charge failed). `since` is when it began.
+          oneOf:
+          - $ref: '#/components/schemas/BillingAttention'
           - type: 'null'
     AccountTerms:
       type: object
@@ -6430,6 +7252,152 @@ components:
         url:
           type: string
           format: uri
+    # --- lane B schemas (SYN-5570 W2/W5) ---
+    PaymentMethodSession:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+    AutoReload:
+      type: object
+      additionalProperties: false
+      required: [enabled, threshold, amount, disabled_reason, payment_method_on_file]
+      properties:
+        enabled:
+          type: boolean
+        threshold:
+          description: Reload when the purchased-credit balance falls below this; null when never set.
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        amount:
+          description: Credits bought per reload; null when never set.
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        disabled_reason:
+          description: Why a failed charge turned auto-reload off (open set); null otherwise.
+          type: [string, 'null']
+        payment_method_on_file:
+          type: boolean
+    AutoReloadRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+        threshold:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        amount:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+    BillingAttention:
+      type: object
+      additionalProperties: false
+      required: [kind, since]
+      properties:
+        kind:
+          description: What needs the org's attention (open set; clients ignore kinds they do not know).
+          type: string
+          examples: [past_due, unpaid, paused, auto_reload_disabled]
+        since:
+          type: string
+          format: date-time
+    # --- end lane B schemas ---
+    Subscription:
+      type: object
+      additionalProperties: false
+      required: [plan_id, status, current_period_end, cancel_at_period_end, cancel_at]
+      properties:
+        plan_id:
+          type: string
+        status:
+          type: string
+          description: Core's stored subscription status (open set; clients fail closed on values they do not know).
+        current_period_end:
+          type: [string, 'null']
+          format: date-time
+        cancel_at_period_end:
+          type: boolean
+        cancel_at:
+          description: When Stripe ends the subscription; null when no cancel is pending.
+          type: [string, 'null']
+          format: date-time
+    # Lane A (SYN-5570 W1) schemas. Contract 1.11.0.
+    SubscriptionChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [plan_id]
+      properties:
+        plan_id:
+          type: string
+          enum:
+          - standard.monthly
+          - max.monthly
+    SubscriptionChangePreview:
+      type: object
+      additionalProperties: false
+      required: [plan_id, amount_due_now, credit_applied, new_period_end]
+      properties:
+        plan_id:
+          type: string
+        amount_due_now:
+          $ref: '#/components/schemas/Money'
+        credit_applied:
+          $ref: '#/components/schemas/Money'
+        new_period_end:
+          description: End of the new plan's first period, which starts at the switch.
+          type: [string, 'null']
+          format: date-time
+    SpendAlerts:
+      type: object
+      additionalProperties: false
+      required: [enabled, monthly_amount, thresholds, last_notified]
+      properties:
+        enabled:
+          type: boolean
+        monthly_amount:
+          description: The monthly amount the thresholds apply to; null until set (alerts are off).
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
+        thresholds:
+          type: array
+          description: Percentages of monthly_amount that alert.
+          items:
+            type: integer
+        last_notified:
+          description: The most recent recorded alert; null when none.
+          oneOf:
+          - type: object
+            additionalProperties: false
+            required: [threshold, at]
+            properties:
+              threshold:
+                type: integer
+              at:
+                type: string
+                format: date-time
+          - type: 'null'
+    SetSpendAlertsRequest:
+      type: object
+      additionalProperties: false
+      required: [monthly_amount]
+      properties:
+        enabled:
+          type: boolean
+          default: true
+        monthly_amount:
+          oneOf:
+          - $ref: '#/components/schemas/Money'
+          - type: 'null'
     CheckoutAttempt:
       type: object
       additionalProperties: false

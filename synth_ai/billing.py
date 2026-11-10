@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from ._generated.models import (
+    AutoReload,
+    AutoReloadRequest,
     Balance,
     BillingHistoryEntry,
     BillingHistoryPage,
@@ -14,10 +16,17 @@ from ._generated.models import (
     CheckoutRequest,
     CheckoutSession,
     Money,
+    PaymentMethodSession,
     PlanCatalog,
+    SetSpendAlertsRequest,
+    SpendAlerts,
+    Subscription,
+    SubscriptionChangePreview,
+    SubscriptionChangeRequest,
 )
 from ._pagination import paginate
 from ._transport import Transport
+from .errors import SynthError
 
 
 class AsyncBilling:
@@ -78,6 +87,83 @@ class AsyncBilling:
         body = CheckoutRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "createCheckout", CheckoutSession, body=body, idempotency_key=idempotency_key
+        )
+
+    async def subscription(self) -> Subscription | None:
+        """The org's subscription, or None when it has never had one."""
+        result = await self._transport.invoke("getSubscription")
+        if result is not None and not isinstance(result, Subscription):
+            raise SynthError("Unexpected response model for getSubscription")
+        return result
+
+    async def cancel_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
+        return await self._transport.request(
+            "cancelSubscription", Subscription, idempotency_key=idempotency_key
+        )
+
+    async def resume_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
+        return await self._transport.request(
+            "resumeSubscription", Subscription, idempotency_key=idempotency_key
+        )
+
+    async def preview_subscription_change(self, plan_id: str) -> SubscriptionChangePreview:
+        return await self._transport.request(
+            "previewSubscriptionChange", SubscriptionChangePreview, query={"plan_id": plan_id}
+        )
+
+    async def change_subscription_plan(
+        self, plan_id: str, *, idempotency_key: str | None = None
+    ) -> Subscription:
+        body = SubscriptionChangeRequest.model_validate({"plan_id": plan_id})
+        return await self._transport.request(
+            "changeSubscriptionPlan", Subscription, body=body, idempotency_key=idempotency_key
+        )
+
+    async def payment_method_session(
+        self, *, idempotency_key: str | None = None
+    ) -> PaymentMethodSession:
+        return await self._transport.request(
+            "createPaymentMethodSession", PaymentMethodSession, idempotency_key=idempotency_key
+        )
+
+    async def auto_reload(self) -> AutoReload:
+        return await self._transport.request("getAutoReload", AutoReload)
+
+    async def set_auto_reload(
+        self,
+        *,
+        enabled: bool,
+        threshold: Money | None = None,
+        amount: Money | None = None,
+        idempotency_key: str | None = None,
+    ) -> AutoReload:
+        fields: dict[str, bool | Money] = {"enabled": enabled}
+        if threshold is not None:
+            fields["threshold"] = threshold
+        if amount is not None:
+            fields["amount"] = amount
+        body = AutoReloadRequest.model_validate(fields)
+        return await self._transport.request(
+            "setAutoReload", AutoReload, body=body, idempotency_key=idempotency_key
+        )
+
+    async def spend_alerts(self) -> SpendAlerts:
+        return await self._transport.request("getSpendAlerts", SpendAlerts)
+
+    async def set_spend_alerts(
+        self,
+        *,
+        monthly_amount: Money | None,
+        enabled: bool | None = None,
+        idempotency_key: str | None = None,
+    ) -> SpendAlerts:
+        """Set the monthly alert amount; None clears it. `enabled` is left unchanged if omitted."""
+        fields: dict[str, bool | Money | None] = {"monthly_amount": monthly_amount}
+        if enabled is not None:
+            fields["enabled"] = enabled
+        body = SetSpendAlertsRequest.model_validate(fields)
+        return await self._transport.request(
+            "setSpendAlerts", SpendAlerts, body=body, idempotency_key=idempotency_key
         )
 
     async def iter_history(
