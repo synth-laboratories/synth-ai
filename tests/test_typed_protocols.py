@@ -63,6 +63,31 @@ def launch(**fields):
     }
 
 
+def test_run_version_metadata_is_typed_and_absent_on_older_servers():
+    legacy = RunSnapshot.model_validate(snapshot())
+    assert legacy.api_version is None and legacy.variant is None
+    run = RunSnapshot.model_validate(
+        {
+            **snapshot(),
+            "api_version": "1.0.0",
+            "variant": {"id": "swarms.fork_flush", "version": "1.2.3"},
+        }
+    )
+    assert run.api_version == "1.0.0"
+    assert run.variant is not None
+    assert run.variant.id == "swarms.fork_flush"
+    assert run.variant.version == "1.2.3"
+    with pytest.raises(ValidationError):
+        RunSnapshot.model_validate({**snapshot(), "api_version": "1"})
+    with pytest.raises(ValidationError):
+        RunSnapshot.model_validate(
+            {
+                **snapshot(),
+                "variant": {"id": "swarms.fork_flush", "version": "1.x"},
+            }
+        )
+
+
 @pytest.mark.parametrize("value", [True, "60", 60.5])
 async def test_wrong_wall_time_type_is_rejected_before_any_request(value):
     sent = []

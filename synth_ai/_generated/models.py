@@ -808,6 +808,14 @@ class SelectionScore(WireModel):
     denominator: Annotated[int, Field(ge=1)]
 
 
+class SwarmsVariantVersion(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: Annotated[str, Field(min_length=1, max_length=128)]
+    version: Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
+
+
 class TermsAcceptance(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1693,6 +1701,11 @@ class RunSnapshot(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    api_version: (
+        Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
+        | None
+    ) = None
+    variant: SwarmsVariantVersion | None = None
     metadata: dict[str, JsonValue]
     method: JsonValue | None = None
     run_id: RunId
@@ -1814,6 +1827,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SandboxMoment": SandboxMoment,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
+    "SwarmsVariantVersion": SwarmsVariantVersion,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,

@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.8.0
+  version: 1.9.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4736,6 +4736,19 @@ components:
           type: object
           additionalProperties:
             type: string
+    SwarmsVariantVersion:
+      type: object
+      description: Variant semantic version pinned when the run was admitted. Absent for older or unversioned runs.
+      additionalProperties: false
+      required: [id, version]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     RunSnapshot:
       type: object
       required:
@@ -4758,6 +4771,12 @@ components:
       - started_at
       - closed_at
       properties:
+        api_version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          description: Semantic version of the currently serving Swarms API; absent on imported history.
+        variant:
+          $ref: '#/components/schemas/SwarmsVariantVersion'
         metadata:
           type: object
           additionalProperties: true
