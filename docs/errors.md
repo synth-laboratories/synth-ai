@@ -62,6 +62,15 @@ One line per code: what it means, then what the caller should do.
 - `run_not_found` (404) and other `NotFoundError` codes: the ID is wrong or
   belongs to another organization. Check the ID and the key's organization.
 
+### Client version
+
+- `client_upgrade_required` (426, `UpgradeRequiredError`): the API no longer
+  serves this synth-ai version. Each SDK release is a full cutover with no
+  support window. Run `pip install -U synth-ai`. The error carries
+  `minimum_version` (the oldest version served) and `client_version` (the
+  version this client sent); `retryable` is false and the SDK never retries
+  it. The CLI prints the problem, then a one-line upgrade hint.
+
 ### Idempotency replay
 
 Mutations take an `Idempotency-Key`. Reusing a key with the same request replays

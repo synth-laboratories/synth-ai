@@ -4,7 +4,7 @@ from ._transport import RetryPolicy
 from ._version import __version__
 from .aclient import AsyncSynthClient
 from .client import SynthClient
-from .errors import SwarmsAPIError, SynthError
+from .errors import SwarmsAPIError, SynthError, UpgradeRequiredError
 from .models import (
     CompletionMilestone,
     Exclude,
@@ -28,5 +28,6 @@ __all__ = [
     "SwarmsAPIError",
     "SynthClient",
     "SynthError",
+    "UpgradeRequiredError",
     "__version__",
 ]
