@@ -27,12 +27,12 @@ from ._generated.models import (
     RunPage,
     RunProfileCatalog,
     RunReport,
+    RunResult,
     RunSnapshot,
     RunTaskPage,
     UsageRecordPage,
     UsageSummary,
 )
-from ._results import RunResult
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 
@@ -166,7 +166,6 @@ def result(value: RunResult) -> str:
         [
             ("run", value.run.run_id),
             ("state", value.run.state),
-            ("outputs", len(value.outputs)),
             ("answer", "none (no available text output or objective answer)"),
         ]
     )
@@ -174,25 +173,8 @@ def result(value: RunResult) -> str:
 
 
 def result_json(value: RunResult) -> str:
-    """`RunResult` as one JSON document: run, outputs, the answer and its source."""
-    return json.dumps(
-        {
-            "run": value.run.model_dump(mode="json", exclude_unset=True),
-            "outputs": [o.model_dump(mode="json", exclude_unset=True) for o in value.outputs],
-            "answer_output": None
-            if value.answer_output is None
-            else value.answer_output.model_dump(mode="json", exclude_unset=True),
-            "content": value.content,
-            "answer": value.answer,
-            "charge": None
-            if value.charge is None
-            else value.charge.model_dump(mode="json", exclude_unset=True),
-            "objective_answer": None
-            if value.objective_answer is None
-            else value.objective_answer.model_dump(mode="json"),
-        },
-        separators=(",", ":"),
-    )
+    """`RunResult` as Core returned it: run, state, the answer, its source and the charge."""
+    return value.model_dump_json(exclude_unset=True)
 
 
 def usage_summary(value: UsageSummary) -> str:

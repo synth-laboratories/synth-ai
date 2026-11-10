@@ -21,7 +21,7 @@ Every command accepts `--json`; the global `--base-url` selects the API.
 | Collect | `synth outputs RUN [--limit N] [--cursor C]` | `OutputPage` |
 | | `synth download RUN [OUTPUT] [-o DIR]` | array of `{output, path}` |
 | | `synth report RUN` | `RunReport` |
-| | `synth result RUN` | `RunResult` as `{run, outputs, answer_output, content, answer, objective_answer}`; human output is the answer text (a text output, or an objective answer's text), then the charge line; `--json` adds `charge` |
+| | `synth result RUN` | `RunResult` as `{run, state, answer, answer_output, objective_answer, charge}`; human output is the answer text (a text output, or an objective answer's text), then the charge line |
 | Account | `synth usage` | `UsageSummary` |
 | | `synth usage RUN` | `UsageRecordPage` |
 | | `synth billing` | `Balance` |

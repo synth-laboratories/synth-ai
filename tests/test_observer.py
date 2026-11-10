@@ -12,6 +12,7 @@ from synth_ai.errors import (
     RunHistoryUnavailableError,
     SwarmsAPIError,
     TransportFailureError,
+    UpstreamUnavailableError,
     WaitTimeoutError,
 )
 
@@ -188,6 +189,8 @@ async def test_feed_refusals_do_not_silently_fallback(contract, status):
                 service="core",
                 stage="events",
                 outcome="not_accepted",
+                # A gateway status is transient unless the server explicitly says not.
+                **({"retryable": False} if status == 503 else {}),
             ),
         )
 
@@ -196,6 +199,83 @@ async def test_feed_refusals_do_not_silently_fallback(contract, status):
             with pytest.raises(SwarmsAPIError) as caught:
                 await api.swarms.wait(snapshot(contract)["run_id"])
     assert caught.value.status == status and len(calls) == 1
+
+
+def gateway_problem(status):
+    return httpx.Response(
+        status,
+        json=dict(
+            type="about:blank",
+            title="unavailable",
+            detail="Bad Gateway",
+            status=status,
+            instance="urn:test",
+            code="upstream_refused",
+            service="core",
+            stage="getRun",
+            outcome="not_accepted",
+        ),
+    )
+
+
+@pytest.mark.parametrize("failing", ["read", "subscribe"])
+async def test_wait_outlasts_deploy_gateway_failures(contract, monkeypatch, failing):
+    """A Core deploy's 502/503/504 on reads or the feed delays a wait; it does not end it."""
+    monkeypatch.setattr(_observer, "_RECONCILE_SECONDS", 0.01)
+    state = snapshot(
+        contract, execution_closed=False, accounting_final=False, cleanup_complete=False
+    )
+    outages = [503, 502, 504, 503]
+    calls = []
+
+    def handle(request):
+        kind = "subscribe" if request.headers["accept"] == "text/event-stream" else "read"
+        calls.append(kind)
+        if kind == failing and outages:
+            return gateway_problem(outages.pop(0))
+        if kind == "subscribe":
+            return response(Feed())
+        if not outages:
+            state.update(execution_closed=True, accounting_final=True, cleanup_complete=True)
+        return httpx.Response(200, json=state)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http, attempts=1) as api:
+            done = await api.swarms.wait(state["run_id"], timeout=5, poll_interval=0.001)
+    assert done.finished and not outages
+    assert calls.count(failing) >= 5
+
+
+async def test_wait_raises_original_gateway_error_when_outage_outlasts_timeout(contract):
+    calls = 0
+
+    def handle(request):
+        nonlocal calls
+        calls += 1
+        if request.headers["accept"] == "text/event-stream":
+            return response(Feed())
+        return gateway_problem(503)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http) as api:
+            with pytest.raises(UpstreamUnavailableError) as caught:
+                await api.swarms.wait(snapshot(contract)["run_id"], timeout=0.2, poll_interval=0.01)
+    assert caught.value.status == 503 and caught.value.code == "upstream_refused"
+    assert isinstance(caught.value.__cause__, TimeoutError) and calls >= 3
+
+
+async def test_launch_is_never_retried_on_gateway_failure(contract):
+    calls = []
+
+    def handle(request):
+        calls.append(request.method)
+        return gateway_problem(502)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with client(http) as api:
+            with pytest.raises(UpstreamUnavailableError):
+                await api.swarms.pause("run_x")
+    assert calls == ["POST"]
 
 
 async def test_unavailable_feed_has_bounded_explicit_fallback(contract, monkeypatch):
