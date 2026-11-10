@@ -2,9 +2,13 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.4.0
+  version: 1.5.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
+    Any /v1 operation refuses a synth-ai client older than the minimum supported version with
+    426 client_upgrade_required (retryable false, minimum_version, client_version); the client is
+    identified by its User-Agent product token (synth-ai/<version>, or synth-ai-python/<version>
+    before 0.31). Other clients and unparseable versions are not affected.
   license:
     name: Proprietary
     url: https://usesynth.ai/terms
@@ -6473,7 +6477,8 @@ components:
           - unknown
         retryable:
           type: boolean
-          description: Present on every in-stream SSE error event and nowhere else. true means the
+          description: Present on every in-stream SSE error event, and false on 426
+            client_upgrade_required; absent elsewhere. On a stream, true means the
             condition is transient (for example the event subscription closed while Core instances
             were replaced) and reopening the stream with Last-Event-ID resumes it; false means the
             error is final for this stream (credential revoked, run not found, an event that cannot
@@ -6483,6 +6488,14 @@ components:
           pattern: ^[0-9]+$
           description: On an in-stream error, the last SSE id the stream delivered (or the resume point
             it opened at). When retryable is true it stays valid as the Last-Event-ID to resume from.
+        minimum_version:
+          type: string
+          description: On 426 client_upgrade_required only, the oldest synth-ai version the API
+            serves. Upgrade with pip install -U synth-ai.
+        client_version:
+          type: string
+          description: On 426 client_upgrade_required only, the synth-ai version the request
+            identified itself with.
     RunWait:
       type: object
       additionalProperties: false
