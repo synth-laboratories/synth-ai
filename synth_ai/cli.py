@@ -108,7 +108,9 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--profile")
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
-    run.add_argument("--wall", type=int, metavar="SECONDS")
+    run.add_argument(
+        "--wall", type=int, metavar="SECONDS", help="run wall-time bound, 1..3600 seconds"
+    )
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
@@ -236,9 +238,12 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             final = await swarms.wait(created.run_id, timeout=args.timeout)
             out.record(final, lambda s: "state  " + s.state)
             if not args.json:
-                answer = (await swarms.result(final)).content
-                if answer is not None:
-                    print(answer, flush=True)
+                finished = await swarms.result(final)
+                if finished.answer is not None:
+                    print(finished.answer, flush=True)
+                closing = view.charge_line(finished.charge)
+                if closing is not None:
+                    print(closing, file=sys.stderr, flush=True)
             return finished_code(final)
         elif command == "status":
             out.record(await swarms.get(args.run_id), view.snapshot)
@@ -274,6 +279,9 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "result":
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
+            closing = view.charge_line(finished.charge)
+            if closing is not None and not args.json:
+                print(closing, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)

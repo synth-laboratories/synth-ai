@@ -38,6 +38,21 @@ expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 | `plugin_not_qualified` | 409 | `ConflictError` |
 | `gateway_issue_malformed` | 502 | `UpstreamUnavailableError` |
 
+## Upload codes
+
+| Code | HTTP | Error class |
+| --- | --- | --- |
+| `upload_format_unsupported` | 422 | `UploadFormatUnsupportedError` |
+
+`upload_format_unsupported` (an `InvalidRequestError`): the media type is not
+an accepted upload format. Accepted formats are `text/plain`, `text/markdown`
+and `application/json` (`supported_formats` on the error). The SDK raises it
+before any request from `upload_file`, `upload_text`, `prepare_upload` and the
+stdio MCP upload tool (as an `isError` Problem), and maps the server's own 422
+to the same class. The CLI prints it like any refusal and exits 4. Convert the
+file to one of the accepted formats. Any other invalid stdio MCP tool input is
+`tool_arguments_invalid` (422, `InvalidRequestError`).
+
 All are `SwarmsAPIError` subclasses; the original Problem fields are preserved.
 The specialized admission classes also inherit their HTTP-status class.
 

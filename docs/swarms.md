@@ -7,7 +7,8 @@ its iter_events and follow methods are async iterators.
 Every launch requires `budget`, a positive decimal USD string or `Decimal`,
 for example `budget="0.10"`. It must be exactly representable in millionths of a
 dollar. Floats and implicit budgets are rejected. Optional `wall_time_seconds`
-bounds the run; omit it to use Core's policy. Core owns task counts and concurrency.
+bounds the run, from 1 to 3600 (one hour; Core refuses a larger value with 422
+`invalid_launch_request`, cause `limits.wall_time_seconds`); omit it to use Core's policy. Core owns task counts and concurrency.
 `maximum_tasks`, `maximum_parallel_tasks`, and the old top-level `providers` and
 `models` arguments have been removed in launch contract 2 and remain absent in contract 3 (SDK 0.29.0).
 
@@ -30,9 +31,15 @@ is 64 MiB; set an explicit higher bound for larger outputs.
 
 `result(run)` takes a finished `RunSnapshot` (or a run ID) and returns a frozen
 `RunResult` (`synth_ai.models`): `run` (the snapshot), `outputs` (every output in
-publication order), `answer` (the last available output whose recorded
-`media_type` is `text/*`) and `content` (that output's digest-verified UTF-8 text).
-Without a text output, `answer` and `content` are `None`. An unfinished run raises
+publication order), `answer_output` (the last available output whose recorded
+`media_type` is `text/*` or, without one, the last available `application/json`
+objective answer, schema `synth.objective-answer.v1`), `content` (that output's
+digest-verified UTF-8 text; the raw JSON for an objective answer), `answer` (the
+answer text: the text output, or the objective answer's `answer.text`) and
+`objective_answer` (the parsed `ObjectiveAnswer`, when that is the source) and
+`charge` (the snapshot's `RunCharge`: `amount` and `final`; `None` when Core
+omits it, as list pages do).
+Without either kind of output, `answer`, `answer_output` and `content` are `None`. An unfinished run raises
 `ResultUnavailableError` with its fresh snapshot; `result` never waits, so call
 `run()` or `wait()` first. `max_outputs` (1000) and `max_bytes` (1 MiB) bound the
 read and raise `DataIntegrityError` instead of truncating; use `download_output`

@@ -347,8 +347,58 @@ def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
     document = json.loads(out)
     assert document["run"]["state"] == "completed"
     assert document["content"] == "The answer is 42."
-    assert document["answer"]["output_id"] == document["outputs"][0]["output_id"]
+    assert document["answer"] == "The answer is 42."
+    assert document["answer_output"]["output_id"] == document["outputs"][0]["output_id"]
+    assert document["objective_answer"] is None
     assert len(out.strip().splitlines()) == 1
+
+
+def serve_objective_answer(api, contract, text):
+    content = json.dumps(
+        {
+            "schema_version": "synth.objective-answer.v1",
+            "objective_id": "codename",
+            "definition_revision": 1,
+            "answer": {"text": text, "by": "planner", "revision": 1, "sources": []},
+        }
+    ).encode()
+    item = {
+        "run_id": RUN_ID,
+        "output_id": "out_JJJJJJJJJJJJJJJJJJJJJJ",
+        "state": "available",
+        "filename": "",
+        "reference": {
+            "revision_id": "rev",
+            "digest_sha256": hashlib.sha256(content).hexdigest(),
+            "media_type": "application/json",
+        },
+    }
+    api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
+    api.overrides["listRunOutputs"] = (200, {"items": [item], "has_more": False})
+    api.overrides["getRunOutputContent"] = lambda _r: httpx.Response(
+        200, content=content, headers={"Content-Type": "application/octet-stream"}
+    )
+
+
+def test_result_prints_an_objective_answer(api, capsys, contract):
+    serve_objective_answer(api, contract, "nonce-6b98")
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "nonce-6b98\n"
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    document = json.loads(out)
+    assert document["answer"] == "nonce-6b98"
+    assert document["objective_answer"]["objective_id"] == "codename"
+
+
+def test_upload_in_an_unsupported_format_is_a_typed_refusal(api, capsys, tmp_path):
+    pdf = tmp_path / "paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    code, out, err = invoke(api, capsys, "upload", str(pdf))
+    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
+    assert err.startswith("upload_format_unsupported: ")
+    assert "text/plain, text/markdown, application/json" in err
+    assert not api.calls
 
 
 def test_result_without_a_text_answer_says_so(api, capsys, contract):
@@ -415,3 +465,35 @@ def test_upgrade_required_prints_one_line_upgrade_hint(api, capsys, contract):
     code, out, err = invoke(api, capsys, "status", RUN_ID, "--json")
     assert code == cli.EXIT_SERVER_REFUSAL
     assert json.loads(err)["minimum_version"] == "0.32.0"
+
+
+CHARGE = {"amount": {"amount": "0.02365822", "currency": "USD"}, "final": True}
+
+
+def test_result_and_run_wait_end_with_the_run_charge(api, capsys, contract):
+    serve_answer(api, contract, "The answer is 42.")
+    charged = snapshot_in(contract, "completed")
+    charged["charge"] = CHARGE
+    api.overrides["getRun"] = (200, charged)
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer is 42.\n"
+    assert err.splitlines()[-1] == "charge  0.02365822 USD (final)"
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["charge"] == CHARGE
+    code, out, err = invoke(api, capsys, "run", "Goal", "--budget", "1.00", "--wait")
+    assert code == cli.EXIT_OK, err
+    assert out.splitlines()[-1] == "The answer is 42."
+    assert err.splitlines()[-1] == "charge  0.02365822 USD (final)"
+    charged["charge"] = {"amount": {"amount": "0.01", "currency": "USD"}, "final": False}
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert err.splitlines()[-1] == "charge  0.01 USD (not final)"
+
+
+def test_result_without_charge_prints_no_charge_line(api, capsys, contract):
+    serve_answer(api, contract, "The answer is 42.")
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["charge"] is None
