@@ -104,6 +104,23 @@ class ServerError(SwarmsAPIError):
     pass
 
 
+class UpgradeRequiredError(SwarmsAPIError):
+    """The API no longer serves this synth-ai version (426 client_upgrade_required).
+
+    SDK releases are full cutovers with no support window; upgrade with
+    `pip install -U synth-ai`. Never retried.
+    """
+
+    UPGRADE_HINT: ClassVar[str] = "pip install -U synth-ai"
+
+    def __init__(
+        self, problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
+    ) -> None:
+        super().__init__(problem, request_id=request_id, idempotency_key=idempotency_key)
+        self.minimum_version: str | None = problem.minimum_version
+        self.client_version: str | None = problem.client_version
+
+
 class ProviderPolicyError(InvalidRequestError):
     pass
 
@@ -184,6 +201,7 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
     409: ConflictError,
     410: NotFoundError,
     422: InvalidRequestError,
+    426: UpgradeRequiredError,
     429: RateLimitedError,
     502: UpstreamUnavailableError,
     503: UpstreamUnavailableError,
@@ -192,6 +210,7 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "client_upgrade_required": UpgradeRequiredError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
         (

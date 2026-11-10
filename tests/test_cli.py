@@ -387,3 +387,31 @@ def test_no_browser_login_accepts_the_pasted_redirect():
     assert callback_result(pasted, state="other", issuer=issuer) is None
     forged = pasted.replace("127.0.0.1:5555", "evil.example.test")
     assert callback_result(forged, state="s1", issuer=issuer) is None
+
+
+def test_upgrade_required_prints_one_line_upgrade_hint(api, capsys, contract):
+    problem = {
+        "type": "https://docs.usesynth.ai/errors/client_upgrade_required",
+        "title": "Upgrade Required",
+        "status": 426,
+        "detail": "synth-ai 0.31.0 is no longer supported",
+        "instance": "urn:request",
+        "code": "client_upgrade_required",
+        "service": "synth-backend",
+        "stage": "public_client_version",
+        "outcome": "not_accepted",
+        "retryable": False,
+        "minimum_version": "0.32.0",
+        "client_version": "0.31.0",
+    }
+    api.overrides["getRun"] = (426, problem)
+    code, out, err = invoke(api, capsys, "status", RUN_ID)
+    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
+    lines = err.splitlines()
+    assert lines[0] == "client_upgrade_required: synth-ai 0.31.0 is no longer supported"
+    assert lines[1].endswith("(minimum 0.32.0); run: pip install -U synth-ai")
+    assert len(lines) == 2
+    assert len([c for c in api.calls if c[0] == "getRun"]) == 1
+    code, out, err = invoke(api, capsys, "status", RUN_ID, "--json")
+    assert code == cli.EXIT_SERVER_REFUSAL
+    assert json.loads(err)["minimum_version"] == "0.32.0"

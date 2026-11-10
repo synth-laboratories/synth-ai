@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.32.0 (unreleased)
+## 0.32.1
+
+Contract: the SDK pins Core public contract 1.5.0 (Core `12ba622f`). Core now
+refuses `synth-ai` clients older than its minimum version with HTTP 426 and code
+`client_upgrade_required`; the body carries `minimum_version` and `client_version`.
+
+SDK: `UpgradeRequiredError` (a `SwarmsAPIError`, exported from `synth_ai`) is raised
+for that refusal and is never retried. The CLI prints the refusal and one line
+ending `run: pip install -U synth-ai`, and exits 4.
+
+## 0.32.0
 
 Contract: the SDK pins Core public contract 1.4.0 (Core `817056b9`, SHA-256
 `4c3e45cc…f365`). The generated `Problem` model has `retryable` and

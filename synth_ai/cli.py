@@ -18,12 +18,14 @@ from . import auth
 from ._generated.models import InputFile, RunInputs, RunSnapshot
 from ._generated.policy import MESSAGE_MAX_BYTES
 from ._validation import message_text
+from ._version import __version__
 from .aclient import AsyncSynthClient
 from .errors import (
     ResponseContractError,
     SwarmsAPIError,
     SynthError,
     TransportFailureError,
+    UpgradeRequiredError,
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
@@ -354,6 +356,11 @@ def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None
         print(code + ": " + detail, file=sys.stderr, flush=True)
 
 
+def upgrade_hint(error: UpgradeRequiredError) -> str:
+    minimum = "" if error.minimum_version is None else f" (minimum {error.minimum_version})"
+    return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
+
+
 def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
@@ -372,6 +379,11 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     except (TransportFailureError, ResponseContractError) as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_CLIENT_ERROR
+    except UpgradeRequiredError as error:
+        fail(error.problem.code, error.problem.detail, as_json, error.problem)
+        if not as_json:
+            print(upgrade_hint(error), file=sys.stderr, flush=True)
+        return EXIT_SERVER_REFUSAL
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_SERVER_REFUSAL
