@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.14.0
+  version: 1.15.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1923,6 +1923,14 @@ paths:
                   reasoning_tokens: 0
                   model_time_ms: 0
                 sandbox_compute: metered
+                rollout_compute: attributed
+                compute_by_provider:
+                - provider: docker
+                  rollouts: 1
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  meters:
+                  - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 reward:
                   status: scored
                   best: 2.0
@@ -1932,6 +1940,12 @@ paths:
                     seed: 0
                     reward: 2.0
                     duration_ms: 41000
+                    provider: docker
+                    compute:
+                      charge: {amount: '0.000000000000', currency: USD}
+                      subsidized: {amount: '0.000000000000', currency: USD}
+                      meters:
+                      - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 timings:
                   created_at: '2026-11-05T12:22:49Z'
                   closed: {status: observed, at: '2026-11-05T12:25:30Z'}
@@ -5857,6 +5871,19 @@ components:
         revision:
           type: integer
           minimum: 0
+    SwarmsVariantVersion:
+      type: object
+      description: Variant semantic version pinned when the run was admitted. Absent for older or unversioned runs.
+      additionalProperties: false
+      required: [id, version]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     RunSnapshot:
       type: object
       required:
@@ -5887,6 +5914,12 @@ components:
         pause_expires_at_ms:
           type: integer
           minimum: 0
+        api_version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          description: Semantic version of the currently serving Swarms API; absent on imported history.
+        variant:
+          $ref: '#/components/schemas/SwarmsVariantVersion'
         metadata:
           type: object
           additionalProperties: true
@@ -6865,9 +6898,25 @@ components:
       - type: object
         required:
         - usage
+        - prepared
+        - compute_metering
         properties:
           usage:
             $ref: '#/components/schemas/RunUsage'
+          prepared:
+            $ref: '#/components/schemas/SandboxMoment'
+            description: When the run prepared this actor, before it requested the sandbox. not_recorded when no preparation was retained.
+          compute_metering:
+            type: string
+            enum: [not_metered]
+            description: Actor sandbox compute is not metered, so it has no charge. This is not a zero amount.
+          time_to_create_ms:
+            type: integer
+            description: Prepared to created. Present only when both were observed and created is not before prepared.
+          usage_attribution:
+            type: string
+            enum: [pending, attributed, not_recorded]
+            description: Sandbox usage is complete only when attributed; not_recorded means its usage fields are not a complete sandbox total.
           time_to_ready_ms:
             type: integer
             description: Present only when created and ready were both observed.
@@ -6896,6 +6945,55 @@ components:
         duration_ms:
           type: integer
           description: Present only when a start and an end were both recorded.
+        provider:
+          type: string
+          description: The provider that ran the rollout's container, as its usage facts recorded it. Present only
+            when a settled compute line of the rollout names it.
+        compute:
+          $ref: '#/components/schemas/RunCompute'
+    RunComputeMeter:
+      type: object
+      required:
+      - kind
+      - unit
+      - quantity
+      properties:
+        kind:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+    RunCompute:
+      type: object
+      description: Settled pool compute. Every amount is a sum of settlement lines.
+      required:
+      - charge
+      - subsidized
+      - meters
+      properties:
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        meters:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunComputeMeter'
+    RunProviderCompute:
+      allOf:
+      - $ref: '#/components/schemas/RunCompute'
+      - type: object
+        required:
+        - provider
+        - rollouts
+        properties:
+          provider:
+            type: string
+          rollouts:
+            type: integer
+            minimum: 0
     RunReward:
       type: object
       required:
@@ -6973,6 +7071,8 @@ components:
       - teardown
       - unattributed
       - sandbox_compute
+      - rollout_compute
+      - compute_by_provider
       - reward
       - timings
       properties:
@@ -6982,8 +7082,9 @@ components:
           $ref: '#/components/schemas/RunSettlementSummary'
         attribution:
           type: string
-          description: pending waits for settlement. not_recorded settled before attribution was kept, so the total
-            is final and the breakdown does not exist.
+          description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained
+            or a repeated actor's session could not be identified. The total remains final; model and role aggregates
+            may still be available, while per-sandbox usage must not be interpreted as complete.
           enum:
           - pending
           - attributed
@@ -7015,6 +7116,21 @@ components:
           enum:
           - not_metered
           - metered
+        rollout_compute:
+          type: string
+          description: Whether compute_by_provider and each rollout's compute group the settled pool compute lines.
+            pending waits for settlement. partial means some lines name no rollout or provider; their amounts stay in
+            settlement.rollout and in no group. unobserved means the usage facts could not be read; settlement.rollout
+            is still final.
+          enum:
+          - pending
+          - attributed
+          - partial
+          - unobserved
+        compute_by_provider:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunProviderCompute'
         reward:
           $ref: '#/components/schemas/RunReward'
         timings:

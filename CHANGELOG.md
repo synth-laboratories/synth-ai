@@ -2,6 +2,7 @@
 
 ## 0.36.0
 
+- Re-pin to Core dev public contract 1.15.0 (Core `17540502`; spec SHA-256 `b45d7899…f93e`). Run snapshots carry typed `api_version` and `variant` (`SwarmsVariantVersion`); the run report gains sandbox preparation time, compute metering, and rollout provider and compute charges. All additions are optional reads.
 - Re-pin to Core dev public contract 1.14.0 (Core `ec98548f`; spec SHA-256 `5543e889…7b17`). Labels are not unique: 1.13.0 names two different specs, so the pin is the Core commit plus spec SHA.
 - Merge the published 0.34.0 line (self-serve billing lifecycle, `AutoReload.disclosure`, `set_auto_reload(disclosure_version=)`) into dev; dev keeps `getRunLimits`/`updateRunLimits`.
 - Adopt Core contract 1.13.0 and expose assignment limits, parked actor state and revision history through the limits projection.
