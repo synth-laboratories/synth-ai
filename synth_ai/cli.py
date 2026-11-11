@@ -37,6 +37,7 @@ from .errors import (
     SynthError,
     TransportFailureError,
     UpgradeRequiredError,
+    UploadTransferError,
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
@@ -565,6 +566,27 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_SERVER_REFUSAL
+    except UploadTransferError as error:
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "code": error.code,
+                        "detail": str(error),
+                        "upload_id": error.upload_id,
+                        "idempotency_key": error.idempotency_key,
+                    }
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+        else:
+            fail(
+                error.code,
+                f"{error} (upload_id={error.upload_id}, idempotency_key={error.idempotency_key})",
+                False,
+            )
+        return EXIT_CLIENT_ERROR
     except SynthError as error:
         fail(error.code, str(error), as_json)
         return EXIT_CLIENT_ERROR

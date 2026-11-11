@@ -36,7 +36,8 @@ For a launch whose response was lost, reuse the same `--idempotency-key` with
 exactly the same goal, flags and file contents. The CLI derives stable upload
 keys from it and preserves file order. A changed request under the same key is
 refused. If an upload grant has expired, recover the retained upload through the
-SDK's `resume_upload` before retrying; do not issue a new run blindly.
+SDK's `resume_upload` with the `upload_id` and `idempotency_key` printed by
+the CLI before retrying; do not issue a new run blindly.
 
 `synth result RUN` reads a finished run with `swarms.result`: it prints the
 answer (the last available `text/*` output, digest-verified, or else the latest

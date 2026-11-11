@@ -597,3 +597,34 @@ def test_run_can_reuse_launch_identity_after_lost_response(api, capsys, contract
     assert second == cli.EXIT_OK, err
     assert out.strip()
     assert sent == ["retained-launch", "retained-launch"]
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path, as_json):
+    path = tmp_path / "task.md"
+    content = b"# Task\n"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    api.overrides["createUpload"] = (
+        201,
+        {
+            "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+            "state": "pending",
+            "file": manifest,
+            "put": None,
+        },
+    )
+    argv = ["run", "Goal", "--budget", "4.00", "--file", str(path), "--idempotency-key", "run-key"]
+    code, _, err = invoke(api, capsys, *(argv + (["--json"] if as_json else [])))
+    assert code == cli.EXIT_CLIENT_ERROR
+    key = cli.mutation_key("run-upload", "run-key", {"index": 0})
+    if as_json:
+        body = json.loads(err)
+        assert body["code"] == "upload_incomplete"
+        assert body["upload_id"] == "upl_AAAAAAAAAAAAAAAAAAAAAA"
+        assert body["idempotency_key"] == key
+    else:
+        assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
+        assert f"idempotency_key={key}" in err
+    assert all(oid != "createRun" for oid, _ in api.calls)
