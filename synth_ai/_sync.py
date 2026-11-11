@@ -11,6 +11,7 @@ from ._generated.models import (
     Account,
     ApiKey,
     ApiKeyPage,
+    AutoReload,
     Balance,
     BillingHistoryEntry,
     BillingHistoryPage,
@@ -29,6 +30,7 @@ from ._generated.models import (
     Money,
     OutputPage,
     OwnerResourceRequest,
+    PaymentMethodSession,
     PlanCatalog,
     RoutingCatalog,
     RoutingConstraints,
@@ -49,6 +51,9 @@ from ._generated.models import (
     RunTask,
     RunTaskPage,
     Scope,
+    SpendAlerts,
+    Subscription,
+    SubscriptionChangePreview,
     Upload,
     UsageExport,
     UsageRecord,
@@ -533,6 +538,68 @@ class BillingClient:
     ) -> CheckoutSession:
         return self._runner.call(
             self._async.checkout(plan_id=plan_id, credit=credit, idempotency_key=idempotency_key)
+        )
+
+    def subscription(self) -> Subscription | None:
+        return self._runner.call(self._async.subscription())
+
+    def cancel_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
+        return self._runner.call(self._async.cancel_subscription(idempotency_key=idempotency_key))
+
+    def resume_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
+        return self._runner.call(self._async.resume_subscription(idempotency_key=idempotency_key))
+
+    def preview_subscription_change(self, plan_id: str) -> SubscriptionChangePreview:
+        return self._runner.call(self._async.preview_subscription_change(plan_id))
+
+    def change_subscription_plan(
+        self, plan_id: str, *, idempotency_key: str | None = None
+    ) -> Subscription:
+        return self._runner.call(
+            self._async.change_subscription_plan(plan_id, idempotency_key=idempotency_key)
+        )
+
+    def payment_method_session(self, *, idempotency_key: str | None = None) -> PaymentMethodSession:
+        return self._runner.call(
+            self._async.payment_method_session(idempotency_key=idempotency_key)
+        )
+
+    def auto_reload(self) -> AutoReload:
+        return self._runner.call(self._async.auto_reload())
+
+    def set_auto_reload(
+        self,
+        *,
+        enabled: bool,
+        threshold: Money | None = None,
+        amount: Money | None = None,
+        disclosure_version: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> AutoReload:
+        return self._runner.call(
+            self._async.set_auto_reload(
+                enabled=enabled,
+                threshold=threshold,
+                amount=amount,
+                disclosure_version=disclosure_version,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def spend_alerts(self) -> SpendAlerts:
+        return self._runner.call(self._async.spend_alerts())
+
+    def set_spend_alerts(
+        self,
+        *,
+        monthly_amount: Money | None,
+        enabled: bool | None = None,
+        idempotency_key: str | None = None,
+    ) -> SpendAlerts:
+        return self._runner.call(
+            self._async.set_spend_alerts(
+                monthly_amount=monthly_amount, enabled=enabled, idempotency_key=idempotency_key
+            )
         )
 
     def iter_history(
