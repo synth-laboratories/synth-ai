@@ -279,6 +279,11 @@
               "resources": {
                 "items": {
                   "additionalProperties": false,
+                  "if": {
+                    "required": [
+                      "evaluation_templates"
+                    ]
+                  },
                   "oneOf": [
                     {
                       "properties": {
@@ -316,6 +321,16 @@
                     }
                   ],
                   "properties": {
+                    "evaluation_templates": {
+                      "items": {
+                        "pattern": "^sha256:[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "maxItems": 8,
+                      "minItems": 1,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
                     "limits": {
                       "additionalProperties": {
                         "maximum": 9223372036854775807,
@@ -398,6 +413,13 @@
                     "limits",
                     "selection"
                   ],
+                  "then": {
+                    "properties": {
+                      "selection": {
+                        "maxProperties": 0
+                      }
+                    }
+                  },
                   "type": "object"
                 },
                 "maxItems": 8,

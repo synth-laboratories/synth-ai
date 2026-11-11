@@ -6558,6 +6558,20 @@ components:
             $ref: '#/components/schemas/OwnerResourceLimits'
         selection:
           type: object
+        evaluation_templates:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^sha256:[0-9a-f]{64}$'
+      if:
+        required: [evaluation_templates]
+      then:
+        properties:
+          selection:
+            maxProperties: 0
       oneOf:
       - properties:
           plugin:

@@ -430,6 +430,7 @@ TOOLS: list[ToolDefinition] = [
                         "resources": {
                             "items": {
                                 "additionalProperties": False,
+                                "if": {"required": ["evaluation_templates"]},
                                 "oneOf": [
                                     {
                                         "properties": {
@@ -459,6 +460,16 @@ TOOLS: list[ToolDefinition] = [
                                     }
                                 ],
                                 "properties": {
+                                    "evaluation_templates": {
+                                        "items": {
+                                            "pattern": "^sha256:[0-9a-f]{64}$",
+                                            "type": "string",
+                                        },
+                                        "maxItems": 8,
+                                        "minItems": 1,
+                                        "type": "array",
+                                        "uniqueItems": True,
+                                    },
                                     "limits": {
                                         "additionalProperties": {
                                             "maximum": 9223372036854775807,
@@ -517,6 +528,7 @@ TOOLS: list[ToolDefinition] = [
                                     "version": {"const": 1, "default": 1, "type": "integer"},
                                 },
                                 "required": ["plugin", "roles", "limits", "selection"],
+                                "then": {"properties": {"selection": {"maxProperties": 0}}},
                                 "type": "object",
                             },
                             "maxItems": 8,
