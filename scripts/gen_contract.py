@@ -174,7 +174,7 @@ def generate() -> dict[Path, str]:
         if not path.startswith("/v1/"):
             continue
         for method, op in item.items():
-            if method not in {"get", "post", "patch", "delete"}:
+            if method not in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}:
                 continue
             op = JSONObject.require(op)
             if op.get("x-synth-status") != "implemented":
@@ -200,12 +200,11 @@ def generate() -> dict[Path, str]:
                     r = resolve(r)
                     content = r.object("content", optional=True)
                     if "application/json" in content:
-                        result = (
-                            content.object("application/json")
-                            .object("schema")
-                            .text("$ref", "")
-                            .split("/")[-1]
-                        )
+                        response_schema = content.object("application/json").object("schema")
+                        result = response_schema.text("$ref", "").split("/")[-1]
+                        if not result:
+                            result = oid[0].upper() + oid[1:] + "Response"
+                            schemas[result] = response_schema
                     elif content:
                         binary = True
                     break
@@ -386,13 +385,14 @@ def generate() -> dict[Path, str]:
         "from __future__ import annotations",
         "from typing import Annotated, Literal, TypeAlias",
         "from enum import StrEnum",
-        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue",
+        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, RootModel",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
         "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
         "",
     ]
     preamble_length = len(lines)
+    response_names = {operation.get("response_model") for operation in ops.values()}
     modelnames = []
     for n in ordered:
         s = schemas[n]
@@ -449,6 +449,9 @@ def generate() -> dict[Path, str]:
                     "        return self.result_available",
                 ]
             lines += [""]
+        elif n in response_names:
+            modelnames.append(n)
+            lines += ["class " + n + "(RootModel[" + annotation(s) + "]):", "    pass", ""]
         else:
             lines += [n + ": TypeAlias = " + annotation(s), ""]
     enum_lines = []

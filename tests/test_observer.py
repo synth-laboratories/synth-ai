@@ -429,16 +429,22 @@ async def test_overall_deadline_covers_reconnect_delay(contract):
                 await api.swarms.wait(state["run_id"], timeout=0.01, poll_interval=1)
     assert caught.value.snapshot is None and subscriptions == 1
 
+
 @pytest.mark.parametrize("until", ["finished", "paused"])
 async def test_paused_returns_explicitly_or_raises_with_snapshot(contract, until):
     from synth_ai import CompletionMilestone, RunPausedError
-    state = snapshot(contract, execution_closed=False, accounting_final=False, cleanup_complete=False)
+
+    state = snapshot(
+        contract, execution_closed=False, accounting_final=False, cleanup_complete=False
+    )
     state["state"] = "paused"
     feed = Feed()
+
     def handle(request):
         if request.headers["accept"] == "text/event-stream":
             return response(feed)
         return httpx.Response(200, json=state)
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with client(http) as api:
             if until == "paused":

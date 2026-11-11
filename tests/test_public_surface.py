@@ -16,9 +16,9 @@ async def test_swarms_only_public_surface(contract):
             for op in path.values()
             if isinstance(op, dict)
         )
-        == 59
+        == 69
     )
-    assert len(OPERATIONS) == 46
+    assert len(OPERATIONS) == 56
     assert len(TOOLS) == 23
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
@@ -52,3 +52,14 @@ def test_only_implemented_operations_are_callable(contract):
         "createUsageExport",
         "getUsageExport",
     } <= OPERATIONS.keys()
+
+
+def test_sdk_inventory_covers_every_implemented_v1_operation(contract):
+    expected = {
+        op["operationId"]
+        for path, item in contract["paths"].items()
+        if path.startswith("/v1/")
+        for op in item.values()
+        if isinstance(op, dict) and op.get("x-synth-status") == "implemented"
+    }
+    assert set(OPERATIONS) == expected

@@ -2,7 +2,7 @@
 
 ## 0.36.0
 
-- Adopt Core contract 1.12.0 and expose assignment limits, parked actor state and revision history through the limits projection.
+- Adopt Core contract 1.13.0 and expose assignment limits, parked actor state and revision history through the limits projection.
 
 ## 0.35.0
 

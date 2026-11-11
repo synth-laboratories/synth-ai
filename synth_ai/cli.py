@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import json
-import uuid
 import asyncio
+import json
 import sys
+import uuid
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NoReturn, TypeVar
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, JsonValue, TypeAdapter
 from typing_extensions import override
 
 from . import _cli_view as view
@@ -25,12 +25,12 @@ from ._version import __version__
 from .aclient import AsyncSynthClient
 from .errors import (
     ResponseContractError,
+    RunPausedError,
     SwarmsAPIError,
     SynthError,
     TransportFailureError,
     UpgradeRequiredError,
     WaitTimeoutError,
-    RunPausedError,
 )
 from .swarms import AsyncSwarms
 
@@ -88,8 +88,15 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
-def mutation_key(action: str, run_id: str, values: dict[str, object] | None = None) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, json.dumps(["synth-cli", action, run_id, values], sort_keys=True, separators=(",", ":"))))
+def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
+    return str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            json.dumps(
+                ["synth-cli", action, run_id, values], sort_keys=True, separators=(",", ":")
+            ),
+        )
+    )
 
 
 def parser() -> argparse.ArgumentParser:
@@ -311,9 +318,21 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)
         elif command == "pause":
-            out.record(await swarms.pause(args.run_id, idempotency_key=args.idempotency_key or mutation_key("pause", args.run_id)), view.receipt)
+            out.record(
+                await swarms.pause(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("pause", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "resume":
-            out.record(await swarms.resume(args.run_id, idempotency_key=args.idempotency_key or mutation_key("resume", args.run_id)), view.receipt)
+            out.record(
+                await swarms.resume(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("resume", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "cancel":
             out.record(await swarms.cancel(args.run_id), view.snapshot)
         elif command == "outputs":
@@ -341,9 +360,20 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             if args.run_id == "set":
                 if args.set_run_id is None or args.expected_revision is None:
                     raise UsageError("limits set requires RUN and --expected-revision")
-                values = dict(expected_revision=args.expected_revision, budget=args.budget, wall_time_seconds=args.wall, maximum_tokens=args.tokens, pause_retention_seconds=args.pause_retention, resume=args.resume, reason=args.reason)
+                values = dict(
+                    expected_revision=args.expected_revision,
+                    budget=args.budget,
+                    wall_time_seconds=args.wall,
+                    maximum_tokens=args.tokens,
+                    pause_retention_seconds=args.pause_retention,
+                    resume=args.resume,
+                    reason=args.reason,
+                )
                 key = args.idempotency_key or mutation_key("limits", args.set_run_id, values)
-                out.record(await swarms.update_limits(args.set_run_id, **values, idempotency_key=key), view.run_limits)
+                out.record(
+                    await swarms.update_limits(args.set_run_id, **values, idempotency_key=key),
+                    view.run_limits,
+                )
             elif args.set_run_id is not None:
                 raise UsageError("unexpected argument after RUN")
             elif args.run_id is None:

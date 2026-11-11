@@ -13,17 +13,18 @@ from pydantic import BaseModel, ConfigDict
 
 from ._auth_models import AuthStatus
 from ._generated.models import (
-    RunLimitsProgress, LimitMeter,
     Account,
     Balance,
     EventPage,
     File,
     LimitList,
+    LimitMeter,
     Money,
     OutputPage,
     RunCharge,
     RunControlReceipt,
     RunEvent,
+    RunLimitsProgress,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -294,17 +295,34 @@ def save_checkpoint(checkpoint: StreamCheckpoint) -> None:
             os.unlink(name)
 
 
-def run_limits(value: "RunLimitsProgress") -> str:
+def run_limits(value: RunLimitsProgress) -> str:
     def amount(number: int | None) -> str:
         return "unknown" if number is None else str(number)
 
     lines = [f"{value.run_id}  revision {value.revision}  {value.status}"]
-    def rows(label: str, meters: list["LimitMeter"]) -> None:
+
+    def rows(label: str, meters: list[LimitMeter]) -> None:
         lines.append(label)
-        lines.append("Limit | Cap | Used | Reserved | Unknown reserved | Remaining")
+        lines.append(
+            "Limit | Cap | Used | Reserved | Unknown reserved | Unknown receipts | Remaining"
+        )
         for meter in meters:
-            lines.append(" | ".join([meter.dimension, amount(meter.effective_cap if meter.effective_cap is not None else meter.cap),
-                                     amount(meter.used), amount(meter.reserved), amount(meter.unknown_reserved), amount(meter.remaining)]))
+            lines.append(
+                " | ".join(
+                    [
+                        meter.dimension,
+                        amount(
+                            meter.effective_cap if meter.effective_cap is not None else meter.cap
+                        ),
+                        amount(meter.used),
+                        amount(meter.reserved),
+                        amount(meter.unknown_reserved),
+                        amount(meter.unknown_receipts),
+                        amount(meter.remaining),
+                    ]
+                )
+            )
+
     rows("Primary", value.primary)
     rows("Secondary", value.secondary)
     for actor in value.actors:

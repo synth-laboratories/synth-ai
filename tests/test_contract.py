@@ -122,3 +122,8 @@ def test_a_nullable_constrained_field_accepts_null():
 
 def test_generated_models_never_constrain_null():
     assert "Annotated[None" not in (ROOT / "synth_ai/_generated/models.py").read_text()
+
+
+def test_nullable_subscription_response_round_trips_null():
+    response = MODELS[OPERATIONS["getSubscription"]["response_model"]].model_validate(None)
+    assert response.model_dump(mode="json") is None
