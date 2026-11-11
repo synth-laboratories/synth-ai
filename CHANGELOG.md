@@ -1,13 +1,13 @@
 # Changelog
 
-## 0.37.0
+## 0.38.0
 
 - Register immutable tasks, evaluators, datasets, policies and pools through the public API.
 - Preflight, create, inspect, cancel and wait for signed evaluations through the SDK, CLI and MCP.
 - Preserve exact large integer inputs and return structured CLI wait deadlines.
 - Pin Core public contract 1.16.0 (Core `1461e10c`; spec SHA-256 `7b1c6fcd…20dd`), which adds the seven evaluation operations on top of 1.15.0. Evaluation attestations carry issuer `synth`.
 
-## 0.36.0
+## 0.37.0
 
 - Re-pin to Core dev public contract 1.15.0 (Core `17540502`; spec SHA-256 `b45d7899…f93e`). Run snapshots carry typed `api_version` and `variant` (`SwarmsVariantVersion`); the run report gains sandbox preparation time, compute metering, and rollout provider and compute charges. All additions are optional reads.
 - Re-pin to Core dev public contract 1.14.0 (Core `ec98548f`; spec SHA-256 `5543e889…7b17`). Labels are not unique: 1.13.0 names two different specs, so the pin is the Core commit plus spec SHA.
