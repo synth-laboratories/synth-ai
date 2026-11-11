@@ -1568,6 +1568,14 @@ class OwnerResourceRequest(WireModel):
     limits: OwnerResourceLimits
     role_limits: dict[str, OwnerResourceLimits] | None = None
     selection: PoolSelection
+    evaluation_templates: (
+        Annotated[
+            list[Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]],
+            Field(min_length=1, max_length=8),
+            AfterValidator(unique_items),
+        ]
+        | None
+    ) = None
 
 
 class Plan(WireModel):

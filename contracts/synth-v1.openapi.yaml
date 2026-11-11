@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.16.0
+  version: 1.17.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -6555,6 +6555,20 @@ components:
             $ref: '#/components/schemas/OwnerResourceLimits'
         selection:
           type: object
+        evaluation_templates:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^sha256:[0-9a-f]{64}$'
+      if:
+        required: [evaluation_templates]
+      then:
+        properties:
+          selection:
+            maxProperties: 0
       oneOf:
       - properties:
           plugin:
