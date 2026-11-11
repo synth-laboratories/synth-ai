@@ -223,6 +223,12 @@
                     ],
                     "type": "object"
                   },
+                  "maximum_tokens": {
+                    "description": "Run token cap. Omitted, derived from the budget.",
+                    "maximum": 9223372036854775807,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
                   "parallel_workers": {
                     "default": 1,
                     "description": "The planner may run up to this many workers at once (one worker per task). The service default is 1. Out of range is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds an equal slice of the budget); a smaller maximum_charge is refused at launch with 422 launch_budget_below_actor_floor, whose detail states the minimum in micro-USD. Not accepted with research profiles.",
@@ -230,9 +236,16 @@
                     "minimum": 1,
                     "type": "integer"
                   },
+                  "pause_retention_seconds": {
+                    "default": 86400,
+                    "description": "Retention bound for each pause; expiry ends the run.",
+                    "maximum": 86400,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
                   "wall_time_seconds": {
-                    "description": "Run wall-clock bound in seconds, at most 3600 (one hour, the actor deadline bound until deadline renewal exists). Omitted, the profile's default applies. A larger value is refused at launch with 422 invalid_launch_request, cause limits.wall_time_seconds.",
-                    "maximum": 3600,
+                    "description": "Total unpaused seconds since creation, including queued time. Omitted, the profile default applies.",
+                    "maximum": 86400,
                     "minimum": 1,
                     "type": "integer"
                   }
@@ -975,6 +988,122 @@
       "name": "swarms_run_resume",
       "operationId": "resumeRun",
       "scope": "swarms:control"
+    },
+    {
+      "description": "Read authoritative run limits and usage.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_limits",
+      "operationId": "getRunLimits",
+      "scope": "swarms:read"
+    },
+    {
+      "description": "Change a live run's limits.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "limits": {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "maximum_charge": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "examples": [
+                          "5.00"
+                        ],
+                        "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                        "type": "string"
+                      },
+                      "currency": {
+                        "const": "USD",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "amount",
+                      "currency"
+                    ],
+                    "type": "object"
+                  },
+                  "maximum_tokens": {
+                    "maximum": 9007199254740991,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "pause_retention_seconds": {
+                    "maximum": 86400,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "wall_time_seconds": {
+                    "maximum": 86400,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              },
+              "reason": {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              "resume": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "expected_revision",
+              "limits"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_limits_update",
+      "operationId": "updateRunLimits",
+      "scope": "swarms:run"
     },
     {
       "description": "List tasks from their current authority.",

@@ -132,7 +132,7 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 28
+    assert len(by_name) == len(hosted["tools"]) == 30
     assert {
         "swarms_run_pause",
         "swarms_run_resume",
@@ -161,3 +161,8 @@ def test_a_nullable_constrained_field_accepts_null():
 
 def test_generated_models_never_constrain_null():
     assert "Annotated[None" not in (ROOT / "synth_ai/_generated/models.py").read_text()
+
+
+def test_nullable_subscription_response_round_trips_null():
+    response = MODELS[OPERATIONS["getSubscription"]["response_model"]].model_validate(None)
+    assert response.model_dump(mode="json") is None

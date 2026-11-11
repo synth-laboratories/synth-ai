@@ -207,7 +207,7 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
     [
         ["--parallel-workers", "11"],
         ["--parallel-workers", "0"],
-        ["--wall", "3601"],
+        ["--wall", "86401"],
         ["--wall", "0"],
         ["--label", "no-equals-sign"],
         ["--budget", "-1"],
@@ -533,7 +533,9 @@ def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contrac
     _, body = example(contract, "getEvaluation")
     body["status"] = "running"
     api.overrides["getEvaluation"] = (200, body)
-    code, out, err = invoke(api, capsys, "evaluations", "wait", body["evaluation_id"], "--timeout", "0.02", "--json")
+    code, out, err = invoke(
+        api, capsys, "evaluations", "wait", body["evaluation_id"], "--timeout", "0.02", "--json"
+    )
     assert code == cli.EXIT_WAIT_TIMEOUT, err
     assert out == ""
     assert json.loads(err)["code"] == "wait_timeout"

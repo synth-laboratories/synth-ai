@@ -227,6 +227,19 @@ TOOLS: list[ToolDefinition] = [
                                     "required": ["amount", "currency"],
                                     "type": "object",
                                 },
+                                "maximum_tokens": {
+                                    "description": "Run "
+                                    "token "
+                                    "cap. "
+                                    "Omitted, "
+                                    "derived "
+                                    "from "
+                                    "the "
+                                    "budget.",
+                                    "maximum": 9223372036854775807,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
                                 "parallel_workers": {
                                     "default": 1,
                                     "description": "The "
@@ -311,43 +324,36 @@ TOOLS: list[ToolDefinition] = [
                                     "minimum": 1,
                                     "type": "integer",
                                 },
-                                "wall_time_seconds": {
-                                    "description": "Run "
-                                    "wall-clock "
+                                "pause_retention_seconds": {
+                                    "default": 86400,
+                                    "description": "Retention "
                                     "bound "
-                                    "in "
-                                    "seconds, "
-                                    "at "
-                                    "most "
-                                    "3600 "
-                                    "(one "
-                                    "hour, "
+                                    "for "
+                                    "each "
+                                    "pause; "
+                                    "expiry "
+                                    "ends "
                                     "the "
-                                    "actor "
-                                    "deadline "
-                                    "bound "
-                                    "until "
-                                    "deadline "
-                                    "renewal "
-                                    "exists). "
+                                    "run.",
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "wall_time_seconds": {
+                                    "description": "Total "
+                                    "unpaused "
+                                    "seconds "
+                                    "since "
+                                    "creation, "
+                                    "including "
+                                    "queued "
+                                    "time. "
                                     "Omitted, "
                                     "the "
-                                    "profile's "
+                                    "profile "
                                     "default "
-                                    "applies. "
-                                    "A "
-                                    "larger "
-                                    "value "
-                                    "is "
-                                    "refused "
-                                    "at "
-                                    "launch "
-                                    "with "
-                                    "422 "
-                                    "invalid_launch_request, "
-                                    "cause "
-                                    "limits.wall_time_seconds.",
-                                    "maximum": 3600,
+                                    "applies.",
+                                    "maximum": 86400,
                                     "minimum": 1,
                                     "type": "integer",
                                 },
@@ -939,6 +945,88 @@ TOOLS: list[ToolDefinition] = [
         "name": "swarms_run_resume",
         "operationId": "resumeRun",
         "scope": "swarms:control",
+    },
+    {
+        "description": "Read authoritative run limits and usage.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_limits",
+        "operationId": "getRunLimits",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Change a live run's limits.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "expected_revision": {"minimum": 0, "type": "integer"},
+                        "limits": {
+                            "additionalProperties": False,
+                            "minProperties": 1,
+                            "properties": {
+                                "maximum_charge": {
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "amount": {
+                                            "examples": ["5.00"],
+                                            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                                            "type": "string",
+                                        },
+                                        "currency": {"const": "USD", "type": "string"},
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "type": "object",
+                                },
+                                "maximum_tokens": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "pause_retention_seconds": {
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "wall_time_seconds": {
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                            },
+                            "type": "object",
+                        },
+                        "reason": {"maxLength": 1000, "type": "string"},
+                        "resume": {"default": False, "type": "boolean"},
+                    },
+                    "required": ["expected_revision", "limits"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id", "body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "swarms_run_limits_update",
+        "operationId": "updateRunLimits",
+        "scope": "swarms:run",
     },
     {
         "description": "List tasks from their current authority.",

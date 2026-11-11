@@ -128,6 +128,12 @@ class EvaluationRolloutStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class LimitMeterAction(StrEnum):
+    NOTIFY = "notify"
+    PAUSE = "pause"
+    STOP = "stop"
+
+
 class MintApiKeyRequestPurpose(StrEnum):
     PERSONAL = "personal"
     AUTOMATION = "automation"
@@ -180,6 +186,15 @@ class ProblemOutcome(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ProblemUnit(StrEnum):
+    MICROCENTS = "microcents"
+
+
+class ProblemWindow(StrEnum):
+    DAY = "day"
+    WEEK = "week"
+
+
 class RefundDetailRefundCause(StrEnum):
     RUN_CANCELED = "run_canceled"
     RUN_FAILED = "run_failed"
@@ -225,6 +240,22 @@ class RunObjectiveState(StrEnum):
     REJECTED = "rejected"
     PARTIAL = "partial"
     NOT_APPLICABLE = "not_applicable"
+
+
+class RunPauseCause(StrEnum):
+    CUSTOMER = "customer"
+    LIMIT = "limit"
+    PLATFORM = "platform"
+
+
+class RunPauseLimitScope(StrEnum):
+    RUN = "run"
+    ACTOR = "actor"
+
+
+class RunPauseMode(StrEnum):
+    COLD = "cold"
+    WARM = "warm"
 
 
 class RunReportAttribution(StrEnum):
@@ -372,6 +403,7 @@ class RunState(StrEnum):
 class RunWaitOutcome(StrEnum):
     TERMINAL = "terminal"
     TIMEOUT = "timeout"
+    PAUSED = "paused"
 
 
 class SandboxImageStatus(StrEnum):
@@ -392,6 +424,11 @@ class SandboxMomentStatus(StrEnum):
 class SelectionCandidateState(StrEnum):
     SCORED = "scored"
     FAILED = "failed"
+
+
+class SubscriptionChangeRequestPlanId(StrEnum):
+    STANDARD_MONTHLY = "standard.monthly"
+    MAX_MONTHLY = "max.monthly"
 
 
 class UploadCreateRequestMediaType(StrEnum):
@@ -436,6 +473,14 @@ class AccountTerms(WireModel):
     )
     version: str
     accepted_at: str
+
+
+class BillingAttention(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    since: str
 
 
 class ChargeUsageUnits(WireModel):
@@ -662,6 +707,27 @@ class Limit(WireModel):
     cap: float
 
 
+class LimitMeter(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    dimension: str
+    unit: str | None = None
+    scope: str | None = None
+    requested_cap: Annotated[int, Field(ge=0)] | None = None
+    effective_cap: Annotated[int, Field(ge=0)] | None = None
+    binding_layer: str | None = None
+    cap: Annotated[int, Field(ge=0)] | None = None
+    used: Annotated[int, Field(ge=0)] | None = None
+    reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_receipts: Annotated[int, Field(ge=0)] | None = None
+    remaining: Annotated[int, Field(ge=0)] | None = None
+    overshoot: Annotated[int, Field(ge=0)] | None = None
+    state: str | None = None
+    action: Annotated[LimitMeterAction, BeforeValidator(enum_value(LimitMeterAction))] | None = None
+
+
 class LimitRow(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -792,6 +858,13 @@ OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
 
 
+class PaymentMethodSession(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    url: str
+
+
 class PoolSelection(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -846,6 +919,12 @@ class Problem(WireModel):
     outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
     retryable: bool | None = None
     last_event_id: Annotated[str, Field(pattern="^[0-9]+(\\.[1-3])?$")] | None = None
+    current_revision: Annotated[int, Field(ge=0)] | None = None
+    window: Annotated[ProblemWindow, BeforeValidator(enum_value(ProblemWindow))] | None = None
+    cap: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    current: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    requested: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    unit: Annotated[ProblemUnit, BeforeValidator(enum_value(ProblemUnit))] | None = None
     minimum_version: str | None = None
     client_version: str | None = None
 
@@ -948,6 +1027,30 @@ class RunLabelsRequest(WireModel):
     expected_revision: Annotated[int, Field(ge=1)]
 
 
+class RunLimitsProgressFunding(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    held: str
+    settled: str
+    currency: Literal["USD"]
+
+
+class RunPauseLimit(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    scope: Annotated[RunPauseLimitScope, BeforeValidator(enum_value(RunPauseLimitScope))]
+    assignment: str | None
+    dimension: str
+    layer: str | None
+    cap: Annotated[int, Field(ge=0)]
+    used: Annotated[int, Field(ge=0)]
+    reserved: Annotated[int, Field(ge=0)]
+    unknown_reserved: Annotated[int, Field(ge=0)]
+    revision: Annotated[int, Field(ge=0)]
+
+
 class RunProfilePin(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1035,6 +1138,35 @@ class SelectionScore(WireModel):
     denominator: Annotated[int, Field(ge=1)]
 
 
+class SpendAlertsLastNotified0(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    threshold: int
+    at: str
+
+
+class Subscription(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: str
+    status: str
+    current_period_end: str | None
+    cancel_at_period_end: bool
+    cancel_at: str | None
+
+
+class SubscriptionChangeRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: Annotated[
+        SubscriptionChangeRequestPlanId,
+        BeforeValidator(enum_value(SubscriptionChangeRequestPlanId)),
+    ]
+
+
 class TermsAcceptance(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1112,6 +1244,18 @@ class Account(WireModel):
     principal: Principal
     limits: list[Limit]
     terms: AccountTerms | None = None
+    billing_attention: BillingAttention | None = None
+
+
+class ActorLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    assignment: str
+    actor_id: str | None
+    role: str | None = None
+    state: str | None = None
+    limits: list[LimitMeter]
 
 
 class ApiKey(WireModel):
@@ -1132,6 +1276,26 @@ class ApiKey(WireModel):
     last_used_at: str | None = None
     expires_at: str | None = None
     revoked_at: str | None = None
+
+
+class AutoReload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None
+    amount: Money | None
+    disabled_reason: str | None
+    payment_method_on_file: bool
+
+
+class AutoReloadRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None = None
+    amount: Money | None = None
 
 
 class Balance(WireModel):
@@ -1280,6 +1444,10 @@ class FilePage(WireModel):
     next_cursor: str | None = None
 
 
+class GetSubscriptionResponse(RootModel[Subscription | None]):
+    pass
+
+
 class LimitList(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1295,7 +1463,9 @@ class Limits(WireModel):
     )
     maximum_charge: LaunchBudget
     parallel_workers: Annotated[int, Field(ge=1, le=10)] | None = None
-    wall_time_seconds: Annotated[int, Field(ge=1, le=3600)] | None = None
+    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+    maximum_tokens: Annotated[int, Field(ge=1, le=9223372036854775807)] | None = None
+    pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
 
 
 class MintApiKeyRequest(WireModel):
@@ -1506,6 +1676,16 @@ class RunInputs(WireModel):
     files: Annotated[list[InputFile], Field(max_length=32)] | None = None
 
 
+class RunLimitChanges(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    maximum_charge: Money | None = None
+    maximum_tokens: Annotated[int, Field(ge=1, le=9007199254740991)] | None = None
+    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+    pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+
+
 class RunModelUsage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1532,6 +1712,18 @@ class RunOutput(WireModel):
     state: str
     reference: dict[str, str] | None
     filename: str
+
+
+class RunPause(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    cause: Annotated[RunPauseCause, BeforeValidator(enum_value(RunPauseCause))]
+    operation_id: str
+    limit: RunPauseLimit | None
+    requested_at_ms: int
+    drained_at_ms: int | None
+    mode: Annotated[RunPauseMode, BeforeValidator(enum_value(RunPauseMode))]
 
 
 class RunProgram(WireModel):
@@ -1650,6 +1842,34 @@ class SelectionCandidate(WireModel):
     evaluation_receipt: str
     execution_receipt_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
     candidate_files: list[SelectionFile] | None
+
+
+class SetSpendAlertsRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool | None = None
+    monthly_amount: Money | None
+
+
+class SpendAlerts(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    monthly_amount: Money | None
+    thresholds: list[int]
+    last_notified: SpendAlertsLastNotified0 | None
+
+
+class SubscriptionChangePreview(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan_id: str
+    amount_due_now: Money
+    credit_applied: Money
+    new_period_end: str | None
 
 
 class UpdateApiKeyRequest(WireModel):
@@ -1864,6 +2084,38 @@ class RoutingReadback(WireModel):
     actors: list[RoutingActor]
 
 
+class RunLimitUpdate(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    expected_revision: Annotated[int, Field(ge=0)]
+    limits: RunLimitChanges
+    resume: bool | None = None
+    reason: Annotated[str, Field(max_length=1000)] | None = None
+
+
+class RunLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    operation_id: str | None = None
+    schema_version: Literal["synth.limits-progress.v1"]
+    run_id: RunId
+    revision: Annotated[int, Field(ge=0)]
+    sequence: Annotated[int, Field(ge=0)] | None = None
+    as_of_ms: Annotated[int, Field(ge=0)]
+    status: str
+    pause: dict[str, JsonValue] | None = None
+    primary: list[LimitMeter]
+    secondary: list[LimitMeter]
+    actors: list[ActorLimitsProgress]
+    allocation: dict[str, JsonValue]
+    history: list[dict[str, JsonValue]]
+    freshness: dict[str, JsonValue] | None = None
+    funding: RunLimitsProgressFunding
+    charge: dict[str, JsonValue] | None = None
+
+
 class RunObjective(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2016,6 +2268,9 @@ class RunSnapshot(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    pause: RunPause | None = None
+    limits_revision: Annotated[int, Field(ge=0)] | None = None
+    pause_expires_at_ms: Annotated[int, Field(ge=0)] | None = None
     metadata: dict[str, JsonValue]
     method: JsonValue | None = None
     run_id: RunId
@@ -2059,6 +2314,8 @@ class RunSnapshot(WireModel):
 
     def reached(self, milestone: CompletionMilestone) -> bool:
         milestone = CompletionMilestone(milestone)
+        if milestone is CompletionMilestone.PAUSED:
+            return self.state == "paused"
         if milestone is CompletionMilestone.FINISHED:
             return self.finished
         if milestone is CompletionMilestone.EXECUTION_CLOSED:
@@ -2113,6 +2370,7 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
     "EvaluationAttestation": EvaluationAttestation,
@@ -2131,6 +2389,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "InputFile": InputFile,
     "LaunchBudget": LaunchBudget,
     "Limit": Limit,
+    "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
@@ -2142,6 +2401,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveVerdict": ObjectiveVerdict,
     "Only": Only,
     "Org": Org,
+    "PaymentMethodSession": PaymentMethodSession,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
     "Problem": Problem,
@@ -2153,6 +2413,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
+    "RunLimitsProgressFunding": RunLimitsProgressFunding,
+    "RunPauseLimit": RunPauseLimit,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
     "RunReportRollout": RunReportRollout,
@@ -2161,6 +2423,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "SandboxMoment": SandboxMoment,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
+    "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
+    "Subscription": Subscription,
+    "SubscriptionChangeRequest": SubscriptionChangeRequest,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,
@@ -2169,7 +2434,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageExport": UsageExport,
     "UsageExportRequest": UsageExportRequest,
     "Account": Account,
+    "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
+    "AutoReload": AutoReload,
+    "AutoReloadRequest": AutoReloadRequest,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
     "ChargeUsage": ChargeUsage,
@@ -2182,6 +2450,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationRevisionList": EvaluationRevisionList,
     "EvaluationRollout": EvaluationRollout,
     "FilePage": FilePage,
+    "GetSubscriptionResponse": GetSubscriptionResponse,
     "LimitList": LimitList,
     "Limits": Limits,
     "MintApiKeyRequest": MintApiKeyRequest,
@@ -2198,8 +2467,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,
     "RunInputs": RunInputs,
+    "RunLimitChanges": RunLimitChanges,
     "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
+    "RunPause": RunPause,
     "RunProgram": RunProgram,
     "RunReward": RunReward,
     "RunRoleUsage": RunRoleUsage,
@@ -2209,6 +2480,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunTimings": RunTimings,
     "RunUsage": RunUsage,
     "SelectionCandidate": SelectionCandidate,
+    "SetSpendAlertsRequest": SetSpendAlertsRequest,
+    "SpendAlerts": SpendAlerts,
+    "SubscriptionChangePreview": SubscriptionChangePreview,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "Upload": Upload,
     "UsageDayBucket": UsageDayBucket,
@@ -2227,6 +2501,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
+    "RunLimitUpdate": RunLimitUpdate,
+    "RunLimitsProgress": RunLimitsProgress,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,
     "RunReportSandbox": RunReportSandbox,

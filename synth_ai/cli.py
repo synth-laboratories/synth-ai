@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
+import uuid
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NoReturn, TypeVar
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, JsonValue, TypeAdapter
 from typing_extensions import override
 
 from . import _cli_view as view
@@ -30,6 +32,7 @@ from ._version import __version__
 from .aclient import AsyncSynthClient
 from .errors import (
     ResponseContractError,
+    RunPausedError,
     SwarmsAPIError,
     SynthError,
     TransportFailureError,
@@ -43,6 +46,7 @@ EXIT_CLIENT_ERROR = 1
 EXIT_WAIT_TIMEOUT = 2
 EXIT_RUN_UNSUCCESSFUL = 3
 EXIT_SERVER_REFUSAL = 4
+EXIT_RUN_PAUSED = 5
 UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
 DEFAULT_WAIT_SECONDS = 3600.0
 
@@ -77,6 +81,7 @@ EPILOG = """exit codes:
   2  wait timeout; the run is still running
   3  run finished failed or cancelled
   4  server refusal
+  5  run paused
 
 --json prints the SDK record as one JSON document on stdout."""
 
@@ -89,6 +94,17 @@ class Parser(argparse.ArgumentParser):
     @override
     def error(self, message: str) -> NoReturn:
         raise UsageError(message)
+
+
+def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
+    return str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            json.dumps(
+                ["synth-cli", action, run_id, values], sort_keys=True, separators=(",", ":")
+            ),
+        )
+    )
 
 
 def parser() -> argparse.ArgumentParser:
@@ -118,7 +134,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
     run.add_argument(
-        "--wall", type=int, metavar="SECONDS", help="run wall-time bound, 1..3600 seconds"
+        "--wall", type=int, metavar="SECONDS", help="unpaused run time, 1..86400 seconds"
     )
     run.add_argument(
         "--parallel-workers",
@@ -126,6 +142,8 @@ def parser() -> argparse.ArgumentParser:
         metavar="N",
         help="workers the planner may run at once, 1..10 (default 1); the budget must fund all N",
     )
+    run.add_argument("--tokens", type=int)
+    run.add_argument("--pause-retention", type=int, metavar="SECONDS")
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
@@ -154,7 +172,19 @@ def parser() -> argparse.ArgumentParser:
     download.add_argument("-o", "--out", default=".", metavar="DIR")
     add("usage").add_argument("run_id", nargs="?", metavar="RUN")
     add("billing")
-    add("limits")
+    limits = add("limits")
+    limits.add_argument("run_id", nargs="?", metavar="RUN|set")
+    limits.add_argument("set_run_id", nargs="?", metavar="RUN")
+    limits.add_argument("--expected-revision", type=int)
+    limits.add_argument("--budget")
+    limits.add_argument("--wall", type=int)
+    limits.add_argument("--tokens", type=int)
+    limits.add_argument("--pause-retention", type=int)
+    limits.add_argument("--resume", action="store_true")
+    limits.add_argument("--reason")
+    limits.add_argument("--idempotency-key")
+    for name in ("pause", "resume"):
+        add(name).add_argument("--idempotency-key")
     evaluation_common = Parser(add_help=False)
     evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
     evaluation = add("evaluations").add_subparsers(dest="evaluation_action", required=True)
@@ -255,6 +285,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile=args.profile,
                 research_task=args.research_task,
                 wall_time_seconds=args.wall,
+                maximum_tokens=args.tokens,
+                pause_retention_seconds=args.pause_retention,
                 parallel_workers=args.parallel_workers,
                 inputs=None,
                 labels=parse_labels(args.label),
@@ -321,9 +353,21 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)
         elif command == "pause":
-            out.record(await swarms.pause(args.run_id), view.receipt)
+            out.record(
+                await swarms.pause(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("pause", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "resume":
-            out.record(await swarms.resume(args.run_id), view.receipt)
+            out.record(
+                await swarms.resume(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("resume", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "cancel":
             out.record(await swarms.cancel(args.run_id), view.snapshot)
         elif command == "outputs":
@@ -348,7 +392,29 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "billing":
             out.record(await client.billing.balance(), view.balance)
         elif command == "limits":
-            out.record(await client.account.limits(), view.limits)
+            if args.run_id == "set":
+                if args.set_run_id is None or args.expected_revision is None:
+                    raise UsageError("limits set requires RUN and --expected-revision")
+                values = dict(
+                    expected_revision=args.expected_revision,
+                    budget=args.budget,
+                    wall_time_seconds=args.wall,
+                    maximum_tokens=args.tokens,
+                    pause_retention_seconds=args.pause_retention,
+                    resume=args.resume,
+                    reason=args.reason,
+                )
+                key = args.idempotency_key or mutation_key("limits", args.set_run_id, values)
+                out.record(
+                    await swarms.update_limits(args.set_run_id, **values, idempotency_key=key),
+                    view.run_limits,
+                )
+            elif args.set_run_id is not None:
+                raise UsageError("unexpected argument after RUN")
+            elif args.run_id is None:
+                out.record(await client.account.limits(), view.limits)
+            else:
+                out.record(await swarms.limits(args.run_id), view.run_limits)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK
@@ -466,6 +532,9 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
         if args.command in {"login", "logout"}:
             return run_auth(args)
         return asyncio.run(execute(args, http_client))
+    except RunPausedError as error:
+        fail(error.code, str(error), as_json)
+        return EXIT_RUN_PAUSED
     except WaitTimeoutError as error:
         fail(error.code, str(error), as_json)
         return EXIT_WAIT_TIMEOUT

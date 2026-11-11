@@ -75,8 +75,8 @@ async def test_wrong_wall_time_type_is_rejected_before_any_request(value):
     assert not sent
 
 
-@pytest.mark.parametrize("value", [0, 3601, 86400])
-async def test_wall_time_outside_one_hour_is_rejected_before_any_request(value):
+@pytest.mark.parametrize("value", [0, 86401, -1])
+async def test_wall_time_outside_twenty_four_hours_is_rejected_before_any_request(value):
     sent = []
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: sent.append(request))
@@ -87,13 +87,17 @@ async def test_wall_time_outside_one_hour_is_rejected_before_any_request(value):
     assert not sent
 
 
-def test_wall_time_admits_one_hour():
+@pytest.mark.parametrize("value", [3600, 3601, 86400])
+def test_wall_time_admits_twenty_four_hours(value):
     request = LaunchRequest.model_validate(
         launch(
-            limits={"maximum_charge": {"amount": "1", "currency": "USD"}, "wall_time_seconds": 3600}
+            limits={
+                "maximum_charge": {"amount": "1", "currency": "USD"},
+                "wall_time_seconds": value,
+            }
         )
     )
-    assert request.limits.wall_time_seconds == 3600
+    assert request.limits.wall_time_seconds == value
 
 
 @pytest.mark.parametrize("value", [0, 11, -1])

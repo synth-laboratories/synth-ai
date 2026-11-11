@@ -24,6 +24,8 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_labels_update | updateRunLabels | swarms:write |
 | swarms_run_pause | pauseRun | swarms:control |
 | swarms_run_resume | resumeRun | swarms:control |
+| swarms_run_limits | getRunLimits | swarms:read |
+| swarms_run_limits_update | updateRunLimits | swarms:run |
 | swarms_run_tasks | listRunTasks | swarms:read |
 | register_evaluation_input | registerEvaluationInput | swarms:run |
 | list_evaluation_inputs | listEvaluationInputs | swarms:read |
