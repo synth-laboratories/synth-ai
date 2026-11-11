@@ -211,6 +211,8 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
         ["--wall", "0"],
         ["--label", "no-equals-sign"],
         ["--budget", "-1"],
+        ["--idempotency-key", ""],
+        ["--idempotency-key", "x" * 129],
     ],
 )
 def test_run_refuses_bad_flags_before_any_upload(api, capsys, tmp_path, flags):
@@ -539,3 +541,34 @@ def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contrac
     assert code == cli.EXIT_WAIT_TIMEOUT, err
     assert out == ""
     assert json.loads(err)["code"] == "wait_timeout"
+
+
+def test_run_reuses_explicit_launch_and_per_file_keys(api, capsys, contract, tmp_path):
+    path = tmp_path / "task.md"
+    content = b"# Task\n"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    pending = {
+        "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+        "state": "pending",
+        "file": manifest,
+        "put": {
+            "url": "https://storage.example.test/object",
+            "headers": {"content-type": "text/markdown"},
+            "expires_at": "2026-11-06T00:00:00Z",
+        },
+    }
+    api.overrides["createUpload"] = (201, pending)
+    api.overrides["finalizeUpload"] = (200, {**pending, "state": "committed", "put": None})
+    argv = ["run", "Goal", "--budget", "4.00", "--file", str(path), "--idempotency-key", "run-key"]
+    for _ in range(2):
+        code, _, err = invoke(api, capsys, *argv)
+        assert code == cli.EXIT_OK, err
+    launches = [request for oid, request in api.calls if oid == "createRun"]
+    uploads = [request for oid, request in api.calls if oid == "createUpload"]
+    assert len(launches) == len(uploads) == 2
+    assert [request.headers["Idempotency-Key"] for request in launches] == ["run-key", "run-key"]
+    assert launches[0].content == launches[1].content
+    assert uploads[0].headers["Idempotency-Key"] == uploads[1].headers["Idempotency-Key"]
+    assert uploads[0].headers["Idempotency-Key"] != "run-key"

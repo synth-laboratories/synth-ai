@@ -130,6 +130,7 @@ def parser() -> argparse.ArgumentParser:
     run = add("run")
     run.add_argument("goal")
     run.add_argument("--budget", required=True)
+    run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -277,6 +278,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "upload":
             out.records([await swarms.upload_file(path) for path in args.paths], view.files)
         elif command == "run":
+            if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
+                raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
             request = launch_request(
@@ -296,7 +299,17 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile_requirements=swarms._profile_requirements,
                 default_profile=swarms._default_profile,
             )
-            uploaded = [await swarms.upload_file(path) for path in args.file]
+            uploaded = [
+                await swarms.upload_file(
+                    path,
+                    idempotency_key=(
+                        mutation_key("run-upload", args.idempotency_key, {"index": index})
+                        if args.idempotency_key
+                        else None
+                    ),
+                )
+                for index, path in enumerate(args.file)
+            ]
             inputs = (
                 RunInputs(
                     files=[
@@ -318,7 +331,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                         "inputs": inputs.model_dump(exclude_none=True),
                     }
                 )
-            created = await swarms.launch_request(request)
+            created = await swarms.launch_request(request, idempotency_key=args.idempotency_key)
             if not args.wait:
                 out.record(created, lambda s: s.run_id)
                 return EXIT_OK
