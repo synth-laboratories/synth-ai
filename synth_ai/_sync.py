@@ -573,11 +573,16 @@ class BillingClient:
         enabled: bool,
         threshold: Money | None = None,
         amount: Money | None = None,
+        disclosure_version: str | None = None,
         idempotency_key: str | None = None,
     ) -> AutoReload:
         return self._runner.call(
             self._async.set_auto_reload(
-                enabled=enabled, threshold=threshold, amount=amount, idempotency_key=idempotency_key
+                enabled=enabled,
+                threshold=threshold,
+                amount=amount,
+                disclosure_version=disclosure_version,
+                idempotency_key=idempotency_key,
             )
         )
 

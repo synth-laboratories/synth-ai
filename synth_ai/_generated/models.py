@@ -368,6 +368,14 @@ class AccountTerms(WireModel):
     accepted_at: str
 
 
+class AutoReloadCard(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    brand: str
+    last4: str
+
+
 class BillingAttention(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -664,6 +672,8 @@ class Problem(WireModel):
     last_event_id: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
     minimum_version: str | None = None
     client_version: str | None = None
+    field: str | None = None
+    reason: str | None = None
 
 
 class RefundDetailRunUsage1(WireModel):
@@ -967,15 +977,13 @@ class ApiKey(WireModel):
     revoked_at: str | None = None
 
 
-class AutoReload(WireModel):
+class AutoReloadLimits(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    enabled: bool
-    threshold: Money | None
-    amount: Money | None
-    disabled_reason: str | None
-    payment_method_on_file: bool
+    max_amount: Money
+    daily_count: Annotated[int, Field(ge=1)]
+    monthly_ceiling: Money
 
 
 class AutoReloadRequest(WireModel):
@@ -985,6 +993,7 @@ class AutoReloadRequest(WireModel):
     enabled: bool
     threshold: Money | None = None
     amount: Money | None = None
+    disclosure_version: str | None = None
 
 
 class Balance(WireModel):
@@ -1576,6 +1585,16 @@ class ApiKeyPage(WireModel):
     items: list[ApiKey]
 
 
+class AutoReloadDisclosure(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    version: str
+    template: str
+    card: AutoReloadCard | None
+    limits: AutoReloadLimits
+
+
 class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1771,6 +1790,18 @@ class UsageSummaryBySource(WireModel):
     unattributed: UsageTotals
 
 
+class AutoReload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None
+    amount: Money | None
+    disabled_reason: str | None
+    payment_method_on_file: bool
+    disclosure: AutoReloadDisclosure
+
+
 class BillingHistoryPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1908,6 +1939,7 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
@@ -1959,7 +1991,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageExportRequest": UsageExportRequest,
     "Account": Account,
     "ApiKey": ApiKey,
-    "AutoReload": AutoReload,
+    "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
@@ -2007,6 +2039,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummarySettling": UsageSummarySettling,
     "UsageTotals": UsageTotals,
     "ApiKeyPage": ApiKeyPage,
+    "AutoReloadDisclosure": AutoReloadDisclosure,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "EventPage": EventPage,
@@ -2022,6 +2055,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunSelection": RunSelection,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummaryBySource": UsageSummaryBySource,
+    "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReport": RunReport,

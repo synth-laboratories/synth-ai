@@ -135,13 +135,23 @@ class AsyncBilling:
         enabled: bool,
         threshold: Money | None = None,
         amount: Money | None = None,
+        disclosure_version: str | None = None,
         idempotency_key: str | None = None,
     ) -> AutoReload:
-        fields: dict[str, bool | Money] = {"enabled": enabled}
+        """Save auto-reload; the caller must be an org admin or owner.
+
+        Turning it off works with an API key. Turning it on, or changing it while on,
+        needs a signed-in browser session, so an API key or OAuth grant is refused
+        with `browser_session_required` (403); enable it in the console.
+        `disclosure_version` is the `disclosure.version` from `auto_reload()`.
+        """
+        fields: dict[str, bool | Money | str] = {"enabled": enabled}
         if threshold is not None:
             fields["threshold"] = threshold
         if amount is not None:
             fields["amount"] = amount
+        if disclosure_version is not None:
+            fields["disclosure_version"] = disclosure_version
         body = AutoReloadRequest.model_validate(fields)
         return await self._transport.request(
             "setAutoReload", AutoReload, body=body, idempotency_key=idempotency_key

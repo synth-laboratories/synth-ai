@@ -2,9 +2,10 @@
 
 ## 0.34.0
 
-Contract: the SDK pins Core public contract 1.11.0 (Core `bc0c7198`, SHA-256
-`8f42597f…6e6ca1`). It adds self-serve billing lifecycle operations. None is an
-MCP tool; like `createCheckout`, they are SDK and HTTP only.
+Contract: the SDK pins Core public contract 1.13.0 (Core `18cdf24c`, SHA-256
+`816d2ae9…0d59`), the contract production Core serves. It adds self-serve
+billing lifecycle operations. None is an MCP tool; like `createCheckout`, they
+are SDK and HTTP only.
 
 New on `billing` (async and sync), each a read or write of Core's
 operation of the same name:
@@ -17,12 +18,18 @@ operation of the same name:
 - `change_subscription_plan(plan_id)` (`Subscription`).
 - `payment_method_session()` returns a `PaymentMethodSession` whose `url` is the
   hosted page for updating the card.
-- `auto_reload()` and `set_auto_reload(enabled=, threshold=, amount=)`
-  (`AutoReload`).
+- `auto_reload()` and `set_auto_reload(enabled=, threshold=, amount=,
+  disclosure_version=)` (`AutoReload`). `AutoReload.disclosure`
+  (`AutoReloadDisclosure`: `version`, `template`, `card`, `limits`) is the text
+  an admin must be shown before turning it on. Turning auto-reload on needs a
+  signed-in browser session: with an API key Core refuses it with
+  `browser_session_required` (`ForbiddenError`), so enable it in the console.
+  Turning it off works with an API key.
 - `spend_alerts()` and `set_spend_alerts(monthly_amount=, enabled=)`
   (`SpendAlerts`); `monthly_amount=None` clears the amount.
 
-Mutations take an optional `idempotency_key`. `Account` carries
+`Problem` gains optional `field` and `reason`, which name the refused field and
+why. Mutations take an optional `idempotency_key`. `Account` carries
 `billing_attention` (`BillingAttention`: `kind`, `since`) when billing needs the
 org's action. `checkout` now documents that an org holding a subscription Stripe
 has not ended (`active`, `past_due`, `incomplete`, `unpaid`, `paused`) is refused
