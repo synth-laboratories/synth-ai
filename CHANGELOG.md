@@ -7,6 +7,7 @@
 - Preserve exact large integer inputs and return structured CLI wait deadlines.
 - Pin Core public contract 1.16.0 (Core `1461e10c`; spec SHA-256 `7b1c6fcd…20dd`), which adds the seven evaluation operations on top of 1.15.0. Evaluation attestations carry issuer `synth`.
 - Re-pin to Core public contract 1.17.0 (Core `51d35d57`; spec SHA-256 `33b0080b…436b`), which declares the bodies of the limit events (`limits.revised`, `limit.reached`, `limit.warning`, `run.paused`, `run.resumed`, `actor.parked`, `actor.unparked`). Under the earlier pin `events()` refused every run at its first event.
+- Update the 1.17.0 pin to Core `6c31c186` (spec SHA-256 `eb399de8…32aa4`), including the planner budget-floor refusal in launch guidance and generated MCP schema.
 
 ## 0.37.0
 

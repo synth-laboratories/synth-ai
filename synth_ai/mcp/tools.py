@@ -212,7 +212,30 @@ TOOLS: list[ToolDefinition] = [
                             "defaults to 1 "
                             "and may be "
                             "raised with "
-                            "parallel_workers.",
+                            "parallel_workers. "
+                            "The planner's "
+                            "default share "
+                            "of "
+                            "maximum_charge "
+                            "must fund the "
+                            "actor spend "
+                            "floor and one "
+                            "call on its "
+                            "routed preset; "
+                            "a smaller "
+                            "maximum_charge "
+                            "is refused at "
+                            "launch with "
+                            "422 "
+                            "launch_budget_below_actor_floor, "
+                            "cause "
+                            "planner_call_floor, "
+                            "whose detail "
+                            "names the "
+                            "actor, the "
+                            "preset and the "
+                            "minimum "
+                            "(floor_micros).",
                             "properties": {
                                 "maximum_charge": {
                                     "additionalProperties": False,
