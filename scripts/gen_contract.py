@@ -194,17 +194,25 @@ def generate() -> dict[Path, str]:
                     req = oid[0].upper() + oid[1:] + "Request"
                     schemas[req] = body
             result = None
+            nullable = False
             binary = False
             for status, r in op.objects("responses").items():
                 if status.startswith("2"):
                     r = resolve(r)
                     content = r.object("content", optional=True)
                     if "application/json" in content:
-                        response_schema = content.object("application/json").object("schema")
-                        result = response_schema.text("$ref", "").split("/")[-1]
+                        schema = content.object("application/json").object("schema")
+                        branches = schema.object_array("oneOf", optional=True)
+                        if branches:  # A ref or null: the operation answers `null` for none.
+                            refs = [b for b in branches if "$ref" in b]
+                            nulls = [b for b in branches if b.get("type") == "null"]
+                            if len(refs) != 1 or len(nulls) != 1 or len(branches) != 2:
+                                raise ValueError(oid + ": unsupported oneOf response")
+                            schema, nullable = refs[0], True
+                        result = schema.text("$ref", "").split("/")[-1]
                         if not result:
                             result = oid[0].upper() + oid[1:] + "Response"
-                            schemas[result] = response_schema
+                            schemas[result] = schema
                     elif content:
                         binary = True
                     break
@@ -221,6 +229,7 @@ def generate() -> dict[Path, str]:
                     "request_model": req,
                     "response_model": result,
                     "binary": binary,
+                    "nullable_response": nullable,
                     "auth": op.get("security") != [],
                 }
             )
@@ -385,7 +394,7 @@ def generate() -> dict[Path, str]:
         "from __future__ import annotations",
         "from typing import Annotated, Literal, TypeAlias",
         "from enum import StrEnum",
-        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, RootModel",
+        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
         "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
@@ -454,6 +463,12 @@ def generate() -> dict[Path, str]:
             lines += ["class " + n + "(RootModel[" + annotation(s) + "]):", "    pass", ""]
         else:
             lines += [n + ": TypeAlias = " + annotation(s), ""]
+    if any("(RootModel[" in line for line in lines):
+        lines[
+            lines.index(
+                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue"
+            )
+        ] += ", RootModel"
     enum_lines = []
     for name, values in sorted(enums.items()):
         enum_lines += ["class " + name + "(StrEnum):"]
@@ -485,6 +500,7 @@ class Operation(TypedDict):
     request_model: str | None
     response_model: str | None
     binary: bool
+    nullable_response: bool
     auth: bool
 
 OPERATIONS: dict[str, Operation] = """

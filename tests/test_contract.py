@@ -124,6 +124,7 @@ def test_generated_models_never_constrain_null():
     assert "Annotated[None" not in (ROOT / "synth_ai/_generated/models.py").read_text()
 
 
-def test_nullable_subscription_response_round_trips_null():
-    response = MODELS[OPERATIONS["getSubscription"]["response_model"]].model_validate(None)
-    assert response.model_dump(mode="json") is None
+def test_nullable_subscription_response_is_flagged_not_wrapped():
+    operation = OPERATIONS["getSubscription"]
+    assert operation["response_model"] == "Subscription"
+    assert operation["nullable_response"] is True
