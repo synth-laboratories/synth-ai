@@ -134,8 +134,8 @@ async def test_smoke_completes_two_run_journey_and_resumes_without_new_spend(smo
     for index, request in enumerate(launches):
         payload = json.loads(request.content)
         assert payload["limits"] == {
-            "maximum_charge": {"amount": "0.10", "currency": "USD"},
-            "wall_time_seconds": 120,
+            "maximum_charge": {"amount": "4.00", "currency": "USD"},
+            "wall_time_seconds": 600,
         }
         assert payload["profile"] == "swarms-v2"
         assert request.headers["Idempotency-Key"] == receipt.launch_keys[str(index)]
@@ -223,3 +223,50 @@ async def test_smoke_reuses_launch_key_saved_before_acknowledgement(smoke_api, t
     assert launches[0].headers["Idempotency-Key"] == "retained-before-launch"
     assert state["launch_count"] == 2
     assert smoke.SmokeReceipt.from_json(output.read_text()).smoke_complete
+
+
+def test_v4_receipt_preserves_original_budget_and_deadline():
+    receipt = smoke.SmokeReceipt.from_json(
+        json.dumps(
+            {"schema": "synth.public-sdk.swarms-smoke.v4", "base_url": "https://api.example.test"}
+        )
+    )
+    assert receipt.aggregate_maximum_usd == "0.20"
+    assert receipt.run_limits == ("0.10", 120)
+    assert smoke.SmokeReceipt.from_json(receipt.to_json()).run_limits == ("0.10", 120)
+
+
+def test_receipt_refuses_mismatched_schema_and_budget():
+    with pytest.raises(ValueError, match="receipt budget does not match schema"):
+        smoke.SmokeReceipt.from_json(
+            json.dumps(
+                {
+                    "schema": "synth.public-sdk.swarms-smoke.v4",
+                    "base_url": "https://api.example.test",
+                    "aggregate_maximum_usd": "8.00",
+                }
+            )
+        )
+
+
+async def test_v4_resume_keeps_original_launch_intent(smoke_api, tmp_path):
+    state, requests, _ = smoke_api
+    output = tmp_path / "v4.json"
+    output.write_text(
+        json.dumps(
+            {
+                "schema": "synth.public-sdk.swarms-smoke.v4",
+                "base_url": "https://api.example.test",
+                "launch_keys": {"0": "retained-v4-key"},
+            }
+        )
+    )
+    await smoke.run(output, resume=True)
+    launches = [request for request in requests if request.url.path == "/v1/runs"]
+    assert state["launch_count"] == 2
+    assert launches[0].headers["Idempotency-Key"] == "retained-v4-key"
+    for request in launches:
+        limits = json.loads(request.content)["limits"]
+        assert limits["maximum_charge"]["amount"] == "0.10"
+        assert limits["wall_time_seconds"] == 120
+    assert smoke.SmokeReceipt.from_json(output.read_text()).aggregate_maximum_usd == "0.20"
