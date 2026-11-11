@@ -2,6 +2,7 @@
 
 `synth` (also installed as `synth-ai`) is a thin layer over the typed client.
 Every command accepts `--json`; the global `--base-url` selects the API.
+For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.31-0.32.md).
 
 | Step | Command | SDK record under `--json` |
 | --- | --- | --- |
