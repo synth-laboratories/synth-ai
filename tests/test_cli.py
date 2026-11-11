@@ -572,3 +572,28 @@ def test_run_reuses_explicit_launch_and_per_file_keys(api, capsys, contract, tmp
     assert launches[0].content == launches[1].content
     assert uploads[0].headers["Idempotency-Key"] == uploads[1].headers["Idempotency-Key"]
     assert uploads[0].headers["Idempotency-Key"] != "run-key"
+
+
+def test_run_can_reuse_launch_identity_after_lost_response(api, capsys, contract):
+    sent = []
+    seen_request = None
+
+    def launch(request):
+        nonlocal seen_request
+        sent.append(request.headers["Idempotency-Key"])
+        if seen_request is None:
+            seen_request = request.content
+        assert request.content == seen_request
+        if len(sent) == 1:
+            raise httpx.ReadError("response lost after admission", request=request)
+        status, body = example(contract, "createRun")
+        return httpx.Response(status, json=body)
+
+    api.overrides["createRun"] = launch
+    argv = ["run", "Goal", "--budget", "4.00", "--idempotency-key", "retained-launch"]
+    first, _, _ = invoke(api, capsys, *argv)
+    assert first != cli.EXIT_OK
+    second, out, err = invoke(api, capsys, *argv)
+    assert second == cli.EXIT_OK, err
+    assert out.strip()
+    assert sent == ["retained-launch", "retained-launch"]
