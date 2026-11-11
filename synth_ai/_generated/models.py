@@ -72,7 +72,7 @@ class CheckoutRequestPackId(StrEnum):
 
 
 class EvaluationAttestationIssuer(StrEnum):
-    RHODES = "rhodes"
+    SYNTH = "synth"
 
 
 class EvaluationAttestationSchemaVersion(StrEnum):
@@ -264,9 +264,20 @@ class RunReportAttribution(StrEnum):
     NOT_RECORDED = "not_recorded"
 
 
+class RunReportRolloutCompute(StrEnum):
+    PENDING = "pending"
+    ATTRIBUTED = "attributed"
+    PARTIAL = "partial"
+    UNOBSERVED = "unobserved"
+
+
 class RunReportSandboxCompute(StrEnum):
     NOT_METERED = "not_metered"
     METERED = "metered"
+
+
+class RunReportSandboxComputeMetering(StrEnum):
+    NOT_METERED = "not_metered"
 
 
 class RunReportSandboxObservation(StrEnum):
@@ -303,6 +314,12 @@ class RunReportSandboxState(StrEnum):
     NEVER_CREATED = "never_created"
     NOT_REQUESTED = "not_requested"
     UNOBSERVED = "unobserved"
+
+
+class RunReportSandboxUsageAttribution(StrEnum):
+    PENDING = "pending"
+    ATTRIBUTED = "attributed"
+    NOT_RECORDED = "not_recorded"
 
 
 class RunReportTeardown(StrEnum):
@@ -473,6 +490,14 @@ class AccountTerms(WireModel):
     )
     version: str
     accepted_at: str
+
+
+class AutoReloadCard(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    brand: str
+    last4: str
 
 
 class BillingAttention(WireModel):
@@ -927,6 +952,8 @@ class Problem(WireModel):
     unit: Annotated[ProblemUnit, BeforeValidator(enum_value(ProblemUnit))] | None = None
     minimum_version: str | None = None
     client_version: str | None = None
+    field: str | None = None
+    reason: str | None = None
 
 
 class RefundDetailRunUsage1(WireModel):
@@ -959,6 +986,15 @@ class RoutingCatalogRoute(WireModel):
     preset: str
     model: str
     providers: list[str]
+
+
+class RunComputeMeter(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    unit: str
+    quantity: Annotated[float, Field(ge=0)]
 
 
 class RunControlReceipt(WireModel):
@@ -1072,18 +1108,6 @@ class RunProgramProgram(WireModel):
     version: str
 
 
-class RunReportRollout(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    rollout_id: str
-    status: str
-    seed: int
-    reward: float | None = None
-    refusal: str | None = None
-    duration_ms: int | None = None
-
-
 class RunTask(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1165,6 +1189,14 @@ class SubscriptionChangeRequest(WireModel):
         SubscriptionChangeRequestPlanId,
         BeforeValidator(enum_value(SubscriptionChangeRequestPlanId)),
     ]
+
+
+class SwarmsVariantVersion(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: Annotated[str, Field(min_length=1, max_length=128)]
+    version: Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
 
 
 class TermsAcceptance(WireModel):
@@ -1278,15 +1310,13 @@ class ApiKey(WireModel):
     revoked_at: str | None = None
 
 
-class AutoReload(WireModel):
+class AutoReloadLimits(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    enabled: bool
-    threshold: Money | None
-    amount: Money | None
-    disabled_reason: str | None
-    payment_method_on_file: bool
+    max_amount: Money
+    daily_count: Annotated[int, Field(ge=1)]
+    monthly_ceiling: Money
 
 
 class AutoReloadRequest(WireModel):
@@ -1296,6 +1326,7 @@ class AutoReloadRequest(WireModel):
     enabled: bool
     threshold: Money | None = None
     amount: Money | None = None
+    disclosure_version: str | None = None
 
 
 class Balance(WireModel):
@@ -1442,10 +1473,6 @@ class FilePage(WireModel):
     items: list[File]
     has_more: bool
     next_cursor: str | None = None
-
-
-class GetSubscriptionResponse(RootModel[Subscription | None]):
-    pass
 
 
 class LimitList(WireModel):
@@ -1599,6 +1626,15 @@ class RunCharge(WireModel):
     final: bool
 
 
+class RunCompute(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    charge: Money
+    subsidized: Money
+    meters: list[RunComputeMeter]
+
+
 class RunConfiguration(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1733,13 +1769,15 @@ class RunProgram(WireModel):
     program: RunProgramProgram
 
 
-class RunReward(WireModel):
+class RunProviderCompute(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    status: Annotated[RunRewardStatus, BeforeValidator(enum_value(RunRewardStatus))]
-    best: float | None = None
-    rollouts: list[RunReportRollout]
+    charge: Money
+    subsidized: Money
+    meters: list[RunComputeMeter]
+    provider: str
+    rollouts: Annotated[int, Field(ge=0)]
 
 
 class RunRoleUsage(WireModel):
@@ -1971,6 +2009,16 @@ class ApiKeyPage(WireModel):
     items: list[ApiKey]
 
 
+class AutoReloadDisclosure(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    version: str
+    template: str
+    card: AutoReloadCard | None
+    limits: AutoReloadLimits
+
+
 class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2148,6 +2196,20 @@ class RunProfile(WireModel):
     routing: RoutingCatalog | None = None
 
 
+class RunReportRollout(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    rollout_id: str
+    status: str
+    seed: int
+    reward: float | None = None
+    refusal: str | None = None
+    duration_ms: int | None = None
+    provider: str | None = None
+    compute: RunCompute | None = None
+
+
 class RunReportSandbox(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2169,6 +2231,19 @@ class RunReportSandbox(WireModel):
     ]
     observed_at: str | None = None
     usage: RunUsage
+    prepared: SandboxMoment
+    compute_metering: Annotated[
+        RunReportSandboxComputeMetering,
+        BeforeValidator(enum_value(RunReportSandboxComputeMetering)),
+    ]
+    time_to_create_ms: int | None = None
+    usage_attribution: (
+        Annotated[
+            RunReportSandboxUsageAttribution,
+            BeforeValidator(enum_value(RunReportSandboxUsageAttribution)),
+        ]
+        | None
+    ) = None
     time_to_ready_ms: int | None = None
     lifetime_ms: int | None = None
 
@@ -2217,6 +2292,18 @@ class UsageSummaryBySource(WireModel):
     unattributed: UsageTotals
 
 
+class AutoReload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    enabled: bool
+    threshold: Money | None
+    amount: Money | None
+    disabled_reason: str | None
+    payment_method_on_file: bool
+    disclosure: AutoReloadDisclosure
+
+
 class BillingHistoryPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2244,24 +2331,13 @@ class RunProfileCatalog(WireModel):
     profiles: list[RunProfile]
 
 
-class RunReport(WireModel):
+class RunReward(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
-    run_id: RunId
-    settlement: RunSettlementSummary
-    attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
-    by_model: list[RunModelUsage]
-    by_role: list[RunRoleUsage]
-    sandboxes: list[RunReportSandbox]
-    teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
-    unattributed: RunUsage
-    sandbox_compute: Annotated[
-        RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
-    ]
-    reward: RunReward
-    timings: RunTimings
+    status: Annotated[RunRewardStatus, BeforeValidator(enum_value(RunRewardStatus))]
+    best: float | None = None
+    rollouts: list[RunReportRollout]
 
 
 class RunSnapshot(WireModel):
@@ -2271,6 +2347,11 @@ class RunSnapshot(WireModel):
     pause: RunPause | None = None
     limits_revision: Annotated[int, Field(ge=0)] | None = None
     pause_expires_at_ms: Annotated[int, Field(ge=0)] | None = None
+    api_version: (
+        Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
+        | None
+    ) = None
+    variant: SwarmsVariantVersion | None = None
     metadata: dict[str, JsonValue]
     method: JsonValue | None = None
     run_id: RunId
@@ -2348,6 +2429,30 @@ class RunPage(WireModel):
     items: list[RunSnapshot]
 
 
+class RunReport(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
+    run_id: RunId
+    settlement: RunSettlementSummary
+    attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
+    by_model: list[RunModelUsage]
+    by_role: list[RunRoleUsage]
+    sandboxes: list[RunReportSandbox]
+    teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
+    unattributed: RunUsage
+    sandbox_compute: Annotated[
+        RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
+    ]
+    rollout_compute: Annotated[
+        RunReportRolloutCompute, BeforeValidator(enum_value(RunReportRolloutCompute))
+    ]
+    compute_by_provider: list[RunProviderCompute]
+    reward: RunReward
+    timings: RunTimings
+
+
 class RunResult(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2370,6 +2475,7 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
@@ -2408,6 +2514,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
+    "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
     "RunEvaluation": RunEvaluation,
     "RunGuidanceMetric": RunGuidanceMetric,
@@ -2417,7 +2524,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunPauseLimit": RunPauseLimit,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
-    "RunReportRollout": RunReportRollout,
     "RunTask": RunTask,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
@@ -2426,6 +2532,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
     "Subscription": Subscription,
     "SubscriptionChangeRequest": SubscriptionChangeRequest,
+    "SwarmsVariantVersion": SwarmsVariantVersion,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,
@@ -2436,7 +2543,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Account": Account,
     "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
-    "AutoReload": AutoReload,
+    "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
     "Balance": Balance,
     "BillingStatement": BillingStatement,
@@ -2450,7 +2557,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationRevisionList": EvaluationRevisionList,
     "EvaluationRollout": EvaluationRollout,
     "FilePage": FilePage,
-    "GetSubscriptionResponse": GetSubscriptionResponse,
     "LimitList": LimitList,
     "Limits": Limits,
     "MintApiKeyRequest": MintApiKeyRequest,
@@ -2463,6 +2569,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunCharge": RunCharge,
+    "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
     "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,
@@ -2472,7 +2579,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunOutput": RunOutput,
     "RunPause": RunPause,
     "RunProgram": RunProgram,
-    "RunReward": RunReward,
+    "RunProviderCompute": RunProviderCompute,
     "RunRoleUsage": RunRoleUsage,
     "RunSandbox": RunSandbox,
     "RunSettlementSummary": RunSettlementSummary,
@@ -2492,6 +2599,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummarySettling": UsageSummarySettling,
     "UsageTotals": UsageTotals,
     "ApiKeyPage": ApiKeyPage,
+    "AutoReloadDisclosure": AutoReloadDisclosure,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "EvaluationResponse": EvaluationResponse,
@@ -2505,18 +2613,21 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLimitsProgress": RunLimitsProgress,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,
+    "RunReportRollout": RunReportRollout,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
     "RunSelection": RunSelection,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummaryBySource": UsageSummaryBySource,
+    "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
     "EvaluationRevision": EvaluationRevision,
     "RunProfileCatalog": RunProfileCatalog,
-    "RunReport": RunReport,
+    "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
     "RunPage": RunPage,
+    "RunReport": RunReport,
     "RunResult": RunResult,
     "RunWait": RunWait,
     "EvaluationInput": RootModel[EvaluationInput],

@@ -50,6 +50,7 @@ from ._generated.models import (
     RunSnapshot,
     RunState,
     RunTask,
+    SwarmsVariantVersion,
     UploadGrant,
     UsageSummary,
 )
@@ -109,6 +110,7 @@ __all__ = [
     "RunTask",
     "StreamCheckpoint",
     "StreamCheckpointData",
+    "SwarmsVariantVersion",
     "UploadGrant",
     "UsageSummary",
 ]

@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.14.0
+  version: 1.16.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1923,6 +1923,14 @@ paths:
                   reasoning_tokens: 0
                   model_time_ms: 0
                 sandbox_compute: metered
+                rollout_compute: attributed
+                compute_by_provider:
+                - provider: docker
+                  rollouts: 1
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  meters:
+                  - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 reward:
                   status: scored
                   best: 2.0
@@ -1932,6 +1940,12 @@ paths:
                     seed: 0
                     reward: 2.0
                     duration_ms: 41000
+                    provider: docker
+                    compute:
+                      charge: {amount: '0.000000000000', currency: USD}
+                      subsidized: {amount: '0.000000000000', currency: USD}
+                      meters:
+                      - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 timings:
                   created_at: '2026-11-05T12:22:49Z'
                   closed: {status: observed, at: '2026-11-05T12:25:30Z'}
@@ -3758,13 +3772,21 @@ paths:
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: The org's auto-reload setting.
       description: |
-        Off by default for every org. When on, a debit that leaves the org's purchased-credit balance below `threshold`
-        charges the saved card `amount` off-session, at most one charge in flight and at most 3 per UTC day; the credits
-        are granted when Stripe confirms the payment. A declined charge, or one the bank asks the customer to
-        authenticate, turns auto-reload off and sets `disabled_reason` (for example `card_declined`,
-        `authentication_required`, `payment_method_missing`). `payment_method_on_file` reads the Stripe customer's saved
-        card. Any member with `account:billing:read` may read it. Refusals: `stripe_customer_read_failed` (502),
-        `config_missing` (503).
+        Off by default for every org. When on, a debit that leaves the org's purchased-credit balance (promotional and
+        plan credit do not count) below `threshold` charges the saved card `amount` off-session: at most one charge in
+        flight, at most `disclosure.limits.daily_count` charges per UTC day and at most
+        `disclosure.limits.monthly_ceiling` charged per UTC calendar month. A reload a limit blocks is skipped (one
+        email and the `auto_reload_capped` billing attention until the window ends; auto-reload stays on). Nothing is
+        charged while the org is suspended. The credits are granted when Stripe confirms the payment. Core turns
+        auto-reload off and sets `disabled_reason` (open set) when: a charge is declined or the bank asks the customer
+        to authenticate (Stripe's code, for example `card_declined`, `authentication_required`); Stripe refuses the
+        charge or gives no answer after its retries (`charge_failed`); a charge is disputed (`dispute`); no card is
+        saved when a reload is due or the card is detached (`card_removed`; older rows say `payment_method_missing`);
+        the org's last admin or owner is removed (`admin_removed`). The admins are emailed. `payment_method_on_file`
+        reads the Stripe customer's saved card; `disclosure` is what an admin must be shown before turning it on, with
+        the card a reload would charge now (a card change does not turn it off). Any member with
+        `account:billing:read` may read it. Refusals: `stripe_customer_read_failed` (502),
+        `stripe_payment_method_read_failed` (502), `config_missing` (503).
       responses:
         '200':
           description: Auto-reload setting.
@@ -3782,6 +3804,21 @@ paths:
                   currency: USD
                 disabled_reason: null
                 payment_method_on_file: true
+                disclosure:
+                  version: 2026-11-10.1
+                  template: "We'll charge {brand} ending {last4} {amount} whenever your purchased credit balance drops
+                    below {threshold}, up to {daily_cap} times a day and {monthly_cap} a month. Turn this off any time."
+                  card:
+                    brand: Visa
+                    last4: '4242'
+                  limits:
+                    max_amount:
+                      amount: '1000.00'
+                      currency: USD
+                    daily_count: 3
+                    monthly_ceiling:
+                      amount: '5000.00'
+                      currency: USD
           headers:
             X-Request-Id:
               $ref: '#/components/headers/X-Request-Id'
@@ -3838,12 +3875,19 @@ paths:
       summary: Save the org's auto-reload setting.
       description: |
         Requires an org admin or owner in addition to `account:billing:write`. `enabled` is required; a `threshold` or
-        `amount` left out (or null) keeps the stored value. Turning it on needs both, a saved card, and clears
-        `disabled_reason`; only debits after that moment start a reload. Bounds: `threshold` $5.00 to $10,000.00,
-        `amount` $10.00 (the smallest credit pack) to $10,000.00, whole cents. Turning it off cancels a charge not yet
-        sent to Stripe. A refusal before the save leaves the Idempotency-Key unused; a 5xx releases it. Refusals:
-        `auto_reload_invalid` (400, names the `field`), `billing_admin_required` (403), `payment_method_required` (409,
-        no saved card), `stripe_customer_read_failed` (502), `config_missing` (503).
+        `amount` left out (or null) keeps the stored value. Saving it on (turning it on, or changing it while on) needs
+        a signed-in browser session, both values, a saved card and `disclosure_version`: the `disclosure.version` from
+        getAutoReload whose text, filled with these values and the card, the admin was shown. Core records the version,
+        the rendered text, the amounts, the limits and the card's brand and last four in the audit log. Saving it on
+        clears `disabled_reason`; only debits after turning it on start a reload. Bounds: `threshold` $5.00 to
+        $1,000.00, `amount` $10.00 (the smallest credit pack) to $1,000.00 (`disclosure.limits.max_amount`) and at
+        least `threshold`, whole cents. Turning it off is allowed with any admin credential and needs no version; it
+        cancels a charge not yet sent to Stripe. A refusal before the save leaves the Idempotency-Key unused; a 5xx
+        releases it. Refusals: `auto_reload_invalid` (400, `field` names the field; `reason` `below_threshold` when
+        the amount is below the threshold), `billing_admin_required` (403), `browser_session_required` (403, an API
+        key or OAuth grant tried to save it on), `payment_method_required` (409, no saved card),
+        `auto_reload_disclosure_required` (422, `field` `disclosure_version`: missing or not a version Core knows),
+        `stripe_customer_read_failed` (502), `stripe_payment_method_read_failed` (502), `config_missing` (503).
       requestBody:
         required: true
         content:
@@ -3867,6 +3911,21 @@ paths:
                   currency: USD
                 disabled_reason: null
                 payment_method_on_file: true
+                disclosure:
+                  version: 2026-11-10.1
+                  template: "We'll charge {brand} ending {last4} {amount} whenever your purchased credit balance drops
+                    below {threshold}, up to {daily_cap} times a day and {monthly_cap} a month. Turn this off any time."
+                  card:
+                    brand: Visa
+                    last4: '4242'
+                  limits:
+                    max_amount:
+                      amount: '1000.00'
+                      currency: USD
+                    daily_count: 3
+                    monthly_ceiling:
+                      amount: '5000.00'
+                      currency: USD
           headers:
             X-Request-Id:
               $ref: '#/components/headers/X-Request-Id'
@@ -5799,7 +5858,7 @@ components:
         issuer:
           type: string
           enum:
-          - rhodes
+          - synth
         key_id: *evaluation_id002
         evidence:
           type: object
@@ -5986,8 +6045,10 @@ components:
           - type: 'null'
         billing_attention:
           description: Lane B (SYN-5570). A billing state the org must act on, or null. `past_due` (a payment failed;
-            the plan stays during Stripe's retries), `unpaid` (suspended to Free; paying restores the plan), `paused`, or
-            `auto_reload_disabled` (a reload charge failed). `since` is when it began.
+            the plan stays during Stripe's retries), `unpaid` (suspended to Free; paying restores the plan), `paused`,
+            `auto_reload_disabled` (Core turned auto-reload off after a failed charge, a dispute, the card or the last admin
+            removed; `disabled_reason` on getAutoReload says which), or `auto_reload_capped` (the daily count or monthly
+            ceiling blocked a reload; shown until that UTC day or month ends). `since` is when it began.
           oneOf:
           - $ref: '#/components/schemas/BillingAttention'
           - type: 'null'
@@ -6650,6 +6711,19 @@ components:
         revision:
           type: integer
           minimum: 0
+    SwarmsVariantVersion:
+      type: object
+      description: Variant semantic version pinned when the run was admitted. Absent for older or unversioned runs.
+      additionalProperties: false
+      required: [id, version]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     RunSnapshot:
       type: object
       required:
@@ -6680,6 +6754,12 @@ components:
         pause_expires_at_ms:
           type: integer
           minimum: 0
+        api_version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          description: Semantic version of the currently serving Swarms API; absent on imported history.
+        variant:
+          $ref: '#/components/schemas/SwarmsVariantVersion'
         metadata:
           type: object
           additionalProperties: true
@@ -7658,9 +7738,25 @@ components:
       - type: object
         required:
         - usage
+        - prepared
+        - compute_metering
         properties:
           usage:
             $ref: '#/components/schemas/RunUsage'
+          prepared:
+            $ref: '#/components/schemas/SandboxMoment'
+            description: When the run prepared this actor, before it requested the sandbox. not_recorded when no preparation was retained.
+          compute_metering:
+            type: string
+            enum: [not_metered]
+            description: Actor sandbox compute is not metered, so it has no charge. This is not a zero amount.
+          time_to_create_ms:
+            type: integer
+            description: Prepared to created. Present only when both were observed and created is not before prepared.
+          usage_attribution:
+            type: string
+            enum: [pending, attributed, not_recorded]
+            description: Sandbox usage is complete only when attributed; not_recorded means its usage fields are not a complete sandbox total.
           time_to_ready_ms:
             type: integer
             description: Present only when created and ready were both observed.
@@ -7689,6 +7785,55 @@ components:
         duration_ms:
           type: integer
           description: Present only when a start and an end were both recorded.
+        provider:
+          type: string
+          description: The provider that ran the rollout's container, as its usage facts recorded it. Present only
+            when a settled compute line of the rollout names it.
+        compute:
+          $ref: '#/components/schemas/RunCompute'
+    RunComputeMeter:
+      type: object
+      required:
+      - kind
+      - unit
+      - quantity
+      properties:
+        kind:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+    RunCompute:
+      type: object
+      description: Settled pool compute. Every amount is a sum of settlement lines.
+      required:
+      - charge
+      - subsidized
+      - meters
+      properties:
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        meters:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunComputeMeter'
+    RunProviderCompute:
+      allOf:
+      - $ref: '#/components/schemas/RunCompute'
+      - type: object
+        required:
+        - provider
+        - rollouts
+        properties:
+          provider:
+            type: string
+          rollouts:
+            type: integer
+            minimum: 0
     RunReward:
       type: object
       required:
@@ -7787,6 +7932,8 @@ components:
       - teardown
       - unattributed
       - sandbox_compute
+      - rollout_compute
+      - compute_by_provider
       - reward
       - timings
       properties:
@@ -7801,8 +7948,9 @@ components:
           $ref: '#/components/schemas/RunSettlementSummary'
         attribution:
           type: string
-          description: pending waits for settlement. not_recorded settled before attribution was kept, so the total
-            is final and the breakdown does not exist.
+          description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained
+            or a repeated actor's session could not be identified. The total remains final; model and role aggregates
+            may still be available, while per-sandbox usage must not be interpreted as complete.
           enum:
           - pending
           - attributed
@@ -7834,6 +7982,21 @@ components:
           enum:
           - not_metered
           - metered
+        rollout_compute:
+          type: string
+          description: Whether compute_by_provider and each rollout's compute group the settled pool compute lines.
+            pending waits for settlement. partial means some lines name no rollout or provider; their amounts stay in
+            settlement.rollout and in no group. unobserved means the usage facts could not be read; settlement.rollout
+            is still final.
+          enum:
+          - pending
+          - attributed
+          - partial
+          - unobserved
+        compute_by_provider:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunProviderCompute'
         reward:
           $ref: '#/components/schemas/RunReward'
         timings:
@@ -8338,7 +8501,7 @@ components:
     AutoReload:
       type: object
       additionalProperties: false
-      required: [enabled, threshold, amount, disabled_reason, payment_method_on_file]
+      required: [enabled, threshold, amount, disabled_reason, payment_method_on_file, disclosure]
       properties:
         enabled:
           type: boolean
@@ -8353,10 +8516,57 @@ components:
           - $ref: '#/components/schemas/Money'
           - type: 'null'
         disabled_reason:
-          description: Why a failed charge turned auto-reload off (open set); null otherwise.
+          description: Why Core turned auto-reload off (open set; for example `card_declined`, `authentication_required`,
+            `charge_failed`, `dispute`, `card_removed`, `admin_removed`); null otherwise.
           type: [string, 'null']
         payment_method_on_file:
           type: boolean
+        disclosure:
+          $ref: '#/components/schemas/AutoReloadDisclosure'
+    AutoReloadDisclosure:
+      description: What an admin is shown before turning auto-reload on. Fill `template` with the card and the form's
+        values; money placeholders render as `$1,234.56`, `{daily_cap}` as an integer.
+      type: object
+      additionalProperties: false
+      required: [version, template, card, limits]
+      properties:
+        version:
+          description: Send as `disclosure_version` when saving auto-reload on. A wording change is a new version.
+          type: string
+          examples: [2026-11-10.1]
+        template:
+          description: Placeholders `{brand}` `{last4}` `{amount}` `{threshold}` `{daily_cap}` `{monthly_cap}`.
+          type: string
+        card:
+          description: The card a reload would charge now; null when none is saved.
+          oneOf:
+          - $ref: '#/components/schemas/AutoReloadCard'
+          - type: 'null'
+        limits:
+          $ref: '#/components/schemas/AutoReloadLimits'
+    AutoReloadCard:
+      type: object
+      additionalProperties: false
+      required: [brand, last4]
+      properties:
+        brand:
+          description: Display name (Visa, Mastercard, American Express, ...).
+          type: string
+        last4:
+          type: string
+    AutoReloadLimits:
+      type: object
+      additionalProperties: false
+      required: [max_amount, daily_count, monthly_ceiling]
+      properties:
+        max_amount:
+          $ref: '#/components/schemas/Money'
+        daily_count:
+          type: integer
+          minimum: 1
+        monthly_ceiling:
+          description: Most charged per UTC calendar month (pending, in-flight and paid reloads count).
+          $ref: '#/components/schemas/Money'
     AutoReloadRequest:
       type: object
       additionalProperties: false
@@ -8372,6 +8582,9 @@ components:
           oneOf:
           - $ref: '#/components/schemas/Money'
           - type: 'null'
+        disclosure_version:
+          description: Required when `enabled` is true; the `disclosure.version` the admin was shown.
+          type: [string, 'null']
     BillingAttention:
       type: object
       additionalProperties: false
@@ -8380,7 +8593,7 @@ components:
         kind:
           description: What needs the org's attention (open set; clients ignore kinds they do not know).
           type: string
-          examples: [past_due, unpaid, paused, auto_reload_disabled]
+          examples: [past_due, unpaid, paused, auto_reload_disabled, auto_reload_capped]
         since:
           type: string
           format: date-time
@@ -8769,6 +8982,14 @@ components:
           type: string
           description: On 426 client_upgrade_required only, the synth-ai version the request
             identified itself with.
+        field:
+          type: string
+          description: On auto_reload_invalid and auto_reload_disclosure_required only, the request field
+            the refusal is about.
+        reason:
+          type: string
+          description: On auto_reload_invalid only, why the field was refused when more than its bounds
+            (`below_threshold`).
     RunWait:
       type: object
       additionalProperties: false

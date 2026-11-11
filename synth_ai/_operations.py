@@ -199,6 +199,8 @@ class OperationExecutor:
         if op["binary"]:
             return response.content
         if op["response_model"] is not None:
+            if op["nullable_response"] and response.content.strip() == b"null":
+                return None
             try:
                 return MODELS[op["response_model"]].model_validate_json(response.content)
             except ValidationError as error:
