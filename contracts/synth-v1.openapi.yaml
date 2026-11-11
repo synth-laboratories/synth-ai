@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.16.0
+  version: 1.17.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -7069,12 +7069,26 @@ components:
           - string
           - 'null'
         payload:
-          description: The event's body on objective.progress and objective.claimed; null on every other kind. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence.
-          oneOf:
+          description: The event's body, selected by `kind`; null on every kind not listed here. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence. Limit events carry the limits revision and pause they report.
+          anyOf:
           - $ref: '#/components/schemas/ObjectiveProgressPayload'
             x-synth-event-kind: objective.progress
           - $ref: '#/components/schemas/ObjectiveClaimedPayload'
             x-synth-event-kind: objective.claimed
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: limits.revised
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: limit.reached
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: run.paused
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: run.resumed
+          - $ref: '#/components/schemas/RunLimitWarningPayload'
+            x-synth-event-kind: limit.warning
+          - $ref: '#/components/schemas/ActorParkedPayload'
+            x-synth-event-kind: actor.parked
+          - $ref: '#/components/schemas/ActorUnparkedPayload'
+            x-synth-event-kind: actor.unparked
           - type: 'null'
     RunGuidance:
       type: object
@@ -7203,6 +7217,71 @@ components:
           type: string
         receipt_digest:
           type: string
+    RunLimitStatePayload:
+      type: object
+      additionalProperties: false
+      description: The run's limits at one revision. `pause` is the pause in force after this event, or null.
+      required: [revision, at_ms, pause]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        at_ms:
+          type: integer
+        pause:
+          oneOf:
+          - $ref: '#/components/schemas/RunPause'
+          - type: 'null'
+    RunLimitWarningPayload:
+      type: object
+      additionalProperties: false
+      description: A run-level limit crossed its warning threshold.
+      required: [revision, at_ms, scope, dimension, cap, used, reserved, unknown_reserved]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        at_ms:
+          type: integer
+        scope:
+          type: string
+          enum: [run]
+        dimension:
+          type: string
+        cap:
+          type: integer
+        used:
+          type: integer
+        reserved:
+          type: integer
+        unknown_reserved:
+          type: integer
+    ActorParkedPayload:
+      type: object
+      additionalProperties: false
+      description: An actor stopped at an assignment limit and is waiting for headroom.
+      required: [actor_id, assignment, dimension, at_ms]
+      properties:
+        actor_id:
+          type: string
+        assignment:
+          type: [string, 'null']
+        dimension:
+          type: string
+        at_ms:
+          type: integer
+    ActorUnparkedPayload:
+      type: object
+      additionalProperties: false
+      description: A parked actor resumed.
+      required: [actor_id, assignment, at_ms]
+      properties:
+        actor_id:
+          type: string
+        assignment:
+          type: [string, 'null']
+        at_ms:
+          type: integer
     ObjectiveClaimedPayload:
       type: object
       required:

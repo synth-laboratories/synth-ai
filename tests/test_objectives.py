@@ -153,3 +153,78 @@ def test_event_payloads_parse_by_shape_and_are_optional():
     assert isinstance(claimed.payload, ObjectiveClaimedPayload)
     assert RunEvent.model_validate({**EVENT, "payload": None}).payload is None
     assert RunEvent.model_validate(EVENT).payload is None
+
+
+# Staging 2026-11-11: Core sent a body on the limit kinds while the contract
+# declared none, so `events()` refused every run at its first event.
+LIMIT_EVENTS = [
+    ("limits.revised", {"revision": 1, "at_ms": 1794391592930, "pause": None}),
+    (
+        "run.paused",
+        {
+            "revision": 2,
+            "at_ms": 1794391593000,
+            "pause": {
+                "cause": "customer",
+                "operation_id": "op-1",
+                "limit": None,
+                "requested_at_ms": 1794391593000,
+                "drained_at_ms": None,
+                "mode": "warm",
+            },
+        },
+    ),
+    (
+        "limit.warning",
+        {
+            "revision": 2,
+            "at_ms": 1794391594000,
+            "scope": "run",
+            "dimension": "spend_micros",
+            "cap": 1000,
+            "used": 800,
+            "reserved": 10,
+            "unknown_reserved": 0,
+        },
+    ),
+    (
+        "actor.parked",
+        {
+            "actor_id": "worker",
+            "assignment": "worker/task",
+            "dimension": "spend_micros",
+            "at_ms": 1794391594000,
+        },
+    ),
+    ("actor.unparked", {"actor_id": "worker", "assignment": None, "at_ms": 1794391595000}),
+]
+
+
+def test_limit_events_read_their_declared_payloads():
+    from synth_ai._generated.models import EventPage
+
+    page = EventPage.model_validate(
+        {
+            "items": [
+                {**EVENT, "sequence": index, "kind": kind, "original_kind": kind, "payload": body}
+                for index, (kind, body) in enumerate(LIMIT_EVENTS)
+            ],
+            "has_more": False,
+            "resume_cursor": None,
+        }
+    )
+    assert page.items[0].payload.revision == 1 and page.items[0].payload.pause is None
+    assert page.items[1].payload.pause.mode == "warm"
+    assert page.items[2].payload.cap == 1000
+    assert page.items[3].payload.actor_id == "worker"
+    assert page.items[4].payload.assignment is None
+
+
+def test_a_payload_on_a_kind_that_declares_none_is_still_refused():
+    import pytest
+    from pydantic import ValidationError
+
+    from synth_ai._generated.models import RunEvent
+
+    with pytest.raises(ValidationError):
+        RunEvent.model_validate({**EVENT, "kind": "running", "payload": {"anything": 1}})

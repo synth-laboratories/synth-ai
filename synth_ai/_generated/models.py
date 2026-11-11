@@ -233,6 +233,10 @@ class RunGuidancePriority(StrEnum):
     NICE = "nice"
 
 
+class RunLimitWarningPayloadScope(StrEnum):
+    RUN = "run"
+
+
 class RunObjectiveState(StrEnum):
     OPEN = "open"
     CLAIMED = "claimed"
@@ -490,6 +494,25 @@ class AccountTerms(WireModel):
     )
     version: str
     accepted_at: str
+
+
+class ActorParkedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    assignment: str | None
+    dimension: str
+    at_ms: int
+
+
+class ActorUnparkedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    assignment: str | None
+    at_ms: int
 
 
 class AutoReloadCard(WireModel):
@@ -1061,6 +1084,22 @@ class RunLabelsRequest(WireModel):
     )
     labels: dict[str, str]
     expected_revision: Annotated[int, Field(ge=1)]
+
+
+class RunLimitWarningPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision: Annotated[int, Field(ge=0)]
+    at_ms: int
+    scope: Annotated[
+        RunLimitWarningPayloadScope, BeforeValidator(enum_value(RunLimitWarningPayloadScope))
+    ]
+    dimension: str
+    cap: int
+    used: int
+    reserved: int
+    unknown_reserved: int
 
 
 class RunLimitsProgressFunding(WireModel):
@@ -1643,34 +1682,6 @@ class RunConfiguration(WireModel):
     configuration: dict[str, JsonValue]
 
 
-class RunEvent(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    event_id: EvtId
-    run_id: RunId
-    sequence: Annotated[int, Field(ge=0)]
-    kind: str
-    original_kind: str
-    usage: JsonValue
-    observed_at: str | None
-    approval_id: str | None
-    payload: (
-        Annotated[
-            ObjectiveProgressPayload | ObjectiveClaimedPayload | None,
-            BeforeValidator(
-                event_payload(
-                    {
-                        "objective.progress": ObjectiveProgressPayload,
-                        "objective.claimed": ObjectiveClaimedPayload,
-                    }
-                )
-            ),
-        ]
-        | None
-    ) = None
-
-
 class RunGuidance(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2065,16 +2076,6 @@ class EvaluationResponse(WireModel):
     quote: EvaluationQuote | None = None
 
 
-class EventPage(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    has_more: bool
-    next_cursor: Annotated[str, Field(min_length=1)] | None = None
-    items: list[RunEvent]
-    resume_cursor: str | None
-
-
 class FamilyList(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2130,6 +2131,15 @@ class RoutingReadback(WireModel):
     policy_revision: str
     request_digest: str
     actors: list[RoutingActor]
+
+
+class RunLimitStatePayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision: Annotated[int, Field(ge=0)]
+    at_ms: int
+    pause: RunPause | None
 
 
 class RunLimitUpdate(WireModel):
@@ -2323,6 +2333,47 @@ class EvaluationRevision(WireModel):
     payload: EvaluationInput
 
 
+class RunEvent(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    event_id: EvtId
+    run_id: RunId
+    sequence: Annotated[int, Field(ge=0)]
+    kind: str
+    original_kind: str
+    usage: JsonValue
+    observed_at: str | None
+    approval_id: str | None
+    payload: (
+        Annotated[
+            ObjectiveProgressPayload
+            | ObjectiveClaimedPayload
+            | RunLimitStatePayload
+            | RunLimitWarningPayload
+            | ActorParkedPayload
+            | ActorUnparkedPayload
+            | None,
+            BeforeValidator(
+                event_payload(
+                    {
+                        "objective.progress": ObjectiveProgressPayload,
+                        "objective.claimed": ObjectiveClaimedPayload,
+                        "limits.revised": RunLimitStatePayload,
+                        "limit.reached": RunLimitStatePayload,
+                        "run.paused": RunLimitStatePayload,
+                        "run.resumed": RunLimitStatePayload,
+                        "limit.warning": RunLimitWarningPayload,
+                        "actor.parked": ActorParkedPayload,
+                        "actor.unparked": ActorUnparkedPayload,
+                    }
+                )
+            ),
+        ]
+        | None
+    ) = None
+
+
 class RunProfileCatalog(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2420,6 +2471,16 @@ class UsageSummary(WireModel):
     by_key: list[UsageKeyBucket]
 
 
+class EventPage(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    has_more: bool
+    next_cursor: Annotated[str, Field(min_length=1)] | None = None
+    items: list[RunEvent]
+    resume_cursor: str | None
+
+
 class RunPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2475,6 +2536,8 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "ActorParkedPayload": ActorParkedPayload,
+    "ActorUnparkedPayload": ActorUnparkedPayload,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
@@ -2520,6 +2583,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
+    "RunLimitWarningPayload": RunLimitWarningPayload,
     "RunLimitsProgressFunding": RunLimitsProgressFunding,
     "RunPauseLimit": RunPauseLimit,
     "RunProfilePin": RunProfilePin,
@@ -2571,7 +2635,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunCharge": RunCharge,
     "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
-    "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,
     "RunInputs": RunInputs,
     "RunLimitChanges": RunLimitChanges,
@@ -2603,12 +2666,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "EvaluationResponse": EvaluationResponse,
-    "EventPage": EventPage,
     "FamilyList": FamilyList,
     "LaunchRequest": LaunchRequest,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
+    "RunLimitStatePayload": RunLimitStatePayload,
     "RunLimitUpdate": RunLimitUpdate,
     "RunLimitsProgress": RunLimitsProgress,
     "RunObjective": RunObjective,
@@ -2622,10 +2685,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
     "EvaluationRevision": EvaluationRevision,
+    "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
+    "EventPage": EventPage,
     "RunPage": RunPage,
     "RunReport": RunReport,
     "RunResult": RunResult,
