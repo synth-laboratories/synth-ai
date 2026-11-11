@@ -84,4 +84,17 @@ inspect it, and `run.known_state` when a known state enum is useful. Unknown ser
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
 
+For release qualification, `python scripts/quickstart_smoke.py --execute --fixture-org ORG_ID --cohort-file COHORT.json --output PATH`
+exercises SDK, CLI and stdio MCP against an explicitly configured API. It has
+three $4 run caps ($12 aggregate), retains mutation and cancellation identities,
+and requires `--resume` with the same receipt after an interruption. Add
+`--cancel-outstanding` to reconcile known runs without admitting new ones. A
+launch with an unknown run ID must be reconciled using its retained key. Use a
+dedicated test organization; uploaded fixtures require separate disposition.
+The cohort file's digest binds the receipt but does not attest what is deployed.
+Record the spend reservation and actual charges in the release ledger before and
+after use. This opt-in smoke does not establish hosted MCP OAuth, provider-invoice
+finality, load or capacity acceptance, and must not run automatically in CI without
+shared budget admission.
+
 Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.
