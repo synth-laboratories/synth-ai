@@ -174,7 +174,7 @@ def generate() -> dict[Path, str]:
         if not path.startswith("/v1/"):
             continue
         for method, op in item.items():
-            if method not in {"get", "post", "patch", "delete"}:
+            if method not in {"get", "post", "put", "patch", "delete"}:
                 continue
             op = JSONObject.require(op)
             if op.get("x-synth-status") != "implemented":
@@ -194,18 +194,22 @@ def generate() -> dict[Path, str]:
                     req = oid[0].upper() + oid[1:] + "Request"
                     schemas[req] = body
             result = None
+            nullable = False
             binary = False
             for status, r in op.objects("responses").items():
                 if status.startswith("2"):
                     r = resolve(r)
                     content = r.object("content", optional=True)
                     if "application/json" in content:
-                        result = (
-                            content.object("application/json")
-                            .object("schema")
-                            .text("$ref", "")
-                            .split("/")[-1]
-                        )
+                        schema = content.object("application/json").object("schema")
+                        branches = schema.object_array("oneOf", optional=True)
+                        if branches:  # A ref or null: the operation answers `null` for none.
+                            refs = [b for b in branches if "$ref" in b]
+                            nulls = [b for b in branches if b.get("type") == "null"]
+                            if len(refs) != 1 or len(nulls) != 1 or len(branches) != 2:
+                                raise ValueError(oid + ": unsupported oneOf response")
+                            schema, nullable = refs[0], True
+                        result = schema.text("$ref", "").split("/")[-1]
                     elif content:
                         binary = True
                     break
@@ -222,6 +226,7 @@ def generate() -> dict[Path, str]:
                     "request_model": req,
                     "response_model": result,
                     "binary": binary,
+                    "nullable_response": nullable,
                     "auth": op.get("security") != [],
                 }
             )
@@ -480,6 +485,7 @@ class Operation(TypedDict):
     request_model: str | None
     response_model: str | None
     binary: bool
+    nullable_response: bool
     auth: bool
 
 OPERATIONS: dict[str, Operation] = """

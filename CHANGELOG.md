@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.34.0
+
+Contract: the SDK pins Core public contract 1.13.0 (Core `18cdf24c`, SHA-256
+`816d2ae9…0d59`), the contract production Core serves. It adds self-serve
+billing lifecycle operations. None is an MCP tool; like `createCheckout`, they
+are SDK and HTTP only.
+
+New on `billing` (async and sync), each a read or write of Core's
+operation of the same name:
+
+- `subscription()` returns the org's `Subscription`, or `None` when it has never
+  had one (`getSubscription`).
+- `cancel_subscription()` and `resume_subscription()` (`Subscription`).
+- `preview_subscription_change(plan_id)` returns a `SubscriptionChangePreview`
+  (amount due now, credit applied, new period end) without changing anything.
+- `change_subscription_plan(plan_id)` (`Subscription`).
+- `payment_method_session()` returns a `PaymentMethodSession` whose `url` is the
+  hosted page for updating the card.
+- `auto_reload()` and `set_auto_reload(enabled=, threshold=, amount=,
+  disclosure_version=)` (`AutoReload`). `AutoReload.disclosure`
+  (`AutoReloadDisclosure`: `version`, `template`, `card`, `limits`) is the text
+  an admin must be shown before turning it on. Turning auto-reload on needs a
+  signed-in browser session: with an API key Core refuses it with
+  `browser_session_required` (`ForbiddenError`), so enable it in the console.
+  Turning it off works with an API key.
+- `spend_alerts()` and `set_spend_alerts(monthly_amount=, enabled=)`
+  (`SpendAlerts`); `monthly_amount=None` clears the amount.
+
+`Problem` gains optional `field` and `reason`, which name the refused field and
+why. Mutations take an optional `idempotency_key`. `Account` carries
+`billing_attention` (`BillingAttention`: `kind`, `since`) when billing needs the
+org's action. `checkout` now documents that an org holding a subscription Stripe
+has not ended (`active`, `past_due`, `incomplete`, `unpaid`, `paused`) is refused
+with `subscription_already_active`.
+
+Generator: `scripts/gen_contract.py` accepts PUT operations and a response that is
+a schema or `null`; the operation table gains `nullable_response`.
+
 ## 0.33.0
 
 Contract: the SDK pins Core public contract 1.9.0 (Core `cf85aa84`, SHA-256
