@@ -37,6 +37,7 @@ from .errors import (
     SynthError,
     TransportFailureError,
     UpgradeRequiredError,
+    UploadTransferError,
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
@@ -130,6 +131,7 @@ def parser() -> argparse.ArgumentParser:
     run = add("run")
     run.add_argument("goal")
     run.add_argument("--budget", required=True)
+    run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -277,6 +279,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "upload":
             out.records([await swarms.upload_file(path) for path in args.paths], view.files)
         elif command == "run":
+            if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
+                raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
             request = launch_request(
@@ -296,7 +300,17 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile_requirements=swarms._profile_requirements,
                 default_profile=swarms._default_profile,
             )
-            uploaded = [await swarms.upload_file(path) for path in args.file]
+            uploaded = [
+                await swarms.upload_file(
+                    path,
+                    idempotency_key=(
+                        mutation_key("run-upload", args.idempotency_key, {"index": index})
+                        if args.idempotency_key
+                        else None
+                    ),
+                )
+                for index, path in enumerate(args.file)
+            ]
             inputs = (
                 RunInputs(
                     files=[
@@ -318,7 +332,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                         "inputs": inputs.model_dump(exclude_none=True),
                     }
                 )
-            created = await swarms.launch_request(request)
+            created = await swarms.launch_request(request, idempotency_key=args.idempotency_key)
             if not args.wait:
                 out.record(created, lambda s: s.run_id)
                 return EXIT_OK
@@ -552,6 +566,27 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_SERVER_REFUSAL
+    except UploadTransferError as error:
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "code": error.code,
+                        "detail": str(error),
+                        "upload_id": error.upload_id,
+                        "idempotency_key": error.idempotency_key,
+                    }
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+        else:
+            fail(
+                error.code,
+                f"{error} (upload_id={error.upload_id}, idempotency_key={error.idempotency_key})",
+                False,
+            )
+        return EXIT_CLIENT_ERROR
     except SynthError as error:
         fail(error.code, str(error), as_json)
         return EXIT_CLIENT_ERROR

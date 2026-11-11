@@ -11,7 +11,7 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | | `synth logout` | `AuthStatus` |
 | Discover | `synth profiles [--research-task T]` | `RunProfileCatalog` |
 | Inputs | `synth upload PATH...` | array of `File` |
-| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--parallel-workers N (1..10)] [--label k=v ...] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
+| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--parallel-workers N (1..10)] [--label k=v ...] [--idempotency-key KEY] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
 | Watch | `synth status RUN` | `RunSnapshot` |
 | | `synth wait RUN [--timeout S]` | `RunSnapshot` |
 | | `synth logs RUN [-f] [--limit N] [--cursor C]` | `EventPage`; with `-f`, one `RunEvent` per line |
@@ -31,6 +31,13 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 `synth run` requires the goal; it becomes the launch message. `--file` uploads
 each file (prepare, transfer, finalize in one step) and attaches its reference.
 The default `--timeout` for `wait` and `run --wait` is 3600 seconds.
+
+For a launch whose response was lost, reuse the same `--idempotency-key` with
+exactly the same goal, flags and file contents. The CLI derives stable upload
+keys from it and preserves file order. A changed request under the same key is
+refused. If an upload grant has expired, recover the retained upload through the
+SDK's `resume_upload` with the `upload_id` and `idempotency_key` printed by
+the CLI before retrying; do not issue a new run blindly.
 
 `synth result RUN` reads a finished run with `swarms.result`: it prints the
 answer (the last available `text/*` output, digest-verified, or else the latest

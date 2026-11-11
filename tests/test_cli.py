@@ -211,6 +211,8 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
         ["--wall", "0"],
         ["--label", "no-equals-sign"],
         ["--budget", "-1"],
+        ["--idempotency-key", ""],
+        ["--idempotency-key", "x" * 129],
     ],
 )
 def test_run_refuses_bad_flags_before_any_upload(api, capsys, tmp_path, flags):
@@ -539,3 +541,90 @@ def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contrac
     assert code == cli.EXIT_WAIT_TIMEOUT, err
     assert out == ""
     assert json.loads(err)["code"] == "wait_timeout"
+
+
+def test_run_reuses_explicit_launch_and_per_file_keys(api, capsys, contract, tmp_path):
+    path = tmp_path / "task.md"
+    content = b"# Task\n"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    pending = {
+        "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+        "state": "pending",
+        "file": manifest,
+        "put": {
+            "url": "https://storage.example.test/object",
+            "headers": {"content-type": "text/markdown"},
+            "expires_at": "2026-11-06T00:00:00Z",
+        },
+    }
+    api.overrides["createUpload"] = (201, pending)
+    api.overrides["finalizeUpload"] = (200, {**pending, "state": "committed", "put": None})
+    argv = ["run", "Goal", "--budget", "4.00", "--file", str(path), "--idempotency-key", "run-key"]
+    for _ in range(2):
+        code, _, err = invoke(api, capsys, *argv)
+        assert code == cli.EXIT_OK, err
+    launches = [request for oid, request in api.calls if oid == "createRun"]
+    uploads = [request for oid, request in api.calls if oid == "createUpload"]
+    assert len(launches) == len(uploads) == 2
+    assert [request.headers["Idempotency-Key"] for request in launches] == ["run-key", "run-key"]
+    assert launches[0].content == launches[1].content
+    assert uploads[0].headers["Idempotency-Key"] == uploads[1].headers["Idempotency-Key"]
+    assert uploads[0].headers["Idempotency-Key"] != "run-key"
+
+
+def test_run_can_reuse_launch_identity_after_lost_response(api, capsys, contract):
+    sent = []
+    seen_request = None
+
+    def launch(request):
+        nonlocal seen_request
+        sent.append(request.headers["Idempotency-Key"])
+        if seen_request is None:
+            seen_request = request.content
+        assert request.content == seen_request
+        if len(sent) == 1:
+            raise httpx.ReadError("response lost after admission", request=request)
+        status, body = example(contract, "createRun")
+        return httpx.Response(status, json=body)
+
+    api.overrides["createRun"] = launch
+    argv = ["run", "Goal", "--budget", "4.00", "--idempotency-key", "retained-launch"]
+    first, _, _ = invoke(api, capsys, *argv)
+    assert first != cli.EXIT_OK
+    second, out, err = invoke(api, capsys, *argv)
+    assert second == cli.EXIT_OK, err
+    assert out.strip()
+    assert sent == ["retained-launch", "retained-launch"]
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path, as_json):
+    path = tmp_path / "task.md"
+    content = b"# Task\n"
+    path.write_bytes(content)
+    _, manifest = example(contract, "uploadFile")
+    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    api.overrides["createUpload"] = (
+        201,
+        {
+            "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+            "state": "pending",
+            "file": manifest,
+            "put": None,
+        },
+    )
+    argv = ["run", "Goal", "--budget", "4.00", "--file", str(path), "--idempotency-key", "run-key"]
+    code, _, err = invoke(api, capsys, *(argv + (["--json"] if as_json else [])))
+    assert code == cli.EXIT_CLIENT_ERROR
+    key = cli.mutation_key("run-upload", "run-key", {"index": 0})
+    if as_json:
+        body = json.loads(err)
+        assert body["code"] == "upload_incomplete"
+        assert body["upload_id"] == "upl_AAAAAAAAAAAAAAAAAAAAAA"
+        assert body["idempotency_key"] == key
+    else:
+        assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
+        assert f"idempotency_key={key}" in err
+    assert all(oid != "createRun" for oid, _ in api.calls)
