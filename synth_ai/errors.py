@@ -95,6 +95,29 @@ class ConflictError(SwarmsAPIError):
     pass
 
 
+class LimitsRevisionConflictError(ConflictError):
+    @property
+    def current_revision(self) -> int | None:
+        value = (self.problem.model_extra or {}).get("current_revision")
+        return int(value) if isinstance(value, (int, str)) and str(value).isdigit() else None
+
+
+class LimitAboveCeilingError(InvalidRequestError):
+    pass
+
+
+class LimitStillReachedError(ConflictError):
+    pass
+
+
+class RunExpiredError(ConflictError):
+    pass
+
+
+class SpendEntitlementExceededError(PaymentRequiredError):
+    pass
+
+
 class RateLimitedError(SwarmsAPIError):
     pass
 
@@ -202,6 +225,10 @@ class RunFailedError(RunObservationError):
     code = "run_failed"
 
 
+class RunPausedError(RunObservationError):
+    code = "run_paused"
+
+
 class WaitTimeoutError(RunObservationError):
     code = "wait_timeout"
 
@@ -232,6 +259,11 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "limits_revision_conflict": LimitsRevisionConflictError,
+    "limit_above_ceiling": LimitAboveCeilingError,
+    "limit_still_reached": LimitStillReachedError,
+    "run_expired": RunExpiredError,
+    "spend_entitlement_exceeded": SpendEntitlementExceededError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
     "launch_budget_below_actor_floor": LaunchBudgetBelowActorFloorError,

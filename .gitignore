@@ -5,3 +5,6 @@ __pycache__/
 .ruff_cache/
 dist/
 .env
+
+# Owned local test scratch.
+/.tmp/

@@ -206,7 +206,7 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
     [
         ["--parallel-workers", "11"],
         ["--parallel-workers", "0"],
-        ["--wall", "3601"],
+        ["--wall", "86401"],
         ["--wall", "0"],
         ["--label", "no-equals-sign"],
         ["--budget", "-1"],
