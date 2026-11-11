@@ -263,6 +263,79 @@ async def test_cancel_reuses_retained_key_after_lost_response(tmp_path):
     assert final.charge_usd == "0.11" and final.charge_final
 
 
+async def test_interrupted_known_run_is_cancelled_and_closed(tmp_path, monkeypatch):
+    import asyncio
+
+    import mcp.client.stdio
+
+    receipt = smoke.new_receipt("https://api.example.test", "fixture-org", "a" * 64)
+    arm = receipt.arms[0]
+    arm.status = "running"
+    arm.run_id = "run_AAAAAAAAAAAAAAAAAAAAAA"
+    output = tmp_path / "receipt.json"
+    receipt.save(output)
+    cancellations = []
+
+    class Context:
+        def __init__(self, value):
+            self.value = value
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class Session(Context):
+        def __init__(self, *_args):
+            super().__init__(self)
+
+        async def initialize(self):
+            pass
+
+    class Swarms:
+        interrupted = False
+
+        async def get(self, run_id):
+            if not self.interrupted:
+                self.interrupted = True
+                raise asyncio.CancelledError()
+            closed = bool(cancellations)
+            return SimpleNamespace(
+                run_id=run_id,
+                execution_closed=closed,
+                accounting_final=closed,
+                cleanup_complete=closed,
+                finished=closed,
+                charge=SimpleNamespace(amount=SimpleNamespace(amount="0.11"), final=True)
+                if closed
+                else None,
+            )
+
+        async def cancel(self, run_id, *, idempotency_key):
+            cancellations.append((run_id, idempotency_key))
+
+    class Client(Context):
+        def __init__(self):
+            super().__init__(self)
+            self.swarms = Swarms()
+            self.account = SimpleNamespace(get=self.account_get)
+
+        async def account_get(self):
+            return SimpleNamespace(org=SimpleNamespace(id="fixture-org"))
+
+    monkeypatch.setattr(smoke, "AsyncSynthClient", Client)
+    monkeypatch.setattr(mcp.client.stdio, "stdio_client", lambda *_a, **_kw: Context((None, None)))
+    monkeypatch.setattr(smoke, "ClientSession", Session)
+    with pytest.raises(asyncio.CancelledError):
+        await smoke.execute(receipt, output)
+    final = smoke.Receipt.load(output)
+    assert cancellations == [(arm.run_id, arm.cancel_key)]
+    assert final.arms[0].cancel_requested and final.arms[0].cleanup_complete
+    assert final.arms[0].accounting_final and final.arms[0].charge_final
+    assert final.arms[1].status == final.arms[2].status == "not_started"
+
+
 async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, contract):
     import hashlib
     import re
