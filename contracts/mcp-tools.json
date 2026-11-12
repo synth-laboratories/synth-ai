@@ -49,6 +49,15 @@
           "body": {
             "additionalProperties": false,
             "properties": {
+              "domicile_requirement": {
+                "description": "Frozen sandbox domicile. Omit for the environment default; production defaults to US only.",
+                "enum": [
+                  "us_only",
+                  "us_or_europe",
+                  "unrestricted"
+                ],
+                "type": "string"
+              },
               "guidance": {
                 "description": "What the run must address. The planner covers or declines each item. A metric on an item binds every objective derived from it, and the planner cannot change or drop it. Not accepted with research profiles.",
                 "items": {

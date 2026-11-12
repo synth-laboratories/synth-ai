@@ -134,6 +134,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--research-task")
+    run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
     run.add_argument(
         "--wall", type=int, metavar="SECONDS", help="unpaused run time, 1..86400 seconds"
@@ -288,6 +289,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 budget=args.budget,
                 profile=args.profile,
                 research_task=args.research_task,
+                domicile_requirement=args.domicile,
                 wall_time_seconds=args.wall,
                 maximum_tokens=args.tokens,
                 pause_retention_seconds=args.pause_retention,
