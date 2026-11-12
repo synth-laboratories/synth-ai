@@ -57,7 +57,7 @@ from ._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TA
 from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
-from ._requests import launch_request
+from ._requests import DomicileRequirement, launch_request
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
@@ -175,6 +175,7 @@ class AsyncSwarms:
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         wall_time_seconds: int | None = None,
         maximum_tokens: int | None = None,
         pause_retention_seconds: int | None = None,
@@ -191,6 +192,7 @@ class AsyncSwarms:
         request = launch_request(
             message,
             budget=budget,
+            domicile_requirement=domicile_requirement,
             wall_time_seconds=wall_time_seconds,
             maximum_tokens=maximum_tokens,
             pause_retention_seconds=pause_retention_seconds,
@@ -219,6 +221,7 @@ class AsyncSwarms:
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         profile: str | None = None,
         research_task: str | None = None,
         timeout: float = 600,
@@ -240,6 +243,7 @@ class AsyncSwarms:
         created = await self.launch(
             message,
             budget=budget,
+            domicile_requirement=domicile_requirement,
             profile=profile,
             research_task=research_task,
             wall_time_seconds=wall_time_seconds,

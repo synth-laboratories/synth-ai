@@ -3,10 +3,12 @@
 import builtins
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
+from typing import Literal, TypeAlias
 
 from ._generated.models import (
     LaunchBudget,
     LaunchRequest,
+    LaunchRequestDomicileRequirement,
     Limits,
     OwnerResourceRequest,
     RoutingConstraints,
@@ -14,11 +16,14 @@ from ._generated.models import (
     RunInputs,
 )
 
+DomicileRequirement: TypeAlias = Literal["us_only", "us_or_europe", "unrestricted"]
+
 
 def launch_request(
     message: str,
     *,
     budget: str | Decimal,
+    domicile_requirement: DomicileRequirement | None = None,
     wall_time_seconds: int | None,
     maximum_tokens: int | None = None,
     pause_retention_seconds: int | None = None,
@@ -50,6 +55,9 @@ def launch_request(
     except InvalidOperation as error:
         raise ValueError("budget must be a decimal string") from error
     request = LaunchRequest(
+        domicile_requirement=LaunchRequestDomicileRequirement(domicile_requirement)
+        if domicile_requirement is not None
+        else None,
         limits=Limits(
             maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
             parallel_workers=parallel_workers,

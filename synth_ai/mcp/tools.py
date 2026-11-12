@@ -57,6 +57,23 @@ TOOLS: list[ToolDefinition] = [
                 "body": {
                     "additionalProperties": False,
                     "properties": {
+                        "domicile_requirement": {
+                            "description": "Frozen "
+                            "sandbox "
+                            "domicile. "
+                            "Omit "
+                            "for "
+                            "the "
+                            "environment "
+                            "default; "
+                            "production "
+                            "defaults "
+                            "to "
+                            "US "
+                            "only.",
+                            "enum": ["us_only", "us_or_europe", "unrestricted"],
+                            "type": "string",
+                        },
                         "guidance": {
                             "description": "What the run "
                             "must "

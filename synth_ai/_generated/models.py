@@ -33,6 +33,11 @@ class ApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
+class BillingHistoryEntryBillingBasis(StrEnum):
+    SUPPLIER = "supplier"
+    EMULATED = "emulated"
+
+
 class BillingHistoryEntryCause(StrEnum):
     GRANT = "grant"
     HOLD = "hold"
@@ -126,6 +131,12 @@ class EvaluationRolloutStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class LaunchRequestDomicileRequirement(StrEnum):
+    US_ONLY = "us_only"
+    US_OR_EUROPE = "us_or_europe"
+    UNRESTRICTED = "unrestricted"
 
 
 class LimitMeterAction(StrEnum):
@@ -293,6 +304,8 @@ class RunReportSandboxCompute(StrEnum):
 
 class RunReportSandboxComputeMetering(StrEnum):
     NOT_METERED = "not_metered"
+    PENDING = "pending"
+    METERED = "metered"
 
 
 class RunReportSandboxObservation(StrEnum):
@@ -306,6 +319,7 @@ class RunReportSandboxProviderKind(StrEnum):
     DAYTONA = "daytona"
     MODAL = "modal"
     EXE_DEV = "exe_dev"
+    BOAT_DEV = "boat_dev"
     UNOBSERVED = "unobserved"
 
 
@@ -369,6 +383,7 @@ class RunSandboxProviderKind(StrEnum):
     DAYTONA = "daytona"
     MODAL = "modal"
     EXE_DEV = "exe_dev"
+    BOAT_DEV = "boat_dev"
     UNOBSERVED = "unobserved"
 
 
@@ -451,6 +466,30 @@ class SandboxMomentStatus(StrEnum):
     NOT_RECORDED = "not_recorded"
     NOT_APPLICABLE = "not_applicable"
     UNOBSERVED = "unobserved"
+
+
+class SandboxPerformanceProvider(StrEnum):
+    DOCKER = "docker"
+    MODAL = "modal"
+    DAYTONA = "daytona"
+    EXE_DEV = "exe_dev"
+    BOAT_DEV = "boat_dev"
+    UNOBSERVED = "unobserved"
+
+
+class SandboxPerformanceStatus(StrEnum):
+    UNKNOWN = "unknown"
+    MEASURED = "measured"
+
+
+class SandboxProfileBillingBasis(StrEnum):
+    SUPPLIER = "supplier"
+    EMULATED = "emulated"
+
+
+class SandboxProfileGpuKind(StrEnum):
+    T4 = "t4"
+    L4 = "l4"
 
 
 class SelectionCandidateState(StrEnum):
@@ -1218,6 +1257,41 @@ class SandboxMoment(WireModel):
     at: str | None = None
 
 
+class SandboxPerformance(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    provider: Annotated[
+        SandboxPerformanceProvider, BeforeValidator(enum_value(SandboxPerformanceProvider))
+    ]
+    size_id: str
+    sample_count: Annotated[int, Field(ge=0)]
+    status: Annotated[
+        SandboxPerformanceStatus, BeforeValidator(enum_value(SandboxPerformanceStatus))
+    ]
+    ready_p50_ms: Annotated[int, Field(ge=0)] | None
+    ready_p90_ms: Annotated[int, Field(ge=0)] | None
+
+
+class SandboxProfile(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    profile_id: str
+    profile_digest: Annotated[str, Field(pattern="^sha256:[a-f0-9]{64}$")]
+    size_id: str
+    region: str
+    gpu_kind: (
+        Annotated[SandboxProfileGpuKind, BeforeValidator(enum_value(SandboxProfileGpuKind))] | None
+    ) = None
+    gpu_count: Annotated[int, Field(ge=1)] | None = None
+    billing_basis: Annotated[
+        SandboxProfileBillingBasis, BeforeValidator(enum_value(SandboxProfileBillingBasis))
+    ]
+    reference_offer_id: str | None = None
+
+
 Scope: TypeAlias = Literal[
     "account:billing:read",
     "account:read",
@@ -1866,6 +1940,7 @@ class RunSandbox(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
     role: Annotated[RunSandboxRole, BeforeValidator(enum_value(RunSandboxRole))]
     provider_kind: Annotated[
@@ -2089,6 +2164,14 @@ class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    billing_basis: (
+        Annotated[
+            BillingHistoryEntryBillingBasis,
+            BeforeValidator(enum_value(BillingHistoryEntryBillingBasis)),
+        ]
+        | None
+    ) = None
+    reference_offer_id: str | None = None
     entry_id: str
     cause: Annotated[
         BillingHistoryEntryCause, BeforeValidator(enum_value(BillingHistoryEntryCause))
@@ -2143,6 +2226,13 @@ class LaunchRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    domicile_requirement: (
+        Annotated[
+            LaunchRequestDomicileRequirement,
+            BeforeValidator(enum_value(LaunchRequestDomicileRequirement)),
+        ]
+        | None
+    ) = None
     message: Annotated[
         str,
         Field(min_length=1, max_length=32768),
@@ -2279,6 +2369,7 @@ class RunReportSandbox(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
     role: Annotated[RunReportSandboxRole, BeforeValidator(enum_value(RunReportSandboxRole))]
     provider_kind: Annotated[
@@ -2301,6 +2392,7 @@ class RunReportSandbox(WireModel):
         RunReportSandboxComputeMetering,
         BeforeValidator(enum_value(RunReportSandboxComputeMetering)),
     ]
+    compute_charge: Money | None = None
     time_to_create_ms: int | None = None
     usage_attribution: (
         Annotated[
@@ -2549,6 +2641,7 @@ class RunReport(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    sandbox_performance: list[SandboxPerformance] | None = None
     evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
     run_id: RunId
     settlement: RunSettlementSummary
@@ -2647,6 +2740,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunTask": RunTask,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
+    "SandboxPerformance": SandboxPerformance,
+    "SandboxProfile": SandboxProfile,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
     "SpendAlertsLastNotified0": SpendAlertsLastNotified0,

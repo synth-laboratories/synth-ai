@@ -6475,6 +6475,10 @@ components:
       - message
       - limits
       properties:
+        domicile_requirement:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+          description: Frozen sandbox domicile. Omit for the environment default; production defaults to US only.
         message:
           type: string
           minLength: 1
@@ -7667,6 +7671,54 @@ components:
           type: string
           pattern: ^sha256:[0-9a-f]{64}$
           description: Present only when status is resolved.
+    SandboxProfile:
+      type: object
+      additionalProperties: false
+      required: [actor_id, profile_id, profile_digest, size_id, region, billing_basis]
+      properties:
+        actor_id:
+          type: string
+        profile_id:
+          type: string
+        profile_digest:
+          type: string
+          pattern: '^sha256:[a-f0-9]{64}$'
+        size_id:
+          type: string
+        region:
+          type: string
+        gpu_kind:
+          type: string
+          enum: [t4, l4]
+        gpu_count:
+          type: integer
+          minimum: 1
+        billing_basis:
+          type: string
+          enum: [supplier, emulated]
+        reference_offer_id:
+          type: string
+    SandboxPerformance:
+      type: object
+      required: [provider, size_id, sample_count, status, ready_p50_ms, ready_p90_ms]
+      properties:
+        provider:
+          type: string
+          enum: [docker, modal, daytona, exe_dev, boat_dev, unobserved]
+        size_id:
+          type: string
+        sample_count:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [unknown, measured]
+        ready_p50_ms:
+          type: [integer, 'null']
+          minimum: 0
+        ready_p90_ms:
+          type: [integer, 'null']
+          minimum: 0
     RunSandbox:
       type: object
       required:
@@ -7682,6 +7734,8 @@ components:
       - destroyed
       - observation
       properties:
+        profile:
+          $ref: '#/components/schemas/SandboxProfile'
         sandbox_id:
           type: string
           pattern: ^sbx_[A-Za-z0-9_-]{22}$
@@ -7699,6 +7753,7 @@ components:
           - daytona
           - modal
           - exe_dev
+          - boat_dev
           - unobserved
         state:
           type: string
@@ -7920,8 +7975,10 @@ components:
             description: When the run prepared this actor, before it requested the sandbox. not_recorded when no preparation was retained.
           compute_metering:
             type: string
-            enum: [not_metered]
-            description: Actor sandbox compute is not metered, so it has no charge. This is not a zero amount.
+            enum: [not_metered, pending, metered]
+            description: Legacy admissions are not metered. Profile admissions are pending until their observed usage is settled, then metered.
+          compute_charge:
+            $ref: '#/components/schemas/Money'
           time_to_create_ms:
             type: integer
             description: Prepared to created. Present only when both were observed and created is not before prepared.
@@ -8109,6 +8166,10 @@ components:
       - reward
       - timings
       properties:
+        sandbox_performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxPerformance'
         evaluations:
           type: array
           maxItems: 1024
@@ -8394,6 +8455,11 @@ components:
       - expires_at
       - created_at
       properties:
+        billing_basis:
+          type: string
+          enum: [supplier, emulated]
+        reference_offer_id:
+          type: string
         entry_id:
           type: string
         cause:
