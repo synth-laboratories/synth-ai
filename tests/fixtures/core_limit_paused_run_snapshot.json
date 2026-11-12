@@ -1,0 +1,167 @@
+{
+  "accounting_final": true,
+  "api_version": "1.0.1",
+  "charge": {
+    "amount": {
+      "amount": "0.45820863",
+      "currency": "USD"
+    },
+    "final": true
+  },
+  "cleanup_complete": true,
+  "closed_at": "2026-11-12T02:56:48.930487Z",
+  "control": {
+    "command": "cancel",
+    "operation_id": "ctl_ebe6ee98ff035ed684199bcddd6b2036",
+    "state": "accepted"
+  },
+  "created_at": "2026-11-12T02:30:54.571521Z",
+  "execution_closed": true,
+  "failure": null,
+  "guidance_coverage": [],
+  "labels": {},
+  "labels_revision": 1,
+  "limits_revision": 14,
+  "metadata": {
+    "created_at": "2026-11-12T02:30:54.571521Z",
+    "updated_at": "2026-11-12T02:56:48.930487Z"
+  },
+  "method": null,
+  "model": "gpt-6-luna",
+  "objectives": [
+    {
+      "claims": [],
+      "criteria": [
+        "Baseline and two independently developed policy sources are published exactly and each has one completed scored rollout on task craftax-classic-enginebench-policy-v1, seed 0.",
+        "A candidate_results.json compares the real terminal results and identifies improvement, tie, or regression against baseline.",
+        "Independent review verifies all three published source hashes and scores against terminal rollout evidence."
+      ],
+      "id": "craftax_policy_evaluation",
+      "kind": "deo",
+      "metric": null,
+      "metric_state": null,
+      "required": true,
+      "state": "open",
+      "statement": "Deliver and independently validate the baseline and two distinct candidate Craftax Classic policies, each with one real seed-0 scored rollout, and compare their results honestly.",
+      "title": "Score and compare three Craftax Classic policies",
+      "verdict": null
+    }
+  ],
+  "objectives_read": "ok",
+  "pause": {
+    "cause": "limit",
+    "drained_at_ms": 1794451513166,
+    "limit": {
+      "assignment": "worker_2/candidate1_eval",
+      "cap": 250000,
+      "dimension": "spend_micros",
+      "layer": null,
+      "reason": "planner_left_park_unfunded",
+      "reserved": 126854,
+      "revision": 14,
+      "scope": "actor",
+      "unknown_reserved": 0,
+      "used": 73146
+    },
+    "mode": "cold",
+    "operation_id": "1e77990413672eff04884cbb7f839496b40319f2dcd788722786320127028ed3",
+    "requested_at_ms": 1794451239618
+  },
+  "pause_expires_at_ms": 1794537639618,
+  "problems": [],
+  "problems_observed": true,
+  "profile": {
+    "actor_profiles": {
+      "planner": "sha256:d6386133a73421c6640e01e730cdddc3f31bcedd73fcdd7faf0890a9cf6daea2",
+      "reviewer": "sha256:a97449ad97b766a8ecbf7e05215738136356eecec621e0dfb85a36857e1dc0af",
+      "worker": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442",
+      "worker_2": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442",
+      "worker_3": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442"
+    },
+    "definition_digest": "b911d63936e255c929dc4643cb099cfadab4874d0b423731cfbd7bf8b3c296a3",
+    "digest": "sha256:50dce7da15ae38d0d097b6bbcddafb0bfb641ede8e6f9a6ae6e903f644dfc663",
+    "id": "swarms-v2",
+    "program_id": "swarms_v2",
+    "program_version": "2",
+    "revision": "1"
+  },
+  "provider": "hosted.openai_direct",
+  "result_available": true,
+  "routing": {
+    "actors": [
+      {
+        "actor_id": "planner",
+        "model": "gpt-6-luna",
+        "preset": "hosted.openai_direct",
+        "profile_digest": "sha256:d6386133a73421c6640e01e730cdddc3f31bcedd73fcdd7faf0890a9cf6daea2",
+        "providers": [
+          "openai"
+        ],
+        "role": "planner"
+      },
+      {
+        "actor_id": "reviewer",
+        "model": "gpt-6-luna",
+        "preset": "hosted.openai_direct",
+        "profile_digest": "sha256:a97449ad97b766a8ecbf7e05215738136356eecec621e0dfb85a36857e1dc0af",
+        "providers": [
+          "openai"
+        ],
+        "role": "reviewer"
+      },
+      {
+        "actor_id": "worker",
+        "model": "gpt-6-luna",
+        "preset": "hosted.openai_direct",
+        "profile_digest": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442",
+        "providers": [
+          "openai"
+        ],
+        "role": "worker"
+      },
+      {
+        "actor_id": "worker_2",
+        "model": "gpt-6-luna",
+        "preset": "hosted.openai_direct",
+        "profile_digest": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442",
+        "providers": [
+          "openai"
+        ],
+        "role": "worker"
+      },
+      {
+        "actor_id": "worker_3",
+        "model": "gpt-6-luna",
+        "preset": "hosted.openai_direct",
+        "profile_digest": "sha256:0539e4d2d92b13a2bd5b773931dd96432fcd1ee87a8dfcde8a2ddbb934e5e442",
+        "providers": [
+          "openai"
+        ],
+        "role": "worker"
+      }
+    ],
+    "catalog_revision": "synth.routing-catalog.v1",
+    "policy_revision": "synth.routing-assignment.v1",
+    "request_digest": "sha256:1df21c54ff55dbe87852334b477eecd8cd1b4a9f06ce8c41cab798a017effc6c",
+    "requested": {
+      "providers": {
+        "only": [
+          "openai"
+        ]
+      }
+    }
+  },
+  "run_id": "run_KZbWDdFcR8O2IOXYo8IOgQ",
+  "selection": {
+    "evaluated": [],
+    "incumbent": null,
+    "reason": null,
+    "status": "not_applicable"
+  },
+  "started_at": "2026-11-12T02:30:58.852604Z",
+  "state": "cancelled",
+  "variant": {
+    "id": "swarms.general",
+    "version": "1.0.1"
+  }
+}
