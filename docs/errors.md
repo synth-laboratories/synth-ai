@@ -84,6 +84,27 @@ One line per code: what it means, then what the caller should do.
 - `run_not_found` (404) and other `NotFoundError` codes: the ID is wrong or
   belongs to another organization. Check the ID and the key's organization.
 
+### Authentication, authorization and service errors
+
+- `authentication_required` (401): the request lacks valid credentials. Sign in
+  again or configure a valid API key for the intended organization.
+- `insufficient_scope` (403): the credential does not grant the operation's
+  scope. Use a credential with the required grant or ask an organization admin.
+- `launch_requires_sdk_or_mcp` (403): a signed-in browser session cannot launch
+  a run directly. Use an API key through the SDK, CLI or MCP.
+- `invalid_request` (422): the request does not match the operation contract.
+  Inspect the problem's detail and correct the request before trying again.
+- `resource_not_found` (404): the requested resource is unavailable to this
+  caller. Check the identifier and the credential's organization.
+- `terms_version_unknown` (400): the requested terms version is not recognized.
+  Refresh the Console and use the currently presented terms.
+- `service_unavailable` (503): a required service cannot handle the request.
+  Retry with backoff when safe. For a mutation with an uncertain outcome, reuse
+  its idempotency key rather than creating a second operation.
+- `internal_error` (500): the server encountered an unexpected error. Retain
+  the request ID and contact support if the problem persists. Reconcile an
+  uncertain mutation using its original idempotency key before attempting a new one.
+
 ### Client version
 
 - `client_upgrade_required` (426, `UpgradeRequiredError`): the API no longer

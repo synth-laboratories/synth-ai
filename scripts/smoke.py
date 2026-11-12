@@ -1,4 +1,4 @@
-"""Bounded Swarms journey smoke; explicit --execute, $0.20 aggregate run caps.
+"""Bounded Swarms journey smoke; explicit --execute, $8 aggregate run caps for new receipts.
 
 Requires SYNTH_API_KEY or saved OAuth and SYNTH_API_BASE_URL. This checks a
 completed run with verified output and a second run's cancellation/closure;
@@ -19,7 +19,7 @@ from typing import Literal, Protocol
 from uuid import uuid4
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from synth_ai import AsyncSynthClient
 from synth_ai._generated.models import Problem, RunSnapshot
@@ -68,11 +68,11 @@ class SmokeReceipt(BaseModel):
     model_config = ConfigDict(
         strict=True, extra="forbid", populate_by_name=True, validate_assignment=True
     )
-    schema_: Literal["synth.public-sdk.swarms-smoke.v4"] = Field(
-        default="synth.public-sdk.swarms-smoke.v4", alias="schema"
+    schema_: Literal["synth.public-sdk.swarms-smoke.v4", "synth.public-sdk.swarms-smoke.v5"] = (
+        Field(default="synth.public-sdk.swarms-smoke.v5", alias="schema")
     )
     base_url: str
-    aggregate_maximum_usd: Literal["0.20"] = "0.20"
+    aggregate_maximum_usd: Literal["0.20", "8.00"] = "8.00"
     runs: list[ObservedRun] = Field(default_factory=list, max_length=2)
     failures: dict[str, str] = Field(default_factory=dict)
     responses: list[ResponseObservation] = Field(default_factory=list)
@@ -80,6 +80,18 @@ class SmokeReceipt(BaseModel):
     cancel_keys: dict[str, str] = Field(default_factory=dict)
     output_verified: bool = False
     cancellation_requested: bool = False
+
+    @model_validator(mode="after")
+    def validate_budget(self) -> SmokeReceipt:
+        expected = "0.20" if self.schema_.endswith(".v4") else "8.00"
+        if self.aggregate_maximum_usd != expected:
+            raise ValueError("receipt budget does not match schema")
+        return self
+
+    @property
+    def run_limits(self) -> tuple[str, int]:
+        # Existing v4 receipts retain their original mutation intent on resume.
+        return ("0.10", 120) if self.schema_.endswith(".v4") else ("4.00", 600)
 
     @property
     def smoke_complete(self) -> bool:
@@ -103,6 +115,8 @@ class SmokeReceipt(BaseModel):
         value = json.loads(source)
         if isinstance(value, dict):
             value.pop("smoke_complete", None)
+            if value.get("schema") == "synth.public-sdk.swarms-smoke.v4":
+                value.setdefault("aggregate_maximum_usd", "0.20")
         return cls.model_validate(value)
 
 
@@ -181,10 +195,11 @@ async def run(output: Path, resume: bool = False) -> None:
                 return receipt.runs[index].run_id
             receipt.launch_keys.setdefault(str(index), key())
             save()
+            budget, wall_seconds = receipt.run_limits
             result = await client.swarms.launch(
                 message,
-                budget="0.10",
-                wall_time_seconds=120,
+                budget=budget,
+                wall_time_seconds=wall_seconds,
                 profile="swarms-v2",
                 idempotency_key=receipt.launch_keys[str(index)],
             )
@@ -198,7 +213,7 @@ async def run(output: Path, resume: bool = False) -> None:
             await client.swarms.cancel(run_id, idempotency_key=receipt.cancel_keys[run_id])
 
         async def closed(run_id: str) -> RunSnapshot:
-            deadline = time.monotonic() + 240
+            deadline = time.monotonic() + receipt.run_limits[1] + 120
             while time.monotonic() < deadline:
                 snapshot = await client.swarms.get(run_id)
                 for item in receipt.runs:
@@ -266,7 +281,9 @@ if __name__ == "__main__":
     parser.add_argument("--execute", action="store_true", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
-        "--resume", action="store_true", help="Reuse the v4 receipt's two runs and mutation keys"
+        "--resume",
+        action="store_true",
+        help="Reuse the receipt's original run limits, identities and mutation keys",
     )
     args = parser.parse_args()
     try:

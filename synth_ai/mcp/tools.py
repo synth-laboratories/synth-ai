@@ -227,6 +227,19 @@ TOOLS: list[ToolDefinition] = [
                                     "required": ["amount", "currency"],
                                     "type": "object",
                                 },
+                                "maximum_tokens": {
+                                    "description": "Run "
+                                    "token "
+                                    "cap. "
+                                    "Omitted, "
+                                    "derived "
+                                    "from "
+                                    "the "
+                                    "budget.",
+                                    "maximum": 9223372036854775807,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
                                 "parallel_workers": {
                                     "default": 1,
                                     "description": "The "
@@ -311,43 +324,36 @@ TOOLS: list[ToolDefinition] = [
                                     "minimum": 1,
                                     "type": "integer",
                                 },
-                                "wall_time_seconds": {
-                                    "description": "Run "
-                                    "wall-clock "
+                                "pause_retention_seconds": {
+                                    "default": 86400,
+                                    "description": "Retention "
                                     "bound "
-                                    "in "
-                                    "seconds, "
-                                    "at "
-                                    "most "
-                                    "3600 "
-                                    "(one "
-                                    "hour, "
+                                    "for "
+                                    "each "
+                                    "pause; "
+                                    "expiry "
+                                    "ends "
                                     "the "
-                                    "actor "
-                                    "deadline "
-                                    "bound "
-                                    "until "
-                                    "deadline "
-                                    "renewal "
-                                    "exists). "
+                                    "run.",
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "wall_time_seconds": {
+                                    "description": "Total "
+                                    "unpaused "
+                                    "seconds "
+                                    "since "
+                                    "creation, "
+                                    "including "
+                                    "queued "
+                                    "time. "
                                     "Omitted, "
                                     "the "
-                                    "profile's "
+                                    "profile "
                                     "default "
-                                    "applies. "
-                                    "A "
-                                    "larger "
-                                    "value "
-                                    "is "
-                                    "refused "
-                                    "at "
-                                    "launch "
-                                    "with "
-                                    "422 "
-                                    "invalid_launch_request, "
-                                    "cause "
-                                    "limits.wall_time_seconds.",
-                                    "maximum": 3600,
+                                    "applies.",
+                                    "maximum": 86400,
                                     "minimum": 1,
                                     "type": "integer",
                                 },
@@ -416,7 +422,7 @@ TOOLS: list[ToolDefinition] = [
                                                 "properties": {
                                                     "pool_ids": {
                                                         "items": {
-                                                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+                                                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
                                                             "type": "string",
                                                         },
                                                         "maxItems": 8,
@@ -941,6 +947,88 @@ TOOLS: list[ToolDefinition] = [
         "scope": "swarms:control",
     },
     {
+        "description": "Read authoritative run limits and usage.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_limits",
+        "operationId": "getRunLimits",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Change a live run's limits.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "expected_revision": {"minimum": 0, "type": "integer"},
+                        "limits": {
+                            "additionalProperties": False,
+                            "minProperties": 1,
+                            "properties": {
+                                "maximum_charge": {
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "amount": {
+                                            "examples": ["5.00"],
+                                            "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                                            "type": "string",
+                                        },
+                                        "currency": {"const": "USD", "type": "string"},
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "type": "object",
+                                },
+                                "maximum_tokens": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "pause_retention_seconds": {
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                                "wall_time_seconds": {
+                                    "maximum": 86400,
+                                    "minimum": 1,
+                                    "type": "integer",
+                                },
+                            },
+                            "type": "object",
+                        },
+                        "reason": {"maxLength": 1000, "type": "string"},
+                        "resume": {"default": False, "type": "boolean"},
+                    },
+                    "required": ["expected_revision", "limits"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                },
+            },
+            "required": ["run_id", "body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "swarms_run_limits_update",
+        "operationId": "updateRunLimits",
+        "scope": "swarms:run",
+    },
+    {
         "description": "List tasks from their current authority.",
         "inputSchema": {
             "additionalProperties": False,
@@ -959,5 +1047,525 @@ TOOLS: list[ToolDefinition] = [
         "name": "swarms_run_tasks",
         "operationId": "listRunTasks",
         "scope": "swarms:read",
+    },
+    {
+        "description": "Register an immutable evaluation input.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "oneOf": [
+                        {
+                            "additionalProperties": False,
+                            "properties": {
+                                "command": {
+                                    "items": {"type": "string"},
+                                    "maxItems": 64,
+                                    "minItems": 1,
+                                    "title": "Command",
+                                    "type": "array",
+                                },
+                                "files": {
+                                    "additionalProperties": {"type": "string"},
+                                    "maxProperties": 64,
+                                    "minProperties": 1,
+                                    "title": "Files",
+                                    "type": "object",
+                                },
+                                "name": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Name",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.policy.v1",
+                                    "default": "synth.policy.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["name", "files", "command"],
+                            "title": "Policy",
+                            "type": "object",
+                        },
+                        {
+                            "additionalProperties": False,
+                            "properties": {
+                                "candidate_image": {
+                                    "maxLength": 512,
+                                    "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+                                    "title": "Candidate Image",
+                                    "type": "string",
+                                },
+                                "command": {
+                                    "items": {"type": "string"},
+                                    "maxItems": 64,
+                                    "minItems": 1,
+                                    "title": "Command",
+                                    "type": "array",
+                                },
+                                "image": {
+                                    "maxLength": 512,
+                                    "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+                                    "title": "Image",
+                                    "type": "string",
+                                },
+                                "input_schema": {
+                                    "additionalProperties": True,
+                                    "title": "Input Schema",
+                                    "type": "object",
+                                },
+                                "isolation": {
+                                    "const": "separate_container",
+                                    "default": "separate_container",
+                                    "title": "Isolation",
+                                    "type": "string",
+                                },
+                                "limits": {
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "cpu_cores": {
+                                            "maximum": 64,
+                                            "minimum": 1,
+                                            "title": "Cpu Cores",
+                                            "type": "integer",
+                                        },
+                                        "memory_mb": {
+                                            "maximum": 262144,
+                                            "minimum": 128,
+                                            "title": "Memory Mb",
+                                            "type": "integer",
+                                        },
+                                        "storage_mb": {
+                                            "maximum": 1048576,
+                                            "minimum": 128,
+                                            "title": "Storage Mb",
+                                            "type": "integer",
+                                        },
+                                        "timeout_seconds": {
+                                            "maximum": 3600,
+                                            "minimum": 1,
+                                            "title": "Timeout Seconds",
+                                            "type": "integer",
+                                        },
+                                    },
+                                    "required": [
+                                        "timeout_seconds",
+                                        "cpu_cores",
+                                        "memory_mb",
+                                        "storage_mb",
+                                    ],
+                                    "title": "Limits",
+                                    "type": "object",
+                                },
+                                "name": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Name",
+                                    "type": "string",
+                                },
+                                "pool_id": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Pool Id",
+                                    "type": "string",
+                                },
+                                "region": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Region",
+                                    "type": "string",
+                                },
+                                "result_format": {
+                                    "const": "synth.evaluation-result.v1",
+                                    "default": "synth.evaluation-result.v1",
+                                    "title": "Result Format",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluator.v1",
+                                    "default": "synth.evaluator.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                                "task_digest": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Task Digest",
+                                    "type": "string",
+                                },
+                                "task_id": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Task Id",
+                                    "type": "string",
+                                },
+                            },
+                            "required": [
+                                "name",
+                                "image",
+                                "candidate_image",
+                                "command",
+                                "pool_id",
+                                "task_id",
+                                "task_digest",
+                                "input_schema",
+                                "limits",
+                                "region",
+                            ],
+                            "title": "Evaluator",
+                            "type": "object",
+                        },
+                        {
+                            "additionalProperties": False,
+                            "properties": {
+                                "instances": {
+                                    "items": {
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "id": {
+                                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                                "title": "Id",
+                                                "type": "string",
+                                            },
+                                            "inputs": {
+                                                "additionalProperties": True,
+                                                "title": "Inputs",
+                                                "type": "object",
+                                            },
+                                            "seed": {
+                                                "maximum": 9223372036854775807,
+                                                "minimum": 0,
+                                                "title": "Seed",
+                                                "type": "integer",
+                                            },
+                                        },
+                                        "required": ["id", "seed", "inputs"],
+                                        "title": "TaskInstance",
+                                        "type": "object",
+                                    },
+                                    "maxItems": 1024,
+                                    "minItems": 1,
+                                    "title": "Instances",
+                                    "type": "array",
+                                },
+                                "name": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Name",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluation-dataset.v1",
+                                    "default": "synth.evaluation-dataset.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["name", "instances"],
+                            "title": "Dataset",
+                            "type": "object",
+                        },
+                        {
+                            "additionalProperties": False,
+                            "properties": {
+                                "candidate_contract": {
+                                    "additionalProperties": True,
+                                    "type": "object",
+                                },
+                                "description": {
+                                    "default": "",
+                                    "maxLength": 65536,
+                                    "type": "string",
+                                },
+                                "input_schema": {
+                                    "additionalProperties": True,
+                                    "title": "Input Schema",
+                                    "type": "object",
+                                },
+                                "name": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Name",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluation-task.v1",
+                                    "default": "synth.evaluation-task.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["name", "input_schema"],
+                            "title": "Task",
+                            "type": "object",
+                        },
+                        {
+                            "additionalProperties": False,
+                            "properties": {
+                                "concurrency": {
+                                    "maximum": 128,
+                                    "minimum": 1,
+                                    "title": "Concurrency",
+                                    "type": "integer",
+                                },
+                                "name": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Name",
+                                    "type": "string",
+                                },
+                                "provider": {
+                                    "enum": ["modal", "docker"],
+                                    "title": "Provider",
+                                    "type": "string",
+                                },
+                                "region": {
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                    "title": "Region",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluation-pool.v1",
+                                    "default": "synth.evaluation-pool.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["name", "provider", "concurrency", "region"],
+                            "title": "Pool",
+                            "type": "object",
+                        },
+                    ]
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "kind": {
+                    "enum": ["task", "pool", "policy", "evaluator", "dataset"],
+                    "type": "string",
+                },
+            },
+            "required": ["kind", "body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "register_evaluation_input",
+        "operationId": "registerEvaluationInput",
+        "scope": "swarms:run",
+    },
+    {
+        "description": "List registered evaluation inputs.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "kind": {
+                    "enum": ["task", "pool", "policy", "evaluator", "dataset"],
+                    "type": "string",
+                },
+                "name": {"type": "string"},
+            },
+            "required": ["kind"],
+            "type": "object",
+        },
+        "name": "list_evaluation_inputs",
+        "operationId": "listEvaluationInputs",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Read an immutable evaluation input.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "kind": {
+                    "enum": ["task", "pool", "policy", "evaluator", "dataset"],
+                    "type": "string",
+                },
+                "revision_id": {"type": "string"},
+            },
+            "required": ["kind", "revision_id"],
+            "type": "object",
+        },
+        "name": "get_evaluation_input",
+        "operationId": "getEvaluationInput",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Quote evaluation resources and maximum charge.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "maximum_charge_micros": {
+                            "maximum": 1000000000000,
+                            "minimum": 0,
+                            "type": "integer",
+                        },
+                        "request": {
+                            "additionalProperties": False,
+                            "properties": {
+                                "aggregation": {
+                                    "default": "mean",
+                                    "enum": ["mean", "sum", "min", "max"],
+                                    "title": "Aggregation",
+                                    "type": "string",
+                                },
+                                "dataset_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Dataset Revision Id",
+                                    "type": "string",
+                                },
+                                "evaluator_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Evaluator Revision Id",
+                                    "type": "string",
+                                },
+                                "instance_ids": {
+                                    "items": {
+                                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                        "type": "string",
+                                    },
+                                    "maxItems": 1024,
+                                    "title": "Instance Ids",
+                                    "type": "array",
+                                },
+                                "max_concurrency": {
+                                    "maximum": 128,
+                                    "minimum": 1,
+                                    "title": "Max Concurrency",
+                                    "type": "integer",
+                                },
+                                "policy_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Policy Revision Id",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluation.v1",
+                                    "default": "synth.evaluation.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": [
+                                "policy_revision_id",
+                                "evaluator_revision_id",
+                                "dataset_revision_id",
+                                "max_concurrency",
+                            ],
+                            "title": "EvaluationRequest",
+                            "type": "object",
+                        },
+                    },
+                    "required": ["request", "maximum_charge_micros"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+            },
+            "required": ["body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "preflight_evaluation",
+        "operationId": "preflightEvaluation",
+        "scope": "swarms:run",
+    },
+    {
+        "description": "Reserve a budget and start an evaluation.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "body": {
+                    "additionalProperties": False,
+                    "properties": {
+                        "maximum_charge_micros": {
+                            "maximum": 1000000000000,
+                            "minimum": 0,
+                            "type": "integer",
+                        },
+                        "request": {
+                            "additionalProperties": False,
+                            "properties": {
+                                "aggregation": {
+                                    "default": "mean",
+                                    "enum": ["mean", "sum", "min", "max"],
+                                    "title": "Aggregation",
+                                    "type": "string",
+                                },
+                                "dataset_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Dataset Revision Id",
+                                    "type": "string",
+                                },
+                                "evaluator_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Evaluator Revision Id",
+                                    "type": "string",
+                                },
+                                "instance_ids": {
+                                    "items": {
+                                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                                        "type": "string",
+                                    },
+                                    "maxItems": 1024,
+                                    "title": "Instance Ids",
+                                    "type": "array",
+                                },
+                                "max_concurrency": {
+                                    "maximum": 128,
+                                    "minimum": 1,
+                                    "title": "Max Concurrency",
+                                    "type": "integer",
+                                },
+                                "policy_revision_id": {
+                                    "pattern": "^sha256:[0-9a-f]{64}$",
+                                    "title": "Policy Revision Id",
+                                    "type": "string",
+                                },
+                                "schema_version": {
+                                    "const": "synth.evaluation.v1",
+                                    "default": "synth.evaluation.v1",
+                                    "title": "Schema Version",
+                                    "type": "string",
+                                },
+                            },
+                            "required": [
+                                "policy_revision_id",
+                                "evaluator_revision_id",
+                                "dataset_revision_id",
+                                "max_concurrency",
+                            ],
+                            "title": "EvaluationRequest",
+                            "type": "object",
+                        },
+                    },
+                    "required": ["request", "maximum_charge_micros"],
+                    "type": "object",
+                },
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+            },
+            "required": ["body", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "create_evaluation",
+        "operationId": "createEvaluation",
+        "scope": "swarms:run",
+    },
+    {
+        "description": "Read evaluation progress and signed results.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {"evaluation_id": {"type": "string"}},
+            "required": ["evaluation_id"],
+            "type": "object",
+        },
+        "name": "get_evaluation",
+        "operationId": "getEvaluation",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Cancel an evaluation and reconcile its compute.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "evaluation_id": {"type": "string"},
+                "idempotency_key": {"maxLength": 128, "minLength": 1, "type": "string"},
+            },
+            "required": ["evaluation_id", "idempotency_key"],
+            "type": "object",
+        },
+        "name": "cancel_evaluation",
+        "operationId": "cancelEvaluation",
+        "scope": "swarms:run",
     },
 ]

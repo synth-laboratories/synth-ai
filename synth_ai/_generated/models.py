@@ -4,7 +4,15 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, JsonValue
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    JsonValue,
+    RootModel,
+)
 
 from synth_ai._protocol import CompletionMilestone
 from synth_ai._validation import (
@@ -63,6 +71,69 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_100 = "credits.100"
 
 
+class EvaluationAttestationIssuer(StrEnum):
+    SYNTH = "synth"
+
+
+class EvaluationAttestationSchemaVersion(StrEnum):
+    SYNTH_EVALUATION_ATTESTATION_V1 = "synth.evaluation-attestation.v1"
+
+
+class EvaluationEvaluationRequestAggregation(StrEnum):
+    MEAN = "mean"
+    SUM = "sum"
+    MIN = "min"
+    MAX = "max"
+
+
+class EvaluationPoolProvider(StrEnum):
+    MODAL = "modal"
+    DOCKER = "docker"
+
+
+class EvaluationQuoteIsolation(StrEnum):
+    SEPARATE_CONTAINER = "separate_container"
+
+
+class EvaluationQuoteProvider(StrEnum):
+    DOCKER = "docker"
+    MODAL = "modal"
+
+
+class EvaluationResponseStatus(StrEnum):
+    PREPARED = "prepared"
+    PENDING = "pending"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class EvaluationRevisionKind(StrEnum):
+    POLICY = "policy"
+    EVALUATOR = "evaluator"
+    DATASET = "dataset"
+    TASK = "task"
+    POOL = "pool"
+
+
+class EvaluationRolloutStatus(StrEnum):
+    PENDING = "pending"
+    DISPATCHING = "dispatching"
+    RUNNING = "running"
+    RECOVERING = "recovering"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class LimitMeterAction(StrEnum):
+    NOTIFY = "notify"
+    PAUSE = "pause"
+    STOP = "stop"
+
+
 class MintApiKeyRequestPurpose(StrEnum):
     PERSONAL = "personal"
     AUTOMATION = "automation"
@@ -115,11 +186,30 @@ class ProblemOutcome(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ProblemUnit(StrEnum):
+    MICROCENTS = "microcents"
+
+
+class ProblemWindow(StrEnum):
+    DAY = "day"
+    WEEK = "week"
+
+
 class RefundDetailRefundCause(StrEnum):
     RUN_CANCELED = "run_canceled"
     RUN_FAILED = "run_failed"
     RUN_EXPIRED = "run_expired"
     LAUNCH_FAILED = "launch_failed"
+
+
+class RunEvaluationStatus(StrEnum):
+    PREPARED = "prepared"
+    PENDING = "pending"
+    RUNNING = "running"
+    CANCELLING = "cancelling"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RunGuidanceKind(StrEnum):
@@ -143,6 +233,10 @@ class RunGuidancePriority(StrEnum):
     NICE = "nice"
 
 
+class RunLimitWarningPayloadScope(StrEnum):
+    RUN = "run"
+
+
 class RunObjectiveState(StrEnum):
     OPEN = "open"
     CLAIMED = "claimed"
@@ -152,15 +246,42 @@ class RunObjectiveState(StrEnum):
     NOT_APPLICABLE = "not_applicable"
 
 
+class RunPauseCause(StrEnum):
+    CUSTOMER = "customer"
+    LIMIT = "limit"
+    PLATFORM = "platform"
+
+
+class RunPauseLimitScope(StrEnum):
+    RUN = "run"
+    ACTOR = "actor"
+
+
+class RunPauseMode(StrEnum):
+    COLD = "cold"
+    WARM = "warm"
+
+
 class RunReportAttribution(StrEnum):
     PENDING = "pending"
     ATTRIBUTED = "attributed"
     NOT_RECORDED = "not_recorded"
 
 
+class RunReportRolloutCompute(StrEnum):
+    PENDING = "pending"
+    ATTRIBUTED = "attributed"
+    PARTIAL = "partial"
+    UNOBSERVED = "unobserved"
+
+
 class RunReportSandboxCompute(StrEnum):
     NOT_METERED = "not_metered"
     METERED = "metered"
+
+
+class RunReportSandboxComputeMetering(StrEnum):
+    NOT_METERED = "not_metered"
 
 
 class RunReportSandboxObservation(StrEnum):
@@ -197,6 +318,12 @@ class RunReportSandboxState(StrEnum):
     NEVER_CREATED = "never_created"
     NOT_REQUESTED = "not_requested"
     UNOBSERVED = "unobserved"
+
+
+class RunReportSandboxUsageAttribution(StrEnum):
+    PENDING = "pending"
+    ATTRIBUTED = "attributed"
+    NOT_RECORDED = "not_recorded"
 
 
 class RunReportTeardown(StrEnum):
@@ -297,6 +424,7 @@ class RunState(StrEnum):
 class RunWaitOutcome(StrEnum):
     TERMINAL = "terminal"
     TIMEOUT = "timeout"
+    PAUSED = "paused"
 
 
 class SandboxImageStatus(StrEnum):
@@ -368,6 +496,25 @@ class AccountTerms(WireModel):
     accepted_at: str
 
 
+class ActorParkedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    assignment: str | None
+    dimension: str
+    at_ms: int
+
+
+class ActorUnparkedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    assignment: str | None
+    at_ms: int
+
+
 class AutoReloadCard(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -407,6 +554,135 @@ class ControlRef(WireModel):
     operation_id: str
     command: str
     state: str
+
+
+class EvaluationAttestation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Annotated[
+        EvaluationAttestationSchemaVersion,
+        BeforeValidator(enum_value(EvaluationAttestationSchemaVersion)),
+    ]
+    issuer: Annotated[
+        EvaluationAttestationIssuer, BeforeValidator(enum_value(EvaluationAttestationIssuer))
+    ]
+    key_id: str
+    evidence: dict[str, JsonValue]
+    evidence_digest: str
+    signature: str
+
+
+class EvaluationEvaluationRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation.v1"] | None = None
+    policy_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    evaluator_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    dataset_revision_id: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    instance_ids: (
+        Annotated[
+            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]],
+            Field(max_length=1024),
+        ]
+        | None
+    ) = None
+    aggregation: (
+        Annotated[
+            EvaluationEvaluationRequestAggregation,
+            BeforeValidator(enum_value(EvaluationEvaluationRequestAggregation)),
+        ]
+        | None
+    ) = None
+    max_concurrency: Annotated[int, Field(le=128, ge=1)]
+
+
+class EvaluationLimits(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    timeout_seconds: Annotated[int, Field(le=3600, ge=1)]
+    cpu_cores: Annotated[int, Field(le=64, ge=1)]
+    memory_mb: Annotated[int, Field(le=262144, ge=128)]
+    storage_mb: Annotated[int, Field(le=1048576, ge=128)]
+
+
+class EvaluationPolicy(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.policy.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    files: dict[str, str]
+    command: Annotated[list[str], Field(min_length=1, max_length=64)]
+
+
+class EvaluationPool(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-pool.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    provider: Annotated[EvaluationPoolProvider, BeforeValidator(enum_value(EvaluationPoolProvider))]
+    concurrency: Annotated[int, Field(le=128, ge=1)]
+    region: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+
+
+class EvaluationQuote(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    jobs: Annotated[int, Field(ge=1, le=1024)]
+    concurrency: Annotated[int, Field(ge=1, le=128)]
+    provider: Annotated[
+        EvaluationQuoteProvider, BeforeValidator(enum_value(EvaluationQuoteProvider))
+    ]
+    region: str
+    per_job_maximum_micros: Annotated[int, Field(ge=0)]
+    maximum_charge_micros: Annotated[int, Field(ge=0)]
+    isolation: Annotated[
+        EvaluationQuoteIsolation, BeforeValidator(enum_value(EvaluationQuoteIsolation))
+    ]
+
+
+class EvaluationResult(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-result.v1"] | None = None
+    score: float
+    metrics: dict[str, float] | None = None
+
+
+class EvaluationRevisionSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    revision_id: str
+    name: str
+    created_at: str
+
+
+class EvaluationTask(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-task.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    description: Annotated[str, Field(max_length=65536)] | None = None
+    candidate_contract: dict[str, JsonValue] | None = None
+    input_schema: dict[str, JsonValue]
+
+
+class EvaluationTaskInstance(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    seed: Annotated[int, Field(le=9223372036854775807, ge=0)]
+    inputs: dict[str, JsonValue]
 
 
 EvtId: TypeAlias = Annotated[str, Field(pattern="^evt_[A-Za-z0-9_-]{22}$")]
@@ -477,6 +753,27 @@ class Limit(WireModel):
     metric: str
     window: str
     cap: float
+
+
+class LimitMeter(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    dimension: str
+    unit: str | None = None
+    scope: str | None = None
+    requested_cap: Annotated[int, Field(ge=0)] | None = None
+    effective_cap: Annotated[int, Field(ge=0)] | None = None
+    binding_layer: str | None = None
+    cap: Annotated[int, Field(ge=0)] | None = None
+    used: Annotated[int, Field(ge=0)] | None = None
+    reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_reserved: Annotated[int, Field(ge=0)] | None = None
+    unknown_receipts: Annotated[int, Field(ge=0)] | None = None
+    remaining: Annotated[int, Field(ge=0)] | None = None
+    overshoot: Annotated[int, Field(ge=0)] | None = None
+    state: str | None = None
+    action: Annotated[LimitMeterAction, BeforeValidator(enum_value(LimitMeterAction))] | None = None
 
 
 class LimitRow(WireModel):
@@ -622,7 +919,7 @@ class PoolSelection(WireModel):
     )
     pool_ids: (
         Annotated[
-            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")]],
+            list[Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]],
             Field(min_length=1, max_length=8),
             AfterValidator(unique_items),
         ]
@@ -669,7 +966,13 @@ class Problem(WireModel):
     cause: str | None = None
     outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
     retryable: bool | None = None
-    last_event_id: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    last_event_id: Annotated[str, Field(pattern="^[0-9]+(\\.[1-3])?$")] | None = None
+    current_revision: Annotated[int, Field(ge=0)] | None = None
+    window: Annotated[ProblemWindow, BeforeValidator(enum_value(ProblemWindow))] | None = None
+    cap: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    current: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    requested: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    unit: Annotated[ProblemUnit, BeforeValidator(enum_value(ProblemUnit))] | None = None
     minimum_version: str | None = None
     client_version: str | None = None
     field: str | None = None
@@ -708,6 +1011,15 @@ class RoutingCatalogRoute(WireModel):
     providers: list[str]
 
 
+class RunComputeMeter(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    unit: str
+    quantity: Annotated[float, Field(ge=0)]
+
+
 class RunControlReceipt(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -720,6 +1032,19 @@ class RunControlReceipt(WireModel):
     execution_closed: bool
     accounting_final: bool
     cleanup_complete: bool
+
+
+class RunEvaluation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: Annotated[RunEvaluationStatus, BeforeValidator(enum_value(RunEvaluationStatus))]
+    policy_revision_id: str
+    evaluator_revision_id: str
+    dataset_revision_id: str
+    aggregate: dict[str, JsonValue] | None
+    attestation_digest: str | None
 
 
 class RunGuidanceMetric(WireModel):
@@ -761,6 +1086,46 @@ class RunLabelsRequest(WireModel):
     expected_revision: Annotated[int, Field(ge=1)]
 
 
+class RunLimitWarningPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision: Annotated[int, Field(ge=0)]
+    at_ms: int
+    scope: Annotated[
+        RunLimitWarningPayloadScope, BeforeValidator(enum_value(RunLimitWarningPayloadScope))
+    ]
+    dimension: str
+    cap: int
+    used: int
+    reserved: int
+    unknown_reserved: int
+
+
+class RunLimitsProgressFunding(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    held: str
+    settled: str
+    currency: Literal["USD"]
+
+
+class RunPauseLimit(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    scope: Annotated[RunPauseLimitScope, BeforeValidator(enum_value(RunPauseLimitScope))]
+    assignment: str | None
+    dimension: str
+    layer: str | None
+    cap: Annotated[int, Field(ge=0)]
+    used: Annotated[int, Field(ge=0)]
+    reserved: Annotated[int, Field(ge=0)]
+    unknown_reserved: Annotated[int, Field(ge=0)]
+    revision: Annotated[int, Field(ge=0)]
+
+
 class RunProfilePin(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -780,18 +1145,6 @@ class RunProgramProgram(WireModel):
     )
     id: str
     version: str
-
-
-class RunReportRollout(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    rollout_id: str
-    status: str
-    seed: int
-    reward: float | None = None
-    refusal: str | None = None
-    duration_ms: int | None = None
 
 
 class RunTask(WireModel):
@@ -877,6 +1230,14 @@ class SubscriptionChangeRequest(WireModel):
     ]
 
 
+class SwarmsVariantVersion(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: Annotated[str, Field(min_length=1, max_length=128)]
+    version: Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
+
+
 class TermsAcceptance(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -955,6 +1316,17 @@ class Account(WireModel):
     limits: list[Limit]
     terms: AccountTerms | None = None
     billing_attention: BillingAttention | None = None
+
+
+class ActorLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    assignment: str
+    actor_id: str | None
+    role: str | None = None
+    state: str | None = None
+    limits: list[LimitMeter]
 
 
 class ApiKey(WireModel):
@@ -1077,6 +1449,62 @@ class CheckoutSession(WireModel):
     url: str
 
 
+class CreateEvaluation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    request: EvaluationEvaluationRequest
+    maximum_charge_micros: Annotated[int, Field(ge=0, le=1000000000000)]
+
+
+class EvaluationDataset(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluation-dataset.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    instances: Annotated[list[EvaluationTaskInstance], Field(min_length=1, max_length=1024)]
+
+
+class EvaluationEvaluator(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.evaluator.v1"] | None = None
+    name: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    image: Annotated[str, Field(max_length=512, pattern="^[^\\s@]+@sha256:[0-9a-f]{64}$")]
+    candidate_image: Annotated[str, Field(max_length=512, pattern="^[^\\s@]+@sha256:[0-9a-f]{64}$")]
+    command: Annotated[list[str], Field(min_length=1, max_length=64)]
+    pool_id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    task_id: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    task_digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")]
+    input_schema: dict[str, JsonValue]
+    limits: EvaluationLimits
+    region: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
+    isolation: Literal["separate_container"] | None = None
+    result_format: Literal["synth.evaluation-result.v1"] | None = None
+
+
+class EvaluationRevisionList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revisions: list[EvaluationRevisionSummary]
+
+
+class EvaluationRollout(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    ordinal: Annotated[int, Field(ge=0)]
+    instance_id: str
+    rollout_id: str | None
+    status: Annotated[EvaluationRolloutStatus, BeforeValidator(enum_value(EvaluationRolloutStatus))]
+    result: EvaluationResult | None
+    usage_fact_id: str | None
+    error_code: str | None
+
+
 class FilePage(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1101,7 +1529,9 @@ class Limits(WireModel):
     )
     maximum_charge: LaunchBudget
     parallel_workers: Annotated[int, Field(ge=1, le=10)] | None = None
-    wall_time_seconds: Annotated[int, Field(ge=1, le=3600)] | None = None
+    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+    maximum_tokens: Annotated[int, Field(ge=1, le=9223372036854775807)] | None = None
+    pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
 
 
 class MintApiKeyRequest(WireModel):
@@ -1235,40 +1665,21 @@ class RunCharge(WireModel):
     final: bool
 
 
+class RunCompute(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    charge: Money
+    subsidized: Money
+    meters: list[RunComputeMeter]
+
+
 class RunConfiguration(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     run_id: RunId
     configuration: dict[str, JsonValue]
-
-
-class RunEvent(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    event_id: EvtId
-    run_id: RunId
-    sequence: Annotated[int, Field(ge=0)]
-    kind: str
-    original_kind: str
-    usage: JsonValue
-    observed_at: str | None
-    approval_id: str | None
-    payload: (
-        Annotated[
-            ObjectiveProgressPayload | ObjectiveClaimedPayload | None,
-            BeforeValidator(
-                event_payload(
-                    {
-                        "objective.progress": ObjectiveProgressPayload,
-                        "objective.claimed": ObjectiveClaimedPayload,
-                    }
-                )
-            ),
-        ]
-        | None
-    ) = None
 
 
 class RunGuidance(WireModel):
@@ -1312,6 +1723,16 @@ class RunInputs(WireModel):
     files: Annotated[list[InputFile], Field(max_length=32)] | None = None
 
 
+class RunLimitChanges(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    maximum_charge: Money | None = None
+    maximum_tokens: Annotated[int, Field(ge=1, le=9007199254740991)] | None = None
+    wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+    pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+
+
 class RunModelUsage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1340,6 +1761,18 @@ class RunOutput(WireModel):
     filename: str
 
 
+class RunPause(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    cause: Annotated[RunPauseCause, BeforeValidator(enum_value(RunPauseCause))]
+    operation_id: str
+    limit: RunPauseLimit | None
+    requested_at_ms: int
+    drained_at_ms: int | None
+    mode: Annotated[RunPauseMode, BeforeValidator(enum_value(RunPauseMode))]
+
+
 class RunProgram(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1347,13 +1780,15 @@ class RunProgram(WireModel):
     program: RunProgramProgram
 
 
-class RunReward(WireModel):
+class RunProviderCompute(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    status: Annotated[RunRewardStatus, BeforeValidator(enum_value(RunRewardStatus))]
-    best: float | None = None
-    rollouts: list[RunReportRollout]
+    charge: Money
+    subsidized: Money
+    meters: list[RunComputeMeter]
+    provider: str
+    rollouts: Annotated[int, Field(ge=0)]
 
 
 class RunRoleUsage(WireModel):
@@ -1622,14 +2057,23 @@ class BillingStatementPage(WireModel):
     items: list[BillingStatement]
 
 
-class EventPage(WireModel):
+EvaluationInput: TypeAlias = (
+    EvaluationPolicy | EvaluationEvaluator | EvaluationDataset | EvaluationTask | EvaluationPool
+)
+
+
+class EvaluationResponse(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    has_more: bool
-    next_cursor: Annotated[str, Field(min_length=1)] | None = None
-    items: list[RunEvent]
-    resume_cursor: str | None
+    evaluation_id: str
+    status: Annotated[
+        EvaluationResponseStatus, BeforeValidator(enum_value(EvaluationResponseStatus))
+    ]
+    request: EvaluationEvaluationRequest
+    rollouts: list[EvaluationRollout]
+    attestation: EvaluationAttestation | None
+    quote: EvaluationQuote | None = None
 
 
 class FamilyList(WireModel):
@@ -1689,6 +2133,47 @@ class RoutingReadback(WireModel):
     actors: list[RoutingActor]
 
 
+class RunLimitStatePayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision: Annotated[int, Field(ge=0)]
+    at_ms: int
+    pause: RunPause | None
+
+
+class RunLimitUpdate(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    expected_revision: Annotated[int, Field(ge=0)]
+    limits: RunLimitChanges
+    resume: bool | None = None
+    reason: Annotated[str, Field(max_length=1000)] | None = None
+
+
+class RunLimitsProgress(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    operation_id: str | None = None
+    schema_version: Literal["synth.limits-progress.v1"]
+    run_id: RunId
+    revision: Annotated[int, Field(ge=0)]
+    sequence: Annotated[int, Field(ge=0)] | None = None
+    as_of_ms: Annotated[int, Field(ge=0)]
+    status: str
+    pause: dict[str, JsonValue] | None = None
+    primary: list[LimitMeter]
+    secondary: list[LimitMeter]
+    actors: list[ActorLimitsProgress]
+    allocation: dict[str, JsonValue]
+    history: list[dict[str, JsonValue]]
+    freshness: dict[str, JsonValue] | None = None
+    funding: RunLimitsProgressFunding
+    charge: dict[str, JsonValue] | None = None
+
+
 class RunObjective(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1721,6 +2206,20 @@ class RunProfile(WireModel):
     routing: RoutingCatalog | None = None
 
 
+class RunReportRollout(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    rollout_id: str
+    status: str
+    seed: int
+    reward: float | None = None
+    refusal: str | None = None
+    duration_ms: int | None = None
+    provider: str | None = None
+    compute: RunCompute | None = None
+
+
 class RunReportSandbox(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1742,6 +2241,19 @@ class RunReportSandbox(WireModel):
     ]
     observed_at: str | None = None
     usage: RunUsage
+    prepared: SandboxMoment
+    compute_metering: Annotated[
+        RunReportSandboxComputeMetering,
+        BeforeValidator(enum_value(RunReportSandboxComputeMetering)),
+    ]
+    time_to_create_ms: int | None = None
+    usage_attribution: (
+        Annotated[
+            RunReportSandboxUsageAttribution,
+            BeforeValidator(enum_value(RunReportSandboxUsageAttribution)),
+        ]
+        | None
+    ) = None
     time_to_ready_ms: int | None = None
     lifetime_ms: int | None = None
 
@@ -1811,6 +2323,57 @@ class BillingHistoryPage(WireModel):
     items: list[BillingHistoryEntry]
 
 
+class EvaluationRevision(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[EvaluationRevisionKind, BeforeValidator(enum_value(EvaluationRevisionKind))]
+    revision_id: str
+    name: str | None = None
+    payload: EvaluationInput
+
+
+class RunEvent(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    event_id: EvtId
+    run_id: RunId
+    sequence: Annotated[int, Field(ge=0)]
+    kind: str
+    original_kind: str
+    usage: JsonValue
+    observed_at: str | None
+    approval_id: str | None
+    payload: (
+        Annotated[
+            ObjectiveProgressPayload
+            | ObjectiveClaimedPayload
+            | RunLimitStatePayload
+            | RunLimitWarningPayload
+            | ActorParkedPayload
+            | ActorUnparkedPayload
+            | None,
+            BeforeValidator(
+                event_payload(
+                    {
+                        "objective.progress": ObjectiveProgressPayload,
+                        "objective.claimed": ObjectiveClaimedPayload,
+                        "limits.revised": RunLimitStatePayload,
+                        "limit.reached": RunLimitStatePayload,
+                        "run.paused": RunLimitStatePayload,
+                        "run.resumed": RunLimitStatePayload,
+                        "limit.warning": RunLimitWarningPayload,
+                        "actor.parked": ActorParkedPayload,
+                        "actor.unparked": ActorUnparkedPayload,
+                    }
+                )
+            ),
+        ]
+        | None
+    ) = None
+
+
 class RunProfileCatalog(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1819,29 +2382,27 @@ class RunProfileCatalog(WireModel):
     profiles: list[RunProfile]
 
 
-class RunReport(WireModel):
+class RunReward(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    run_id: RunId
-    settlement: RunSettlementSummary
-    attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
-    by_model: list[RunModelUsage]
-    by_role: list[RunRoleUsage]
-    sandboxes: list[RunReportSandbox]
-    teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
-    unattributed: RunUsage
-    sandbox_compute: Annotated[
-        RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
-    ]
-    reward: RunReward
-    timings: RunTimings
+    status: Annotated[RunRewardStatus, BeforeValidator(enum_value(RunRewardStatus))]
+    best: float | None = None
+    rollouts: list[RunReportRollout]
 
 
 class RunSnapshot(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    pause: RunPause | None = None
+    limits_revision: Annotated[int, Field(ge=0)] | None = None
+    pause_expires_at_ms: Annotated[int, Field(ge=0)] | None = None
+    api_version: (
+        Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
+        | None
+    ) = None
+    variant: SwarmsVariantVersion | None = None
     metadata: dict[str, JsonValue]
     method: JsonValue | None = None
     run_id: RunId
@@ -1885,6 +2446,8 @@ class RunSnapshot(WireModel):
 
     def reached(self, milestone: CompletionMilestone) -> bool:
         milestone = CompletionMilestone(milestone)
+        if milestone is CompletionMilestone.PAUSED:
+            return self.state == "paused"
         if milestone is CompletionMilestone.FINISHED:
             return self.finished
         if milestone is CompletionMilestone.EXECUTION_CLOSED:
@@ -1908,6 +2471,16 @@ class UsageSummary(WireModel):
     by_key: list[UsageKeyBucket]
 
 
+class EventPage(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    has_more: bool
+    next_cursor: Annotated[str, Field(min_length=1)] | None = None
+    items: list[RunEvent]
+    resume_cursor: str | None
+
+
 class RunPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1915,6 +2488,30 @@ class RunPage(WireModel):
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
     items: list[RunSnapshot]
+
+
+class RunReport(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
+    run_id: RunId
+    settlement: RunSettlementSummary
+    attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
+    by_model: list[RunModelUsage]
+    by_role: list[RunRoleUsage]
+    sandboxes: list[RunReportSandbox]
+    teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
+    unattributed: RunUsage
+    sandbox_compute: Annotated[
+        RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
+    ]
+    rollout_compute: Annotated[
+        RunReportRolloutCompute, BeforeValidator(enum_value(RunReportRolloutCompute))
+    ]
+    compute_by_provider: list[RunProviderCompute]
+    reward: RunReward
+    timings: RunTimings
 
 
 class RunResult(WireModel):
@@ -1939,16 +2536,29 @@ class RunWait(WireModel):
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
+    "ActorParkedPayload": ActorParkedPayload,
+    "ActorUnparkedPayload": ActorUnparkedPayload,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
+    "EvaluationAttestation": EvaluationAttestation,
+    "EvaluationEvaluationRequest": EvaluationEvaluationRequest,
+    "EvaluationLimits": EvaluationLimits,
+    "EvaluationPolicy": EvaluationPolicy,
+    "EvaluationPool": EvaluationPool,
+    "EvaluationQuote": EvaluationQuote,
+    "EvaluationResult": EvaluationResult,
+    "EvaluationRevisionSummary": EvaluationRevisionSummary,
+    "EvaluationTask": EvaluationTask,
+    "EvaluationTaskInstance": EvaluationTaskInstance,
     "Exclude": Exclude,
     "Family": Family,
     "File": File,
     "InputFile": InputFile,
     "LaunchBudget": LaunchBudget,
     "Limit": Limit,
+    "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
@@ -1967,13 +2577,17 @@ MODELS: dict[str, type[BaseModel]] = {
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
+    "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
+    "RunEvaluation": RunEvaluation,
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
+    "RunLimitWarningPayload": RunLimitWarningPayload,
+    "RunLimitsProgressFunding": RunLimitsProgressFunding,
+    "RunPauseLimit": RunPauseLimit,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
-    "RunReportRollout": RunReportRollout,
     "RunTask": RunTask,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
@@ -1982,6 +2596,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
     "Subscription": Subscription,
     "SubscriptionChangeRequest": SubscriptionChangeRequest,
+    "SwarmsVariantVersion": SwarmsVariantVersion,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "UploadCreateRequest": UploadCreateRequest,
@@ -1990,6 +2605,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageExport": UsageExport,
     "UsageExportRequest": UsageExportRequest,
     "Account": Account,
+    "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
     "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
@@ -1999,6 +2615,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
+    "CreateEvaluation": CreateEvaluation,
+    "EvaluationDataset": EvaluationDataset,
+    "EvaluationEvaluator": EvaluationEvaluator,
+    "EvaluationRevisionList": EvaluationRevisionList,
+    "EvaluationRollout": EvaluationRollout,
     "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
@@ -2012,14 +2633,16 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunCharge": RunCharge,
+    "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
-    "RunEvent": RunEvent,
     "RunGuidance": RunGuidance,
     "RunInputs": RunInputs,
+    "RunLimitChanges": RunLimitChanges,
     "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
+    "RunPause": RunPause,
     "RunProgram": RunProgram,
-    "RunReward": RunReward,
+    "RunProviderCompute": RunProviderCompute,
     "RunRoleUsage": RunRoleUsage,
     "RunSandbox": RunSandbox,
     "RunSettlementSummary": RunSettlementSummary,
@@ -2042,14 +2665,18 @@ MODELS: dict[str, type[BaseModel]] = {
     "AutoReloadDisclosure": AutoReloadDisclosure,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
-    "EventPage": EventPage,
+    "EvaluationResponse": EvaluationResponse,
     "FamilyList": FamilyList,
     "LaunchRequest": LaunchRequest,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
+    "RunLimitStatePayload": RunLimitStatePayload,
+    "RunLimitUpdate": RunLimitUpdate,
+    "RunLimitsProgress": RunLimitsProgress,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,
+    "RunReportRollout": RunReportRollout,
     "RunReportSandbox": RunReportSandbox,
     "RunSandboxes": RunSandboxes,
     "RunSelection": RunSelection,
@@ -2057,11 +2684,16 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummaryBySource": UsageSummaryBySource,
     "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
+    "EvaluationRevision": EvaluationRevision,
+    "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,
-    "RunReport": RunReport,
+    "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
+    "EventPage": EventPage,
     "RunPage": RunPage,
+    "RunReport": RunReport,
     "RunResult": RunResult,
     "RunWait": RunWait,
+    "EvaluationInput": RootModel[EvaluationInput],
 }

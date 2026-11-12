@@ -146,7 +146,7 @@ class OperationExecutor:
         # change request semantics between retries under the same identity.
         content = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
         headers = self.headers(op["auth"])
-        if op["idempotency"] == "durable_key":
+        if op["idempotency"] in {"durable_key", "owner_key"}:
             headers["Idempotency-Key"] = idempotency_key or str(uuid4())
         if content is not None:
             headers["Content-Type"] = "application/json"

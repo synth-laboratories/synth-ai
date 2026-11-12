@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.13.0
+  version: 1.17.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1514,12 +1514,15 @@ paths:
         credential, org membership or scope is revoked the server sends a final `event: error` whose data
         is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must
         re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code
-        streaming_unavailable means the server cannot re-authorize streams. Every in-stream `event: error`
-        Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id.
-        event_owner_unavailable (the change subscription closed, for example during a deploy) and
-        owner reads that are unavailable or time out are retryable: the run is unaffected and
-        reopening with Last-Event-ID resumes without loss or duplication. credential_revoked,
-        run_not_found, event_too_large and encoding failures are final.'
+        streaming_unavailable means the server cannot re-authorize streams. Once the run''s execution has
+        closed and its event journal is complete, the stream sends run milestones as `event: milestone`
+        frames whose data is a RunMilestone, in this order and each at most once per resume position:
+        execution_closed, accounting_final, cleanup_complete. The stream stays open (heartbeats continue)
+        until cleanup_complete, whose frame has final true, and then ends. Milestone frame ids are
+        `<sequence>.<level>` (level 1-3 in the order above); resuming with such an id replays events after
+        the sequence and only the milestones above the level. Usage closure is not a separate milestone:
+        accounting_final is written only after usage receipts are closed.
+        Every in-stream `event: error` Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id. event_owner_unavailable (the change subscription closed, for example during a deploy) and owner reads that are unavailable or time out are retryable: the run is unaffected and reopening with Last-Event-ID resumes without loss or duplication. credential_revoked, run_not_found, event_too_large and encoding failures are final.'
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       parameters:
@@ -1528,10 +1531,11 @@ paths:
       - $ref: '#/components/parameters/Cursor'
       - name: Last-Event-ID
         in: header
-        description: Nonnegative sequence of the last received SSE event.
+        description: Id of the last received SSE frame, a nonnegative event sequence optionally followed
+          by `.<level>` of the last received milestone.
         schema:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
       responses:
         '200':
           description: One page of events.
@@ -1551,6 +1555,13 @@ paths:
                 event: event
 
                 data: {"sequence":1}
+
+
+                id: 1.1
+
+                event: milestone
+
+                data: {"milestone":"execution_closed","final":false}
 
 
                 '
@@ -1912,6 +1923,14 @@ paths:
                   reasoning_tokens: 0
                   model_time_ms: 0
                 sandbox_compute: metered
+                rollout_compute: attributed
+                compute_by_provider:
+                - provider: docker
+                  rollouts: 1
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  meters:
+                  - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 reward:
                   status: scored
                   best: 2.0
@@ -1921,6 +1940,12 @@ paths:
                     seed: 0
                     reward: 2.0
                     duration_ms: 41000
+                    provider: docker
+                    compute:
+                      charge: {amount: '0.000000000000', currency: USD}
+                      subsidized: {amount: '0.000000000000', currency: USD}
+                      meters:
+                      - {kind: container_pool_wall_seconds, unit: seconds, quantity: 41.0}
                 timings:
                   created_at: '2026-11-05T12:22:49Z'
                   closed: {status: observed, at: '2026-11-05T12:25:30Z'}
@@ -4626,6 +4651,96 @@ paths:
                 configuration: {}
         default:
           $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/limits:
+    get:
+      tags:
+      - swarms
+      operationId: getRunLimits
+      x-synth-mcp-name: swarms_run_limits
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Read authoritative run limits and usage.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5591
+      x-synth-source: core/internal/public/runs/limits.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      responses:
+        '200':
+          description: Read authoritative run limits and usage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunLimitsProgress'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                schema_version: synth.limits-progress.v1
+                revision: 0
+                as_of_ms: 1794300000000
+                status: running
+                primary: []
+                secondary: []
+                actors: []
+                history: []
+                allocation: {}
+                funding: {held: "1.00", settled: "0.00", currency: USD}
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [swarms]
+      operationId: updateRunLimits
+      x-synth-mcp-name: swarms_run_limits_update
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      summary: Change a live run's limits.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5601
+      x-synth-source: core/internal/public/runs/limit_updates.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunLimitUpdate'
+      responses:
+        '200':
+          description: Applied limits and durable operation identity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunLimitsProgress'
+              example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                schema_version: synth.limits-progress.v1
+                operation_id: lim_example
+                revision: 1
+                as_of_ms: 1794300000000
+                status: paused
+                primary: []
+                secondary: []
+                actors: []
+                history: []
+                allocation: {}
+                funding: {held: "2.00", settled: "0.00", currency: USD}
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}/tasks:
     get:
       tags:
@@ -4662,6 +4777,334 @@ paths:
                 has_more: false
         default:
           $ref: '#/components/responses/Problem'
+  /v1/evaluation-inputs/{kind}:
+    post:
+      operationId: registerEvaluationInput
+      tags:
+      - evaluations
+      summary: Register an immutable evaluation input.
+      x-synth-scope: swarms:run
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: durable_key
+      x-synth-retry: same_key
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: register_evaluation_input
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - task
+          - pool
+          - policy
+          - evaluator
+          - dataset
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationInput'
+      responses:
+        '201':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRevision'
+              example:
+                kind: policy
+                revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                name: example
+                payload:
+                  name: example
+                  files:
+                    worker.py: 'print(1)
+
+                      '
+                  command:
+                  - python
+                  - worker.py
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      operationId: listEvaluationInputs
+      tags:
+      - evaluations
+      summary: List registered evaluation inputs.
+      x-synth-scope: swarms:read
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: safe_read
+      x-synth-retry: safe_read
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: list_evaluation_inputs
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - task
+          - pool
+          - policy
+          - evaluator
+          - dataset
+      - name: name
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRevisionList'
+              example:
+                revisions: []
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluation-inputs/{kind}/{revision_id}:
+    get:
+      operationId: getEvaluationInput
+      tags:
+      - evaluations
+      summary: Read an immutable evaluation input.
+      x-synth-scope: swarms:read
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: safe_read
+      x-synth-retry: safe_read
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: get_evaluation_input
+      parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - task
+          - pool
+          - policy
+          - evaluator
+          - dataset
+      - name: revision_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRevision'
+              example:
+                kind: policy
+                revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                name: example
+                payload:
+                  name: example
+                  files:
+                    worker.py: 'print(1)
+
+                      '
+                  command:
+                  - python
+                  - worker.py
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations/preflight:
+    post:
+      operationId: preflightEvaluation
+      tags:
+      - evaluations
+      summary: Quote evaluation resources and maximum charge.
+      x-synth-scope: swarms:run
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: durable_key
+      x-synth-retry: same_key
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: preflight_evaluation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluation'
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationQuote'
+              example:
+                jobs: 3
+                concurrency: 3
+                provider: modal
+                region: us-east
+                per_job_maximum_micros: 1000
+                maximum_charge_micros: 3000
+                isolation: separate_container
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations:
+    post:
+      operationId: createEvaluation
+      tags:
+      - evaluations
+      summary: Reserve a budget and start an evaluation.
+      x-synth-scope: swarms:run
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: owner_key
+      x-synth-retry: same_key
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: create_evaluation
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluation'
+      responses:
+        '202':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+              example:
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: pending
+                request:
+                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  aggregation: mean
+                  max_concurrency: 3
+                rollouts: []
+                attestation: null
+        '200':
+          description: Existing evaluation returned for the same operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+              example:
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: pending
+                request:
+                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  aggregation: mean
+                  max_concurrency: 3
+                rollouts: []
+                attestation: null
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations/{evaluation_id}:
+    get:
+      operationId: getEvaluation
+      tags:
+      - evaluations
+      summary: Read evaluation progress and signed results.
+      x-synth-scope: swarms:read
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: safe_read
+      x-synth-retry: safe_read
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: get_evaluation
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+              example:
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: pending
+                request:
+                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  aggregation: mean
+                  max_concurrency: 3
+                rollouts: []
+                attestation: null
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations/{evaluation_id}/cancel:
+    post:
+      operationId: cancelEvaluation
+      tags:
+      - evaluations
+      summary: Cancel an evaluation and reconcile its compute.
+      x-synth-scope: swarms:run
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: durable_key
+      x-synth-retry: same_key
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: cancel_evaluation
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+              example:
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: pending
+                request:
+                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  aggregation: mean
+                  max_concurrency: 3
+                rollouts: []
+                attestation: null
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     apiKey:
@@ -4967,6 +5410,518 @@ components:
         Cache-Control:
           $ref: '#/components/headers/Cache-Control'
   schemas:
+    EvaluationPolicy:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.policy.v1
+          default: synth.policy.v1
+          title: Schema Version
+          type: string
+        name:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Name
+          type: string
+        files:
+          additionalProperties:
+            type: string
+          maxProperties: 64
+          minProperties: 1
+          title: Files
+          type: object
+        command:
+          items:
+            type: string
+          maxItems: 64
+          minItems: 1
+          title: Command
+          type: array
+      required:
+      - name
+      - files
+      - command
+      title: Policy
+      type: object
+    EvaluationLimits:
+      additionalProperties: false
+      properties:
+        timeout_seconds:
+          maximum: 3600
+          minimum: 1
+          title: Timeout Seconds
+          type: integer
+        cpu_cores:
+          maximum: 64
+          minimum: 1
+          title: Cpu Cores
+          type: integer
+        memory_mb:
+          maximum: 262144
+          minimum: 128
+          title: Memory Mb
+          type: integer
+        storage_mb:
+          maximum: 1048576
+          minimum: 128
+          title: Storage Mb
+          type: integer
+      required:
+      - timeout_seconds
+      - cpu_cores
+      - memory_mb
+      - storage_mb
+      title: Limits
+      type: object
+    EvaluationEvaluator:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluator.v1
+          default: synth.evaluator.v1
+          title: Schema Version
+          type: string
+        name:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Name
+          type: string
+        image:
+          maxLength: 512
+          pattern: ^[^\s@]+@sha256:[0-9a-f]{64}$
+          title: Image
+          type: string
+        candidate_image:
+          maxLength: 512
+          pattern: ^[^\s@]+@sha256:[0-9a-f]{64}$
+          title: Candidate Image
+          type: string
+        command:
+          items:
+            type: string
+          maxItems: 64
+          minItems: 1
+          title: Command
+          type: array
+        pool_id:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Pool Id
+          type: string
+        task_id:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Task Id
+          type: string
+        task_digest:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Task Digest
+          type: string
+        input_schema:
+          additionalProperties: true
+          title: Input Schema
+          type: object
+        limits:
+          $ref: '#/components/schemas/EvaluationLimits'
+        region:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Region
+          type: string
+        isolation:
+          const: separate_container
+          default: separate_container
+          title: Isolation
+          type: string
+        result_format:
+          const: synth.evaluation-result.v1
+          default: synth.evaluation-result.v1
+          title: Result Format
+          type: string
+      required:
+      - name
+      - image
+      - candidate_image
+      - command
+      - pool_id
+      - task_id
+      - task_digest
+      - input_schema
+      - limits
+      - region
+      title: Evaluator
+      type: object
+    EvaluationTaskInstance:
+      additionalProperties: false
+      properties:
+        id:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Id
+          type: string
+        seed:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Seed
+          type: integer
+        inputs:
+          additionalProperties: true
+          title: Inputs
+          type: object
+      required:
+      - id
+      - seed
+      - inputs
+      title: TaskInstance
+      type: object
+    EvaluationDataset:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation-dataset.v1
+          default: synth.evaluation-dataset.v1
+          title: Schema Version
+          type: string
+        name:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Name
+          type: string
+        instances:
+          items:
+            $ref: '#/components/schemas/EvaluationTaskInstance'
+          maxItems: 1024
+          minItems: 1
+          title: Instances
+          type: array
+      required:
+      - name
+      - instances
+      title: Dataset
+      type: object
+    EvaluationTask:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation-task.v1
+          default: synth.evaluation-task.v1
+          title: Schema Version
+          type: string
+        name:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Name
+          type: string
+        description:
+          type: string
+          maxLength: 65536
+          default: ''
+        candidate_contract:
+          type: object
+          additionalProperties: true
+        input_schema:
+          additionalProperties: true
+          title: Input Schema
+          type: object
+      required:
+      - name
+      - input_schema
+      title: Task
+      type: object
+    EvaluationPool:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation-pool.v1
+          default: synth.evaluation-pool.v1
+          title: Schema Version
+          type: string
+        name:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Name
+          type: string
+        provider:
+          enum:
+          - modal
+          - docker
+          title: Provider
+          type: string
+        concurrency:
+          maximum: 128
+          minimum: 1
+          title: Concurrency
+          type: integer
+        region:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Region
+          type: string
+      required:
+      - name
+      - provider
+      - concurrency
+      - region
+      title: Pool
+      type: object
+    EvaluationEvaluationRequest:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation.v1
+          default: synth.evaluation.v1
+          title: Schema Version
+          type: string
+        policy_revision_id:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Policy Revision Id
+          type: string
+        evaluator_revision_id:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Evaluator Revision Id
+          type: string
+        dataset_revision_id:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Dataset Revision Id
+          type: string
+        instance_ids:
+          items:
+            pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+            type: string
+          maxItems: 1024
+          title: Instance Ids
+          type: array
+        aggregation:
+          default: mean
+          enum:
+          - mean
+          - sum
+          - min
+          - max
+          title: Aggregation
+          type: string
+        max_concurrency:
+          maximum: 128
+          minimum: 1
+          title: Max Concurrency
+          type: integer
+      required:
+      - policy_revision_id
+      - evaluator_revision_id
+      - dataset_revision_id
+      - max_concurrency
+      title: EvaluationRequest
+      type: object
+    EvaluationResult:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation-result.v1
+          default: synth.evaluation-result.v1
+          title: Schema Version
+          type: string
+        score:
+          title: Score
+          type: number
+        metrics:
+          additionalProperties:
+            type: number
+          maxProperties: 256
+          title: Metrics
+          type: object
+      required:
+      - score
+      title: Result
+      type: object
+    CreateEvaluation:
+      type: object
+      additionalProperties: false
+      required:
+      - request
+      - maximum_charge_micros
+      properties:
+        request:
+          $ref: '#/components/schemas/EvaluationEvaluationRequest'
+        maximum_charge_micros:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000
+    EvaluationInput:
+      oneOf:
+      - $ref: '#/components/schemas/EvaluationPolicy'
+      - $ref: '#/components/schemas/EvaluationEvaluator'
+      - $ref: '#/components/schemas/EvaluationDataset'
+      - $ref: '#/components/schemas/EvaluationTask'
+      - $ref: '#/components/schemas/EvaluationPool'
+    EvaluationResponse:
+      type: object
+      required:
+      - evaluation_id
+      - status
+      - request
+      - rollouts
+      - attestation
+      properties:
+        evaluation_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - prepared
+          - pending
+          - running
+          - cancelling
+          - completed
+          - failed
+          - cancelled
+        request:
+          $ref: '#/components/schemas/EvaluationEvaluationRequest'
+        rollouts:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationRollout'
+        attestation:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationAttestation'
+          - type: 'null'
+        quote:
+          $ref: '#/components/schemas/EvaluationQuote'
+      additionalProperties: false
+    EvaluationQuote:
+      type: object
+      additionalProperties: false
+      properties:
+        jobs:
+          type: integer
+          minimum: 1
+          maximum: 1024
+        concurrency:
+          type: integer
+          minimum: 1
+          maximum: 128
+        provider:
+          type: string
+          enum:
+          - docker
+          - modal
+        region: &evaluation_id002
+          type: string
+        per_job_maximum_micros: &evaluation_id001
+          type: integer
+          minimum: 0
+        maximum_charge_micros: *evaluation_id001
+        isolation:
+          type: string
+          enum:
+          - separate_container
+      required:
+      - jobs
+      - concurrency
+      - provider
+      - region
+      - per_job_maximum_micros
+      - maximum_charge_micros
+      - isolation
+    EvaluationRevision:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+          - policy
+          - evaluator
+          - dataset
+          - task
+          - pool
+        revision_id: *evaluation_id002
+        name: *evaluation_id002
+        payload:
+          $ref: '#/components/schemas/EvaluationInput'
+      required:
+      - kind
+      - revision_id
+      - payload
+    EvaluationRevisionSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: *evaluation_id002
+        revision_id: *evaluation_id002
+        name: *evaluation_id002
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - kind
+      - revision_id
+      - name
+      - created_at
+    EvaluationAttestation:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version:
+          type: string
+          enum:
+          - synth.evaluation-attestation.v1
+        issuer:
+          type: string
+          enum:
+          - synth
+        key_id: *evaluation_id002
+        evidence:
+          type: object
+          additionalProperties: true
+        evidence_digest: *evaluation_id002
+        signature: *evaluation_id002
+      required:
+      - schema_version
+      - issuer
+      - key_id
+      - evidence
+      - evidence_digest
+      - signature
+    EvaluationRollout:
+      type: object
+      additionalProperties: false
+      properties:
+        ordinal: *evaluation_id001
+        instance_id: *evaluation_id002
+        rollout_id:
+          anyOf:
+          - *evaluation_id002
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - pending
+          - dispatching
+          - running
+          - recovering
+          - completed
+          - failed
+          - cancelled
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationResult'
+          - type: 'null'
+        usage_fact_id:
+          anyOf:
+          - *evaluation_id002
+          - type: 'null'
+        error_code:
+          anyOf:
+          - *evaluation_id002
+          - type: 'null'
+      required:
+      - ordinal
+      - instance_id
+      - rollout_id
+      - status
+      - result
+      - usage_fact_id
+      - error_code
+    EvaluationRevisionList:
+      type: object
+      additionalProperties: false
+      properties:
+        revisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationRevisionSummary'
+      required:
+      - revisions
     Limit:
       type: object
       required:
@@ -5451,10 +6406,19 @@ components:
         wall_time_seconds:
           type: integer
           minimum: 1
-          maximum: 3600
-          description: Run wall-clock bound in seconds, at most 3600 (one hour, the actor deadline
-            bound until deadline renewal exists). Omitted, the profile's default applies. A larger value is refused at launch with 422 invalid_launch_request,
-            cause limits.wall_time_seconds.
+          maximum: 86400
+          description: Total unpaused seconds since creation, including queued time. Omitted, the profile default applies.
+        maximum_tokens:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Run token cap. Omitted, derived from the budget.
+        pause_retention_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+          default: 86400
+          description: Retention bound for each pause; expiry ends the run.
     Family:
       type: object
       required:
@@ -5609,7 +6573,7 @@ components:
                 uniqueItems: true
                 items:
                   type: string
-                  pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
     OwnerResourceLimits:
       type: object
       minProperties: 1
@@ -5697,6 +6661,69 @@ components:
           type: object
           additionalProperties:
             type: string
+    RunPause:
+      type: object
+      additionalProperties: false
+      required: [cause, operation_id, limit, requested_at_ms, drained_at_ms, mode]
+      properties:
+        cause:
+          type: string
+          enum: [customer, limit, platform]
+        operation_id:
+          type: string
+        limit:
+          oneOf:
+          - $ref: '#/components/schemas/RunPauseLimit'
+          - type: 'null'
+        requested_at_ms:
+          type: integer
+        drained_at_ms:
+          type: [integer, 'null']
+        mode:
+          type: string
+          enum: [cold, warm]
+    RunPauseLimit:
+      type: object
+      additionalProperties: false
+      required: [scope, assignment, dimension, layer, cap, used, reserved, unknown_reserved, revision]
+      properties:
+        scope:
+          type: string
+          enum: [run, actor]
+        assignment:
+          type: [string, 'null']
+        dimension:
+          type: string
+        layer:
+          type: [string, 'null']
+        cap:
+          type: integer
+          minimum: 0
+        used:
+          type: integer
+          minimum: 0
+        reserved:
+          type: integer
+          minimum: 0
+        unknown_reserved:
+          type: integer
+          minimum: 0
+        revision:
+          type: integer
+          minimum: 0
+    SwarmsVariantVersion:
+      type: object
+      description: Variant semantic version pinned when the run was admitted. Absent for older or unversioned runs.
+      additionalProperties: false
+      required: [id, version]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     RunSnapshot:
       type: object
       required:
@@ -5719,6 +6746,20 @@ components:
       - started_at
       - closed_at
       properties:
+        pause:
+          $ref: '#/components/schemas/RunPause'
+        limits_revision:
+          type: integer
+          minimum: 0
+        pause_expires_at_ms:
+          type: integer
+          minimum: 0
+        api_version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          description: Semantic version of the currently serving Swarms API; absent on imported history.
+        variant:
+          $ref: '#/components/schemas/SwarmsVariantVersion'
         metadata:
           type: object
           additionalProperties: true
@@ -6028,12 +7069,26 @@ components:
           - string
           - 'null'
         payload:
-          description: The event's body on objective.progress and objective.claimed; null on every other kind. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence.
-          oneOf:
+          description: The event's body, selected by `kind`; null on every kind not listed here. One decision that moves several metric objectives yields one objective.progress event per objective, each with its own event_id and the same sequence. Limit events carry the limits revision and pause they report.
+          anyOf:
           - $ref: '#/components/schemas/ObjectiveProgressPayload'
             x-synth-event-kind: objective.progress
           - $ref: '#/components/schemas/ObjectiveClaimedPayload'
             x-synth-event-kind: objective.claimed
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: limits.revised
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: limit.reached
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: run.paused
+          - $ref: '#/components/schemas/RunLimitStatePayload'
+            x-synth-event-kind: run.resumed
+          - $ref: '#/components/schemas/RunLimitWarningPayload'
+            x-synth-event-kind: limit.warning
+          - $ref: '#/components/schemas/ActorParkedPayload'
+            x-synth-event-kind: actor.parked
+          - $ref: '#/components/schemas/ActorUnparkedPayload'
+            x-synth-event-kind: actor.unparked
           - type: 'null'
     RunGuidance:
       type: object
@@ -6162,6 +7217,71 @@ components:
           type: string
         receipt_digest:
           type: string
+    RunLimitStatePayload:
+      type: object
+      additionalProperties: false
+      description: The run's limits at one revision. `pause` is the pause in force after this event, or null.
+      required: [revision, at_ms, pause]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        at_ms:
+          type: integer
+        pause:
+          oneOf:
+          - $ref: '#/components/schemas/RunPause'
+          - type: 'null'
+    RunLimitWarningPayload:
+      type: object
+      additionalProperties: false
+      description: A run-level limit crossed its warning threshold.
+      required: [revision, at_ms, scope, dimension, cap, used, reserved, unknown_reserved]
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        at_ms:
+          type: integer
+        scope:
+          type: string
+          enum: [run]
+        dimension:
+          type: string
+        cap:
+          type: integer
+        used:
+          type: integer
+        reserved:
+          type: integer
+        unknown_reserved:
+          type: integer
+    ActorParkedPayload:
+      type: object
+      additionalProperties: false
+      description: An actor stopped at an assignment limit and is waiting for headroom.
+      required: [actor_id, assignment, dimension, at_ms]
+      properties:
+        actor_id:
+          type: string
+        assignment:
+          type: [string, 'null']
+        dimension:
+          type: string
+        at_ms:
+          type: integer
+    ActorUnparkedPayload:
+      type: object
+      additionalProperties: false
+      description: A parked actor resumed.
+      required: [actor_id, assignment, at_ms]
+      properties:
+        actor_id:
+          type: string
+        assignment:
+          type: [string, 'null']
+        at_ms:
+          type: integer
     ObjectiveClaimedPayload:
       type: object
       required:
@@ -6363,6 +7483,46 @@ components:
           description: Basis points, 0 to 10000, when the reviewer gave a score.
         reason:
           type: string
+    RunMilestone:
+      type: object
+      description: 'Data of an SSE `event: milestone` frame on listRunEvents. Flags are cumulative and
+        match getRun at the time the milestone was observed; a later milestone never reports an earlier
+        one as unreached.'
+      required:
+      - milestone
+      - run_id
+      - state
+      - execution_closed
+      - accounting_final
+      - cleanup_complete
+      - result_available
+      - failure
+      - final
+      additionalProperties: false
+      properties:
+        milestone:
+          type: string
+          enum:
+          - execution_closed
+          - accounting_final
+          - cleanup_complete
+        run_id:
+          type: string
+        state:
+          type: string
+        execution_closed:
+          type: boolean
+        accounting_final:
+          type: boolean
+        cleanup_complete:
+          type: boolean
+        result_available:
+          type: boolean
+        failure:
+          description: The run's typed failure, or null.
+        final:
+          type: boolean
+          description: True on cleanup_complete; the server ends the stream after this frame.
     EventPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'
@@ -6657,9 +7817,25 @@ components:
       - type: object
         required:
         - usage
+        - prepared
+        - compute_metering
         properties:
           usage:
             $ref: '#/components/schemas/RunUsage'
+          prepared:
+            $ref: '#/components/schemas/SandboxMoment'
+            description: When the run prepared this actor, before it requested the sandbox. not_recorded when no preparation was retained.
+          compute_metering:
+            type: string
+            enum: [not_metered]
+            description: Actor sandbox compute is not metered, so it has no charge. This is not a zero amount.
+          time_to_create_ms:
+            type: integer
+            description: Prepared to created. Present only when both were observed and created is not before prepared.
+          usage_attribution:
+            type: string
+            enum: [pending, attributed, not_recorded]
+            description: Sandbox usage is complete only when attributed; not_recorded means its usage fields are not a complete sandbox total.
           time_to_ready_ms:
             type: integer
             description: Present only when created and ready were both observed.
@@ -6688,6 +7864,55 @@ components:
         duration_ms:
           type: integer
           description: Present only when a start and an end were both recorded.
+        provider:
+          type: string
+          description: The provider that ran the rollout's container, as its usage facts recorded it. Present only
+            when a settled compute line of the rollout names it.
+        compute:
+          $ref: '#/components/schemas/RunCompute'
+    RunComputeMeter:
+      type: object
+      required:
+      - kind
+      - unit
+      - quantity
+      properties:
+        kind:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+    RunCompute:
+      type: object
+      description: Settled pool compute. Every amount is a sum of settlement lines.
+      required:
+      - charge
+      - subsidized
+      - meters
+      properties:
+        charge:
+          $ref: '#/components/schemas/Money'
+        subsidized:
+          $ref: '#/components/schemas/Money'
+        meters:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunComputeMeter'
+    RunProviderCompute:
+      allOf:
+      - $ref: '#/components/schemas/RunCompute'
+      - type: object
+        required:
+        - provider
+        - rollouts
+        properties:
+          provider:
+            type: string
+          rollouts:
+            type: integer
+            minimum: 0
     RunReward:
       type: object
       required:
@@ -6753,6 +7978,27 @@ components:
         settling_ms:
           type: integer
           description: Closed to accounting final. Present once accounting is final.
+    RunEvaluation:
+      type: object
+      required: [evaluation_id, status, policy_revision_id, evaluator_revision_id, dataset_revision_id, aggregate, attestation_digest]
+      properties:
+        evaluation_id:
+          type: string
+        status:
+          type: string
+          enum: [prepared, pending, running, cancelling, completed, failed, cancelled]
+        policy_revision_id:
+          type: string
+        evaluator_revision_id:
+          type: string
+        dataset_revision_id:
+          type: string
+        aggregate:
+          type: [object, 'null']
+          additionalProperties: true
+        attestation_digest:
+          type: [string, 'null']
+      additionalProperties: false
     RunReport:
       type: object
       required:
@@ -6765,17 +8011,25 @@ components:
       - teardown
       - unattributed
       - sandbox_compute
+      - rollout_compute
+      - compute_by_provider
       - reward
       - timings
       properties:
+        evaluations:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunEvaluation'
         run_id:
           $ref: '#/components/schemas/RunId'
         settlement:
           $ref: '#/components/schemas/RunSettlementSummary'
         attribution:
           type: string
-          description: pending waits for settlement. not_recorded settled before attribution was kept, so the total
-            is final and the breakdown does not exist.
+          description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained
+            or a repeated actor's session could not be identified. The total remains final; model and role aggregates
+            may still be available, while per-sandbox usage must not be interpreted as complete.
           enum:
           - pending
           - attributed
@@ -6807,6 +8061,21 @@ components:
           enum:
           - not_metered
           - metered
+        rollout_compute:
+          type: string
+          description: Whether compute_by_provider and each rollout's compute group the settled pool compute lines.
+            pending waits for settlement. partial means some lines name no rollout or provider; their amounts stay in
+            settlement.rollout and in no group. unobserved means the usage facts could not be read; settlement.rollout
+            is still final.
+          enum:
+          - pending
+          - attributed
+          - partial
+          - unobserved
+        compute_by_provider:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunProviderCompute'
         reward:
           $ref: '#/components/schemas/RunReward'
         timings:
@@ -7762,9 +9031,28 @@ components:
             be delivered).
         last_event_id:
           type: string
-          pattern: ^[0-9]+$
+          pattern: ^[0-9]+(\.[1-3])?$
           description: On an in-stream error, the last SSE id the stream delivered (or the resume point
             it opened at). When retryable is true it stays valid as the Last-Event-ID to resume from.
+        current_revision:
+          type: integer
+          minimum: 0
+          description: Current owner revision on limits_revision_conflict.
+        window:
+          type: string
+          enum: [day, week]
+        cap:
+          type: string
+          pattern: ^[0-9]+$
+        current:
+          type: string
+          pattern: ^[0-9]+$
+        requested:
+          type: string
+          pattern: ^[0-9]+$
+        unit:
+          type: string
+          enum: [microcents]
         minimum_version:
           type: string
           description: On 426 client_upgrade_required only, the oldest synth-ai version the API
@@ -7793,7 +9081,8 @@ components:
           enum:
           - terminal
           - timeout
-          description: terminal when the run reached a terminal state; timeout when timeout_seconds
+          - paused
+          description: paused when the run has drained into a resumable pause; terminal when the run reached a terminal state; timeout when timeout_seconds
             elapsed first.
         run:
           $ref: '#/components/schemas/RunSnapshot'
@@ -8595,6 +9884,107 @@ components:
           - version
       required:
       - program
+    LimitMeter:
+      type: object
+      properties:
+        dimension: {type: string}
+        unit: {type: string}
+        scope: {type: string}
+        requested_cap: {type: [integer, 'null'], minimum: 0}
+        effective_cap: {type: [integer, 'null'], minimum: 0}
+        binding_layer: {type: [string, 'null']}
+        cap: {type: [integer, 'null'], minimum: 0}
+        used: {type: [integer, 'null'], minimum: 0}
+        reserved: {type: [integer, 'null'], minimum: 0}
+        unknown_reserved: {type: [integer, 'null'], minimum: 0}
+        unknown_receipts: {type: [integer, 'null'], minimum: 0}
+        remaining: {type: [integer, 'null'], minimum: 0}
+        overshoot: {type: [integer, 'null'], minimum: 0}
+        state: {type: string}
+        action: {type: string, enum: [notify, pause, stop]}
+      required: [dimension]
+    ActorLimitsProgress:
+      type: object
+      properties:
+        assignment: {type: string}
+        actor_id: {type: [string, 'null']}
+        role: {type: string}
+        state: {type: string}
+        limits:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+      required: [assignment, actor_id, limits]
+    RunLimitUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, limits]
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0
+        limits:
+          $ref: '#/components/schemas/RunLimitChanges'
+        resume:
+          type: boolean
+          default: false
+        reason:
+          type: string
+          maxLength: 1000
+    RunLimitChanges:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        maximum_charge:
+          $ref: '#/components/schemas/Money'
+        maximum_tokens:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        wall_time_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+        pause_retention_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+    RunLimitsProgress:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        schema_version: {type: string, const: synth.limits-progress.v1}
+        run_id: {$ref: '#/components/schemas/RunId'}
+        revision: {type: integer, minimum: 0}
+        sequence: {type: integer, minimum: 0}
+        as_of_ms: {type: integer, minimum: 0}
+        status: {type: string}
+        pause: {type: [object, 'null']}
+        primary:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+        secondary:
+          type: array
+          items: {$ref: '#/components/schemas/LimitMeter'}
+        actors:
+          type: array
+          items: {$ref: '#/components/schemas/ActorLimitsProgress'}
+        allocation: {type: object}
+        history:
+          type: array
+          items: {type: object}
+        freshness: {type: object}
+        funding:
+          type: object
+          properties:
+            held: {type: string}
+            settled: {type: string}
+            currency: {type: string, const: USD}
+          required: [held, settled, currency]
+        charge: {type: object}
+      required: [schema_version, run_id, revision, as_of_ms, status, primary, secondary, actors, allocation, history, funding]
+
     RunConfiguration:
       type: object
       additionalProperties: false
