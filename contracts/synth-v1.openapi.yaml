@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.17.0
+  version: 1.18.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4543,7 +4543,10 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
       description: The body must be empty. Acceptance acknowledges the durable command;
-        read the run to observe its current state.
+        read the run to observe its current state. When the program refuses the control, the 409
+        Problem's code is limit_still_reached (the limit that paused the run is still reached; raise
+        it first) or run_expired, otherwise program_control_refused; upstream_status and cause carry
+        the program's status and refusal code.
   /v1/runs/{run_id}/resume:
     post:
       tags:
@@ -4585,7 +4588,10 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
       description: The body must be empty. Acceptance acknowledges the durable command;
-        read the run to observe its current state.
+        read the run to observe its current state. When the program refuses the control, the 409
+        Problem's code is limit_still_reached (the limit that paused the run is still reached; raise
+        it first) or run_expired, otherwise program_control_refused; upstream_status and cause carry
+        the program's status and refusal code.
   /v1/runs/{run_id}/program:
     get:
       tags:
@@ -6387,7 +6393,12 @@ components:
       required:
       - maximum_charge
       description: An explicit positive USD budget is required. Task limits are service-owned; worker
-        parallelism defaults to 1 and may be raised with parallel_workers.
+        parallelism defaults to 1 and may be raised with parallel_workers. maximum_charge must fund
+        every actor held at once (the planner and the workers, plus the reviewer with parallel workers),
+        each holding at least one worst-case model call on its routed preset; a smaller maximum_charge
+        is refused at launch with 422 run_budget_below_call_bound, cause limits.maximum_charge, whose
+        detail names the per-actor call bound (call_bound_micros), the actor count (actor_count) and
+        the minimum budget (minimum_budget_micros).
       properties:
         maximum_charge:
           $ref: '#/components/schemas/LaunchBudget'
@@ -6400,8 +6411,9 @@ components:
             default is 1. Out of range
             is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget
             must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds
-            an equal slice of the budget); a smaller maximum_charge is refused at launch with 422
-            launch_budget_below_actor_floor, whose detail states the minimum in micro-USD.
+            an equal slice of the budget, and never less than one worst-case model call); a smaller
+            maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose detail states
+            the minimum in micro-USD (minimum_budget_micros).
             Not accepted with research profiles.
         wall_time_seconds:
           type: integer
@@ -6711,6 +6723,72 @@ components:
         revision:
           type: integer
           minimum: 0
+        reason:
+          type: string
+          description: The program's rule that paused an actor-scoped limit, for example run_headroom_below_floor, planner_left_park_unfunded, reservation_renewal_refused or per_call_policy. Absent when the program named none.
+    RunProblem:
+      type: object
+      description: One open problem of a run. Every problem carries a code and a cause. Problem items are
+        open documents - a launch failure's problem also carries the failure's own fields - so a reader
+        must accept fields it does not know.
+      required: [code, cause]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+          description: For example task_worker_failed, owner_refused, owner_unavailable, run_funding_refused,
+            agents_start_refused, planner_stalled, problem_observation_stale or a launch failure reason.
+        severity:
+          type: string
+          enum: [warning, error]
+        service:
+          type: string
+        stage:
+          type: string
+        upstream_status:
+          type: integer
+        upstream_status_basis:
+          type: string
+          enum: [reported, not_retained, not_applicable]
+        upstream_code:
+          type: string
+        upstream_service:
+          type: string
+          description: The service at the root of the refusal chain when it is not the problem's own service
+            (a worker turn that failed because a call it made was refused).
+        upstream_stage:
+          type: string
+          description: The stage at the root of the refusal chain.
+        upstream_message:
+          type: string
+          description: The root upstream's message, bounded to 240 bytes and redacted.
+        limiting_policy:
+          type: string
+          description: The limit that refused (a gateway budget or a capacity guard).
+        upstream_detail:
+          type: object
+          additionalProperties:
+            type: string
+          description: The amounts and scope the limiting policy named.
+        cause:
+          type: string
+        in_doubt:
+          type: boolean
+        operation_id:
+          type: string
+        effect_kind:
+          type: string
+        actor_id:
+          type: string
+        task_id:
+          type: string
+        since:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
     SwarmsVariantVersion:
       type: object
       description: Variant semantic version pinned when the run was admitted. Absent for older or unversioned runs.
@@ -6833,7 +6911,8 @@ components:
           type:
           - array
           - 'null'
-          items: {}
+          items:
+            $ref: '#/components/schemas/RunProblem'
         problems_observed:
           type: boolean
           description: Whether `problems` is a complete, current observation, not whether the run had a
