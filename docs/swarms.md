@@ -23,6 +23,12 @@ sending). Research profiles do not accept it. Core owns task counts.
 guidance, routing and response types are available from `synth_ai.models`.
 Guidance validates UTF-8 byte limits and text rules before sending.
 
+`RunSnapshot.api_version` is the semantic version of the responding Swarms API.
+`RunSnapshot.variant` identifies the selected variant and its semantic version
+pinned when the run was admitted. Both are optional for compatibility with
+older servers and runs; `None` means the version was not reported. The variant
+version is separate from the profile and native program revisions.
+
 Each mutation uses an Idempotency-Key. Supply `idempotency_key` to preserve the
 identity across process retries. Bounded 429/503 retries keep the same key and
 body. An unknown outcome does not mean the effect failed; inspect the run and

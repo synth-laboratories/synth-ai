@@ -4,6 +4,7 @@ from enum import StrEnum
 
 
 class CompletionMilestone(StrEnum):
+    PAUSED = "paused"
     FINISHED = "finished"
     EXECUTION_CLOSED = "execution_closed"
     RESULT_AVAILABLE = "result_available"

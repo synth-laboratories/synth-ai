@@ -24,6 +24,7 @@ from .errors import (
     ResultUnavailableError,
     RunFailedError,
     RunHistoryUnavailableError,
+    RunPausedError,
     SwarmsAPIError,
     WaitTimeoutError,
     stream_interrupted,
@@ -118,6 +119,8 @@ class RunObserver:
                 if raise_on_failure and current.state == "failed":
                     raise RunFailedError("Run " + run_id + " failed", snapshot=current)
                 return True
+            if current.state == "paused":
+                raise RunPausedError("Run " + run_id + " is paused", snapshot=current)
             if until == CompletionMilestone.RESULT_AVAILABLE and current.finished:
                 raise ResultUnavailableError(
                     "Run has finished without an available result", snapshot=current
@@ -231,5 +234,5 @@ def validate_wait(timeout: float, poll_interval: float, until: str) -> None:
         or poll_interval <= 0
     ):
         raise ValueError("timeout and poll_interval must be finite and positive")
-    if until not in {"finished", "execution_closed", "result_available"}:
+    if until not in {"finished", "execution_closed", "result_available", "paused"}:
         raise ValueError("unknown completion milestone")

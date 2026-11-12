@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. Version 0.33.0 (Core contract 1.9.0, launch contract 3).
+Typed Python 3.11+ client for the Synth public API v1. The published release is 0.34.0 (Core contract 1.13.0, launch contract 3). The contract pin for this checkout is recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 
@@ -83,5 +83,18 @@ Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
 inspect it, and `run.known_state` when a known state enum is useful. Unknown server
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
+
+For release qualification, `python scripts/quickstart_smoke.py --execute --fixture-org ORG_ID --cohort-file COHORT.json --output PATH`
+exercises SDK, CLI and stdio MCP against an explicitly configured API. It has
+three $4 run caps ($12 aggregate), retains mutation and cancellation identities,
+and requires `--resume` with the same receipt after an interruption. Add
+`--cancel-outstanding` to reconcile known runs without admitting new ones. A
+launch with an unknown run ID must be reconciled using its retained key. Use a
+dedicated test organization; uploaded fixtures require separate disposition.
+The cohort file's digest binds the receipt but does not attest what is deployed.
+Record the spend reservation and actual charges in the release ledger before and
+after use. This opt-in smoke does not establish hosted MCP OAuth, provider-invoice
+finality, load or capacity acceptance, and must not run automatically in CI without
+shared budget admission.
 
 Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.

@@ -5,6 +5,7 @@ import builtins
 from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 from ._blocking import Runner
 from ._generated.models import (
@@ -19,6 +20,12 @@ from ._generated.models import (
     BillingStatementPage,
     CheckoutAttempt,
     CheckoutSession,
+    EvaluationEvaluationRequest,
+    EvaluationInput,
+    EvaluationQuote,
+    EvaluationResponse,
+    EvaluationRevision,
+    EvaluationRevisionList,
     EventPage,
     FamilyList,
     File,
@@ -40,6 +47,7 @@ from ._generated.models import (
     RunGuidance,
     RunInputs,
     RunLabels,
+    RunLimitsProgress,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -72,12 +80,78 @@ class SwarmsClient:
         self._runner = runner
         self._async = source
 
+    def register_evaluation_input(
+        self,
+        kind: Literal["task", "pool", "policy", "evaluator", "dataset"],
+        payload: EvaluationInput,
+        *,
+        idempotency_key: str | None = None,
+    ) -> EvaluationRevision:
+        return self._runner.call(
+            self._async.register_evaluation_input(kind, payload, idempotency_key=idempotency_key)
+        )
+
+    def evaluation_inputs(self, kind: str, *, name: str | None = None) -> EvaluationRevisionList:
+        return self._runner.call(self._async.evaluation_inputs(kind, name=name))
+
+    def evaluation_input(self, kind: str, revision_id: str) -> EvaluationRevision:
+        return self._runner.call(self._async.evaluation_input(kind, revision_id))
+
+    def preflight_evaluation(
+        self,
+        request: EvaluationEvaluationRequest,
+        *,
+        maximum_charge_micros: int,
+        idempotency_key: str | None = None,
+    ) -> EvaluationQuote:
+        return self._runner.call(
+            self._async.preflight_evaluation(
+                request,
+                maximum_charge_micros=maximum_charge_micros,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def evaluate(
+        self,
+        request: EvaluationEvaluationRequest,
+        *,
+        maximum_charge_micros: int,
+        idempotency_key: str | None = None,
+    ) -> EvaluationResponse:
+        return self._runner.call(
+            self._async.evaluate(
+                request,
+                maximum_charge_micros=maximum_charge_micros,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def evaluation(self, evaluation_id: str) -> EvaluationResponse:
+        return self._runner.call(self._async.evaluation(evaluation_id))
+
+    def cancel_evaluation(
+        self, evaluation_id: str, *, idempotency_key: str | None = None
+    ) -> EvaluationResponse:
+        return self._runner.call(
+            self._async.cancel_evaluation(evaluation_id, idempotency_key=idempotency_key)
+        )
+
+    def wait_evaluation(
+        self, evaluation_id: str, *, timeout: float = 600, poll_interval: float = 2
+    ) -> EvaluationResponse:
+        return self._runner.call(
+            self._async.wait_evaluation(evaluation_id, timeout=timeout, poll_interval=poll_interval)
+        )
+
     def launch(
         self,
         message: str,
         *,
         budget: str | Decimal,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -93,6 +167,8 @@ class SwarmsClient:
                 message,
                 budget=budget,
                 wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
                 parallel_workers=parallel_workers,
                 inputs=inputs,
                 labels=labels,
@@ -124,6 +200,8 @@ class SwarmsClient:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
         wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
         parallel_workers: int | None = None,
         inputs: RunInputs | None = None,
         labels: dict[str, str] | None = None,
@@ -143,6 +221,8 @@ class SwarmsClient:
                 until=until,
                 raise_on_failure=raise_on_failure,
                 wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
                 parallel_workers=parallel_workers,
                 inputs=inputs,
                 labels=labels,
@@ -263,6 +343,36 @@ class SwarmsClient:
 
     def program(self, run_id: str) -> RunProgram:
         return self._runner.call(self._async.program(run_id))
+
+    def limits(self, run_id: str) -> RunLimitsProgress:
+        return self._runner.call(self._async.limits(run_id))
+
+    def update_limits(
+        self,
+        run_id: str,
+        *,
+        expected_revision: int,
+        budget: str | Decimal | None = None,
+        wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        resume: bool = False,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> RunLimitsProgress:
+        return self._runner.call(
+            self._async.update_limits(
+                run_id,
+                expected_revision=expected_revision,
+                budget=budget,
+                wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
+                resume=resume,
+                reason=reason,
+                idempotency_key=idempotency_key,
+            )
+        )
 
     def configuration(self, run_id: str) -> RunConfiguration:
         return self._runner.call(self._async.configuration(run_id))

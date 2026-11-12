@@ -1,0 +1,19 @@
+schema_version = "1.4"
+artifacts = ["/app/result.json"]
+[task]
+name = "customer/sorted-integers"
+[environment]
+cpus = 1
+memory_mb = 256
+storage_mb = 512
+network_mode = "no-network"
+[agent]
+timeout_sec = 30.0
+[verifier]
+timeout_sec = 30.0
+environment_mode = "separate"
+[verifier.environment]
+cpus = 1
+memory_mb = 256
+storage_mb = 512
+network_mode = "no-network"

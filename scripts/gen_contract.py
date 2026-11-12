@@ -174,7 +174,7 @@ def generate() -> dict[Path, str]:
         if not path.startswith("/v1/"):
             continue
         for method, op in item.items():
-            if method not in {"get", "post", "put", "patch", "delete"}:
+            if method not in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}:
                 continue
             op = JSONObject.require(op)
             if op.get("x-synth-status") != "implemented":
@@ -210,6 +210,9 @@ def generate() -> dict[Path, str]:
                                 raise ValueError(oid + ": unsupported oneOf response")
                             schema, nullable = refs[0], True
                         result = schema.text("$ref", "").split("/")[-1]
+                        if not result:
+                            result = oid[0].upper() + oid[1:] + "Response"
+                            schemas[result] = schema
                     elif content:
                         binary = True
                     break
@@ -398,6 +401,7 @@ def generate() -> dict[Path, str]:
         "",
     ]
     preamble_length = len(lines)
+    response_names = {operation.get("response_model") for operation in ops.values()}
     modelnames = []
     for n in ordered:
         s = schemas[n]
@@ -445,6 +449,8 @@ def generate() -> dict[Path, str]:
                     "",
                     "    def reached(self, milestone: CompletionMilestone) -> bool:",
                     "        milestone = CompletionMilestone(milestone)",
+                    "        if milestone is CompletionMilestone.PAUSED:",
+                    '            return self.state == "paused"',
                     "        if milestone is CompletionMilestone.FINISHED:",
                     "            return self.finished",
                     "        if milestone is CompletionMilestone.EXECUTION_CLOSED:",
@@ -452,8 +458,21 @@ def generate() -> dict[Path, str]:
                     "        return self.result_available",
                 ]
             lines += [""]
+        elif n in response_names:
+            modelnames.append(n)
+            lines += ["class " + n + "(RootModel[" + annotation(s) + "]):", "    pass", ""]
         else:
             lines += [n + ": TypeAlias = " + annotation(s), ""]
+    aliased_requests = sorted(
+        {op.text("request_model") for op in ops.values() if op["request_model"] is not None}
+        - set(modelnames)
+    )
+    if aliased_requests or any("(RootModel[" in line for line in lines):
+        lines[
+            lines.index(
+                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue"
+            )
+        ] += ", RootModel"
     enum_lines = []
     for name, values in sorted(enums.items()):
         enum_lines += ["class " + name + "(StrEnum):"]
@@ -467,6 +486,7 @@ def generate() -> dict[Path, str]:
     lines += (
         ["MODELS: dict[str, type[BaseModel]] = {"]
         + ["    " + repr(n) + ": " + n + "," for n in modelnames]
+        + ["    " + repr(n) + ": RootModel[" + n + "]," for n in aliased_requests]
         + ["}", ""]
     )
     operations = (

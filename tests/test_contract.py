@@ -29,6 +29,45 @@ def test_generated_drift():
         subprocess.run([sys.executable, str(ROOT / "scripts" / script), "--check"], check=True)
 
 
+def test_every_request_has_a_runtime_validator():
+    assert {
+        op["request_model"] for op in OPERATIONS.values() if op["request_model"]
+    } <= MODELS.keys()
+
+
+@pytest.mark.parametrize(
+    "kind,payload",
+    [
+        (
+            "task",
+            {
+                "name": "sort",
+                "description": "Sort integers",
+                "input_schema": {"type": "object"},
+                "candidate_contract": {},
+            },
+        ),
+        (
+            "policy",
+            {"name": "sort", "files": {"sort.py": "print(1)"}, "command": ["python", "sort.py"]},
+        ),
+    ],
+)
+async def test_union_request_is_validated_and_sent_without_root_wrapper(kind, payload):
+    def handle(request):
+        assert json.loads(request.content) == payload
+        return httpx.Response(
+            201, json={"kind": kind, "revision_id": "sha256:" + "a" * 64, "payload": payload}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        transport = Transport("https://example.test", "fixture", client=client)
+        result = await transport.invoke(
+            "registerEvaluationInput", path={"kind": kind}, body=payload, idempotency_key="union"
+        )
+        assert result.payload.model_dump(mode="json", exclude_unset=True) == payload
+
+
 def test_wire_examples(contract):
     for _path, item in contract["paths"].items():
         for operation in item.values():
@@ -93,7 +132,7 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 21
+    assert len(by_name) == len(hosted["tools"]) == 30
     assert {
         "swarms_run_pause",
         "swarms_run_resume",
@@ -122,3 +161,9 @@ def test_a_nullable_constrained_field_accepts_null():
 
 def test_generated_models_never_constrain_null():
     assert "Annotated[None" not in (ROOT / "synth_ai/_generated/models.py").read_text()
+
+
+def test_nullable_subscription_response_is_flagged_not_wrapped():
+    operation = OPERATIONS["getSubscription"]
+    assert operation["response_model"] == "Subscription"
+    assert operation["nullable_response"] is True

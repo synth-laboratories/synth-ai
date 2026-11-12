@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.38.0
+
+- Register immutable tasks, evaluators, datasets, policies and pools through the public API.
+- Preflight, create, inspect, cancel and wait for signed evaluations through the SDK, CLI and MCP.
+- Preserve exact large integer inputs and return structured CLI wait deadlines.
+- Pin Core public contract 1.16.0 (Core `1461e10c`; spec SHA-256 `7b1c6fcd…20dd`), which adds the seven evaluation operations on top of 1.15.0. Evaluation attestations carry issuer `synth`.
+- Re-pin to Core public contract 1.17.0 (Core `51d35d57`; spec SHA-256 `33b0080b…436b`), which declares the bodies of the limit events (`limits.revised`, `limit.reached`, `limit.warning`, `run.paused`, `run.resumed`, `actor.parked`, `actor.unparked`). Under the earlier pin `events()` refused every run at its first event.
+
+## 0.37.0
+
+- Re-pin to Core dev public contract 1.15.0 (Core `17540502`; spec SHA-256 `b45d7899…f93e`). Run snapshots carry typed `api_version` and `variant` (`SwarmsVariantVersion`); the run report gains sandbox preparation time, compute metering, and rollout provider and compute charges. All additions are optional reads.
+- Re-pin to Core dev public contract 1.14.0 (Core `ec98548f`; spec SHA-256 `5543e889…7b17`). Labels are not unique: 1.13.0 names two different specs, so the pin is the Core commit plus spec SHA.
+- Merge the published 0.34.0 line (self-serve billing lifecycle, `AutoReload.disclosure`, `set_auto_reload(disclosure_version=)`) into dev; dev keeps `getRunLimits`/`updateRunLimits`.
+- Adopt Core contract 1.13.0 and expose assignment limits, parked actor state and revision history through the limits projection.
+
+## 0.35.0
+
+- Add revision-fenced `update_limits` and `synth limits set`, with typed revision, entitlement and exhausted-limit errors (Core contract 1.11.0).
+- Launch accepts `maximum_tokens` and `pause_retention_seconds`; CLI flags are `--tokens` and `--pause-retention`. Run time supports up to 86400 unpaused seconds; pause retention defaults to 86400 seconds.
+- Launch and budget raises now check plan daily/weekly spend entitlements, including open funding holds, as well as wallet credit. Existing customers may receive `spend_entitlement_exceeded` at launch.
+
 ## 0.34.0
 
 Contract: the SDK pins Core public contract 1.13.0 (Core `18cdf24c`, SHA-256
@@ -37,6 +58,14 @@ with `subscription_already_active`.
 
 Generator: `scripts/gen_contract.py` accepts PUT operations and a response that is
 a schema or `null`; the operation table gains `nullable_response`.
+
+## 0.34.0 (dev line, never published)
+
+These entries shipped only in dev builds; the published 0.34.0 is described below and everything here is carried in 0.36.0.
+
+- `wait` stops on a paused run with `RunPausedError` carrying its pause record. CLI pause has a distinct exit status (Core contract 1.10.0).
+
+- Add `swarms.limits(run_id)` and the `swarms_run_limits` MCP tool, using Core contract 1.9.0. Reads preserve unknown quantities and expose owner observation freshness and funding separately from usage.
 
 ## 0.33.0
 

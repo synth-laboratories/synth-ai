@@ -4,18 +4,27 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
+import uuid
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NoReturn, TypeVar
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, JsonValue, TypeAdapter
 from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
-from ._generated.models import InputFile, LaunchRequest, RunInputs, RunSnapshot
+from ._generated.models import (
+    CreateEvaluation,
+    EvaluationInput,
+    InputFile,
+    LaunchRequest,
+    RunInputs,
+    RunSnapshot,
+)
 from ._generated.policy import MESSAGE_MAX_BYTES
 from ._requests import launch_request
 from ._validation import message_text
@@ -23,10 +32,12 @@ from ._version import __version__
 from .aclient import AsyncSynthClient
 from .errors import (
     ResponseContractError,
+    RunPausedError,
     SwarmsAPIError,
     SynthError,
     TransportFailureError,
     UpgradeRequiredError,
+    UploadTransferError,
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
@@ -36,10 +47,12 @@ EXIT_CLIENT_ERROR = 1
 EXIT_WAIT_TIMEOUT = 2
 EXIT_RUN_UNSUCCESSFUL = 3
 EXIT_SERVER_REFUSAL = 4
+EXIT_RUN_PAUSED = 5
 UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
 DEFAULT_WAIT_SECONDS = 3600.0
 
 COMMANDS: dict[str, str] = {
+    "evaluations": "Register inputs and evaluate policies",
     "login": "Sign in",
     "whoami": "Signed-in account",
     "logout": "Sign out",
@@ -69,6 +82,7 @@ EPILOG = """exit codes:
   2  wait timeout; the run is still running
   3  run finished failed or cancelled
   4  server refusal
+  5  run paused
 
 --json prints the SDK record as one JSON document on stdout."""
 
@@ -81,6 +95,17 @@ class Parser(argparse.ArgumentParser):
     @override
     def error(self, message: str) -> NoReturn:
         raise UsageError(message)
+
+
+def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
+    return str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            json.dumps(
+                ["synth-cli", action, run_id, values], sort_keys=True, separators=(",", ":")
+            ),
+        )
+    )
 
 
 def parser() -> argparse.ArgumentParser:
@@ -106,11 +131,12 @@ def parser() -> argparse.ArgumentParser:
     run = add("run")
     run.add_argument("goal")
     run.add_argument("--budget", required=True)
+    run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--research-task")
     run.add_argument("--file", action="append", default=[], metavar="PATH")
     run.add_argument(
-        "--wall", type=int, metavar="SECONDS", help="run wall-time bound, 1..3600 seconds"
+        "--wall", type=int, metavar="SECONDS", help="unpaused run time, 1..86400 seconds"
     )
     run.add_argument(
         "--parallel-workers",
@@ -118,6 +144,8 @@ def parser() -> argparse.ArgumentParser:
         metavar="N",
         help="workers the planner may run at once, 1..10 (default 1); the budget must fund all N",
     )
+    run.add_argument("--tokens", type=int)
+    run.add_argument("--pause-retention", type=int, metavar="SECONDS")
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
@@ -146,7 +174,43 @@ def parser() -> argparse.ArgumentParser:
     download.add_argument("-o", "--out", default=".", metavar="DIR")
     add("usage").add_argument("run_id", nargs="?", metavar="RUN")
     add("billing")
-    add("limits")
+    limits = add("limits")
+    limits.add_argument("run_id", nargs="?", metavar="RUN|set")
+    limits.add_argument("set_run_id", nargs="?", metavar="RUN")
+    limits.add_argument("--expected-revision", type=int)
+    limits.add_argument("--budget")
+    limits.add_argument("--wall", type=int)
+    limits.add_argument("--tokens", type=int)
+    limits.add_argument("--pause-retention", type=int)
+    limits.add_argument("--resume", action="store_true")
+    limits.add_argument("--reason")
+    limits.add_argument("--idempotency-key")
+    for name in ("pause", "resume"):
+        add(name).add_argument("--idempotency-key")
+    evaluation_common = Parser(add_help=False)
+    evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    evaluation = add("evaluations").add_subparsers(dest="evaluation_action", required=True)
+    for action in ("register", "list", "input"):
+        command = evaluation.add_parser(action, parents=[evaluation_common])
+        command.add_argument("kind", choices=("task", "pool", "policy", "evaluator", "dataset"))
+        if action == "register":
+            command.add_argument("file")
+            command.add_argument("--idempotency-key")
+        elif action == "input":
+            command.add_argument("revision_id")
+        else:
+            command.add_argument("--name")
+    for action in ("preflight", "create"):
+        command = evaluation.add_parser(action, parents=[evaluation_common])
+        command.add_argument("file")
+        command.add_argument("--idempotency-key")
+    for action in ("get", "cancel", "wait"):
+        command = evaluation.add_parser(action, parents=[evaluation_common])
+        command.add_argument("evaluation_id")
+        if action == "cancel":
+            command.add_argument("--idempotency-key")
+        if action == "wait":
+            command.add_argument("--timeout", type=float, default=600)
     return root
 
 
@@ -205,13 +269,18 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
     async with AsyncSynthClient(base_url=args.base_url, http_client=http_client) as client:
         swarms = client.swarms
         command = str(args.command)
-        if command == "whoami":
+        if command == "evaluations":
+            result = await execute_evaluation(swarms, args)
+            out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
+        elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
             out.record(await swarms.profiles(research_task=args.research_task), view.profiles)
         elif command == "upload":
             out.records([await swarms.upload_file(path) for path in args.paths], view.files)
         elif command == "run":
+            if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
+                raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
             request = launch_request(
@@ -220,6 +289,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile=args.profile,
                 research_task=args.research_task,
                 wall_time_seconds=args.wall,
+                maximum_tokens=args.tokens,
+                pause_retention_seconds=args.pause_retention,
                 parallel_workers=args.parallel_workers,
                 inputs=None,
                 labels=parse_labels(args.label),
@@ -229,7 +300,17 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 profile_requirements=swarms._profile_requirements,
                 default_profile=swarms._default_profile,
             )
-            uploaded = [await swarms.upload_file(path) for path in args.file]
+            uploaded = [
+                await swarms.upload_file(
+                    path,
+                    idempotency_key=(
+                        mutation_key("run-upload", args.idempotency_key, {"index": index})
+                        if args.idempotency_key
+                        else None
+                    ),
+                )
+                for index, path in enumerate(args.file)
+            ]
             inputs = (
                 RunInputs(
                     files=[
@@ -251,7 +332,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                         "inputs": inputs.model_dump(exclude_none=True),
                     }
                 )
-            created = await swarms.launch_request(request)
+            created = await swarms.launch_request(request, idempotency_key=args.idempotency_key)
             if not args.wait:
                 out.record(created, lambda s: s.run_id)
                 return EXIT_OK
@@ -286,9 +367,21 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)
         elif command == "pause":
-            out.record(await swarms.pause(args.run_id), view.receipt)
+            out.record(
+                await swarms.pause(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("pause", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "resume":
-            out.record(await swarms.resume(args.run_id), view.receipt)
+            out.record(
+                await swarms.resume(
+                    args.run_id,
+                    idempotency_key=args.idempotency_key or mutation_key("resume", args.run_id),
+                ),
+                view.receipt,
+            )
         elif command == "cancel":
             out.record(await swarms.cancel(args.run_id), view.snapshot)
         elif command == "outputs":
@@ -313,10 +406,60 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "billing":
             out.record(await client.billing.balance(), view.balance)
         elif command == "limits":
-            out.record(await client.account.limits(), view.limits)
+            if args.run_id == "set":
+                if args.set_run_id is None or args.expected_revision is None:
+                    raise UsageError("limits set requires RUN and --expected-revision")
+                values = dict(
+                    expected_revision=args.expected_revision,
+                    budget=args.budget,
+                    wall_time_seconds=args.wall,
+                    maximum_tokens=args.tokens,
+                    pause_retention_seconds=args.pause_retention,
+                    resume=args.resume,
+                    reason=args.reason,
+                )
+                key = args.idempotency_key or mutation_key("limits", args.set_run_id, values)
+                out.record(
+                    await swarms.update_limits(args.set_run_id, **values, idempotency_key=key),
+                    view.run_limits,
+                )
+            elif args.set_run_id is not None:
+                raise UsageError("unexpected argument after RUN")
+            elif args.run_id is None:
+                out.record(await client.account.limits(), view.limits)
+            else:
+                out.record(await swarms.limits(args.run_id), view.run_limits)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK
+
+
+async def execute_evaluation(swarms: AsyncSwarms, args: argparse.Namespace) -> BaseModel:
+    action = args.evaluation_action
+    if action == "register":
+        payload = TypeAdapter(EvaluationInput).validate_json(Path(args.file).read_bytes())
+        return await swarms.register_evaluation_input(
+            args.kind, payload, idempotency_key=args.idempotency_key
+        )
+    if action == "list":
+        return await swarms.evaluation_inputs(args.kind, name=args.name)
+    if action == "input":
+        return await swarms.evaluation_input(args.kind, args.revision_id)
+    if action in {"preflight", "create"}:
+        payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
+        method = swarms.preflight_evaluation if action == "preflight" else swarms.evaluate
+        return await method(
+            payload.request,
+            maximum_charge_micros=payload.maximum_charge_micros,
+            idempotency_key=args.idempotency_key,
+        )
+    if action == "cancel":
+        return await swarms.cancel_evaluation(
+            args.evaluation_id, idempotency_key=args.idempotency_key
+        )
+    if action == "wait":
+        return await swarms.wait_evaluation(args.evaluation_id, timeout=args.timeout)
+    return await swarms.evaluation(args.evaluation_id)
 
 
 async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
@@ -403,8 +546,14 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
         if args.command in {"login", "logout"}:
             return run_auth(args)
         return asyncio.run(execute(args, http_client))
+    except RunPausedError as error:
+        fail(error.code, str(error), as_json)
+        return EXIT_RUN_PAUSED
     except WaitTimeoutError as error:
         fail(error.code, str(error), as_json)
+        return EXIT_WAIT_TIMEOUT
+    except TimeoutError:
+        fail("wait_timeout", "Evaluation did not finish before the wait deadline", as_json)
         return EXIT_WAIT_TIMEOUT
     except (TransportFailureError, ResponseContractError) as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
@@ -417,6 +566,27 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
         return EXIT_SERVER_REFUSAL
+    except UploadTransferError as error:
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "code": error.code,
+                        "detail": str(error),
+                        "upload_id": error.upload_id,
+                        "idempotency_key": error.idempotency_key,
+                    }
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+        else:
+            fail(
+                error.code,
+                f"{error} (upload_id={error.upload_id}, idempotency_key={error.idempotency_key})",
+                False,
+            )
+        return EXIT_CLIENT_ERROR
     except SynthError as error:
         fail(error.code, str(error), as_json)
         return EXIT_CLIENT_ERROR

@@ -4,7 +4,17 @@ from ._transport import RetryPolicy
 from ._version import __version__
 from .aclient import AsyncSynthClient
 from .client import SynthClient
-from .errors import SwarmsAPIError, SynthError, UpgradeRequiredError
+from .errors import (
+    LimitAboveCeilingError,
+    LimitsRevisionConflictError,
+    LimitStillReachedError,
+    RunExpiredError,
+    RunPausedError,
+    SpendEntitlementExceededError,
+    SwarmsAPIError,
+    SynthError,
+    UpgradeRequiredError,
+)
 from .models import (
     CompletionMilestone,
     Exclude,
@@ -20,10 +30,16 @@ __all__ = [
     "CompletionMilestone",
     "Exclude",
     "LaunchRequest",
+    "LimitAboveCeilingError",
+    "LimitStillReachedError",
+    "LimitsRevisionConflictError",
     "Only",
     "RetryPolicy",
     "RoutingConstraints",
+    "RunExpiredError",
+    "RunPausedError",
     "RunState",
+    "SpendEntitlementExceededError",
     "StreamCheckpoint",
     "SwarmsAPIError",
     "SynthClient",
