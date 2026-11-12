@@ -1,4 +1,4 @@
 repository = "https://github.com/synth-laboratories/synth-backend"
 path = "contracts/public/synth-v1.openapi.yaml"
-commit = "a5391bdf37fe78f380eb2c6f7c593880fb2e1d04"
-sha256 = "5f9d5f70f64630cdc4a95bff0c0852d58ceaf68a6934c834fec87fd9f38c73a6"
+commit = "6e7469d513480ab7f0b4964fe23f37ed8051c623"
+sha256 = "2ae36f4d26e849d1132baafb4e71bd11f201021a9d96627820827dcc931b4d99"
