@@ -262,6 +262,17 @@ class RunPauseMode(StrEnum):
     WARM = "warm"
 
 
+class RunProblemSeverity(StrEnum):
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class RunProblemUpstreamStatusBasis(StrEnum):
+    REPORTED = "reported"
+    NOT_RETAINED = "not_retained"
+    NOT_APPLICABLE = "not_applicable"
+
+
 class RunReportAttribution(StrEnum):
     PENDING = "pending"
     ATTRIBUTED = "attributed"
@@ -1124,6 +1135,42 @@ class RunPauseLimit(WireModel):
     reserved: Annotated[int, Field(ge=0)]
     unknown_reserved: Annotated[int, Field(ge=0)]
     revision: Annotated[int, Field(ge=0)]
+    reason: str | None = None
+
+
+class RunProblem(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: str | None = None
+    code: str
+    severity: (
+        Annotated[RunProblemSeverity, BeforeValidator(enum_value(RunProblemSeverity))] | None
+    ) = None
+    service: str | None = None
+    stage: str | None = None
+    upstream_status: int | None = None
+    upstream_status_basis: (
+        Annotated[
+            RunProblemUpstreamStatusBasis,
+            BeforeValidator(enum_value(RunProblemUpstreamStatusBasis)),
+        ]
+        | None
+    ) = None
+    upstream_code: str | None = None
+    upstream_service: str | None = None
+    upstream_stage: str | None = None
+    upstream_message: str | None = None
+    limiting_policy: str | None = None
+    upstream_detail: dict[str, str] | None = None
+    cause: str
+    in_doubt: bool | None = None
+    operation_id: str | None = None
+    effect_kind: str | None = None
+    actor_id: str | None = None
+    task_id: str | None = None
+    since: str | None = None
+    last_seen: str | None = None
 
 
 class RunProfilePin(WireModel):
@@ -2422,7 +2469,7 @@ class RunSnapshot(WireModel):
     accounting_final: bool
     cleanup_complete: bool
     control: ControlRef | None = None
-    problems: list[JsonValue] | None
+    problems: list[RunProblem] | None
     problems_observed: bool
     charge: RunCharge | None = None
     failure: JsonValue | None = None
@@ -2586,6 +2633,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLimitWarningPayload": RunLimitWarningPayload,
     "RunLimitsProgressFunding": RunLimitsProgressFunding,
     "RunPauseLimit": RunPauseLimit,
+    "RunProblem": RunProblem,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
     "RunTask": RunTask,
