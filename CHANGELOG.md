@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.0
+
+- Pin Core public contract 1.19.0 (Core `a5391bdf`; spec SHA-256 `5f9d5f70…73a6`). Pool grants may name up to eight registered evaluator templates (`evaluation_templates`, `sha256:` digests); a grant that names templates carries an empty `selection`. Exposed in the generated models and MCP pool tools.
+
 ## 0.39.0
 
 - Pin Core public contract 1.18.0 (Core `1c3bbbc0`; spec SHA-256 `db4b9502…44bd`). `RunPauseLimit.reason` names the program's rule behind an actor-limit pause (for example `planner_left_park_unfunded`). Core `06d2c18e` served it under the 1.17.0 label, so `swarms.get()` of a limit-paused run raised `ResponseContractError` (`pause.limit.reason Extra inputs are not permitted`) under the 0.38.0 pin.
