@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.39.0
+
+- Pin Core public contract 1.18.0 (Core `1c3bbbc0`; spec SHA-256 `db4b9502…44bd`). `RunPauseLimit.reason` names the program's rule behind an actor-limit pause (for example `planner_left_park_unfunded`). Core `06d2c18e` served it under the 1.17.0 label, so `swarms.get()` of a limit-paused run raised `ResponseContractError` (`pause.limit.reason Extra inputs are not permitted`) under the 0.38.0 pin.
+- `RunSnapshot.problems` is `list[RunProblem]`: `code` and `cause` always, typed `severity`, `upstream_status_basis` and the root of the refusal chain (`upstream_service`, `upstream_stage`, `upstream_message`, `limiting_policy`, `upstream_detail`). Unknown problem fields are kept in `model_extra`.
+- The pin also carries Core's launch call-bound refusal text (`run_budget_below_call_bound`) in the MCP launch schema.
+
 ## 0.38.0
 
 - Register immutable tasks, evaluators, datasets, policies and pools through the public API.
