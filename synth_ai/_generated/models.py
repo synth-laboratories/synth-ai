@@ -314,15 +314,6 @@ class RunReportSandboxObservation(StrEnum):
     CONTRADICTED = "contradicted"
 
 
-class RunReportSandboxProviderKind(StrEnum):
-    DOCKER = "docker"
-    DAYTONA = "daytona"
-    MODAL = "modal"
-    EXE_DEV = "exe_dev"
-    BOAT_DEV = "boat_dev"
-    UNOBSERVED = "unobserved"
-
-
 class RunReportSandboxRole(StrEnum):
     PLANNER = "planner"
     WORKER = "worker"
@@ -376,15 +367,6 @@ class RunSandboxObservation(StrEnum):
     CURRENT = "current"
     UNAVAILABLE = "unavailable"
     CONTRADICTED = "contradicted"
-
-
-class RunSandboxProviderKind(StrEnum):
-    DOCKER = "docker"
-    DAYTONA = "daytona"
-    MODAL = "modal"
-    EXE_DEV = "exe_dev"
-    BOAT_DEV = "boat_dev"
-    UNOBSERVED = "unobserved"
 
 
 class RunSandboxRole(StrEnum):
@@ -465,15 +447,6 @@ class SandboxMomentStatus(StrEnum):
     OBSERVED = "observed"
     NOT_RECORDED = "not_recorded"
     NOT_APPLICABLE = "not_applicable"
-    UNOBSERVED = "unobserved"
-
-
-class SandboxPerformanceProvider(StrEnum):
-    DOCKER = "docker"
-    MODAL = "modal"
-    DAYTONA = "daytona"
-    EXE_DEV = "exe_dev"
-    BOAT_DEV = "boat_dev"
     UNOBSERVED = "unobserved"
 
 
@@ -1261,9 +1234,6 @@ class SandboxPerformance(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    provider: Annotated[
-        SandboxPerformanceProvider, BeforeValidator(enum_value(SandboxPerformanceProvider))
-    ]
     size_id: str
     sample_count: Annotated[int, Field(ge=0)]
     status: Annotated[
@@ -1289,7 +1259,6 @@ class SandboxProfile(WireModel):
     billing_basis: Annotated[
         SandboxProfileBillingBasis, BeforeValidator(enum_value(SandboxProfileBillingBasis))
     ]
-    reference_offer_id: str | None = None
 
 
 Scope: TypeAlias = Literal[
@@ -1943,9 +1912,6 @@ class RunSandbox(WireModel):
     profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
     role: Annotated[RunSandboxRole, BeforeValidator(enum_value(RunSandboxRole))]
-    provider_kind: Annotated[
-        RunSandboxProviderKind, BeforeValidator(enum_value(RunSandboxProviderKind))
-    ]
     state: Annotated[RunSandboxState, BeforeValidator(enum_value(RunSandboxState))]
     image: SandboxImage
     cpu_millis: Annotated[int, Field(ge=0)]
@@ -2171,7 +2137,6 @@ class BillingHistoryEntry(WireModel):
         ]
         | None
     ) = None
-    reference_offer_id: str | None = None
     entry_id: str
     cause: Annotated[
         BillingHistoryEntryCause, BeforeValidator(enum_value(BillingHistoryEntryCause))
@@ -2372,9 +2337,6 @@ class RunReportSandbox(WireModel):
     profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
     role: Annotated[RunReportSandboxRole, BeforeValidator(enum_value(RunReportSandboxRole))]
-    provider_kind: Annotated[
-        RunReportSandboxProviderKind, BeforeValidator(enum_value(RunReportSandboxProviderKind))
-    ]
     state: Annotated[RunReportSandboxState, BeforeValidator(enum_value(RunReportSandboxState))]
     image: SandboxImage
     cpu_millis: Annotated[int, Field(ge=0)]

@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.20.0
+  version: 1.21.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1800,7 +1800,6 @@ paths:
                 items:
                 - sandbox_id: sbx_ABEiM0RVZneImaq7zN3u_w
                   role: planner
-                  provider_kind: docker
                   state: destroyed
                   image:
                     status: resolved
@@ -7696,15 +7695,10 @@ components:
         billing_basis:
           type: string
           enum: [supplier, emulated]
-        reference_offer_id:
-          type: string
     SandboxPerformance:
       type: object
-      required: [provider, size_id, sample_count, status, ready_p50_ms, ready_p90_ms]
+      required: [size_id, sample_count, status, ready_p50_ms, ready_p90_ms]
       properties:
-        provider:
-          type: string
-          enum: [docker, modal, daytona, exe_dev, boat_dev, unobserved]
         size_id:
           type: string
         sample_count:
@@ -7724,7 +7718,6 @@ components:
       required:
       - sandbox_id
       - role
-      - provider_kind
       - state
       - image
       - cpu_millis
@@ -7746,15 +7739,6 @@ components:
           - worker
           - reviewer
           - other
-        provider_kind:
-          type: string
-          enum:
-          - docker
-          - daytona
-          - modal
-          - exe_dev
-          - boat_dev
-          - unobserved
         state:
           type: string
           description: pending has no provider session yet. requested awaits a box. created has a box whose
@@ -8458,8 +8442,6 @@ components:
         billing_basis:
           type: string
           enum: [supplier, emulated]
-        reference_offer_id:
-          type: string
         entry_id:
           type: string
         cause:

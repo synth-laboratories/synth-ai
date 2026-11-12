@@ -56,7 +56,6 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
         {
             "sandbox_id": "sbx_AAAAAAAAAAAAAAAAAAAAAA",
             "role": "worker",
-            "provider_kind": "docker",
             "state": "destroyed",
             "image": {"status": "resolved", "digest": "sha256:" + "a" * 64},
             "cpu_millis": 4000,
@@ -89,13 +88,11 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
                 "size_id": "4vcpu-8gib",
                 "region": "host",
                 "billing_basis": "emulated",
-                "reference_offer_id": "modal:4vcpu-8gib:us",
             },
         }
     ]
     raw["sandbox_performance"] = [
         {
-            "provider": "docker",
             "size_id": "4vcpu-8gib",
             "sample_count": 1,
             "status": "unknown",
@@ -104,8 +101,7 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
         }
     ]
     parsed = RunReport.model_validate_json(json.dumps(raw))
-    assert parsed.sandboxes[0].profile.reference_offer_id == "modal:4vcpu-8gib:us"
     assert parsed.sandbox_performance[0].ready_p90_ms is None
     text = report(parsed)
-    for expected in ("worker", "docker", "4vcpu-8gib", "host", "1450", "0.0363975", "emulated"):
+    for expected in ("worker", "4vcpu-8gib", "host", "1450", "0.0363975", "emulated"):
         assert expected in text

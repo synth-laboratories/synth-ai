@@ -152,11 +152,10 @@ def report(value: RunReport) -> str:
         )
     if value.sandboxes:
         text += "\n\n" + table(
-            ["ACTOR", "PROVIDER", "SIZE", "REGION", "READY MS", "COMPUTE", "BASIS"],
+            ["ACTOR", "SIZE", "REGION", "READY MS", "COMPUTE", "BASIS"],
             [
                 [
                     item.profile.actor_id if item.profile is not None else item.role.value,
-                    item.provider_kind.value,
                     item.profile.size_id
                     if item.profile is not None
                     else f"{item.cpu_millis / 1000:g} CPU / {item.memory_bytes / (1 << 30):g} GiB",
