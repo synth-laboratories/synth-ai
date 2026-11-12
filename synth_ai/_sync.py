@@ -69,6 +69,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._protocol import CompletionMilestone
+from ._requests import DomicileRequirement
 from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
@@ -149,6 +150,7 @@ class SwarmsClient:
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         wall_time_seconds: int | None = None,
         maximum_tokens: int | None = None,
         pause_retention_seconds: int | None = None,
@@ -166,6 +168,7 @@ class SwarmsClient:
             self._async.launch(
                 message,
                 budget=budget,
+                domicile_requirement=domicile_requirement,
                 wall_time_seconds=wall_time_seconds,
                 maximum_tokens=maximum_tokens,
                 pause_retention_seconds=pause_retention_seconds,
@@ -193,6 +196,7 @@ class SwarmsClient:
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         profile: str | None = None,
         research_task: str | None = None,
         timeout: float = 600,
@@ -214,6 +218,7 @@ class SwarmsClient:
             self._async.run(
                 message,
                 budget=budget,
+                domicile_requirement=domicile_requirement,
                 profile=profile,
                 research_task=research_task,
                 timeout=timeout,
