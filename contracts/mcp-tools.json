@@ -202,7 +202,7 @@
               },
               "limits": {
                 "additionalProperties": false,
-                "description": "An explicit positive USD budget is required. Task limits are service-owned; worker parallelism defaults to 1 and may be raised with parallel_workers.",
+                "description": "An explicit positive USD budget is required. Task limits are service-owned; worker parallelism defaults to 1 and may be raised with parallel_workers. maximum_charge must fund every actor held at once (the planner and the workers, plus the reviewer with parallel workers), each holding at least one worst-case model call on its routed preset; a smaller maximum_charge is refused at launch with 422 run_budget_below_call_bound, cause limits.maximum_charge, whose detail names the per-actor call bound (call_bound_micros), the actor count (actor_count) and the minimum budget (minimum_budget_micros).",
                 "properties": {
                   "maximum_charge": {
                     "additionalProperties": false,
@@ -231,7 +231,7 @@
                   },
                   "parallel_workers": {
                     "default": 1,
-                    "description": "The planner may run up to this many workers at once (one worker per task). The service default is 1. Out of range is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds an equal slice of the budget); a smaller maximum_charge is refused at launch with 422 launch_budget_below_actor_floor, whose detail states the minimum in micro-USD. Not accepted with research profiles.",
+                    "description": "The planner may run up to this many workers at once (one worker per task). The service default is 1. Out of range is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds an equal slice of the budget, and never less than one worst-case model call); a smaller maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose detail states the minimum in micro-USD (minimum_budget_micros). Not accepted with research profiles.",
                     "maximum": 10,
                     "minimum": 1,
                     "type": "integer"

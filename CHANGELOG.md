@@ -1,11 +1,23 @@
 # Changelog
 
+## 0.40.0
+
+- Pin Core public contract 1.19.0 (Core `a5391bdf`; spec SHA-256 `5f9d5f70…73a6`). Pool grants may name up to eight registered evaluator templates (`evaluation_templates`, `sha256:` digests); a grant that names templates carries an empty `selection`. Exposed in the generated models and MCP pool tools.
+
+## 0.39.0
+
+- Pin Core public contract 1.18.0 (Core `1c3bbbc0`; spec SHA-256 `db4b9502…44bd`). `RunPauseLimit.reason` names the program's rule behind an actor-limit pause (for example `planner_left_park_unfunded`). Core `06d2c18e` served it under the 1.17.0 label, so `swarms.get()` of a limit-paused run raised `ResponseContractError` (`pause.limit.reason Extra inputs are not permitted`) under the 0.38.0 pin.
+- `RunSnapshot.problems` is `list[RunProblem]`: `code` and `cause` always, typed `severity`, `upstream_status_basis` and the root of the refusal chain (`upstream_service`, `upstream_stage`, `upstream_message`, `limiting_policy`, `upstream_detail`). Unknown problem fields are kept in `model_extra`.
+- The pin also carries Core's launch call-bound refusal text (`run_budget_below_call_bound`) in the MCP launch schema.
+
 ## 0.38.0
 
 - Register immutable tasks, evaluators, datasets, policies and pools through the public API.
 - Preflight, create, inspect, cancel and wait for signed evaluations through the SDK, CLI and MCP.
 - Preserve exact large integer inputs and return structured CLI wait deadlines.
 - Pin Core public contract 1.16.0 (Core `1461e10c`; spec SHA-256 `7b1c6fcd…20dd`), which adds the seven evaluation operations on top of 1.15.0. Evaluation attestations carry issuer `synth`.
+- Re-pin to Core public contract 1.17.0 (Core `51d35d57`; spec SHA-256 `33b0080b…436b`), which declares the bodies of the limit events (`limits.revised`, `limit.reached`, `limit.warning`, `run.paused`, `run.resumed`, `actor.parked`, `actor.unparked`). Under the earlier pin `events()` refused every run at its first event.
+- Update the 1.17.0 pin to Core `6c31c186` (spec SHA-256 `eb399de8…32aa4`), including the planner budget-floor refusal in launch guidance and generated MCP schema.
 
 ## 0.37.0
 
