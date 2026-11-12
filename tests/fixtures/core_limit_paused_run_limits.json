@@ -1,0 +1,761 @@
+{
+  "actors": [
+    {
+      "actor_id": "planner",
+      "assignment": "planner",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 5000000,
+          "overshoot": 0,
+          "remaining": 4881285,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "default",
+          "state": "partial",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 118715
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 500000000,
+          "overshoot": 0,
+          "remaining": 495352825,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "default",
+          "state": "partial",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 4647175
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 64,
+          "overshoot": 0,
+          "remaining": 57,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 7
+        }
+      ],
+      "role": "planner",
+      "state": "closed"
+    },
+    {
+      "actor_id": "reviewer",
+      "assignment": "reviewer/baseline_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 32173,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 32173
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 713647,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 713647
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 18,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 2
+        }
+      ],
+      "role": "reviewer",
+      "state": "closed"
+    },
+    {
+      "actor_id": "reviewer",
+      "assignment": "reviewer/candidate1_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 200000,
+          "overshoot": 0,
+          "remaining": 185022,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "partial",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 14978
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 1000000,
+          "overshoot": 0,
+          "remaining": 676901,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "partial",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 323099
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 19,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 1
+        }
+      ],
+      "role": "reviewer",
+      "state": "closed"
+    },
+    {
+      "actor_id": "reviewer",
+      "assignment": "reviewer/candidate2_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 16059,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 16059
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 354865,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 354865
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 19,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 1
+        }
+      ],
+      "role": "reviewer",
+      "state": "closed"
+    },
+    {
+      "actor_id": "worker",
+      "assignment": "worker/baseline_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 69016,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 69016
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 1000000,
+          "overshoot": 1113811,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 2113811
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 19,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 1
+        }
+      ],
+      "role": "worker",
+      "state": "closed"
+    },
+    {
+      "actor_id": "worker_2",
+      "assignment": "worker_2/candidate1_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 250000,
+          "overshoot": 0,
+          "remaining": 118110,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "partial",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 131890
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 1500000,
+          "overshoot": 1746799,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 3246799
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 19,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 1
+        }
+      ],
+      "role": "worker",
+      "state": "parked"
+    },
+    {
+      "actor_id": "worker_3",
+      "assignment": "worker_3/candidate2_eval",
+      "limits": [
+        {
+          "dimension": "spend_micros",
+          "effective_cap": 75424,
+          "overshoot": 0,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "micro_usd",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 75424
+        },
+        {
+          "dimension": "tokens",
+          "effective_cap": 1000000,
+          "overshoot": 1096555,
+          "remaining": 0,
+          "reserved": 0,
+          "scope": "actor",
+          "source": "planner",
+          "state": "exhausted",
+          "unit": "tokens",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 2096555
+        },
+        {
+          "dimension": "turns",
+          "effective_cap": 20,
+          "overshoot": 0,
+          "remaining": 19,
+          "reserved": 0,
+          "scope": "actor",
+          "state": "partial",
+          "unit": "count",
+          "unknown_receipts": 0,
+          "unknown_reserved": 0,
+          "used": 1
+        }
+      ],
+      "role": "worker",
+      "state": "closed"
+    }
+  ],
+  "allocation": {
+    "unallocated": {
+      "spend_micros": 4357328,
+      "tokens": 494431488
+    }
+  },
+  "as_of_ms": 1794452429345,
+  "charge": {
+    "amount": {
+      "amount": "0.45820863",
+      "currency": "USD"
+    },
+    "final": true
+  },
+  "freshness": {
+    "age_ms": 0,
+    "observed_at": "2026-11-12T03:00:29.280660926Z",
+    "state": "current"
+  },
+  "funding": {
+    "currency": "USD",
+    "held": "0.00",
+    "settled": "0.458255"
+  },
+  "history": [
+    {
+      "changes": {
+        "assignment:planner:spend_micros": 5000000,
+        "assignment:planner:tokens": 500000000,
+        "assignment:planner:turns": 64
+      },
+      "issued_by": "orchestra:admission:customer-af0100b4d3eda91793706efae4efd7edbbccf0bc6af8f1d1bf8c5421dcbaf7fb",
+      "operation_id": "8f770c799e0e130ee112e624ea721fd4dd2739a265ba91b1877d68693b363006",
+      "recorded_at_ms": 1794450655319,
+      "request_digest": "178685b6ec93590e3f8c5ac9007ba1e1506f65ef1de7eda705e846734b34fa2f",
+      "revision": 1
+    },
+    {
+      "changes": {
+        "assignment:worker/baseline_eval:spend_micros": 200000,
+        "assignment:worker/baseline_eval:tokens": 1000000,
+        "assignment:worker/baseline_eval:turns": 20,
+        "assignment:worker_2/candidate1_eval:spend_micros": 200000,
+        "assignment:worker_2/candidate1_eval:tokens": 1000000,
+        "assignment:worker_2/candidate1_eval:turns": 20,
+        "assignment:worker_3/candidate2_eval:spend_micros": 200000,
+        "assignment:worker_3/candidate2_eval:tokens": 1000000,
+        "assignment:worker_3/candidate2_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:acaeef7850f66e11c1a7c95f5f1b62571e4e3ccc6f43d8043c55ee8b22f24df6:receipt:30f3a2fd11598ca76572163b6f63237093270a004030d3e5a12732c320624749",
+      "operation_id": "d3537ac9ae5fedda9913cc5472873c60f86e211615d100ed73a0baf25a2d7828",
+      "recorded_at_ms": 1794450715236,
+      "request_digest": "ceab65d7aef367981c7b7d7559dc9229d2aa7aa8b6b1d933ad998c22d5d2a50a",
+      "revision": 4
+    },
+    {
+      "changes": {
+        "assignment:reviewer/candidate1_eval:spend_micros": 200000,
+        "assignment:reviewer/candidate1_eval:tokens": 1000000,
+        "assignment:reviewer/candidate1_eval:turns": 20,
+        "assignment:worker_2/candidate1_eval:spend_micros": 73146,
+        "assignment:worker_2/candidate1_eval:tokens": 1000000,
+        "assignment:worker_2/candidate1_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:50ad6a737f745d10f362bc3b2143f29bac4b80b24631676a748630bb5000bfed:receipt:fbe781765ed059fc2e1a43d5ff6f92ffb06cd691349afb51aebf93cec51009d4",
+      "operation_id": "fb8baa926f787225ee1b8bbc149e7f4e8325ff942a86d6f8c775c2d6bbc088bb",
+      "recorded_at_ms": 1794450923652,
+      "request_digest": "7011198b742561b394a3ad8d2cd15c1cec5d8be0c22ffb0dd75d59b40b278f5a",
+      "revision": 6
+    },
+    {
+      "changes": {
+        "assignment:worker/baseline_eval:spend_micros": 69016,
+        "assignment:worker/baseline_eval:tokens": 1000000,
+        "assignment:worker/baseline_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:0d536536e824eaa958836b1fd75a79654ea6a96bb6f977aadbfb1bb407886c07:receipt:752f6b8a5b33be433597a019360424ee657a5933131165f7cbb68ca60f2484a0",
+      "operation_id": "b6305b0a4e175115c6d23ebb104813b84d3fbaa04cd454bf7da61d07e233cf9b",
+      "recorded_at_ms": 1794450945068,
+      "request_digest": "302f2872939cc24d496eb1bc8a8756022d8cc6c5d6d2aa594a012a3c68caa758",
+      "revision": 7
+    },
+    {
+      "changes": {
+        "assignment:worker_3/candidate2_eval:spend_micros": 75424,
+        "assignment:worker_3/candidate2_eval:tokens": 1000000,
+        "assignment:worker_3/candidate2_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:8890e28503770464d7014d0d25f2e05cddbf4bc33fee537ab6eb47ad76ed1c78:receipt:552ee5cc55afa2fcd8c8de15deee0affdb792cc1898ffcd8843fc44173424cac",
+      "operation_id": "5457af84d453b27caeb8608c00aa05c5375ee537faa4059c0accde41d1c6923e",
+      "recorded_at_ms": 1794450968125,
+      "request_digest": "b76d09f190a0861ac571921ca5187bce3fac746ecaad2f6cba507330661e25e5",
+      "revision": 8
+    },
+    {
+      "changes": {
+        "assignment:worker_2/candidate1_eval:spend_micros": 200000,
+        "assignment:worker_2/candidate1_eval:tokens": 1000000,
+        "assignment:worker_2/candidate1_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:3ca2b6668ef82d4a9c3206d46a12e8371030e9741ff8f9816efb9c6bf4d6f8d4:receipt:926edcc3d393d276d261a0df298e69968c8bec371af9a1557f9e53c6316a5167",
+      "operation_id": "5b2a99002967543508b24371a7f484144729de77ea4566714437faf4f7788b43",
+      "recorded_at_ms": 1794450971344,
+      "request_digest": "220522488af793dfa46a56f6aee82a97dac9d5ee44a29b23a707a79a6a0567bd",
+      "revision": 8
+    },
+    {
+      "changes": {
+        "assignment:reviewer/baseline_eval:spend_micros": 200000,
+        "assignment:reviewer/baseline_eval:tokens": 1000000,
+        "assignment:reviewer/baseline_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:40b8440273ab56fc26dad8dcec11d4990ecedbd82b4661b6fafa892b4f7420fc:receipt:b66c0412d87c83f4a8305bb101523a477329d67f0574090a3a4de5cb4bf69661",
+      "operation_id": "bfb27a5dc23e36321a37bcd7faeb2944a45de9b4b15b4a24b28c5401f4593d33",
+      "recorded_at_ms": 1794450975227,
+      "request_digest": "88d5c00bc938ad46dbe6703cbf29494e1e16801466b67094936c2ea82d765dd6",
+      "revision": 9
+    },
+    {
+      "changes": {
+        "assignment:reviewer/baseline_eval:spend_micros": 15601,
+        "assignment:reviewer/baseline_eval:tokens": 343502,
+        "assignment:reviewer/baseline_eval:turns": 20,
+        "assignment:reviewer/candidate2_eval:spend_micros": 200000,
+        "assignment:reviewer/candidate2_eval:tokens": 1000000,
+        "assignment:reviewer/candidate2_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:b31c49448afbb292a93c36e8ed6aaf09286cc3584fb25b7fbbdc8ea655493dd8:receipt:09debd1671252edf549a2bac2855ab01e6698ea5e7375fdecc0021f5bfce24b0",
+      "operation_id": "1a8860499b7fa68f20c6876fd22c164af1819f494eb7a01b11b3cf5b203ddfe3",
+      "recorded_at_ms": 1794451026382,
+      "request_digest": "f55f9cf2a8f9ad105e437b8f851f9e9efbfdd3e5dda0f61f69a9b899665893ca",
+      "revision": 11
+    },
+    {
+      "changes": {
+        "assignment:reviewer/baseline_eval:spend_micros": 200000,
+        "assignment:reviewer/baseline_eval:tokens": 1000000,
+        "assignment:reviewer/baseline_eval:turns": 20,
+        "assignment:reviewer/candidate2_eval:spend_micros": 16059,
+        "assignment:reviewer/candidate2_eval:tokens": 354865,
+        "assignment:reviewer/candidate2_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:8fbc65787547939e0449d3d53955c3088008764b7b1f00e0eda1b2698120ac29:receipt:f6cef335a55a94e96fe856025f1fced9efd9a17d0fa5a7e7ed15b17a5b75df21",
+      "operation_id": "6ec8a8c31e8c72e7430fda69a161603511c339dd7937d6a84cea158391123085",
+      "recorded_at_ms": 1794451099380,
+      "request_digest": "a2696e50c95b46f371f402ed510cc6fd0588517c3037dd85d89e891c3626d4a9",
+      "revision": 12
+    },
+    {
+      "changes": {
+        "assignment:worker_2/candidate1_eval:spend_micros": 250000,
+        "assignment:worker_2/candidate1_eval:tokens": 1500000,
+        "assignment:worker_2/candidate1_eval:turns": 20
+      },
+      "issued_by": "actor:planner:call_hNJudbMG6ZOPmo6Yax5mzcI0",
+      "operation_id": "d322e72402f2c41f000d4a639256f4e473e852e0693a25f4f7b1aa9eff99a9af",
+      "recorded_at_ms": 1794451140935,
+      "request_digest": "ec987f9469ec9e72292e9d340b64c74ed1746be9d5a22861a33e291a94364793",
+      "revision": 13
+    },
+    {
+      "changes": {
+        "assignment:reviewer/baseline_eval:spend_micros": 32173,
+        "assignment:reviewer/baseline_eval:tokens": 713647,
+        "assignment:reviewer/baseline_eval:turns": 20
+      },
+      "issued_by": "orchestra:host:effect-resource:e7b70a31f85120a2ccdb054c14c3ad39106a3b1a3980142ba379d6a92682ba27:receipt:90503baaf4910993467f1cf982f44fbb058cd0fe3f42b1719f6054b04f920ead",
+      "operation_id": "6ba9ec9e76e1cdb9ba137921ad71f24b5f5fb9659cdac73a11d24a8214ef541e",
+      "recorded_at_ms": 1794451224899,
+      "request_digest": "28fce5cfcc23da9a2a396eb7542efdf14d8472c671c5a8c450ac5c07824d0f6b",
+      "revision": 14
+    }
+  ],
+  "pause": {
+    "cause": "limit",
+    "drained_at_ms": 1794451513166,
+    "limit": {
+      "assignment": "worker_2/candidate1_eval",
+      "cap": 250000,
+      "dimension": "spend_micros",
+      "layer": null,
+      "reserved": 126854,
+      "revision": 14,
+      "scope": "actor",
+      "unknown_reserved": 0,
+      "used": 73146
+    },
+    "mode": "cold",
+    "operation_id": "1e77990413672eff04884cbb7f839496b40319f2dcd788722786320127028ed3",
+    "requested_at_ms": 1794451239618
+  },
+  "primary": [
+    {
+      "action": "pause",
+      "binding_layer": "request",
+      "dimension": "execution_ms",
+      "effective_cap": 900000,
+      "overshoot": 0,
+      "remaining": 41405,
+      "requested_cap": 900000,
+      "reserved": 0,
+      "running_since_ms": null,
+      "scope": "run",
+      "state": "partial",
+      "unit": "ms",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 858595
+    },
+    {
+      "action": "stop",
+      "binding_layer": "platform",
+      "dimension": "pause_retention_ms",
+      "effective_cap": 86400000,
+      "overshoot": 0,
+      "pause_expires_at_ms": 1794537639618,
+      "remaining": 85210273,
+      "requested_cap": 86400000,
+      "reserved": 0,
+      "scope": "run",
+      "state": "partial",
+      "unit": "ms",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 1189727
+    },
+    {
+      "action": "pause",
+      "binding_layer": "request",
+      "dimension": "spend_micros",
+      "effective_cap": 10000000,
+      "overshoot": 0,
+      "remaining": 9541745,
+      "requested_cap": 10000000,
+      "reserved": 0,
+      "scope": "run",
+      "state": "partial",
+      "unit": "micro_usd",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 458255
+    },
+    {
+      "action": "pause",
+      "binding_layer": "request",
+      "dimension": "tokens",
+      "effective_cap": 1000000000,
+      "overshoot": 0,
+      "remaining": 986504049,
+      "requested_cap": 1000000000,
+      "reserved": 0,
+      "scope": "run",
+      "state": "partial",
+      "unit": "tokens",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 13495951
+    }
+  ],
+  "revision": 14,
+  "run_id": "run_KZbWDdFcR8O2IOXYo8IOgQ",
+  "schema_version": "synth.limits-progress.v1",
+  "secondary": [
+    {
+      "dimension": "spend_micros",
+      "effective_cap": null,
+      "overshoot": null,
+      "remaining": null,
+      "reserved": 0,
+      "scope": "resource:gateway.inference",
+      "state": "partial",
+      "unit": "micro_usd",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 458255
+    },
+    {
+      "dimension": "tokens",
+      "effective_cap": null,
+      "overshoot": null,
+      "remaining": null,
+      "reserved": 0,
+      "scope": "resource:gateway.inference",
+      "state": "partial",
+      "unit": "tokens",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 13495951
+    },
+    {
+      "dimension": "rollouts",
+      "effective_cap": null,
+      "overshoot": null,
+      "remaining": null,
+      "reserved": 0,
+      "scope": "resource:rhodes.pool",
+      "state": "partial",
+      "unit": "count",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 3
+    },
+    {
+      "dimension": "spend_micros",
+      "effective_cap": null,
+      "overshoot": null,
+      "remaining": null,
+      "reserved": 0,
+      "scope": "resource:rhodes.pool",
+      "state": "partial",
+      "unit": "micro_usd",
+      "unknown_receipts": 0,
+      "unknown_reserved": 0,
+      "used": 0
+    },
+    {
+      "action": "stop",
+      "dimension": "tasks",
+      "effective_cap": 4,
+      "remaining": 0,
+      "reserved": 0,
+      "scope": "run",
+      "state": "exhausted",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 4
+    },
+    {
+      "action": "stop",
+      "dimension": "planner_turns",
+      "effective_cap": 64,
+      "remaining": 56,
+      "reserved": 0,
+      "scope": "run",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 8
+    },
+    {
+      "action": "stop",
+      "dimension": "parallel_workers",
+      "effective_cap": 3,
+      "remaining": 3,
+      "reserved": 0,
+      "scope": "run",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 0
+    },
+    {
+      "action": "stop",
+      "dimension": "interaction_timeout_ms",
+      "effective_cap": 300000,
+      "remaining": null,
+      "reserved": 0,
+      "scope": "interaction",
+      "state": "unavailable",
+      "unit": "ms",
+      "unknown_reserved": 0,
+      "used": null
+    },
+    {
+      "action": "stop",
+      "dimension": "repairs_per_task",
+      "effective_cap": 2,
+      "remaining": 2,
+      "reserved": 0,
+      "scope": "task:aggregate_results",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 0
+    },
+    {
+      "action": "stop",
+      "dimension": "repairs_per_task",
+      "effective_cap": 2,
+      "remaining": 2,
+      "reserved": 0,
+      "scope": "task:baseline_eval",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 0
+    },
+    {
+      "action": "stop",
+      "dimension": "repairs_per_task",
+      "effective_cap": 2,
+      "remaining": 1,
+      "reserved": 0,
+      "scope": "task:candidate1_eval",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 1
+    },
+    {
+      "action": "stop",
+      "dimension": "repairs_per_task",
+      "effective_cap": 2,
+      "remaining": 2,
+      "reserved": 0,
+      "scope": "task:candidate2_eval",
+      "state": "partial",
+      "unit": "count",
+      "unknown_reserved": 0,
+      "used": 0
+    }
+  ],
+  "sequence": 396,
+  "status": "terminal"
+}
