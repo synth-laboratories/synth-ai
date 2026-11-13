@@ -33,14 +33,14 @@ def run(
     maximum_charge_micros: int,
     operation: str,
 ) -> dict[str, JsonValue]:
-    api = client.swarms
+    api = client.evaluations
     schema: dict[str, JsonValue] = {
         "type": "object",
         "properties": {"values": {"type": "array", "maxItems": 64, "items": {"type": "integer"}}},
         "required": ["values"],
         "additionalProperties": False,
     }
-    task = api.register_evaluation_input(
+    task = api.register(
         "task",
         EvaluationTask(
             name="customer-sorted-integers",
@@ -53,13 +53,13 @@ def run(
             input_schema=schema,
         ),
     )
-    pool = api.register_evaluation_input(
+    pool = api.register(
         "pool",
         EvaluationPool(
             name="customer-integer-pool", provider=provider, concurrency=3, region=region
         ),
     )
-    evaluator = api.register_evaluation_input(
+    evaluator = api.register(
         "evaluator",
         EvaluationEvaluator(
             name="customer-integer-verifier",
@@ -80,7 +80,7 @@ def run(
         ),
     )
     cases: list[list[JsonValue]] = [[5, -2, 5, 0, 9, -2], [], [7, 7, 7]]
-    dataset = api.register_evaluation_input(
+    dataset = api.register(
         "dataset",
         EvaluationDataset(
             name="customer-integer-cases",
@@ -90,7 +90,7 @@ def run(
             ],
         ),
     )
-    policy = api.register_evaluation_input(
+    policy = api.register(
         "policy",
         EvaluationPolicy(
             name="customer-sort-policy",
@@ -104,13 +104,13 @@ def run(
         dataset_revision_id=dataset.revision_id,
         max_concurrency=3,
     )
-    quote = api.preflight_evaluation(request, maximum_charge_micros=maximum_charge_micros)
+    quote = api.preflight(request, maximum_charge_micros=maximum_charge_micros)
     if quote.maximum_charge_micros > maximum_charge_micros:
         raise RuntimeError("quoted charge exceeds the requested cap")
-    evaluation = api.evaluate(
+    evaluation = api.create(
         request, maximum_charge_micros=maximum_charge_micros, idempotency_key=operation
     )
-    result = api.wait_evaluation(evaluation.evaluation_id, timeout=180, poll_interval=2)
+    result = api.wait(evaluation.evaluation_id, timeout=180, poll_interval=2)
     document = result.model_dump(mode="json", exclude_none=True)
     if result.status != "completed" or result.attestation is None:
         raise RuntimeError(json.dumps(document))

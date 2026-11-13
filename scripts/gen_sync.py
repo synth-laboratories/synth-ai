@@ -16,7 +16,8 @@ def generate() -> str:
         "from decimal import Decimal",
         "from pathlib import Path",
         "import builtins",
-        "from collections.abc import Iterator",
+        "from collections.abc import Iterator, Mapping, Sequence",
+        "from pydantic import JsonValue",
         "from ._blocking import Runner",
         "from ._stream import StreamCheckpoint",
         "from ._protocol import CompletionMilestone",
@@ -24,11 +25,12 @@ def generate() -> str:
         "from ._generated.models import RunResult",
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
+        "from .evaluations import AsyncEvaluations, EvaluationInputKind",
         "from .swarms import AsyncSwarms",
         "",
     ]
     model_imports = set()
-    for module in ["swarms", "account", "billing"]:
+    for module in ["swarms", "account", "billing", "evaluations"]:
         tree = ast.parse((ROOT / "synth_ai" / f"{module}.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.ImportFrom) and node.module == "_generated.models":
