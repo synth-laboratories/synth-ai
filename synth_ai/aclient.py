@@ -11,6 +11,7 @@ from .account import AsyncAccount
 from .auth import credentials
 from .billing import AsyncBilling
 from .diagnostics import DiagnosticHook
+from .evaluations import AsyncEvaluations
 from .swarms import AsyncSwarms
 
 
@@ -39,6 +40,7 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarms(self._transport)
         self.account = AsyncAccount(self._transport)
         self.billing = AsyncBilling(self._transport)
+        self.evaluations = AsyncEvaluations(self._transport)
 
     async def close(self) -> None:
         await self._transport.close()

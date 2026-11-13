@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Evaluations move to `client.evaluations` (sync and async): `register`, `register_dataset`, `list_inputs`, `get_input`, `preflight`, `create`, `get`, `cancel` and `wait`. The `client.swarms` evaluation methods (`register_evaluation_input`, `evaluation_inputs`, `evaluation_input`, `preflight_evaluation`, `evaluate`, `evaluation`, `cancel_evaluation`, `wait_evaluation`) are removed with no alias.
+- `register_dataset(name, instances)` refuses, before sending, a dataset outside 1 to 1024 instances, with duplicate instance ids, or with an id or seed (`[0, 2^63)`) the contract rejects.
+
 ## 0.40.0
 
 - Pin Core public contract 1.19.0 (Core `a5391bdf`; spec SHA-256 `5f9d5f70…73a6`). Pool grants may name up to eight registered evaluator templates (`evaluation_templates`, `sha256:` digests); a grant that names templates carries an empty `selection`. Exposed in the generated models and MCP pool tools.

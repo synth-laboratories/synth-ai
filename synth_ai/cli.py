@@ -40,6 +40,7 @@ from .errors import (
     UploadTransferError,
     WaitTimeoutError,
 )
+from .evaluations import AsyncEvaluations
 from .swarms import AsyncSwarms
 
 EXIT_OK = 0
@@ -271,7 +272,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         swarms = client.swarms
         command = str(args.command)
         if command == "evaluations":
-            result = await execute_evaluation(swarms, args)
+            result = await execute_evaluation(client.evaluations, args)
             out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
@@ -436,32 +437,28 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
     return EXIT_OK
 
 
-async def execute_evaluation(swarms: AsyncSwarms, args: argparse.Namespace) -> BaseModel:
+async def execute_evaluation(evaluations: AsyncEvaluations, args: argparse.Namespace) -> BaseModel:
     action = args.evaluation_action
     if action == "register":
         payload = TypeAdapter(EvaluationInput).validate_json(Path(args.file).read_bytes())
-        return await swarms.register_evaluation_input(
-            args.kind, payload, idempotency_key=args.idempotency_key
-        )
+        return await evaluations.register(args.kind, payload, idempotency_key=args.idempotency_key)
     if action == "list":
-        return await swarms.evaluation_inputs(args.kind, name=args.name)
+        return await evaluations.list_inputs(args.kind, name=args.name)
     if action == "input":
-        return await swarms.evaluation_input(args.kind, args.revision_id)
+        return await evaluations.get_input(args.kind, args.revision_id)
     if action in {"preflight", "create"}:
         payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
-        method = swarms.preflight_evaluation if action == "preflight" else swarms.evaluate
+        method = evaluations.preflight if action == "preflight" else evaluations.create
         return await method(
             payload.request,
             maximum_charge_micros=payload.maximum_charge_micros,
             idempotency_key=args.idempotency_key,
         )
     if action == "cancel":
-        return await swarms.cancel_evaluation(
-            args.evaluation_id, idempotency_key=args.idempotency_key
-        )
+        return await evaluations.cancel(args.evaluation_id, idempotency_key=args.idempotency_key)
     if action == "wait":
-        return await swarms.wait_evaluation(args.evaluation_id, timeout=args.timeout)
-    return await swarms.evaluation(args.evaluation_id)
+        return await evaluations.wait(args.evaluation_id, timeout=args.timeout)
+    return await evaluations.get(args.evaluation_id)
 
 
 async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
