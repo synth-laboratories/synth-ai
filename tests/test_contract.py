@@ -132,7 +132,7 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 30
+    assert len(by_name) == len(hosted["tools"]) == 31
     assert {
         "swarms_run_pause",
         "swarms_run_resume",
