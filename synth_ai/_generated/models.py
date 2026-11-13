@@ -148,6 +148,7 @@ class LimitMeterAction(StrEnum):
     NOTIFY = "notify"
     PAUSE = "pause"
     STOP = "stop"
+    NONE = "none"
 
 
 class MintApiKeyRequestPurpose(StrEnum):
