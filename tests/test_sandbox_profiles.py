@@ -83,11 +83,10 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
             "compute_charge": {"amount": "0.0363975", "currency": "USD"},
             "profile": {
                 "actor_id": "worker",
-                "profile_id": "docker:4vcpu-8gib:host",
+                "profile_id": "4vcpu-8gib-local",
                 "profile_digest": "sha256:" + "b" * 64,
                 "size_id": "4vcpu-8gib",
-                "region": "host",
-                "billing_basis": "emulated",
+                "domicile": "local",
             },
         }
     ]
@@ -103,5 +102,5 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
     parsed = RunReport.model_validate_json(json.dumps(raw))
     assert parsed.sandbox_performance[0].ready_p90_ms is None
     text = report(parsed)
-    for expected in ("worker", "4vcpu-8gib", "host", "1450", "0.0363975", "emulated"):
+    for expected in ("worker", "4vcpu-8gib", "local", "1450", "0.0363975"):
         assert expected in text

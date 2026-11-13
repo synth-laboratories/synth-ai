@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.21.0
+  version: 1.22.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -7673,28 +7673,30 @@ components:
     SandboxProfile:
       type: object
       additionalProperties: false
-      required: [actor_id, profile_id, profile_digest, size_id, region, billing_basis]
+      required: [actor_id, profile_id, profile_digest, size_id, domicile]
       properties:
         actor_id:
           type: string
         profile_id:
           type: string
+          description: What the sandbox provides, never who supplies it. Form <size>[-<gpu>]-<domicile>.
+          pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+          examples: [4vcpu-8gib-us]
         profile_digest:
           type: string
           pattern: '^sha256:[a-f0-9]{64}$'
         size_id:
           type: string
-        region:
+        domicile:
           type: string
+          description: Where the sandbox's data is held. unrestricted means no jurisdiction is declared; local means the local development host.
+          enum: [us, eu, local, unrestricted]
         gpu_kind:
           type: string
           enum: [t4, l4]
         gpu_count:
           type: integer
           minimum: 1
-        billing_basis:
-          type: string
-          enum: [supplier, emulated]
     SandboxPerformance:
       type: object
       required: [size_id, sample_count, status, ready_p50_ms, ready_p90_ms]
@@ -8439,9 +8441,6 @@ components:
       - expires_at
       - created_at
       properties:
-        billing_basis:
-          type: string
-          enum: [supplier, emulated]
         entry_id:
           type: string
         cause:

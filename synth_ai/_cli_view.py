@@ -152,19 +152,18 @@ def report(value: RunReport) -> str:
         )
     if value.sandboxes:
         text += "\n\n" + table(
-            ["ACTOR", "SIZE", "REGION", "READY MS", "COMPUTE", "BASIS"],
+            ["ACTOR", "SIZE", "DOMICILE", "READY MS", "COMPUTE"],
             [
                 [
                     item.profile.actor_id if item.profile is not None else item.role.value,
                     item.profile.size_id
                     if item.profile is not None
                     else f"{item.cpu_millis / 1000:g} CPU / {item.memory_bytes / (1 << 30):g} GiB",
-                    item.profile.region if item.profile is not None else "unknown",
+                    item.profile.domicile.value if item.profile is not None else "unknown",
                     item.time_to_ready_ms if item.time_to_ready_ms is not None else "unknown",
                     money(item.compute_charge)
                     if item.compute_charge is not None
                     else item.compute_metering.value,
-                    item.profile.billing_basis.value if item.profile is not None else "unknown",
                 ]
                 for item in value.sandboxes
             ],

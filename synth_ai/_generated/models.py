@@ -33,11 +33,6 @@ class ApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
-class BillingHistoryEntryBillingBasis(StrEnum):
-    SUPPLIER = "supplier"
-    EMULATED = "emulated"
-
-
 class BillingHistoryEntryCause(StrEnum):
     GRANT = "grant"
     HOLD = "hold"
@@ -455,9 +450,11 @@ class SandboxPerformanceStatus(StrEnum):
     MEASURED = "measured"
 
 
-class SandboxProfileBillingBasis(StrEnum):
-    SUPPLIER = "supplier"
-    EMULATED = "emulated"
+class SandboxProfileDomicile(StrEnum):
+    US = "us"
+    EU = "eu"
+    LOCAL = "local"
+    UNRESTRICTED = "unrestricted"
 
 
 class SandboxProfileGpuKind(StrEnum):
@@ -1248,17 +1245,14 @@ class SandboxProfile(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     actor_id: str
-    profile_id: str
+    profile_id: Annotated[str, Field(pattern="^[a-z0-9]+(-[a-z0-9]+)*$")]
     profile_digest: Annotated[str, Field(pattern="^sha256:[a-f0-9]{64}$")]
     size_id: str
-    region: str
+    domicile: Annotated[SandboxProfileDomicile, BeforeValidator(enum_value(SandboxProfileDomicile))]
     gpu_kind: (
         Annotated[SandboxProfileGpuKind, BeforeValidator(enum_value(SandboxProfileGpuKind))] | None
     ) = None
     gpu_count: Annotated[int, Field(ge=1)] | None = None
-    billing_basis: Annotated[
-        SandboxProfileBillingBasis, BeforeValidator(enum_value(SandboxProfileBillingBasis))
-    ]
 
 
 Scope: TypeAlias = Literal[
@@ -2130,13 +2124,6 @@ class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    billing_basis: (
-        Annotated[
-            BillingHistoryEntryBillingBasis,
-            BeforeValidator(enum_value(BillingHistoryEntryBillingBasis)),
-        ]
-        | None
-    ) = None
     entry_id: str
     cause: Annotated[
         BillingHistoryEntryCause, BeforeValidator(enum_value(BillingHistoryEntryCause))
