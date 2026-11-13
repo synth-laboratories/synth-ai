@@ -127,3 +127,5 @@ finality, load or capacity acceptance, and must not run automatically in CI with
 shared budget admission.
 
 Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.
+
+Evaluation operations use `client.evaluations` in the next SDK release. Older SDKs retain their installed `client.swarms` methods against the same public routes; the new namespace has no transport alias. `client.evaluations.rollouts(id, cursor=...)` returns a bounded page; `next_cursor=None` ends pagination.

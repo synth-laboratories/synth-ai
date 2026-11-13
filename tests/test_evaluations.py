@@ -137,3 +137,35 @@ async def test_preflight_create_get_and_wait_round_trip_contract_examples(contra
 def test_evaluations_are_not_a_swarms_surface():
     client = AsyncSynthClient("fixture", base_url="https://example.test")
     assert not any("evaluat" in name for name in dir(client.swarms))
+
+
+async def test_rollout_pages_use_the_generated_scope_and_wire_names():
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "evaluation_id": "eval_fixture",
+                "status": "completed",
+                "attestation_digest": "sha256:" + "a" * 64,
+                "rollouts": [
+                    {"instance_id": "episode-a", "report": {"truncated": False, "end_step": 12}}
+                ],
+                "next_cursor": "opaque-next",
+                "truncated": True,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as api:
+            result = await api.evaluations.rollouts(
+                "eval_fixture", cursor="original", instance_ids=["episode-a", "episode-b"]
+            )
+    assert result.next_cursor == "opaque-next" and result.truncated
+    assert calls[0].url.path == "/v1/evaluations/eval_fixture/rollouts"
+    assert calls[0].url.params.get_list("instance_ids") == ["episode-a", "episode-b"]
+    assert calls[0].url.params["cursor"] == "original"

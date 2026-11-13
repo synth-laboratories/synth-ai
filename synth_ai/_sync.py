@@ -34,6 +34,7 @@ from ._generated.models import (
     FilePage,
     LaunchRequest,
     LimitList,
+    ListEvaluationRolloutsResponse,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
@@ -747,6 +748,17 @@ class EvaluationsClient:
 
     def get(self, evaluation_id: str) -> EvaluationResponse:
         return self._runner.call(self._async.get(evaluation_id))
+
+    def rollouts(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: str | None = None,
+        instance_ids: Sequence[str] | None = None,
+    ) -> ListEvaluationRolloutsResponse:
+        return self._runner.call(
+            self._async.rollouts(evaluation_id, cursor=cursor, instance_ids=instance_ids)
+        )
 
     def cancel(
         self, evaluation_id: str, *, idempotency_key: str | None = None

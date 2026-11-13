@@ -1247,8 +1247,11 @@ TOOLS: list[ToolDefinition] = [
                                     "type": "string",
                                 },
                                 "result_format": {
-                                    "const": "synth.evaluation-result.v1",
                                     "default": "synth.evaluation-result.v1",
+                                    "enum": [
+                                        "synth.evaluation-result.v1",
+                                        "synth.evaluation-result.v2",
+                                    ],
                                     "title": "Result Format",
                                     "type": "string",
                                 },
@@ -1624,6 +1627,27 @@ TOOLS: list[ToolDefinition] = [
         },
         "name": "get_evaluation",
         "operationId": "getEvaluation",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Read a bounded page of attested rollout reports.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "cursor": {"maxLength": 512, "type": "string"},
+                "evaluation_id": {"type": "string"},
+                "instance_ids": {
+                    "items": {"maxLength": 128, "type": "string"},
+                    "maxItems": 1024,
+                    "type": "array",
+                    "uniqueItems": True,
+                },
+            },
+            "required": ["evaluation_id"],
+            "type": "object",
+        },
+        "name": "list_evaluation_rollouts",
+        "operationId": "listEvaluationRollouts",
         "scope": "swarms:read",
     },
     {
