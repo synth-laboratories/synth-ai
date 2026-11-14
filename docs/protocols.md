@@ -251,8 +251,8 @@ Availability is advisory at discovery time: launch admission checks it again.
 The SDK never substitutes a different profile or relaxes an only/exclude set.
 An unknown ID remains representable and is sent to Core for a named decision.
 
-Core's policy now authorizes a 32768-byte UTF-8 message for this coordinated
-cohort. The generated SDK, CLI and MCP use that exact byte boundary. Install the
+Core's policy now authorizes a 1048576-byte (1 MiB) UTF-8 message for this
+coordinated cohort (contract 1.27.0). The generated SDK, CLI and MCP use that exact byte boundary. Install the
 qualified Core cohort first, then the SDK. This does not change guidance text
 limits or permit a newer SDK to assume an older server accepts larger messages.
 

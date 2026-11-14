@@ -2441,9 +2441,9 @@ class LaunchRequest(WireModel):
     ) = None
     message: Annotated[
         str,
-        Field(min_length=1, max_length=32768),
+        Field(min_length=1, max_length=1048576),
         AfterValidator(message_text),
-        AfterValidator(utf8_max_bytes(32768)),
+        AfterValidator(utf8_max_bytes(1048576)),
     ]
     limits: Limits
     inputs: RunInputs | None = None

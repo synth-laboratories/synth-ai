@@ -8,6 +8,11 @@
 - `register_dataset(name, instances)` refuses, before sending, a dataset outside 1 to 1024 instances, with duplicate instance ids, or with an id or seed (`[0, 2^63)`) the contract rejects.
 - `synth evaluations rollouts EVALUATION_ID [--cursor C] [--instance-id ID]...` reads one page of attested rollout reports through `evaluations.rollouts()`. Opaque cursors and repeated instance filters are passed through unchanged.
 
+## 0.40.1
+
+- Contract 1.27.0 (renumbered from the message-limit lane's 1.26.0, which collided with provider allocation; originally Core `bd65c3c3`, pin pending the integrated backend). A launch `message` may be up to 1,048,576 UTF-8 bytes (was 32,768); the generated launch model, CLI and MCP `swarms_run_launch` schema use that bound, and the shared boundary fixtures follow it.
+- Through 1.25.0: `listEvaluationRollouts` answers one of two views. The generator names them (`EvaluationRolloutPage`, `EvaluationRolloutSummary`); `evaluations.rollouts()` returns the detail page, unwrapped by the transport. Query typing admits `list[str]`.
+
 ## 0.40.0
 
 - Pin Core public contract 1.19.0 (Core `a5391bdf`; spec SHA-256 `5f9d5f70…73a6`). Pool grants may name up to eight registered evaluator templates (`evaluation_templates`, `sha256:` digests); a grant that names templates carries an empty `selection`. Exposed in the generated models and MCP pool tools.

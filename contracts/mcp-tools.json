@@ -270,10 +270,10 @@
                 "type": "object"
               },
               "message": {
-                "maxLength": 32768,
+                "maxLength": 1048576,
                 "minLength": 1,
                 "type": "string",
-                "x-synth-max-bytes": 32768,
+                "x-synth-max-bytes": 1048576,
                 "x-synth-message-text": true
               },
               "profile": {
