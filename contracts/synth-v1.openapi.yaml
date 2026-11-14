@@ -6287,8 +6287,8 @@ components:
       properties:
         resource:
           type: string
-          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 5, max 50, internal
-            -1, credits/free 1), included_usage.'
+          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 10, max 50, internal
+            -1, credits/free 10), included_usage.'
         metric:
           type: string
         window:
