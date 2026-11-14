@@ -138,6 +138,46 @@ class EvaluationRolloutStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class EvaluationRolloutSummaryView(StrEnum):
+    SUMMARY = "summary"
+
+
+class LaunchChoiceExclusionCause(StrEnum):
+    LOCALITY = "locality"
+    NOT_EXECUTABLE = "not_executable"
+    AFFORDABILITY = "affordability"
+
+
+class LaunchChoiceExclusionKind(StrEnum):
+    INFERENCE = "inference"
+    SANDBOX = "sandbox"
+
+
+class LaunchChoiceRoleRole(StrEnum):
+    PLANNER = "planner"
+    WORKER = "worker"
+    REVIEWER = "reviewer"
+    RUN_ASSESSOR = "run_assessor"
+
+
+class LaunchChoiceSandboxDomicile(StrEnum):
+    US = "us"
+    EU = "eu"
+    LOCAL = "local"
+    UNRESTRICTED = "unrestricted"
+
+
+class LaunchChoicesAffordabilityStatus(StrEnum):
+    EVALUATED = "evaluated"
+    NOT_EVALUATED = "not_evaluated"
+
+
+class LaunchChoicesDomicileRequirement(StrEnum):
+    US_ONLY = "us_only"
+    US_OR_EUROPE = "us_or_europe"
+    UNRESTRICTED = "unrestricted"
+
+
 class LaunchRequestDomicileRequirement(StrEnum):
     US_ONLY = "us_only"
     US_OR_EUROPE = "us_or_europe"
@@ -148,6 +188,7 @@ class LimitMeterAction(StrEnum):
     NOTIFY = "notify"
     PAUSE = "pause"
     STOP = "stop"
+    NONE = "none"
 
 
 class MintApiKeyRequestPurpose(StrEnum):
@@ -216,6 +257,22 @@ class RefundDetailRefundCause(StrEnum):
     RUN_FAILED = "run_failed"
     RUN_EXPIRED = "run_expired"
     LAUNCH_FAILED = "launch_failed"
+
+
+class RunAllocationActorComputeMetering(StrEnum):
+    NOT_METERED = "not_metered"
+    PENDING = "pending"
+    METERED = "metered"
+
+
+class RunAllocationChoiceSource(StrEnum):
+    EXPLICIT = "explicit"
+    DEFAULT = "default"
+
+
+class RunAllocationChoiceState(StrEnum):
+    ASSIGNED = "assigned"
+    PLANNER_DECIDES = "planner_decides"
 
 
 class RunEvaluationStatus(StrEnum):
@@ -693,6 +750,32 @@ class EvaluationRevisionSummary(WireModel):
     created_at: str
 
 
+class EvaluationRolloutPage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: str
+    attestation_digest: str | None
+    rollouts: list[dict[str, JsonValue]]
+    next_cursor: str | None
+    truncated: bool
+
+
+class EvaluationRolloutSummaryOutcomeCounts(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    total: Annotated[int, Field(ge=0)]
+    by_status: dict[str, Annotated[int, Field(ge=0)]]
+    by_error_code: dict[str, Annotated[int, Field(ge=0)]]
+    policy_error: Annotated[int, Field(ge=0)]
+    policy_timeout: Annotated[int, Field(ge=0)]
+    policy_timeout_reported: bool
+    infrastructure_requeued: Annotated[int, Field(ge=0)]
+    infrastructure_requeues_total: Annotated[int, Field(ge=0)]
+
+
 class EvaluationTask(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -773,6 +856,32 @@ class LaunchBudget(WireModel):
     currency: Literal["USD"]
 
 
+class LaunchChoiceExclusion(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[
+        LaunchChoiceExclusionKind, BeforeValidator(enum_value(LaunchChoiceExclusionKind))
+    ]
+    profile_id: str
+    option_id: str | None = None
+    cause: Annotated[
+        LaunchChoiceExclusionCause, BeforeValidator(enum_value(LaunchChoiceExclusionCause))
+    ]
+    code: str
+
+
+class LaunchChoiceRole(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    role: Annotated[LaunchChoiceRoleRole, BeforeValidator(enum_value(LaunchChoiceRoleRole))]
+    default_inference_profile: str | None
+    default_sandbox_profile: str | None
+    planner_decides_allowed: bool
+
+
 class Limit(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -814,18 +923,6 @@ class LimitRow(WireModel):
     cap: float | None
     current: float | None
     reset_at: str | None
-
-
-class ListEvaluationRolloutsResponse(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    evaluation_id: str
-    status: str
-    attestation_digest: str | None
-    rollouts: list[dict[str, JsonValue]]
-    next_cursor: str | None
-    truncated: bool
 
 
 class Money(WireModel):
@@ -1030,6 +1127,27 @@ class RefundDetailRunUsage1(WireModel):
     compute: dict[str, dict[str, JsonValue]] | None = None
 
 
+class RoleAssignment(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    inference_profile: (
+        Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")] | None
+    ) = None
+    sandbox_profile: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")] | None = (
+        None
+    )
+    sandbox_option: Annotated[str, Field(pattern="^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$")] | None = None
+    planner_decides: (
+        Annotated[
+            list[Literal["inference", "sandbox"]],
+            Field(min_length=1, max_length=2),
+            AfterValidator(unique_items),
+        ]
+        | None
+    ) = None
+
+
 class RoutingActor(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1049,6 +1167,30 @@ class RoutingCatalogRoute(WireModel):
     preset: str
     model: str
     providers: list[str]
+
+
+class RunAllocationActorPlacementsItem(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    assignment_generation: Annotated[int, Field(ge=0)]
+    profile_id: str
+    profile_digest: str
+    option_id: str | None = None
+
+
+class RunAllocationChoice(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    state: Annotated[
+        RunAllocationChoiceState, BeforeValidator(enum_value(RunAllocationChoiceState))
+    ]
+    source: Annotated[
+        RunAllocationChoiceSource, BeforeValidator(enum_value(RunAllocationChoiceSource))
+    ]
+    profile_id: str | None = None
+    option_id: str | None = None
 
 
 class RunComputeMeter(WireModel):
@@ -1618,6 +1760,27 @@ class EvaluationRevisionList(WireModel):
     revisions: list[EvaluationRevisionSummary]
 
 
+class EvaluationRolloutSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: str
+    view: Annotated[
+        EvaluationRolloutSummaryView, BeforeValidator(enum_value(EvaluationRolloutSummaryView))
+    ]
+    attestation_digest: str | None
+    outcome_counts: EvaluationRolloutSummaryOutcomeCounts
+    columns: list[Literal["instance_id", "outcome", "score", "metrics"]]
+    metric_keys: list[str]
+    constant_metrics: dict[str, float | str]
+    instances: Annotated[
+        list[Annotated[list[JsonValue], Field(min_length=4, max_length=4)]], Field(max_length=1024)
+    ]
+    next_cursor: str | None
+    truncated: bool
+
+
 class FilePage(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1625,6 +1788,42 @@ class FilePage(WireModel):
     items: list[File]
     has_more: bool
     next_cursor: str | None = None
+
+
+class LaunchChoiceInference(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    profile_id: str
+    model: str
+    effort: str
+    profile_digest: str
+    context_window: int
+    maximum_output_tokens: int
+    per_call_spend_cap: Money
+    input_price_per_million_tokens: Money
+    cached_input_price_per_million_tokens: Money
+    output_price_per_million_tokens: Money
+
+
+class LaunchChoiceSandboxOptionsItem(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    option_id: Annotated[str, Field(pattern="^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$")]
+    hourly_price: Money
+
+
+class LaunchChoicesAffordability(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    status: Annotated[
+        LaunchChoicesAffordabilityStatus,
+        BeforeValidator(enum_value(LaunchChoicesAffordabilityStatus)),
+    ]
+    maximum_charge: Money | None = None
+    wall_time_seconds: int
 
 
 class LimitList(WireModel):
@@ -1776,6 +1975,14 @@ class RoutingConstraints(WireModel):
     )
     providers: Only | Exclude | None = None
     models: Only | Exclude | None = None
+
+
+class RunAllocationActorLaunch(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    inference: RunAllocationChoice
+    sandbox: RunAllocationChoice
 
 
 class RunCharge(WireModel):
@@ -2202,6 +2409,25 @@ class FamilyList(WireModel):
     routing: RoutingCatalog | None = None
 
 
+class LaunchChoiceSandbox(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    profile_id: str
+    size_id: str
+    domicile: Annotated[
+        LaunchChoiceSandboxDomicile, BeforeValidator(enum_value(LaunchChoiceSandboxDomicile))
+    ]
+    gpu_kind: str | None = None
+    gpu_count: int | None = None
+    cpu_millis: int
+    memory_bytes: int
+    disk_bytes: int
+    hourly_price: Money
+    option_required: bool
+    options: list[LaunchChoiceSandboxOptionsItem]
+
+
 class LaunchRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2227,6 +2453,12 @@ class LaunchRequest(WireModel):
     resources: Annotated[list[OwnerResourceRequest], Field(max_length=8)] | None = None
     labels: dict[str, str] | None = None
     routing: RoutingConstraints | None = None
+    role_assignments: dict[str, RoleAssignment] | None = None
+    launch_menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")] | None = None
+
+
+class ListEvaluationRolloutsResponse(RootModel[EvaluationRolloutPage | EvaluationRolloutSummary]):
+    pass
 
 
 class OutputPage(WireModel):
@@ -2256,6 +2488,23 @@ class RoutingReadback(WireModel):
     policy_revision: str
     request_digest: str
     actors: list[RoutingActor]
+
+
+class RunAllocationActor(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: str
+    role: str
+    launch: RunAllocationActorLaunch
+    placements: list[RunAllocationActorPlacementsItem]
+    replacements: Annotated[int, Field(ge=0)]
+    usage: RunUsage
+    compute_metering: Annotated[
+        RunAllocationActorComputeMetering,
+        BeforeValidator(enum_value(RunAllocationActorComputeMetering)),
+    ]
+    compute_charge: Money | None = None
 
 
 class RunLimitStatePayload(WireModel):
@@ -2469,6 +2718,33 @@ class EvaluationRevision(WireModel):
     revision_id: str
     name: str | None = None
     payload: EvaluationInput
+
+
+class LaunchChoices(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")]
+    run_profile: str
+    domicile_requirement: Annotated[
+        LaunchChoicesDomicileRequirement,
+        BeforeValidator(enum_value(LaunchChoicesDomicileRequirement)),
+    ]
+    affordability: LaunchChoicesAffordability
+    roles: list[LaunchChoiceRole]
+    inference_profiles: list[LaunchChoiceInference]
+    sandbox_profiles: list[LaunchChoiceSandbox]
+    exclusions: list[LaunchChoiceExclusion]
+
+
+class RunAllocation(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    run_id: RunId
+    menu_revision: str | None
+    final: bool
+    actors: list[RunAllocationActor]
 
 
 class RunEvent(WireModel):
@@ -2689,6 +2965,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationQuote": EvaluationQuote,
     "EvaluationResultReport0": EvaluationResultReport0,
     "EvaluationRevisionSummary": EvaluationRevisionSummary,
+    "EvaluationRolloutPage": EvaluationRolloutPage,
+    "EvaluationRolloutSummaryOutcomeCounts": EvaluationRolloutSummaryOutcomeCounts,
     "EvaluationTask": EvaluationTask,
     "EvaluationTaskInstance": EvaluationTaskInstance,
     "Exclude": Exclude,
@@ -2696,10 +2974,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "File": File,
     "InputFile": InputFile,
     "LaunchBudget": LaunchBudget,
+    "LaunchChoiceExclusion": LaunchChoiceExclusion,
+    "LaunchChoiceRole": LaunchChoiceRole,
     "Limit": Limit,
     "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
-    "ListEvaluationRolloutsResponse": ListEvaluationRolloutsResponse,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaim": ObjectiveClaim,
@@ -2715,8 +2994,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "Principal": Principal,
     "Problem": Problem,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
+    "RoleAssignment": RoleAssignment,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
+    "RunAllocationActorPlacementsItem": RunAllocationActorPlacementsItem,
+    "RunAllocationChoice": RunAllocationChoice,
     "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
     "RunEvaluation": RunEvaluation,
@@ -2763,7 +3045,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationEvaluator": EvaluationEvaluator,
     "EvaluationResult": EvaluationResult,
     "EvaluationRevisionList": EvaluationRevisionList,
+    "EvaluationRolloutSummary": EvaluationRolloutSummary,
     "FilePage": FilePage,
+    "LaunchChoiceInference": LaunchChoiceInference,
+    "LaunchChoiceSandboxOptionsItem": LaunchChoiceSandboxOptionsItem,
+    "LaunchChoicesAffordability": LaunchChoicesAffordability,
     "LimitList": LimitList,
     "Limits": Limits,
     "MintApiKeyRequest": MintApiKeyRequest,
@@ -2775,6 +3061,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RefundDetail": RefundDetail,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
+    "RunAllocationActorLaunch": RunAllocationActorLaunch,
     "RunCharge": RunCharge,
     "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
@@ -2810,10 +3097,13 @@ MODELS: dict[str, type[BaseModel]] = {
     "BillingStatementPage": BillingStatementPage,
     "EvaluationRollout": EvaluationRollout,
     "FamilyList": FamilyList,
+    "LaunchChoiceSandbox": LaunchChoiceSandbox,
     "LaunchRequest": LaunchRequest,
+    "ListEvaluationRolloutsResponse": ListEvaluationRolloutsResponse,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
+    "RunAllocationActor": RunAllocationActor,
     "RunLimitStatePayload": RunLimitStatePayload,
     "RunLimitUpdate": RunLimitUpdate,
     "RunLimitsProgress": RunLimitsProgress,
@@ -2829,6 +3119,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "BillingHistoryPage": BillingHistoryPage,
     "EvaluationResponse": EvaluationResponse,
     "EvaluationRevision": EvaluationRevision,
+    "LaunchChoices": LaunchChoices,
+    "RunAllocation": RunAllocation,
     "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReward": RunReward,

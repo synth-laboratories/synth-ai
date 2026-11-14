@@ -228,7 +228,7 @@ async def test_evaluation_report_page_repeats_instance_filter_and_preserves_curs
         async with AsyncSynthClient(
             "fixture", base_url="https://example.test", http_client=http
         ) as client:
-            page = await client.swarms.evaluation_rollouts(
+            page = await client.evaluations.rollouts(
                 "eval_one", cursor="opaque_cursor", instance_ids=["a", "b"]
             )
             assert page.next_cursor == "next_cursor"

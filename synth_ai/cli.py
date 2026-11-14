@@ -22,6 +22,7 @@ from ._generated.models import (
     EvaluationInput,
     InputFile,
     LaunchRequest,
+    RoleAssignment,
     RunInputs,
     RunSnapshot,
 )
@@ -40,6 +41,7 @@ from .errors import (
     UploadTransferError,
     WaitTimeoutError,
 )
+from .evaluations import AsyncEvaluations
 from .swarms import AsyncSwarms
 
 EXIT_OK = 0
@@ -57,6 +59,7 @@ COMMANDS: dict[str, str] = {
     "whoami": "Signed-in account",
     "logout": "Sign out",
     "profiles": "Run profiles",
+    "choices": "Per-role launch choices",
     "upload": "Upload files",
     "run": "Launch a run",
     "status": "Run state",
@@ -70,6 +73,7 @@ COMMANDS: dict[str, str] = {
     "outputs": "Run outputs",
     "download": "Download run outputs",
     "report": "Run report",
+    "allocation": "Per-actor allocation",
     "result": "Run answer",
     "usage": "Usage",
     "billing": "Balance",
@@ -127,6 +131,12 @@ def parser() -> argparse.ArgumentParser:
     add("whoami")
     add("logout")
     add("profiles").add_argument("--research-task")
+    choices = add("choices")
+    choices.add_argument("--profile")
+    choices.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
+    choices.add_argument("--parallel-workers", type=int, metavar="N")
+    choices.add_argument("--wall", type=int, metavar="SECONDS")
+    choices.add_argument("--budget", help="list choices this maximum charge cannot afford")
     add("upload").add_argument("paths", nargs="+", metavar="PATH")
     run = add("run")
     run.add_argument("goal")
@@ -148,9 +158,24 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--tokens", type=int)
     run.add_argument("--pause-retention", type=int, metavar="SECONDS")
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
+    run.add_argument(
+        "--assign",
+        action="append",
+        default=[],
+        metavar="ACTOR.DIMENSION=ID",
+        help="role choice from `synth choices`; DIMENSION is inference, sandbox or option",
+    )
+    run.add_argument(
+        "--planner-decides",
+        action="append",
+        default=[],
+        metavar="ACTOR.DIMENSION",
+        help="leave this worker's inference or sandbox to the planner",
+    )
+    run.add_argument("--menu-revision", help="menu_revision of the `synth choices` read")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
-    for name in ("status", "pause", "resume", "cancel", "report", "result"):
+    for name in ("status", "pause", "resume", "cancel", "report", "allocation", "result"):
         add(name).add_argument("run_id", metavar="RUN")
     wait = add("wait")
     wait.add_argument("run_id", metavar="RUN")
@@ -232,6 +257,38 @@ def read_task(path: str) -> str:
     return message_text(raw.decode("utf-8"))
 
 
+ASSIGN_FIELDS = {
+    "inference": "inference_profile",
+    "sandbox": "sandbox_profile",
+    "option": "sandbox_option",
+}
+
+
+def parse_role_assignments(
+    assign: Sequence[str], planner_decides: Sequence[str]
+) -> dict[str, RoleAssignment] | None:
+    """--assign worker.inference=luna-high and --planner-decides worker_2.sandbox."""
+    roles: dict[str, dict[str, JsonValue]] = {}
+    for value in assign:
+        target, sep, choice = value.partition("=")
+        actor, dot, dimension = target.partition(".")
+        if not sep or not dot or not actor or not choice or dimension not in ASSIGN_FIELDS:
+            raise ValueError("--assign must be ACTOR.inference|sandbox|option=ID: " + value)
+        fields = roles.setdefault(actor, {})
+        if ASSIGN_FIELDS[dimension] in fields:
+            raise ValueError("--assign names " + target + " twice")
+        fields[ASSIGN_FIELDS[dimension]] = choice
+    for value in planner_decides:
+        actor, dot, dimension = value.partition(".")
+        if not dot or not actor or dimension not in ("inference", "sandbox"):
+            raise ValueError("--planner-decides must be ACTOR.inference|sandbox: " + value)
+        decided = roles.setdefault(actor, {}).setdefault("planner_decides", [])
+        if not isinstance(decided, list) or dimension in decided:
+            raise ValueError("--planner-decides names " + value + " twice")
+        decided.append(dimension)
+    return {actor: RoleAssignment.model_validate(fields) for actor, fields in roles.items()} or None
+
+
 def parse_labels(values: Sequence[str]) -> dict[str, str] | None:
     labels: dict[str, str] = {}
     for value in values:
@@ -274,12 +331,23 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         swarms = client.swarms
         command = str(args.command)
         if command == "evaluations":
-            result = await execute_evaluation(swarms, args)
+            result = await execute_evaluation(client.evaluations, args)
             out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
             out.record(await swarms.profiles(research_task=args.research_task), view.profiles)
+        elif command == "choices":
+            out.record(
+                await swarms.launch_choices(
+                    profile=args.profile,
+                    domicile_requirement=args.domicile,
+                    parallel_workers=args.parallel_workers,
+                    wall_time_seconds=args.wall,
+                    budget=args.budget,
+                ),
+                view.launch_choices,
+            )
         elif command == "upload":
             out.records([await swarms.upload_file(path) for path in args.paths], view.files)
         elif command == "run":
@@ -304,6 +372,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 guidance=None,
                 profile_requirements=swarms._profile_requirements,
                 default_profile=swarms._default_profile,
+                role_assignments=parse_role_assignments(args.assign, args.planner_decides),
+                launch_menu_revision=args.menu_revision,
             )
             uploaded = [
                 await swarms.upload_file(
@@ -396,6 +466,8 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             out.records(await download(swarms, args.run_id, args.output_id, args.out), view.saved)
         elif command == "report":
             out.record(await swarms.report(args.run_id), view.report)
+        elif command == "allocation":
+            out.record(await swarms.allocation(args.run_id), view.allocation)
         elif command == "result":
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
@@ -439,36 +511,32 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
     return EXIT_OK
 
 
-async def execute_evaluation(swarms: AsyncSwarms, args: argparse.Namespace) -> BaseModel:
+async def execute_evaluation(evaluations: AsyncEvaluations, args: argparse.Namespace) -> BaseModel:
     action = args.evaluation_action
     if action == "register":
         payload = TypeAdapter(EvaluationInput).validate_json(Path(args.file).read_bytes())
-        return await swarms.register_evaluation_input(
-            args.kind, payload, idempotency_key=args.idempotency_key
-        )
+        return await evaluations.register(args.kind, payload, idempotency_key=args.idempotency_key)
     if action == "list":
-        return await swarms.evaluation_inputs(args.kind, name=args.name)
+        return await evaluations.list_inputs(args.kind, name=args.name)
     if action == "input":
-        return await swarms.evaluation_input(args.kind, args.revision_id)
+        return await evaluations.get_input(args.kind, args.revision_id)
     if action in {"preflight", "create"}:
         payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
-        method = swarms.preflight_evaluation if action == "preflight" else swarms.evaluate
+        method = evaluations.preflight if action == "preflight" else evaluations.create
         return await method(
             payload.request,
             maximum_charge_micros=payload.maximum_charge_micros,
             idempotency_key=args.idempotency_key,
         )
     if action == "rollouts":
-        return await swarms.evaluation_rollouts(
+        return await evaluations.rollouts(
             args.evaluation_id, cursor=args.cursor, instance_ids=args.instance_ids
         )
     if action == "cancel":
-        return await swarms.cancel_evaluation(
-            args.evaluation_id, idempotency_key=args.idempotency_key
-        )
+        return await evaluations.cancel(args.evaluation_id, idempotency_key=args.idempotency_key)
     if action == "wait":
-        return await swarms.wait_evaluation(args.evaluation_id, timeout=args.timeout)
-    return await swarms.evaluation(args.evaluation_id)
+        return await evaluations.wait(args.evaluation_id, timeout=args.timeout)
+    return await evaluations.get(args.evaluation_id)
 
 
 async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:

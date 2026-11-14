@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- Pin public contract 1.23.0 and expose bounded evaluation rollout reports through
-  `swarms.evaluation_rollouts`, `synth evaluations rollouts` and MCP tool.
-- Preserve opaque pagination cursors, repeated instance filters and v2 report data.
-
+- Pin Core public contract 1.26.0 (through 1.25.0). New: `swarms.launch_choices()` (`getLaunchChoices`), the per-role menu and its `menu_revision`; `swarms.launch()`/`run()` accept `role_assignments` (`RoleAssignment`: `inference_profile`, `sandbox_profile`, `sandbox_option`, `planner_decides`) with `launch_menu_revision`; `swarms.allocation()` (`getRunAllocation`) reads per-actor choices, placements, replacements, usage and charge. CLI: `synth choices`, `synth run --assign/--planner-decides/--menu-revision`, `synth allocation`. MCP: `swarms_launch_choices`, `swarms_run_allocation`, and `role_assignments`/`launch_menu_revision` on launch.
+- Contract 1.25.0: `listEvaluationRollouts` answers one of two views. `evaluations.rollouts()` returns `EvaluationRolloutPage` (was `ListEvaluationRolloutsResponse`); `evaluations.rollout_summary()` reads the compact `EvaluationRolloutSummary`.
+- Evaluations move to `client.evaluations` (sync and async): `register`, `register_dataset`, `list_inputs`, `get_input`, `preflight`, `create`, `get`, `cancel` and `wait`. The `client.swarms` evaluation methods (`register_evaluation_input`, `evaluation_inputs`, `evaluation_input`, `preflight_evaluation`, `evaluate`, `evaluation`, `cancel_evaluation`, `wait_evaluation`) are removed with no alias.
+- `register_dataset(name, instances)` refuses, before sending, a dataset outside 1 to 1024 instances, with duplicate instance ids, or with an id or seed (`[0, 2^63)`) the contract rejects.
+- `synth evaluations rollouts EVALUATION_ID [--cursor C] [--instance-id ID]...` reads one page of attested rollout reports through `evaluations.rollouts()`. Opaque cursors and repeated instance filters are passed through unchanged.
 
 ## 0.40.0
 

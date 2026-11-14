@@ -11,6 +11,7 @@ from ._generated.models import (
     LaunchRequestDomicileRequirement,
     Limits,
     OwnerResourceRequest,
+    RoleAssignment,
     RoutingConstraints,
     RunGuidance,
     RunInputs,
@@ -37,6 +38,8 @@ def launch_request(
     guidance: builtins.list[RunGuidance] | None,
     profile_requirements: Mapping[str, bool],
     default_profile: str,
+    role_assignments: Mapping[str, RoleAssignment] | None = None,
+    launch_menu_revision: str | None = None,
 ) -> LaunchRequest:
     # Core contract 1.3.0 requires a message; refuse locally before any request.
     if not isinstance(message, str):
@@ -46,6 +49,9 @@ def launch_request(
         raise ValueError("research profile requires research_task")
     if requires_task is False and research_task is not None:
         raise ValueError("research_task requires a research profile")
+    # Core contract 1.26.0: choices are made against one read menu revision.
+    if role_assignments is not None and launch_menu_revision is None:
+        raise ValueError("role_assignments require launch_menu_revision from launch_choices()")
     if not isinstance(budget, (str, Decimal)):
         raise ValueError("budget must be a decimal string or Decimal")
     try:
@@ -73,6 +79,8 @@ def launch_request(
         research_task=research_task,
         routing=routing,
         guidance=guidance,
+        role_assignments=dict(role_assignments) if role_assignments is not None else None,
+        launch_menu_revision=launch_menu_revision,
     )
     # Omitted convenience options stay absent on the wire, not explicit nulls.
     request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))

@@ -7,7 +7,7 @@ from types import TracebackType
 import httpx
 
 from ._blocking import Runner
-from ._sync import AccountClient, BillingClient, SwarmsClient
+from ._sync import AccountClient, BillingClient, EvaluationsClient, SwarmsClient
 from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
 from .diagnostics import DiagnosticHook
@@ -38,6 +38,7 @@ class SynthClient:
         self.swarms = SwarmsClient(self._runner, self._async.swarms)
         self.account = AccountClient(self._runner, self._async.account)
         self.billing = BillingClient(self._runner, self._async.billing)
+        self.evaluations = EvaluationsClient(self._runner, self._async.evaluations)
 
     def close(self) -> None:
         if self._runner.closed:

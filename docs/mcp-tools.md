@@ -13,9 +13,11 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_cancel | cancelRun | swarms:control |
 | swarms_run_sandboxes | getRunSandboxes | swarms:read |
 | swarms_run_report | getRunReport | swarms:read |
+| swarms_run_allocation | getRunAllocation | swarms:read |
 | swarms_run_outputs | listRunOutputs | swarms:read |
 | swarms_run_output_get | getRunOutput | swarms:read |
 | swarms_run_result | getRunResult | swarms:read |
+| swarms_launch_choices | getLaunchChoices | swarms:read |
 | swarms_families_list | listFamilies | swarms:read |
 | swarms_profiles_list | listProfiles | swarms:read |
 | usage_for_run | listUsageRecords | account:usage:read |

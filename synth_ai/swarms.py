@@ -2,36 +2,28 @@
 
 from __future__ import annotations
 
-import asyncio
 import builtins
 import hashlib
-import math
-import time
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 from ._generated.models import (
-    CreateEvaluation,
-    EvaluationEvaluationRequest,
-    EvaluationInput,
-    EvaluationQuote,
-    EvaluationResponse,
-    EvaluationRevision,
-    EvaluationRevisionList,
     EventPage,
     FamilyList,
     File,
     FilePage,
+    LaunchChoices,
     LaunchRequest,
-    ListEvaluationRolloutsResponse,
     Money,
     OutputPage,
     OwnerResourceRequest,
+    RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
+    RunAllocation,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -76,116 +68,6 @@ class AsyncSwarms:
         self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
         self._default_profile = DEFAULT_RUN_PROFILE
 
-    async def register_evaluation_input(
-        self,
-        kind: Literal["task", "pool", "policy", "evaluator", "dataset"],
-        payload: EvaluationInput,
-        *,
-        idempotency_key: str | None = None,
-    ) -> EvaluationRevision:
-        """Register immutable input bytes. See contracts/synth-v1.openapi.yaml."""
-        return await self._transport.request(
-            "registerEvaluationInput",
-            EvaluationRevision,
-            path={"kind": kind},
-            body=payload,
-            idempotency_key=idempotency_key,
-        )
-
-    async def evaluation_inputs(
-        self, kind: str, *, name: str | None = None
-    ) -> EvaluationRevisionList:
-        return await self._transport.request(
-            "listEvaluationInputs",
-            EvaluationRevisionList,
-            path={"kind": kind},
-            query={"name": name},
-        )
-
-    async def evaluation_input(self, kind: str, revision_id: str) -> EvaluationRevision:
-        return await self._transport.request(
-            "getEvaluationInput",
-            EvaluationRevision,
-            path={"kind": kind, "revision_id": revision_id},
-        )
-
-    async def preflight_evaluation(
-        self,
-        request: EvaluationEvaluationRequest,
-        *,
-        maximum_charge_micros: int,
-        idempotency_key: str | None = None,
-    ) -> EvaluationQuote:
-        return await self._transport.request(
-            "preflightEvaluation",
-            EvaluationQuote,
-            body=CreateEvaluation(request=request, maximum_charge_micros=maximum_charge_micros),
-            idempotency_key=idempotency_key,
-        )
-
-    async def evaluate(
-        self,
-        request: EvaluationEvaluationRequest,
-        *,
-        maximum_charge_micros: int,
-        idempotency_key: str | None = None,
-    ) -> EvaluationResponse:
-        """Reserve the quoted budget and dispatch jobs. See contracts/synth-v1.openapi.yaml."""
-        return await self._transport.request(
-            "createEvaluation",
-            EvaluationResponse,
-            body=CreateEvaluation(request=request, maximum_charge_micros=maximum_charge_micros),
-            idempotency_key=idempotency_key,
-        )
-
-    async def evaluation(self, evaluation_id: str) -> EvaluationResponse:
-        return await self._transport.request(
-            "getEvaluation", EvaluationResponse, path={"evaluation_id": evaluation_id}
-        )
-
-    async def evaluation_rollouts(
-        self,
-        evaluation_id: str,
-        *,
-        cursor: str | None = None,
-        instance_ids: builtins.list[str] | None = None,
-    ) -> ListEvaluationRolloutsResponse:
-        """Read one bounded page of attested per-instance reports."""
-        return await self._transport.request(
-            "listEvaluationRollouts",
-            ListEvaluationRolloutsResponse,
-            path={"evaluation_id": evaluation_id},
-            query={"cursor": cursor, "instance_ids": instance_ids},
-        )
-
-    async def cancel_evaluation(
-        self, evaluation_id: str, *, idempotency_key: str | None = None
-    ) -> EvaluationResponse:
-        return await self._transport.request(
-            "cancelEvaluation",
-            EvaluationResponse,
-            path={"evaluation_id": evaluation_id},
-            idempotency_key=idempotency_key,
-        )
-
-    async def wait_evaluation(
-        self, evaluation_id: str, *, timeout: float = 600, poll_interval: float = 2
-    ) -> EvaluationResponse:
-        if (
-            not math.isfinite(timeout)
-            or not math.isfinite(poll_interval)
-            or timeout <= 0
-            or poll_interval <= 0
-        ):
-            raise ValueError("timeout and poll_interval must be finite and positive")
-        deadline = time.monotonic() + timeout
-        async with asyncio.timeout(timeout):
-            while True:
-                result = await self.evaluation(evaluation_id)
-                if result.status in {"completed", "failed", "cancelled"}:
-                    return result
-                await asyncio.sleep(min(poll_interval, max(0, deadline - time.monotonic())))
-
     async def launch(
         self,
         message: str,
@@ -203,6 +85,8 @@ class AsyncSwarms:
         research_task: str | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         request = launch_request(
@@ -222,6 +106,8 @@ class AsyncSwarms:
             guidance=guidance,
             profile_requirements=self._profile_requirements,
             default_profile=self._default_profile,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -253,6 +139,8 @@ class AsyncSwarms:
         resources: builtins.list[OwnerResourceRequest] | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         validate_wait(timeout, poll_interval, until)
@@ -271,6 +159,8 @@ class AsyncSwarms:
             resources=resources,
             routing=routing,
             guidance=guidance,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
             idempotency_key=idempotency_key,
         )
         return await self.wait(
@@ -473,6 +363,12 @@ class AsyncSwarms:
     async def report(self, run_id: str) -> RunReport:
         return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
+    async def allocation(self, run_id: str) -> RunAllocation:
+        """Per-actor choices, placements (replacements included), usage and charge."""
+        return await self._transport.request(
+            "getRunAllocation", RunAllocation, path={"run_id": run_id}
+        )
+
     async def tasks(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> RunTaskPage:
@@ -602,6 +498,32 @@ class AsyncSwarms:
         if catalog.routing is None:
             raise ValueError("Server does not expose a routing catalog")
         return catalog.routing
+
+    async def launch_choices(
+        self,
+        *,
+        profile: str | None = None,
+        domicile_requirement: DomicileRequirement | None = None,
+        parallel_workers: int | None = None,
+        wall_time_seconds: int | None = None,
+        budget: str | Decimal | None = None,
+    ) -> LaunchChoices:
+        """The per-role menu a launch with these fields admits, and its revision.
+
+        Pass the returned menu_revision as launch_menu_revision with role_assignments.
+        With a budget, choices it cannot afford are listed as exclusions.
+        """
+        return await self._transport.request(
+            "getLaunchChoices",
+            LaunchChoices,
+            query={
+                "profile": profile,
+                "domicile_requirement": domicile_requirement,
+                "parallel_workers": parallel_workers,
+                "wall_time_seconds": wall_time_seconds,
+                "maximum_charge": format(Decimal(budget), "f") if budget is not None else None,
+            },
+        )
 
     async def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
         catalog = await self._transport.request(

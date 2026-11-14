@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.23.0
+  version: 1.26.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1994,6 +1994,99 @@ paths:
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: null
       x-synth-mcp-name: swarms_run_report
+  /v1/runs/{run_id}/allocation:
+    get:
+      tags:
+      - runs
+      operationId: getRunAllocation
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Per-actor inference and sandbox allocation, usage and charge.
+      description: 'Each declared actor''s launch choice (explicit or default; assigned or planner_decides),
+        the sandbox frozen for every assignment generation (a later generation is a permitted replacement),
+        its sandbox usage and compute charge. final is true once the run is terminal and execution is closed:
+        no further generation can be admitted. Financial finality is the run''s accounting_final.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/launch_choices.go
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The run's allocation as far as it is known.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAllocation'
+              example:
+                run_id: run_ABEiM0RVZneImaq7zN3u_w
+                menu_revision: lcm1_0000000000000000000000000000000000000000000000000000000000000000
+                final: true
+                actors:
+                - actor_id: worker
+                  role: worker
+                  launch:
+                    inference: {state: assigned, source: explicit, profile_id: luna-low}
+                    sandbox: {state: planner_decides, source: explicit}
+                  placements:
+                  - {assignment_generation: 0, profile_id: 2vcpu-2gib-local, profile_digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000'}
+                  replacements: 0
+                  usage:
+                    calls: 3
+                    failed_calls: 0
+                    charge: {amount: '0.01', currency: USD}
+                    subsidized: {amount: '0.00', currency: USD}
+                    input_tokens: 1000
+                    cached_input_tokens: 0
+                    output_tokens: 100
+                    reasoning_tokens: 0
+                    model_time_ms: 2000
+                  compute_metering: metered
+                  compute_charge: {amount: '0.00', currency: USD}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_allocation
   /v1/runs/{run_id}/outputs:
     get:
       tags:
@@ -2338,6 +2431,137 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/launch-choices:
+    get:
+      tags:
+      - runs
+      operationId: getLaunchChoices
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Inference and sandbox choices for each role of a prospective launch.
+      description: 'The admitted menu a launch with the same profile, domicile_requirement, parallel_workers
+        and wall_time_seconds would use, per declared role, with today''s defaults. Names are supplier-neutral;
+        sandbox placements are opaque option ids. Exclusions name only choices the caller could make, with
+        cause locality, not_executable or affordability (affordability only when maximum_charge is given).
+        Launch with role_assignments and this menu_revision; a launch against another revision is refused
+        409 launch_menu_revision_stale with current_revision. Reading creates no run, hold or resource.
+        A research profile is refused 422 role_assignments_unsupported.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/launch_choices.go
+      parameters:
+      - name: profile
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      - name: domicile_requirement
+        in: query
+        schema:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+      - name: parallel_workers
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: wall_time_seconds
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: maximum_charge
+        in: query
+        description: Decimal USD amount; enables affordability exclusions.
+        schema:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,8})?$
+      responses:
+        '200':
+          description: The menu and its revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LaunchChoices'
+              example:
+                menu_revision: lcm1_0000000000000000000000000000000000000000000000000000000000000000
+                run_profile: swarms-v2
+                domicile_requirement: unrestricted
+                affordability:
+                  status: evaluated
+                  maximum_charge: {amount: '5.00', currency: USD}
+                  wall_time_seconds: 3600
+                roles:
+                - {actor_id: planner, role: planner, default_inference_profile: luna-low, default_sandbox_profile: 2vcpu-2gib-local, planner_decides_allowed: false}
+                - {actor_id: worker, role: worker, default_inference_profile: luna-low, default_sandbox_profile: null, planner_decides_allowed: true}
+                inference_profiles:
+                - profile_id: luna-low
+                  model: gpt-6-luna
+                  effort: low
+                  profile_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+                  context_window: 1050000
+                  maximum_output_tokens: 128000
+                  per_call_spend_cap: {amount: '1.00', currency: USD}
+                  input_price_per_million_tokens: {amount: '1.25', currency: USD}
+                  cached_input_price_per_million_tokens: {amount: '0.125', currency: USD}
+                  output_price_per_million_tokens: {amount: '10.00', currency: USD}
+                sandbox_profiles:
+                - profile_id: 2vcpu-2gib-local
+                  size_id: 2vcpu-2gib
+                  domicile: local
+                  cpu_millis: 2000
+                  memory_bytes: 2147483648
+                  disk_bytes: 10737418240
+                  hourly_price: {amount: '0.10', currency: USD}
+                  option_required: false
+                  options:
+                  - option_id: sbo1_0000000000000000_0000000000000000000000000000000000000000000000000000000000000000
+                    hourly_price: {amount: '0.10', currency: USD}
+                exclusions:
+                - {kind: inference, profile_id: luna-xhigh, cause: affordability, code: launch_choice_unaffordable}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_launch_choices
   /v1/families:
     get:
       tags:
@@ -5091,9 +5315,19 @@ paths:
           type: string
       - name: cursor
         in: query
+        description: next_cursor from the previous page of the same evaluation, view and instance_ids;
+          or view:summary / view:detail to start that view (a continuation cursor keeps its view).
         schema:
           type: string
           maxLength: 512
+      - name: view
+        in: query
+        description: detail (default) returns per-rollout reports paged by a byte budget; summary returns
+          one compact row per instance (instance id, outcome, score, metric vector) with outcome counts.
+        schema:
+          type: string
+          enum: [detail, summary]
+          default: detail
       - name: instance_ids
         in: query
         style: form
@@ -5111,18 +5345,61 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [evaluation_id, status, attestation_digest, rollouts, next_cursor, truncated]
-                additionalProperties: false
-                properties:
-                  evaluation_id: {type: string}
-                  status: {type: string}
-                  attestation_digest: {type: [string, 'null']}
-                  rollouts:
-                    type: array
-                    items: {type: object, additionalProperties: true}
-                  next_cursor: {type: [string, 'null']}
-                  truncated: {type: boolean}
+                oneOf:
+                - type: object
+                  required: [evaluation_id, status, attestation_digest, rollouts, next_cursor, truncated]
+                  additionalProperties: false
+                  properties:
+                    evaluation_id: {type: string}
+                    status: {type: string}
+                    attestation_digest: {type: [string, 'null']}
+                    rollouts:
+                      type: array
+                      items: {type: object, additionalProperties: true}
+                    next_cursor: {type: [string, 'null']}
+                    truncated: {type: boolean}
+                - type: object
+                  required: [evaluation_id, status, view, attestation_digest, outcome_counts, columns, metric_keys,
+                    constant_metrics, instances, next_cursor, truncated]
+                  additionalProperties: false
+                  properties:
+                    evaluation_id: {type: string}
+                    status: {type: string}
+                    view: {type: string, enum: [summary]}
+                    attestation_digest: {type: [string, 'null']}
+                    outcome_counts:
+                      type: object
+                      required: [total, by_status, by_error_code, policy_error, policy_timeout, policy_timeout_reported,
+                        infrastructure_requeued, infrastructure_requeues_total]
+                      additionalProperties: false
+                      properties:
+                        total: {type: integer, minimum: 0}
+                        by_status: {type: object, additionalProperties: {type: integer, minimum: 0}}
+                        by_error_code: {type: object, additionalProperties: {type: integer, minimum: 0}}
+                        policy_error: {type: integer, minimum: 0}
+                        policy_timeout: {type: integer, minimum: 0}
+                        policy_timeout_reported: {type: boolean}
+                        infrastructure_requeued: {type: integer, minimum: 0}
+                        infrastructure_requeues_total: {type: integer, minimum: 0}
+                    columns:
+                      type: array
+                      items: {type: string, enum: [instance_id, outcome, score, metrics]}
+                    metric_keys: {type: array, items: {type: string}}
+                    constant_metrics: {type: object, additionalProperties: {type: [number, string]}}
+                    instances:
+                      type: array
+                      maxItems: 1024
+                      items:
+                        type: array
+                        minItems: 4
+                        maxItems: 4
+                        prefixItems:
+                        - {type: string}
+                        - {type: string, enum: [scored, policy_error, policy_timeout, failed, cancelled, pending, running]}
+                        - {type: [number, string, 'null']}
+                        - {type: array, items: {type: [number, string, 'null']}}
+                    next_cursor: {type: [string, 'null']}
+                    truncated: {type: boolean}
               example:
                 evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                 status: pending
@@ -6612,6 +6889,188 @@ components:
             type: string
         routing:
           $ref: '#/components/schemas/RoutingConstraints'
+        role_assignments:
+          type: object
+          minProperties: 1
+          maxProperties: 64
+          description: Per declared actor (getLaunchChoices roles) inference and sandbox choices. Requires
+            launch_menu_revision. An omitted actor or dimension takes its default; planner_decides leaves it for
+            the planner. Unknown actors, choices outside the menu, excluded choices and choices policy refuses are
+            refused before any hold. Not accepted with research profiles.
+          propertyNames:
+            pattern: ^[a-z][a-z0-9_]{0,63}$
+          additionalProperties:
+            $ref: '#/components/schemas/RoleAssignment'
+        launch_menu_revision:
+          type: string
+          pattern: ^lcm1_[0-9a-f]{64}$
+          description: getLaunchChoices menu_revision the choices were made against. A different current menu
+            is refused 409 launch_menu_revision_stale with current_revision. A replay with the same
+            Idempotency-Key and the same choices returns the accepted run; different choices are refused 422
+            idempotency_key_reused.
+    RoleAssignment:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        inference_profile:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        sandbox_profile:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        sandbox_option:
+          type: string
+          pattern: ^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$
+          description: An option id from the sandbox profile's options. Requires sandbox_profile.
+        planner_decides:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [inference, sandbox]
+    LaunchChoices:
+      type: object
+      additionalProperties: false
+      required: [menu_revision, run_profile, domicile_requirement, affordability, roles, inference_profiles, sandbox_profiles, exclusions]
+      properties:
+        menu_revision:
+          type: string
+          pattern: ^lcm1_[0-9a-f]{64}$
+        run_profile:
+          type: string
+        domicile_requirement:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+        affordability:
+          type: object
+          additionalProperties: false
+          required: [status, wall_time_seconds]
+          properties:
+            status:
+              type: string
+              enum: [evaluated, not_evaluated]
+            maximum_charge:
+              $ref: '#/components/schemas/Money'
+            wall_time_seconds:
+              type: integer
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceRole'
+        inference_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceInference'
+        sandbox_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceSandbox'
+        exclusions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceExclusion'
+    LaunchChoiceRole:
+      type: object
+      additionalProperties: false
+      required: [actor_id, role, default_inference_profile, default_sandbox_profile, planner_decides_allowed]
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+          enum: [planner, worker, reviewer, run_assessor]
+        default_inference_profile:
+          type: [string, 'null']
+        default_sandbox_profile:
+          type: [string, 'null']
+          description: null means the actor waits for the planner to assign its sandbox.
+        planner_decides_allowed:
+          type: boolean
+    LaunchChoiceInference:
+      type: object
+      additionalProperties: false
+      required: [profile_id, model, effort, profile_digest, context_window, maximum_output_tokens, per_call_spend_cap, input_price_per_million_tokens, cached_input_price_per_million_tokens, output_price_per_million_tokens]
+      properties:
+        profile_id:
+          type: string
+        model:
+          type: string
+        effort:
+          type: string
+        profile_digest:
+          type: string
+        context_window:
+          type: integer
+        maximum_output_tokens:
+          type: integer
+        per_call_spend_cap:
+          $ref: '#/components/schemas/Money'
+        input_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+        cached_input_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+        output_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+    LaunchChoiceSandbox:
+      type: object
+      additionalProperties: false
+      required: [profile_id, size_id, domicile, cpu_millis, memory_bytes, disk_bytes, hourly_price, option_required, options]
+      properties:
+        profile_id:
+          type: string
+        size_id:
+          type: string
+        domicile:
+          type: string
+          enum: [us, eu, local, unrestricted]
+        gpu_kind:
+          type: string
+        gpu_count:
+          type: integer
+        cpu_millis:
+          type: integer
+        memory_bytes:
+          type: integer
+        disk_bytes:
+          type: integer
+        hourly_price:
+          $ref: '#/components/schemas/Money'
+          description: The highest option price.
+        option_required:
+          type: boolean
+          description: More than one option serves this profile; a choice must name sandbox_option.
+        options:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [option_id, hourly_price]
+            properties:
+              option_id:
+                type: string
+                pattern: ^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$
+              hourly_price:
+                $ref: '#/components/schemas/Money'
+    LaunchChoiceExclusion:
+      type: object
+      additionalProperties: false
+      required: [kind, profile_id, cause, code]
+      properties:
+        kind:
+          type: string
+          enum: [inference, sandbox]
+        profile_id:
+          type: string
+        option_id:
+          type: string
+        cause:
+          type: string
+          enum: [locality, not_executable, affordability]
+        code:
+          type: string
     OwnerResourceRequest:
       type: object
       additionalProperties: false
@@ -8293,6 +8752,81 @@ components:
           $ref: '#/components/schemas/RunReward'
         timings:
           $ref: '#/components/schemas/RunTimings'
+    RunAllocation:
+      type: object
+      additionalProperties: false
+      required: [run_id, menu_revision, final, actors]
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        menu_revision:
+          type: [string, 'null']
+          description: The menu revision the launch named, or null.
+        final:
+          type: boolean
+        actors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunAllocationActor'
+    RunAllocationChoice:
+      type: object
+      additionalProperties: false
+      required: [state, source]
+      properties:
+        state:
+          type: string
+          enum: [assigned, planner_decides]
+        source:
+          type: string
+          enum: [explicit, default]
+        profile_id:
+          type: string
+        option_id:
+          type: string
+    RunAllocationActor:
+      type: object
+      additionalProperties: false
+      required: [actor_id, role, launch, placements, replacements, usage, compute_metering]
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+        launch:
+          type: object
+          additionalProperties: false
+          required: [inference, sandbox]
+          properties:
+            inference:
+              $ref: '#/components/schemas/RunAllocationChoice'
+            sandbox:
+              $ref: '#/components/schemas/RunAllocationChoice'
+        placements:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [assignment_generation, profile_id, profile_digest]
+            properties:
+              assignment_generation:
+                type: integer
+                minimum: 0
+              profile_id:
+                type: string
+              profile_digest:
+                type: string
+              option_id:
+                type: string
+        replacements:
+          type: integer
+          minimum: 0
+        usage:
+          $ref: '#/components/schemas/RunUsage'
+        compute_metering:
+          type: string
+          enum: [not_metered, pending, metered]
+        compute_charge:
+          $ref: '#/components/schemas/Money'
     RunOutput:
       type: object
       required:
@@ -10114,7 +10648,12 @@ components:
         remaining: {type: [integer, 'null'], minimum: 0}
         overshoot: {type: [integer, 'null'], minimum: 0}
         state: {type: string}
-        action: {type: string, enum: [notify, pause, stop]}
+        action:
+          type: string
+          enum: [notify, pause, stop, none]
+          description: What the program does when the meter reaches its cap. none is reported only for an
+            uncapped meter (state uncapped, effective_cap null), which no cap enforces; for example
+            planner_turns under actor limits, where spend binds the planner instead of turns.
       required: [dimension]
     ActorLimitsProgress:
       type: object

@@ -74,6 +74,35 @@ its approval. Every run retains its exact resolved profile in `run.profile`.
 New configurations are published profiles; arbitrary actor overrides are not
 part of the public API.
 
+Register evaluation inputs and run an evaluation with `client.evaluations`.
+A dataset holds 1 to 1024 instances with unique ids and seeds in `[0, 2^63)`;
+`register_dataset` checks this locally and sends nothing when it fails:
+
+```python
+from synth_ai.models import EvaluationEvaluationRequest
+
+with SynthClient() as client:
+    dataset = client.evaluations.register_dataset(
+        "craftax-256",
+        [{"id": f"episode-{i}", "seed": i, "inputs": {}} for i in range(256)],
+    )
+    request = EvaluationEvaluationRequest(
+        policy_revision_id=POLICY_REVISION,
+        evaluator_revision_id=EVALUATOR_REVISION,
+        dataset_revision_id=dataset.revision_id,
+        max_concurrency=8,
+    )
+    quote = client.evaluations.preflight(request, maximum_charge_micros=5_000_000)
+    evaluation = client.evaluations.create(request, maximum_charge_micros=5_000_000)
+    result = client.evaluations.wait(evaluation.evaluation_id)
+```
+
+`register(kind, payload)` registers a task, pool, policy or evaluator;
+`get_input(kind, revision_id)` and `list_inputs(kind)` read them back, and
+`get` and `cancel` act on an evaluation. `synth evaluations` exposes the same
+operations. [examples/customer_evaluation](examples/customer_evaluation/run.py)
+registers every input kind.
+
 See [Swarms](docs/swarms.md) for routing, lifecycle and transfer details.
 Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
 launch fields with `profile` and, for research profiles, `research_task`.
@@ -98,3 +127,5 @@ finality, load or capacity acceptance, and must not run automatically in CI with
 shared budget admission.
 
 Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.
+
+Evaluation operations use `client.evaluations` in the next SDK release. Older SDKs retain their installed `client.swarms` methods against the same public routes; the new namespace has no transport alias. `client.evaluations.rollouts(id, cursor=...)` returns a bounded page; `next_cursor=None` ends pagination.
