@@ -106,7 +106,7 @@ class Transport:
         operation_id: str,
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> BaseModel | bytes | None:
@@ -161,7 +161,7 @@ class Transport:
         model: type[T],
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> T:

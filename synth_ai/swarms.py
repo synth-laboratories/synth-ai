@@ -26,6 +26,7 @@ from ._generated.models import (
     File,
     FilePage,
     LaunchRequest,
+    ListEvaluationRolloutsResponse,
     Money,
     OutputPage,
     OwnerResourceRequest,
@@ -140,6 +141,21 @@ class AsyncSwarms:
     async def evaluation(self, evaluation_id: str) -> EvaluationResponse:
         return await self._transport.request(
             "getEvaluation", EvaluationResponse, path={"evaluation_id": evaluation_id}
+        )
+
+    async def evaluation_rollouts(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: str | None = None,
+        instance_ids: builtins.list[str] | None = None,
+    ) -> ListEvaluationRolloutsResponse:
+        """Read one bounded page of attested per-instance reports."""
+        return await self._transport.request(
+            "listEvaluationRollouts",
+            ListEvaluationRolloutsResponse,
+            path={"evaluation_id": evaluation_id},
+            query={"cursor": cursor, "instance_ids": instance_ids},
         )
 
     async def cancel_evaluation(

@@ -86,6 +86,11 @@ class EvaluationEvaluationRequestAggregation(StrEnum):
     MAX = "max"
 
 
+class EvaluationEvaluatorResultFormat(StrEnum):
+    SYNTH_EVALUATION_RESULT_V1 = "synth.evaluation-result.v1"
+    SYNTH_EVALUATION_RESULT_V2 = "synth.evaluation-result.v2"
+
+
 class EvaluationPoolProvider(StrEnum):
     MODAL = "modal"
     DOCKER = "docker"
@@ -108,6 +113,11 @@ class EvaluationResponseStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class EvaluationResultSchemaVersion(StrEnum):
+    SYNTH_EVALUATION_RESULT_V1 = "synth.evaluation-result.v1"
+    SYNTH_EVALUATION_RESULT_V2 = "synth.evaluation-result.v2"
 
 
 class EvaluationRevisionKind(StrEnum):
@@ -666,13 +676,11 @@ class EvaluationQuote(WireModel):
     ]
 
 
-class EvaluationResult(WireModel):
+class EvaluationResultReport0(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    schema_version: Literal["synth.evaluation-result.v1"] | None = None
-    score: float
-    metrics: dict[str, float] | None = None
+    truncated: bool
 
 
 class EvaluationRevisionSummary(WireModel):
@@ -806,6 +814,18 @@ class LimitRow(WireModel):
     cap: float | None
     current: float | None
     reset_at: str | None
+
+
+class ListEvaluationRolloutsResponse(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: str
+    attestation_digest: str | None
+    rollouts: list[dict[str, JsonValue]]
+    next_cursor: str | None
+    truncated: bool
 
 
 class Money(WireModel):
@@ -1566,7 +1586,29 @@ class EvaluationEvaluator(WireModel):
     limits: EvaluationLimits
     region: Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
     isolation: Literal["separate_container"] | None = None
-    result_format: Literal["synth.evaluation-result.v1"] | None = None
+    result_format: (
+        Annotated[
+            EvaluationEvaluatorResultFormat,
+            BeforeValidator(enum_value(EvaluationEvaluatorResultFormat)),
+        ]
+        | None
+    ) = None
+
+
+class EvaluationResult(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    report: EvaluationResultReport0 | None = None
+    schema_version: (
+        Annotated[
+            EvaluationResultSchemaVersion,
+            BeforeValidator(enum_value(EvaluationResultSchemaVersion)),
+        ]
+        | None
+    ) = None
+    score: float
+    metrics: dict[str, float] | None = None
 
 
 class EvaluationRevisionList(WireModel):
@@ -1574,19 +1616,6 @@ class EvaluationRevisionList(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     revisions: list[EvaluationRevisionSummary]
-
-
-class EvaluationRollout(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    ordinal: Annotated[int, Field(ge=0)]
-    instance_id: str
-    rollout_id: str | None
-    status: Annotated[EvaluationRolloutStatus, BeforeValidator(enum_value(EvaluationRolloutStatus))]
-    result: EvaluationResult | None
-    usage_fact_id: str | None
-    error_code: str | None
 
 
 class FilePage(WireModel):
@@ -2152,18 +2181,17 @@ EvaluationInput: TypeAlias = (
 )
 
 
-class EvaluationResponse(WireModel):
+class EvaluationRollout(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    evaluation_id: str
-    status: Annotated[
-        EvaluationResponseStatus, BeforeValidator(enum_value(EvaluationResponseStatus))
-    ]
-    request: EvaluationEvaluationRequest
-    rollouts: list[EvaluationRollout]
-    attestation: EvaluationAttestation | None
-    quote: EvaluationQuote | None = None
+    ordinal: Annotated[int, Field(ge=0)]
+    instance_id: str
+    rollout_id: str | None
+    status: Annotated[EvaluationRolloutStatus, BeforeValidator(enum_value(EvaluationRolloutStatus))]
+    result: EvaluationResult | None
+    usage_fact_id: str | None
+    error_code: str | None
 
 
 class FamilyList(WireModel):
@@ -2419,6 +2447,20 @@ class BillingHistoryPage(WireModel):
     items: list[BillingHistoryEntry]
 
 
+class EvaluationResponse(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    evaluation_id: str
+    status: Annotated[
+        EvaluationResponseStatus, BeforeValidator(enum_value(EvaluationResponseStatus))
+    ]
+    request: EvaluationEvaluationRequest
+    rollouts: list[EvaluationRollout]
+    attestation: EvaluationAttestation | None
+    quote: EvaluationQuote | None = None
+
+
 class EvaluationRevision(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2645,7 +2687,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationPolicy": EvaluationPolicy,
     "EvaluationPool": EvaluationPool,
     "EvaluationQuote": EvaluationQuote,
-    "EvaluationResult": EvaluationResult,
+    "EvaluationResultReport0": EvaluationResultReport0,
     "EvaluationRevisionSummary": EvaluationRevisionSummary,
     "EvaluationTask": EvaluationTask,
     "EvaluationTaskInstance": EvaluationTaskInstance,
@@ -2657,6 +2699,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Limit": Limit,
     "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
+    "ListEvaluationRolloutsResponse": ListEvaluationRolloutsResponse,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaim": ObjectiveClaim,
@@ -2718,8 +2761,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "CreateEvaluation": CreateEvaluation,
     "EvaluationDataset": EvaluationDataset,
     "EvaluationEvaluator": EvaluationEvaluator,
+    "EvaluationResult": EvaluationResult,
     "EvaluationRevisionList": EvaluationRevisionList,
-    "EvaluationRollout": EvaluationRollout,
     "FilePage": FilePage,
     "LimitList": LimitList,
     "Limits": Limits,
@@ -2765,7 +2808,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "AutoReloadDisclosure": AutoReloadDisclosure,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
-    "EvaluationResponse": EvaluationResponse,
+    "EvaluationRollout": EvaluationRollout,
     "FamilyList": FamilyList,
     "LaunchRequest": LaunchRequest,
     "OutputPage": OutputPage,
@@ -2784,6 +2827,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummaryBySource": UsageSummaryBySource,
     "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
+    "EvaluationResponse": EvaluationResponse,
     "EvaluationRevision": EvaluationRevision,
     "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,

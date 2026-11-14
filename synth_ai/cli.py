@@ -205,9 +205,12 @@ def parser() -> argparse.ArgumentParser:
         command = evaluation.add_parser(action, parents=[evaluation_common])
         command.add_argument("file")
         command.add_argument("--idempotency-key")
-    for action in ("get", "cancel", "wait"):
+    for action in ("get", "cancel", "wait", "rollouts"):
         command = evaluation.add_parser(action, parents=[evaluation_common])
         command.add_argument("evaluation_id")
+        if action == "rollouts":
+            command.add_argument("--cursor")
+            command.add_argument("--instance-id", action="append", dest="instance_ids")
         if action == "cancel":
             command.add_argument("--idempotency-key")
         if action == "wait":
@@ -454,6 +457,10 @@ async def execute_evaluation(swarms: AsyncSwarms, args: argparse.Namespace) -> B
             payload.request,
             maximum_charge_micros=payload.maximum_charge_micros,
             idempotency_key=args.idempotency_key,
+        )
+    if action == "rollouts":
+        return await swarms.evaluation_rollouts(
+            args.evaluation_id, cursor=args.cursor, instance_ids=args.instance_ids
         )
     if action == "cancel":
         return await swarms.cancel_evaluation(

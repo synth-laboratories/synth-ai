@@ -33,4 +33,5 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | preflight_evaluation | preflightEvaluation | swarms:run |
 | create_evaluation | createEvaluation | swarms:run |
 | get_evaluation | getEvaluation | swarms:read |
+| list_evaluation_rollouts | listEvaluationRollouts | swarms:read |
 | cancel_evaluation | cancelEvaluation | swarms:run |

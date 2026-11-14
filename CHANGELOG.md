@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Pin public contract 1.23.0 and expose bounded evaluation rollout reports through
+  `swarms.evaluation_rollouts`, `synth evaluations rollouts` and MCP tool.
+- Preserve opaque pagination cursors, repeated instance filters and v2 report data.
+
+
 ## 0.40.0
 
 - Pin Core public contract 1.19.0 (Core `a5391bdf`; spec SHA-256 `5f9d5f70…73a6`). Pool grants may name up to eight registered evaluator templates (`evaluation_templates`, `sha256:` digests); a grant that names templates carries an empty `selection`. Exposed in the generated models and MCP pool tools.

@@ -628,3 +628,24 @@ def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path
         assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
         assert f"idempotency_key={key}" in err
     assert all(oid != "createRun" for oid, _ in api.calls)
+
+
+def test_evaluation_rollout_page_cli(api, capsys, contract):
+    status, body = example(contract, "listEvaluationRollouts")
+    api.overrides["listEvaluationRollouts"] = (status, body)
+    code, out, err = invoke(
+        api,
+        capsys,
+        "evaluations",
+        "rollouts",
+        "eval_one",
+        "--cursor",
+        "opaque",
+        "--instance-id",
+        "a",
+        "--instance-id",
+        "b",
+        "--json",
+    )
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["evaluation_id"] == body["evaluation_id"]

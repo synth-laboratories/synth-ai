@@ -32,6 +32,7 @@ from ._generated.models import (
     FilePage,
     LaunchRequest,
     LimitList,
+    ListEvaluationRolloutsResponse,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
@@ -130,6 +131,17 @@ class SwarmsClient:
 
     def evaluation(self, evaluation_id: str) -> EvaluationResponse:
         return self._runner.call(self._async.evaluation(evaluation_id))
+
+    def evaluation_rollouts(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: str | None = None,
+        instance_ids: builtins.list[str] | None = None,
+    ) -> ListEvaluationRolloutsResponse:
+        return self._runner.call(
+            self._async.evaluation_rollouts(evaluation_id, cursor=cursor, instance_ids=instance_ids)
+        )
 
     def cancel_evaluation(
         self, evaluation_id: str, *, idempotency_key: str | None = None

@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.22.0
+  version: 1.23.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -5069,6 +5069,69 @@ paths:
                 attestation: null
         default:
           $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations/{evaluation_id}/rollouts:
+    get:
+      operationId: listEvaluationRollouts
+      tags:
+      - evaluations
+      summary: Read a bounded page of attested rollout reports.
+      x-synth-scope: swarms:read
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: safe_read
+      x-synth-retry: safe_read
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: list_evaluation_rollouts
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 512
+      - name: instance_ids
+        in: query
+        style: form
+        explode: true
+        schema:
+          type: array
+          maxItems: 1024
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 128
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evaluation_id, status, attestation_digest, rollouts, next_cursor, truncated]
+                additionalProperties: false
+                properties:
+                  evaluation_id: {type: string}
+                  status: {type: string}
+                  attestation_digest: {type: [string, 'null']}
+                  rollouts:
+                    type: array
+                    items: {type: object, additionalProperties: true}
+                  next_cursor: {type: [string, 'null']}
+                  truncated: {type: boolean}
+              example:
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                status: pending
+                attestation_digest: null
+                rollouts: []
+                next_cursor: null
+                truncated: false
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
   /v1/evaluations/{evaluation_id}/cancel:
     post:
       operationId: cancelEvaluation
@@ -5534,7 +5597,7 @@ components:
           title: Isolation
           type: string
         result_format:
-          const: synth.evaluation-result.v1
+          enum: [synth.evaluation-result.v1, synth.evaluation-result.v2]
           default: synth.evaluation-result.v1
           title: Result Format
           type: string
@@ -5709,9 +5772,19 @@ components:
       type: object
     EvaluationResult:
       additionalProperties: false
+      description: V2 optionally carries a canonical JSON report of at most 2048 UTF-8 bytes, including a required truncated boolean. Reports are covered by execution evidence and the evaluation attestation.
       properties:
+        report:
+          anyOf:
+          - type: object
+            required: [truncated]
+            properties:
+              truncated: {type: boolean}
+            additionalProperties: true
+          - type: 'null'
+          default: null
         schema_version:
-          const: synth.evaluation-result.v1
+          enum: [synth.evaluation-result.v1, synth.evaluation-result.v2]
           default: synth.evaluation-result.v1
           title: Schema Version
           type: string
