@@ -216,6 +216,47 @@ TOOLS: list[ToolDefinition] = [
                             "type": ["object", "null"],
                         },
                         "labels": {"additionalProperties": {"type": "string"}, "type": "object"},
+                        "launch_menu_revision": {
+                            "description": "getLaunchChoices "
+                            "menu_revision "
+                            "the "
+                            "choices "
+                            "were "
+                            "made "
+                            "against. "
+                            "A "
+                            "different "
+                            "current "
+                            "menu "
+                            "is "
+                            "refused "
+                            "409 "
+                            "launch_menu_revision_stale "
+                            "with "
+                            "current_revision. "
+                            "A "
+                            "replay "
+                            "with "
+                            "the "
+                            "same "
+                            "Idempotency-Key "
+                            "and "
+                            "the "
+                            "same "
+                            "choices "
+                            "returns "
+                            "the "
+                            "accepted "
+                            "run; "
+                            "different "
+                            "choices "
+                            "are "
+                            "refused "
+                            "422 "
+                            "idempotency_key_reused.",
+                            "pattern": "^lcm1_[0-9a-f]{64}$",
+                            "type": "string",
+                        },
                         "limits": {
                             "additionalProperties": False,
                             "description": "An explicit "
@@ -572,6 +613,98 @@ TOOLS: list[ToolDefinition] = [
                             "maxItems": 8,
                             "type": "array",
                         },
+                        "role_assignments": {
+                            "additionalProperties": {
+                                "additionalProperties": False,
+                                "minProperties": 1,
+                                "properties": {
+                                    "inference_profile": {
+                                        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                                        "type": "string",
+                                    },
+                                    "planner_decides": {
+                                        "items": {
+                                            "enum": ["inference", "sandbox"],
+                                            "type": "string",
+                                        },
+                                        "maxItems": 2,
+                                        "minItems": 1,
+                                        "type": "array",
+                                        "uniqueItems": True,
+                                    },
+                                    "sandbox_option": {
+                                        "description": "An "
+                                        "option "
+                                        "id "
+                                        "from "
+                                        "the "
+                                        "sandbox "
+                                        "profile's "
+                                        "options. "
+                                        "Requires "
+                                        "sandbox_profile.",
+                                        "pattern": "^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$",
+                                        "type": "string",
+                                    },
+                                    "sandbox_profile": {
+                                        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+                                        "type": "string",
+                                    },
+                                },
+                                "type": "object",
+                            },
+                            "description": "Per "
+                            "declared "
+                            "actor "
+                            "(getLaunchChoices "
+                            "roles) "
+                            "inference "
+                            "and "
+                            "sandbox "
+                            "choices. "
+                            "Requires "
+                            "launch_menu_revision. "
+                            "An "
+                            "omitted "
+                            "actor "
+                            "or "
+                            "dimension "
+                            "takes "
+                            "its "
+                            "default; "
+                            "planner_decides "
+                            "leaves "
+                            "it "
+                            "for "
+                            "the "
+                            "planner. "
+                            "Unknown "
+                            "actors, "
+                            "choices "
+                            "outside "
+                            "the "
+                            "menu, "
+                            "excluded "
+                            "choices "
+                            "and "
+                            "choices "
+                            "policy "
+                            "refuses "
+                            "are "
+                            "refused "
+                            "before "
+                            "any "
+                            "hold. "
+                            "Not "
+                            "accepted "
+                            "with "
+                            "research "
+                            "profiles.",
+                            "maxProperties": 64,
+                            "minProperties": 1,
+                            "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,63}$"},
+                            "type": "object",
+                        },
                         "routing": {
                             "additionalProperties": False,
                             "description": "Unordered "
@@ -806,6 +939,24 @@ TOOLS: list[ToolDefinition] = [
         "scope": "swarms:read",
     },
     {
+        "description": "Per-actor inference and sandbox allocation, usage and charge.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "run_id": {
+                    "examples": ["run_AAAAAAAAAAAAAAAAAAAAAA"],
+                    "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                    "type": "string",
+                }
+            },
+            "required": ["run_id"],
+            "type": "object",
+        },
+        "name": "swarms_run_allocation",
+        "operationId": "getRunAllocation",
+        "scope": "swarms:read",
+    },
+    {
         "description": "A run's outputs.",
         "inputSchema": {
             "additionalProperties": False,
@@ -864,6 +1015,30 @@ TOOLS: list[ToolDefinition] = [
         },
         "name": "swarms_run_result",
         "operationId": "getRunResult",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Inference and sandbox choices for each role of a prospective launch.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "domicile_requirement": {
+                    "enum": ["us_only", "us_or_europe", "unrestricted"],
+                    "type": "string",
+                },
+                "maximum_charge": {
+                    "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$",
+                    "type": "string",
+                },
+                "parallel_workers": {"minimum": 1, "type": "integer"},
+                "profile": {"maxLength": 128, "minLength": 1, "type": "string"},
+                "wall_time_seconds": {"minimum": 1, "type": "integer"},
+            },
+            "required": [],
+            "type": "object",
+        },
+        "name": "swarms_launch_choices",
+        "operationId": "getLaunchChoices",
         "scope": "swarms:read",
     },
     {
@@ -1642,6 +1817,7 @@ TOOLS: list[ToolDefinition] = [
                     "type": "array",
                     "uniqueItems": True,
                 },
+                "view": {"default": "detail", "enum": ["detail", "summary"], "type": "string"},
             },
             "required": ["evaluation_id"],
             "type": "object",

@@ -10,8 +10,9 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | | `synth whoami` | `Account` |
 | | `synth logout` | `AuthStatus` |
 | Discover | `synth profiles [--research-task T]` | `RunProfileCatalog` |
+| | `synth choices [--profile P] [--domicile D] [--parallel-workers N] [--wall SECONDS] [--budget 2.00]` | `LaunchChoices` |
 | Inputs | `synth upload PATH...` | array of `File` |
-| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--parallel-workers N (1..10)] [--label k=v ...] [--idempotency-key KEY] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
+| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--parallel-workers N (1..10)] [--label k=v ...] [--assign ACTOR.inference\|sandbox\|option=ID ... --menu-revision R] [--planner-decides ACTOR.inference\|sandbox ...] [--idempotency-key KEY] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
 | Watch | `synth status RUN` | `RunSnapshot` |
 | | `synth wait RUN [--timeout S]` | `RunSnapshot` |
 | | `synth logs RUN [-f] [--limit N] [--cursor C]` | `EventPage`; with `-f`, one `RunEvent` per line |
@@ -22,6 +23,7 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | Collect | `synth outputs RUN [--limit N] [--cursor C]` | `OutputPage` |
 | | `synth download RUN [OUTPUT] [-o DIR]` | array of `{output, path}` |
 | | `synth report RUN` | `RunReport` |
+| | `synth allocation RUN` | `RunAllocation` |
 | | `synth result RUN` | `RunResult` as `{run, state, answer, answer_output, objective_answer, charge}`; human output is the answer text (a text output, or an objective answer's text), then the charge line |
 | Account | `synth usage` | `UsageSummary` |
 | | `synth usage RUN` | `UsageRecordPage` |
@@ -46,6 +48,22 @@ When Core reports the run's charge, stderr gets one line, `charge  AMOUNT USD (f
 or `(not final)`; usage still settling can raise a charge that is not final.
 `--json` carries it as `charge`. It never waits; on an unfinished run it
 exits 1 with `result_unavailable`. See [errors.md](errors.md) for every code.
+
+`synth choices` reads the per-role menu a launch with the same profile,
+domicile, worker count and wall time admits: each declared actor with its
+default inference and sandbox profile, the selectable inference and sandbox
+profiles with prices, and the exclusions with a cause (`locality`,
+`not_executable`, or `affordability` when `--budget` is given). Choose with
+`synth run ... --menu-revision R --assign worker.inference=luna-high
+--assign worker.sandbox=8vcpu-16gib-us --assign worker.option=sbo1_...`
+(an option is required only where the menu says so) and
+`--planner-decides worker_2.sandbox` to leave a worker's choice to the planner.
+Unnamed actors keep their defaults. A launch against a menu that has since
+changed is refused with `launch_menu_revision_stale` and the current revision.
+
+`synth allocation RUN` shows each actor's launch choice (explicit or default),
+every frozen placement including the planner's replacements, usage and compute
+charge, and whether the run is final.
 
 `synth login --no-browser` prints the authorization URL to stderr and reads the
 redirect URL that the browser reached (`http://127.0.0.1:PORT/callback?...`) from

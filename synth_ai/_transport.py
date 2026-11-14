@@ -12,7 +12,7 @@ from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
-from pydantic import BaseModel, JsonValue, ValidationError
+from pydantic import BaseModel, JsonValue, RootModel, ValidationError
 
 from ._event_stream import decode_events, validate_stream_response
 from ._file_source import FileIO
@@ -106,7 +106,7 @@ class Transport:
         operation_id: str,
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> BaseModel | bytes | None:
@@ -161,13 +161,16 @@ class Transport:
         model: type[T],
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> T:
         result = await self.invoke(
             operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
         )
+        if isinstance(result, RootModel) and not isinstance(result, model):
+            # A read that answers one of several views: the caller names its view.
+            result = result.root
         if not isinstance(result, model):
             raise SynthError("Unexpected response model for " + operation_id)
         return result

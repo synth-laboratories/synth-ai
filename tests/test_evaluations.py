@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from synth_ai import AsyncSynthClient, SynthClient
+from synth_ai.errors import SynthError
 from synth_ai.models import EvaluationEvaluationRequest, EvaluationResponse, EvaluationTaskInstance
 
 REVISION = "sha256:" + "a" * 64
@@ -169,3 +170,44 @@ async def test_rollout_pages_use_the_generated_scope_and_wire_names():
     assert calls[0].url.path == "/v1/evaluations/eval_fixture/rollouts"
     assert calls[0].url.params.get_list("instance_ids") == ["episode-a", "episode-b"]
     assert calls[0].url.params["cursor"] == "original"
+
+
+async def test_rollout_summary_reads_the_summary_view():
+    calls = []
+    summary = {
+        "evaluation_id": "eval_fixture",
+        "status": "completed",
+        "view": "summary",
+        "attestation_digest": None,
+        "outcome_counts": {
+            "total": 1,
+            "by_status": {"scored": 1},
+            "by_error_code": {},
+            "policy_error": 0,
+            "policy_timeout": 0,
+            "policy_timeout_reported": True,
+            "infrastructure_requeued": 0,
+            "infrastructure_requeues_total": 0,
+        },
+        "columns": ["instance_id", "outcome", "score", "metrics"],
+        "metric_keys": ["steps"],
+        "constant_metrics": {},
+        "instances": [["episode-a", "scored", 0.5, [12]]],
+        "next_cursor": None,
+        "truncated": False,
+    }
+
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(200, json=summary)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as api:
+            result = await api.evaluations.rollout_summary("eval_fixture")
+            assert result.outcome_counts.total == 1 and result.instances[0][0] == "episode-a"
+            assert calls[0].url.params["view"] == "summary"
+            # The detail read refuses a summary body rather than guessing.
+            with pytest.raises(SynthError):
+                await api.evaluations.rollouts("eval_fixture")

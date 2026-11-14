@@ -15,12 +15,15 @@ from ._generated.models import (
     FamilyList,
     File,
     FilePage,
+    LaunchChoices,
     LaunchRequest,
     Money,
     OutputPage,
     OwnerResourceRequest,
+    RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
+    RunAllocation,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -82,6 +85,8 @@ class AsyncSwarms:
         research_task: str | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         request = launch_request(
@@ -101,6 +106,8 @@ class AsyncSwarms:
             guidance=guidance,
             profile_requirements=self._profile_requirements,
             default_profile=self._default_profile,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -132,6 +139,8 @@ class AsyncSwarms:
         resources: builtins.list[OwnerResourceRequest] | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         validate_wait(timeout, poll_interval, until)
@@ -150,6 +159,8 @@ class AsyncSwarms:
             resources=resources,
             routing=routing,
             guidance=guidance,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
             idempotency_key=idempotency_key,
         )
         return await self.wait(
@@ -352,6 +363,12 @@ class AsyncSwarms:
     async def report(self, run_id: str) -> RunReport:
         return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
+    async def allocation(self, run_id: str) -> RunAllocation:
+        """Per-actor choices, placements (replacements included), usage and charge."""
+        return await self._transport.request(
+            "getRunAllocation", RunAllocation, path={"run_id": run_id}
+        )
+
     async def tasks(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> RunTaskPage:
@@ -481,6 +498,32 @@ class AsyncSwarms:
         if catalog.routing is None:
             raise ValueError("Server does not expose a routing catalog")
         return catalog.routing
+
+    async def launch_choices(
+        self,
+        *,
+        profile: str | None = None,
+        domicile_requirement: DomicileRequirement | None = None,
+        parallel_workers: int | None = None,
+        wall_time_seconds: int | None = None,
+        budget: str | Decimal | None = None,
+    ) -> LaunchChoices:
+        """The per-role menu a launch with these fields admits, and its revision.
+
+        Pass the returned menu_revision as launch_menu_revision with role_assignments.
+        With a budget, choices it cannot afford are listed as exclusions.
+        """
+        return await self._transport.request(
+            "getLaunchChoices",
+            LaunchChoices,
+            query={
+                "profile": profile,
+                "domicile_requirement": domicile_requirement,
+                "parallel_workers": parallel_workers,
+                "wall_time_seconds": wall_time_seconds,
+                "maximum_charge": format(Decimal(budget), "f") if budget is not None else None,
+            },
+        )
 
     async def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
         catalog = await self._transport.request(

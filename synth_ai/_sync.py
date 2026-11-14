@@ -27,14 +27,16 @@ from ._generated.models import (
     EvaluationResponse,
     EvaluationRevision,
     EvaluationRevisionList,
+    EvaluationRolloutPage,
+    EvaluationRolloutSummary,
     EvaluationTaskInstance,
     EventPage,
     FamilyList,
     File,
     FilePage,
+    LaunchChoices,
     LaunchRequest,
     LimitList,
-    ListEvaluationRolloutsResponse,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
@@ -42,8 +44,10 @@ from ._generated.models import (
     OwnerResourceRequest,
     PaymentMethodSession,
     PlanCatalog,
+    RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
+    RunAllocation,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -102,6 +106,8 @@ class SwarmsClient:
         research_task: str | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
@@ -120,6 +126,8 @@ class SwarmsClient:
                 research_task=research_task,
                 routing=routing,
                 guidance=guidance,
+                role_assignments=role_assignments,
+                launch_menu_revision=launch_menu_revision,
                 idempotency_key=idempotency_key,
             )
         )
@@ -152,6 +160,8 @@ class SwarmsClient:
         resources: builtins.list[OwnerResourceRequest] | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
@@ -174,6 +184,8 @@ class SwarmsClient:
                 resources=resources,
                 routing=routing,
                 guidance=guidance,
+                role_assignments=role_assignments,
+                launch_menu_revision=launch_menu_revision,
                 idempotency_key=idempotency_key,
             )
         )
@@ -328,6 +340,9 @@ class SwarmsClient:
     def report(self, run_id: str) -> RunReport:
         return self._runner.call(self._async.report(run_id))
 
+    def allocation(self, run_id: str) -> RunAllocation:
+        return self._runner.call(self._async.allocation(run_id))
+
     def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
         return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
 
@@ -402,6 +417,25 @@ class SwarmsClient:
 
     def routing_catalog(self) -> RoutingCatalog:
         return self._runner.call(self._async.routing_catalog())
+
+    def launch_choices(
+        self,
+        *,
+        profile: str | None = None,
+        domicile_requirement: DomicileRequirement | None = None,
+        parallel_workers: int | None = None,
+        wall_time_seconds: int | None = None,
+        budget: str | Decimal | None = None,
+    ) -> LaunchChoices:
+        return self._runner.call(
+            self._async.launch_choices(
+                profile=profile,
+                domicile_requirement=domicile_requirement,
+                parallel_workers=parallel_workers,
+                wall_time_seconds=wall_time_seconds,
+                budget=budget,
+            )
+        )
 
     def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
         return self._runner.call(self._async.profiles(research_task=research_task))
@@ -755,9 +789,20 @@ class EvaluationsClient:
         *,
         cursor: str | None = None,
         instance_ids: Sequence[str] | None = None,
-    ) -> ListEvaluationRolloutsResponse:
+    ) -> EvaluationRolloutPage:
         return self._runner.call(
             self._async.rollouts(evaluation_id, cursor=cursor, instance_ids=instance_ids)
+        )
+
+    def rollout_summary(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: str | None = None,
+        instance_ids: Sequence[str] | None = None,
+    ) -> EvaluationRolloutSummary:
+        return self._runner.call(
+            self._async.rollout_summary(evaluation_id, cursor=cursor, instance_ids=instance_ids)
         )
 
     def cancel(

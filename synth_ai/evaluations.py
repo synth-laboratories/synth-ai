@@ -19,8 +19,9 @@ from ._generated.models import (
     EvaluationResponse,
     EvaluationRevision,
     EvaluationRevisionList,
+    EvaluationRolloutPage,
+    EvaluationRolloutSummary,
     EvaluationTaskInstance,
-    ListEvaluationRolloutsResponse,
 )
 from ._transport import Transport
 
@@ -139,14 +140,33 @@ class AsyncEvaluations:
         *,
         cursor: str | None = None,
         instance_ids: Sequence[str] | None = None,
-    ) -> ListEvaluationRolloutsResponse:
+    ) -> EvaluationRolloutPage:
         """Read one bounded page of attested rollout reports; follow next_cursor."""
         return await self._transport.request(
             "listEvaluationRollouts",
-            ListEvaluationRolloutsResponse,
+            EvaluationRolloutPage,
             path={"evaluation_id": evaluation_id},
             query={
                 "cursor": cursor,
+                "instance_ids": list(instance_ids) if instance_ids is not None else None,
+            },
+        )
+
+    async def rollout_summary(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: str | None = None,
+        instance_ids: Sequence[str] | None = None,
+    ) -> EvaluationRolloutSummary:
+        """Read one compact row per instance with outcome counts; follow next_cursor."""
+        return await self._transport.request(
+            "listEvaluationRollouts",
+            EvaluationRolloutSummary,
+            path={"evaluation_id": evaluation_id},
+            query={
+                "cursor": cursor,
+                "view": "summary",
                 "instance_ids": list(instance_ids) if instance_ids is not None else None,
             },
         )

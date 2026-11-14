@@ -17,10 +17,13 @@ from ._generated.models import (
     Balance,
     EventPage,
     File,
+    LaunchChoices,
     LimitList,
     LimitMeter,
     Money,
     OutputPage,
+    RunAllocation,
+    RunAllocationChoice,
     RunCharge,
     RunControlReceipt,
     RunEvent,
@@ -134,6 +137,97 @@ def files(value: Sequence[File]) -> str:
 
 def saved(value: Sequence[SavedOutput]) -> str:
     return table(["OUTPUT", "PATH"], [[s.output.output_id, s.path] for s in value])
+
+
+def launch_choices(value: LaunchChoices) -> str:
+    text = facts(
+        [
+            ("menu revision", value.menu_revision),
+            ("run profile", value.run_profile),
+            ("domicile", value.domicile_requirement.value),
+            ("affordability", value.affordability.status.value),
+        ]
+    )
+    text += "\n\n" + table(
+        ["ACTOR", "ROLE", "DEFAULT INFERENCE", "DEFAULT SANDBOX", "PLANNER MAY DECIDE"],
+        [
+            [
+                r.actor_id,
+                r.role.value,
+                r.default_inference_profile,
+                r.default_sandbox_profile or "planner decides",
+                "yes" if r.planner_decides_allowed else "no",
+            ]
+            for r in value.roles
+        ],
+    )
+    text += "\n\n" + table(
+        ["INFERENCE", "MODEL", "EFFORT", "INPUT /1M", "OUTPUT /1M", "PER CALL CAP"],
+        [
+            [
+                p.profile_id,
+                p.model,
+                p.effort,
+                money(p.input_price_per_million_tokens),
+                money(p.output_price_per_million_tokens),
+                money(p.per_call_spend_cap),
+            ]
+            for p in value.inference_profiles
+        ],
+    )
+    text += "\n\n" + table(
+        ["SANDBOX", "SIZE", "DOMICILE", "HOURLY", "OPTIONS"],
+        [
+            [
+                s.profile_id,
+                s.size_id,
+                s.domicile.value,
+                money(s.hourly_price),
+                ("choose one of " if s.option_required else "") + str(len(s.options)),
+            ]
+            for s in value.sandbox_profiles
+        ],
+    )
+    if value.exclusions:
+        text += "\n\n" + table(
+            ["EXCLUDED", "KIND", "OPTION", "CAUSE"],
+            [[e.profile_id, e.kind.value, e.option_id, e.cause.value] for e in value.exclusions],
+        )
+    return text
+
+
+def _choice(value: RunAllocationChoice) -> str:
+    chosen = "planner decides" if value.profile_id is None else value.profile_id
+    return chosen + " (" + value.source.value + ")"
+
+
+def allocation(value: RunAllocation) -> str:
+    text = facts(
+        [
+            ("run", value.run_id),
+            ("menu revision", value.menu_revision),
+            ("final", "yes" if value.final else "no"),
+        ]
+    )
+    if value.actors:
+        text += "\n\n" + table(
+            ["ACTOR", "INFERENCE", "SANDBOX", "PLACED", "REPLACED", "CALLS", "COMPUTE"],
+            [
+                [
+                    a.actor_id,
+                    _choice(a.launch.inference),
+                    _choice(a.launch.sandbox),
+                    a.placements[-1].profile_id if a.placements else None,
+                    a.replacements,
+                    a.usage.calls,
+                    money(a.compute_charge)
+                    if a.compute_charge is not None
+                    else a.compute_metering.value,
+                ]
+                for a in value.actors
+            ],
+        )
+    return text
 
 
 def report(value: RunReport) -> str:

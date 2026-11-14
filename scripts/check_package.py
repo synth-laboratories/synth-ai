@@ -23,8 +23,10 @@ source_bytes = sum(
 )
 require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
 # 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
+# Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
+# it to about 414 KiB: two operations' generated models, MCP tools and CLI views.
 # The bound catches an accidental vendored tree, not ordinary growth.
-require(source_bytes < 400 * 1024, "package acceptance invariant failed")
+require(source_bytes < 448 * 1024, "package acceptance invariant failed")
 with zipfile.ZipFile(wheel) as archive:
     require("synth_ai/py.typed" in archive.namelist(), "wheel must ship PEP 561 types")
     require(

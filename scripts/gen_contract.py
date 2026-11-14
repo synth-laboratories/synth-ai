@@ -143,6 +143,14 @@ def select_sdk_schemas(schemas: Mapping[str, JSONObject], roots: set[str]) -> di
     return {name: schema for name, schema in schemas.items() if name in keep}
 
 
+# A read whose response is a oneOf of alternative views names each view here;
+# the operation's response model is the union, and SDK methods read one view.
+inline_names_for_views = {
+    "ListEvaluationRolloutsResponse0": "EvaluationRolloutPage",
+    "ListEvaluationRolloutsResponse1": "EvaluationRolloutSummary",
+}
+
+
 def generate() -> dict[Path, str]:
     pin = tomllib.loads((ROOT / "contracts/SOURCE.toml").read_text())
     if pin["sha256"] != hashlib.sha256(SPEC.read_bytes()).hexdigest():
@@ -203,9 +211,18 @@ def generate() -> dict[Path, str]:
                     if "application/json" in content:
                         schema = content.object("application/json").object("schema")
                         branches = schema.object_array("oneOf", optional=True)
-                        if branches:  # A ref or null: the operation answers `null` for none.
-                            refs = [b for b in branches if "$ref" in b]
-                            nulls = [b for b in branches if b.get("type") == "null"]
+                        refs = [b for b in branches if "$ref" in b]
+                        nulls = [b for b in branches if b.get("type") == "null"]
+                        views = [b for b in branches if b.get("type") == "object"]
+                        if branches and len(views) == len(branches) >= 2:
+                            # Alternative views of one read: a union of named branch models.
+                            if not all(
+                                oid[0].upper() + oid[1:] + "Response" + str(i)
+                                in inline_names_for_views
+                                for i in range(len(views))
+                            ):
+                                raise ValueError(oid + ": name every view of its oneOf response")
+                        elif branches:  # A ref or null: the operation answers `null` for none.
                             if len(refs) != 1 or len(nulls) != 1 or len(branches) != 2:
                                 raise ValueError(oid + ": unsupported oneOf response")
                             schema, nullable = refs[0], True
@@ -266,6 +283,7 @@ def generate() -> dict[Path, str]:
         return schema
 
     inline_names = {
+        **inline_names_for_views,
         "LaunchRequestInputs": "RunInputs",
         "RunInputsFilesItem": "InputFile",
         "UploadPut": "UploadGrant",
