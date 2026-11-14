@@ -46,7 +46,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": None,
         "response_model": "EvaluationResponse",
-        "retry": "same_key",
+        "retry": "deduplicated",
         "scope": "swarms:run",
     },
     "cancelRun": {
@@ -136,7 +136,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "CreateEvaluation",
         "response_model": "EvaluationResponse",
-        "retry": "same_key",
+        "retry": "deduplicated",
         "scope": "swarms:run",
     },
     "createPaymentMethodSession": {
@@ -817,7 +817,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "CreateEvaluation",
         "response_model": "EvaluationQuote",
-        "retry": "same_key",
+        "retry": "deduplicated",
         "scope": "swarms:run",
     },
     "previewSubscriptionChange": {
@@ -847,7 +847,7 @@ OPERATIONS: dict[str, Operation] = {
         "query_params": [],
         "request_model": "EvaluationInput",
         "response_model": "EvaluationRevision",
-        "retry": "same_key",
+        "retry": "deduplicated",
         "scope": "swarms:run",
     },
     "resumeRun": {

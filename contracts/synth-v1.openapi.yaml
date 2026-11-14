@@ -4885,11 +4885,11 @@ paths:
       tags:
       - swarms
       operationId: getRunLimits
-      x-synth-mcp-name: swarms_run_limits
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_limits
       summary: Read authoritative run limits and usage.
       x-synth-status: implemented
       x-synth-owner: SYN-5591
@@ -4925,11 +4925,11 @@ paths:
     post:
       tags: [swarms]
       operationId: updateRunLimits
-      x-synth-mcp-name: swarms_run_limits_update
       x-synth-scope: "swarms:run"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_run_limits_update
       summary: Change a live run's limits.
       x-synth-status: implemented
       x-synth-owner: SYN-5601
@@ -5009,16 +5009,16 @@ paths:
   /v1/evaluation-inputs/{kind}:
     post:
       operationId: registerEvaluationInput
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       tags:
       - evaluations
       summary: Register an immutable evaluation input.
-      x-synth-scope: swarms:run
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
       x-synth-mcp-name: register_evaluation_input
       parameters:
       - name: kind
@@ -5063,16 +5063,16 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
     get:
       operationId: listEvaluationInputs
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       tags:
       - evaluations
       summary: List registered evaluation inputs.
-      x-synth-scope: swarms:read
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
       x-synth-mcp-name: list_evaluation_inputs
       parameters:
       - name: kind
@@ -5105,16 +5105,16 @@ paths:
   /v1/evaluation-inputs/{kind}/{revision_id}:
     get:
       operationId: getEvaluationInput
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       tags:
       - evaluations
       summary: Read an immutable evaluation input.
-      x-synth-scope: swarms:read
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
       x-synth-mcp-name: get_evaluation_input
       parameters:
       - name: kind
@@ -5158,16 +5158,16 @@ paths:
   /v1/evaluations/preflight:
     post:
       operationId: preflightEvaluation
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       tags:
       - evaluations
       summary: Quote evaluation resources and maximum charge.
-      x-synth-scope: swarms:run
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
       x-synth-mcp-name: preflight_evaluation
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -5197,16 +5197,16 @@ paths:
   /v1/evaluations:
     post:
       operationId: createEvaluation
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "owner_key"
+      x-synth-idempotency-key: true
       tags:
       - evaluations
       summary: Reserve a budget and start an evaluation.
-      x-synth-scope: swarms:run
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: owner_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
       x-synth-mcp-name: create_evaluation
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -5256,16 +5256,16 @@ paths:
   /v1/evaluations/{evaluation_id}:
     get:
       operationId: getEvaluation
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       tags:
       - evaluations
       summary: Read evaluation progress and signed results.
-      x-synth-scope: swarms:read
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
       x-synth-mcp-name: get_evaluation
       parameters:
       - name: evaluation_id
@@ -5296,16 +5296,16 @@ paths:
   /v1/evaluations/{evaluation_id}/rollouts:
     get:
       operationId: listEvaluationRollouts
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       tags:
       - evaluations
       summary: Read a bounded page of attested rollout reports.
-      x-synth-scope: swarms:read
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
       x-synth-mcp-name: list_evaluation_rollouts
       parameters:
       - name: evaluation_id
@@ -5412,16 +5412,16 @@ paths:
   /v1/evaluations/{evaluation_id}/cancel:
     post:
       operationId: cancelEvaluation
+      x-synth-scope: "swarms:run"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
       tags:
       - evaluations
       summary: Cancel an evaluation and reconcile its compute.
-      x-synth-scope: swarms:run
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
       x-synth-mcp-name: cancel_evaluation
       parameters:
       - name: evaluation_id

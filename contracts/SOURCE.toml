@@ -1,7 +1,4 @@
-# PROVISIONAL (merge train 2026-11-14): these bytes are provider allocation 92b8ee80 (1.26.0) plus the
-# 1 MiB launch message limit, numbered 1.27.0. No backend commit serves them yet. Repin commit and
-# sha256 from the integrated synth-backend and regenerate before any release.
 repository = "https://github.com/synth-laboratories/synth-backend"
 path = "contracts/public/synth-v1.openapi.yaml"
-commit = "92b8ee80ac199566e1db03721050aee17382b76e"
-sha256 = "780d33e6ed930a5fb3866c7d5325e222e5bbc96270ba48ca1cc45997e2ec6b8c"
+commit = "4249be323d4a1d48ad1ce976da6054d033114979"
+sha256 = "178f1ed764fe11cc95502f44ad35c18b98ba7d1bcb0e80d7a8e28b798ab83427"
