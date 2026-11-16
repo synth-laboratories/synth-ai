@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.27.0
+  version: 1.28.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4535,7 +4535,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
-      summary: Upload a text, Markdown or JSON file (up to 32 KiB inline).
+      summary: Upload a file inline (up to 32 KiB). The name may be a relative path such as `src/main.py`.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
@@ -4552,8 +4552,8 @@ paths:
               additionalProperties: false
               required: [name, media_type, content]
               properties:
-                name: {type: string, minLength: 1, maxLength: 256}
-                media_type: {type: string, enum: [text/plain, text/markdown, application/json]}
+                name: {type: string, minLength: 1, maxLength: 1024, pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'}
+                media_type: {type: string, minLength: 1, maxLength: 255}
                 content: {type: string, maxLength: 32768}
       responses:
         '201':
@@ -6853,9 +6853,10 @@ components:
           properties:
             files:
               type: array
-              maxItems: 32
+              maxItems: 10000
               items:
                 type: object
+                additionalProperties: false
                 required:
                 - file_id
                 - revision_id
@@ -10538,17 +10539,16 @@ components:
         name:
           type: string
           minLength: 1
-          maxLength: 256
+          maxLength: 1024
+          pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'
         media_type:
           type: string
-          enum:
-          - text/plain
-          - text/markdown
-          - application/json
+          minLength: 1
+          maxLength: 255
         size_bytes:
           type: integer
           minimum: 0
-          maximum: 33554432
+          maximum: 16777216
         digest_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$

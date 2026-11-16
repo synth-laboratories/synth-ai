@@ -51,14 +51,9 @@ Problem `detail` states the minimum in micro-USD. Raise `budget` or lower
 | --- | --- | --- |
 | `upload_format_unsupported` | 422 | `UploadFormatUnsupportedError` |
 
-`upload_format_unsupported` (an `InvalidRequestError`): the media type is not
-an accepted upload format. Accepted formats are `text/plain`, `text/markdown`
-and `application/json` (`supported_formats` on the error). The SDK raises it
-before any request from `upload_file`, `upload_text`, `prepare_upload` and the
-stdio MCP upload tool (as an `isError` Problem), and maps the server's own 422
-to the same class. The CLI prints it like any refusal and exits 4. Convert the
-file to one of the accepted formats. Any other invalid stdio MCP tool input is
-`tool_arguments_invalid` (422, `InvalidRequestError`).
+`upload_format_unsupported` (an `InvalidRequestError`): the media type must be
+ASCII `type/subtype`, without whitespace, at most 255 bytes. Binary files are
+accepted; an unspecified file type uses `application/octet-stream`.
 
 All are `SwarmsAPIError` subclasses; the original Problem fields are preserved.
 The specialized admission classes also inherit their HTTP-status class.

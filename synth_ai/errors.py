@@ -11,7 +11,8 @@ if TYPE_CHECKING:
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem, ProblemOutcome, RunSnapshot, UploadFileRequestMediaType
+from ._generated.models import Problem, ProblemOutcome, RunSnapshot
+from ._limits import UPLOAD_MEDIA_TYPE_MAX_BYTES
 
 
 class ErrorKind(StrEnum):
@@ -48,9 +49,6 @@ class PaginationError(SynthError, ValueError):
     def __init__(self, message: str, *, cursor: str | None) -> None:
         super().__init__(message)
         self.cursor = cursor
-
-
-UPLOAD_FORMATS: tuple[str, ...] = tuple(m.value for m in UploadFileRequestMediaType)
 
 
 class SwarmsAPIError(SynthError):
@@ -150,11 +148,11 @@ class UpgradeRequiredError(SwarmsAPIError):
 class UploadFormatUnsupportedError(InvalidRequestError):
     """422 upload_format_unsupported: the media type is not an accepted upload format.
 
-    Raised by the SDK before any request for a format it knows Core refuses, and
-    mapped from the server's own refusal. `supported_formats` lists what is accepted.
+    Raised before transfer for a media type outside Core's bounded ASCII
+    type/subtype grammar. Binary media types are accepted.
     """
 
-    supported_formats: tuple[str, ...] = UPLOAD_FORMATS
+    maximum_media_type_bytes: ClassVar[int] = UPLOAD_MEDIA_TYPE_MAX_BYTES
 
 
 class LaunchBudgetBelowActorFloorError(InvalidRequestError):
@@ -381,15 +379,22 @@ def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupported
             "upload_format_unsupported",
             "upload",
             status=422,
-            detail=f"{media_type or 'This file type'} is not supported. Supported upload formats: "
-            + ", ".join(UPLOAD_FORMATS)
-            + ".",
+            detail=f"Media type must be ASCII type/subtype without whitespace, at most {UPLOAD_MEDIA_TYPE_MAX_BYTES} bytes.",
         )
     )
 
 
 def check_upload_format(media_type: str | None) -> str:
     """Return `media_type` when Core accepts it as an upload, else raise the typed refusal."""
-    if media_type is None or media_type not in UPLOAD_FORMATS:
+    if media_type is None:
+        raise upload_format_unsupported(media_type)
+    slash = media_type.find("/")
+    if (
+        not media_type
+        or len(media_type) > UPLOAD_MEDIA_TYPE_MAX_BYTES
+        or slash <= 0
+        or slash == len(media_type) - 1
+        or any(ord(character) <= 32 or ord(character) >= 127 for character in media_type)
+    ):
         raise upload_format_unsupported(media_type)
     return media_type

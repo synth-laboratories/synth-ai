@@ -557,18 +557,6 @@ class SubscriptionChangeRequestPlanId(StrEnum):
     MAX_MONTHLY = "max.monthly"
 
 
-class UploadCreateRequestMediaType(StrEnum):
-    TEXT_PLAIN = "text/plain"
-    TEXT_MARKDOWN = "text/markdown"
-    APPLICATION_JSON = "application/json"
-
-
-class UploadFileRequestMediaType(StrEnum):
-    TEXT_PLAIN = "text/plain"
-    TEXT_MARKDOWN = "text/markdown"
-    APPLICATION_JSON = "application/json"
-
-
 class UploadState(StrEnum):
     PENDING = "pending"
     COMMITTED = "committed"
@@ -854,7 +842,7 @@ class File(WireModel):
 
 class InputFile(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     file_id: str
     revision_id: str
@@ -1521,11 +1509,16 @@ class UploadCreateRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    media_type: Annotated[
-        UploadCreateRequestMediaType, BeforeValidator(enum_value(UploadCreateRequestMediaType))
+    name: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=1024,
+            pattern="^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+        ),
     ]
-    size_bytes: Annotated[int, Field(ge=0, le=33554432)]
+    media_type: Annotated[str, Field(min_length=1, max_length=255)]
+    size_bytes: Annotated[int, Field(ge=0, le=16777216)]
     digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
 
 
@@ -1533,10 +1526,15 @@ class UploadFileRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    media_type: Annotated[
-        UploadFileRequestMediaType, BeforeValidator(enum_value(UploadFileRequestMediaType))
+    name: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=1024,
+            pattern="^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+        ),
     ]
+    media_type: Annotated[str, Field(min_length=1, max_length=255)]
     content: Annotated[str, Field(max_length=32768)]
 
 
@@ -2076,7 +2074,7 @@ class RunInputs(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    files: Annotated[list[InputFile], Field(max_length=32)] | None = None
+    files: Annotated[list[InputFile], Field(max_length=10000)] | None = None
 
 
 class RunLimitChanges(WireModel):

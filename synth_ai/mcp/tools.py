@@ -198,6 +198,7 @@ TOOLS: list[ToolDefinition] = [
                             "properties": {
                                 "files": {
                                     "items": {
+                                        "additionalProperties": False,
                                         "properties": {
                                             "digest_sha256": {
                                                 "pattern": "^[0-9a-f]{64}$",
@@ -209,7 +210,7 @@ TOOLS: list[ToolDefinition] = [
                                         "required": ["file_id", "revision_id", "digest_sha256"],
                                         "type": "object",
                                     },
-                                    "maxItems": 32,
+                                    "maxItems": 10000,
                                     "type": "array",
                                 }
                             },
@@ -1103,7 +1104,8 @@ TOOLS: list[ToolDefinition] = [
         "scope": "account:billing:read",
     },
     {
-        "description": "Upload a text, Markdown or JSON file (up to 32 KiB inline).",
+        "description": "Upload a file inline (up to 32 KiB). The name may be a relative path such as "
+        "`src/main.py`.",
         "inputSchema": {
             "additionalProperties": False,
             "properties": {
@@ -1111,11 +1113,13 @@ TOOLS: list[ToolDefinition] = [
                     "additionalProperties": False,
                     "properties": {
                         "content": {"maxLength": 32768, "type": "string"},
-                        "media_type": {
-                            "enum": ["text/plain", "text/markdown", "application/json"],
+                        "media_type": {"maxLength": 255, "minLength": 1, "type": "string"},
+                        "name": {
+                            "maxLength": 1024,
+                            "minLength": 1,
+                            "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
                             "type": "string",
                         },
-                        "name": {"maxLength": 256, "minLength": 1, "type": "string"},
                     },
                     "required": ["name", "media_type", "content"],
                     "type": "object",
