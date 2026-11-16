@@ -406,6 +406,8 @@ def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
     assert document["answer"] == "The answer is 42."
     assert document["answer_output"]["output_id"] == "out_AAAAAAAAAAAAAAAAAAAAAA"
     assert document["objective_answer"] is None
+    assert document["attempt_tree"]["state"] == "unavailable"
+    assert document["attempt_tree"]["code"] == "run_records_projection_unavailable"
     assert len(out.strip().splitlines()) == 1
 
 
