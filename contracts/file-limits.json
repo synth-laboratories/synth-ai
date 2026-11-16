@@ -1,0 +1,12 @@
+{
+  "schema": "synth.file-limits.v1",
+  "file_max_bytes": 16777216,
+  "launch_max_bytes": 67108864,
+  "launch_max_files": 10000,
+  "manifest_max_bytes": 4194304,
+  "inline_content_max_bytes": 32768,
+  "name_max_bytes": 1024,
+  "name_segment_max_bytes": 255,
+  "name_pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+  "media_type_max_bytes": 255
+}

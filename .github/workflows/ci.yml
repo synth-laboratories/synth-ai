@@ -26,6 +26,7 @@ jobs:
       - name: T0 customer surface parity (120 seconds)
         timeout-minutes: 2
         run: uv run python scripts/check_surface_parity.py
+      - run: uv run python scripts/gen_file_limits.py --check
       - run: uv run pytest -q
       - run: uv build && uv run twine check dist/*
       - run: uv run python scripts/check_package.py

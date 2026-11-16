@@ -246,6 +246,19 @@ class AsyncSwarms:
             filename, media_type=media_type, idempotency_key=idempotency_key
         )
 
+    async def upload_directory(
+        self, directory: str, *, idempotency_key: str
+    ) -> builtins.list[File]:
+        """Upload a bounded POSIX directory snapshot, preserving relative file names.
+
+        Includes dotfiles; refuses links and special files before any API request.
+        Reuse the key with unchanged files to recover a partial upload. Failure
+        retains committed file records in DirectoryUploadError.completed_files.
+        """
+        return await ArtifactUploads(self._transport).upload_directory(
+            directory, idempotency_key=idempotency_key
+        )
+
     async def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
         """Resume an existing upload using the same local file and idempotency key."""
         return await ArtifactUploads(self._transport).resume(
@@ -260,7 +273,7 @@ class AsyncSwarms:
         media_type: str = "text/markdown",
         idempotency_key: str | None = None,
     ) -> File:
-        """Upload a text, Markdown or JSON file (up to 32 KiB inline)."""
+        """Upload UTF-8 content inline (up to 32 KiB)."""
         return await self._transport.request(
             "uploadFile",
             File,
