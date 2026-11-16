@@ -348,3 +348,20 @@ transport directly. `swarms.wait_update()` exposes one bounded server wait
 response; `swarms.wait()` observes until the requested completion milestone.
 `update_limits_request()` preserves an exact typed limit body when an adapter
 already has the public request model. Sync delegates include these public methods.
+
+## Named environment profiles
+
+`SynthClient(environment=Environment.STAGING)` and `AsyncSynthClient` select
+`local`, `staging` or `prod`. CLI: `synth --env staging runs list`; stdio MCP:
+`synth-ai-mcp --env staging`. Omitting a profile preserves the existing default
+production/`SYNTH_API_BASE_URL` behavior. Explicit profiles ignore that ambient
+origin and reject simultaneous `base_url` selection. Stored credentials remain
+keyed by the selected API origin.
+
+`prod` uses `https://api.usesynth.ai`; `staging` uses the staging Core origin
+published by the backend Railway runbook. Their URL values can be configured
+with `SYNTH_PROD_API_BASE_URL` and `SYNTH_STAGING_API_BASE_URL`. Both require HTTPS.
+`local` requires `SYNTH_LOCAL_API_BASE_URL` from the slot manager or journey driver;
+Core declares no published host port, so the SDK does not guess one. Local HTTP
+is permitted. Empty values and non-origin URLs are refused before credential
+resolution or any request. These variables contain URL values, not feature flags.

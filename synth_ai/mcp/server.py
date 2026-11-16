@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
 from pydantic import BaseModel, JsonValue
 
 from ..aclient import AsyncSynthClient
+from ..environments import Environment
 from ..errors import InvalidRequestError, SwarmsAPIError, check_upload_format, local_problem
 from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
@@ -54,7 +56,7 @@ def validate_arguments(
         )
 
 
-async def serve() -> None:
+async def serve(*, environment: Environment | None = None) -> None:
     try:
         from mcp.server import Server
         from mcp.server.stdio import stdio_server
@@ -62,7 +64,7 @@ async def serve() -> None:
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
     server = Server("synth")
-    async with AsyncSynthClient() as client:
+    async with AsyncSynthClient(environment=environment) as client:
 
         async def list_tools() -> list[Tool]:
             return [
@@ -90,4 +92,7 @@ async def serve() -> None:
 
 
 def main() -> None:
-    asyncio.run(serve())
+    parser = argparse.ArgumentParser(prog="synth-ai-mcp")
+    parser.add_argument("--env", type=Environment, choices=tuple(Environment))
+    options = parser.parse_args()
+    asyncio.run(serve(environment=options.env))

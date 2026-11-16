@@ -11,6 +11,7 @@ from ._sync import AccountClient, BillingClient, EvaluationsClient, SwarmsClient
 from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
 from .diagnostics import DiagnosticHook
+from .environments import Environment
 
 
 class SynthClient:
@@ -25,6 +26,7 @@ class SynthClient:
         api_key: str | None = None,
         *,
         base_url: str | None = None,
+        environment: Environment | None = None,
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
@@ -35,6 +37,7 @@ class SynthClient:
         self._async = AsyncSynthClient(
             api_key,
             base_url=base_url,
+            environment=environment,
             http_client=http_client,
             timeout=timeout,
             retries=retries,

@@ -30,6 +30,7 @@ from ._generated.policy import MESSAGE_MAX_BYTES
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
+from .environments import Environment, resolve_base_url
 from .errors import (
     ResponseContractError,
     RunPausedError,
@@ -53,6 +54,7 @@ UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
 DEFAULT_WAIT_SECONDS = 3600.0
 
 COMMANDS: dict[str, str] = {
+    "runs": "List runs",
     "evaluations": "Register inputs and evaluate policies",
     "login": "Sign in",
     "whoami": "Signed-in account",
@@ -114,6 +116,7 @@ def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None =
 def parser() -> argparse.ArgumentParser:
     root = Parser(prog="synth", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
     root.add_argument("--base-url")
+    root.add_argument("--env", dest="environment", type=Environment, choices=tuple(Environment))
     common = Parser(add_help=False)
     common.add_argument("--json", action="store_true", help="print the SDK record as JSON")
     verbs = root.add_subparsers(dest="command", required=True, metavar="COMMAND")
@@ -126,6 +129,11 @@ def parser() -> argparse.ArgumentParser:
     def add(name: str) -> argparse.ArgumentParser:
         return created[name]
 
+    runs = add("runs").add_subparsers(dest="runs_action", required=True)
+    runs_list = runs.add_parser("list", parents=[common])
+    runs_list.add_argument("--limit", type=int, default=20)
+    runs_list.add_argument("--cursor")
+    runs_list.add_argument("--state")
     add("login").add_argument("--no-browser", action="store_true")
     add("whoami")
     add("logout")
@@ -326,7 +334,9 @@ def finished_code(snapshot: RunSnapshot) -> int:
 
 async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | None) -> int:
     out = Output(args.json)
-    async with AsyncSynthClient(base_url=args.base_url, http_client=http_client) as client:
+    async with AsyncSynthClient(
+        base_url=args.base_url, environment=args.environment, http_client=http_client
+    ) as client:
         swarms = client.swarms
         command = str(args.command)
         if command == "evaluations":
@@ -435,7 +445,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "tasks":
             page = await swarms.tasks(args.run_id, cursor=args.cursor, limit=args.limit)
             out.record(page, view.tasks)
-        elif command == "ls":
+        elif command in {"ls", "runs"}:
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)
         elif command == "pause":
@@ -582,15 +592,16 @@ def paste_redirect(authorization: str) -> str:
 
 def run_auth(args: argparse.Namespace) -> int:
     out = Output(args.json)
+    base_url = resolve_base_url(args.base_url, args.environment)
     if args.command == "login":
         auth.login(
-            args.base_url,
+            base_url,
             open_browser=not args.no_browser,
             redirect_source=paste_redirect if args.no_browser else None,
         )
     else:
-        auth.logout(args.base_url)
-    out.record(auth.status(args.base_url), view.auth_status)
+        auth.logout(base_url)
+    out.record(auth.status(base_url), view.auth_status)
     return EXIT_OK
 
 

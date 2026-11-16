@@ -15,6 +15,7 @@ from synth_ai._generated.operations import OPERATIONS
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
 EXPECTED_COMMANDS = [
+    "runs",
     "evaluations",
     "login",
     "whoami",

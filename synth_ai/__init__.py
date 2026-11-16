@@ -4,6 +4,7 @@ from ._transport import RetryPolicy
 from ._version import __version__
 from .aclient import AsyncSynthClient
 from .client import SynthClient
+from .environments import Environment, EnvironmentProfile
 from .errors import (
     LimitAboveCeilingError,
     LimitsRevisionConflictError,
@@ -28,6 +29,8 @@ from .models import (
 __all__ = [
     "AsyncSynthClient",
     "CompletionMilestone",
+    "Environment",
+    "EnvironmentProfile",
     "Exclude",
     "LaunchRequest",
     "LimitAboveCeilingError",
