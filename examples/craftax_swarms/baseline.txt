@@ -1,0 +1,9 @@
+"""Deterministic smoke control: no action each turn."""
+
+
+def reset(context):
+    pass
+
+
+def act(observation):
+    return {"actions": ["noop"] * len(observation["views"])}

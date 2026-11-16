@@ -14,6 +14,12 @@ from .diagnostics import DiagnosticHook
 
 
 class SynthClient:
+    """Access Swarms, evaluation inputs, account and billing through the public API.
+
+    Use as a context manager to close client resources. API keys and base URLs
+    can be passed explicitly or resolved by the documented authentication flow.
+    """
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -25,6 +31,7 @@ class SynthClient:
         retry_policy: RetryPolicy | None = None,
         diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
+        """Create a client with a request timeout in seconds and bounded retries."""
         self._async = AsyncSynthClient(
             api_key,
             base_url=base_url,
@@ -41,6 +48,7 @@ class SynthClient:
         self.evaluations = EvaluationsClient(self._runner, self._async.evaluations)
 
     def close(self) -> None:
+        """Close the client transport and owned network resources."""
         if self._runner.closed:
             return
         try:

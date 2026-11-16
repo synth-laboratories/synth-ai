@@ -16,6 +16,12 @@ from .swarms import AsyncSwarms
 
 
 class AsyncSynthClient:
+    """Access Swarms, evaluation inputs, account and billing through the public API.
+
+    Use as a context manager to close client resources. API keys and base URLs
+    can be passed explicitly or resolved by the documented authentication flow.
+    """
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -27,6 +33,7 @@ class AsyncSynthClient:
         retry_policy: RetryPolicy | None = None,
         diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
+        """Create a client with a request timeout in seconds and bounded retries."""
         url, token = credentials(base_url, api_key)
         self._transport = Transport(
             url,
@@ -43,6 +50,7 @@ class AsyncSynthClient:
         self.evaluations = AsyncEvaluations(self._transport)
 
     async def close(self) -> None:
+        """Close the client transport and owned network resources."""
         await self._transport.close()
 
     async def __aenter__(self) -> AsyncSynthClient:

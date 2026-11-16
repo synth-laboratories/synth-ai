@@ -67,10 +67,11 @@ def generate() -> str:
                     callargs += ["**" + fn.args.kwarg.arg]
                 call = f"self._async.{fn.name}(" + ",".join(callargs) + ")"
                 runner = "iterate" if returns.startswith("Iterator[") else "call"
-                lines += [
-                    f"    def {fn.name}({args}) -> {returns}:",
-                    f"        return self._runner.{runner}({call})",
-                ]
+                lines.append(f"    def {fn.name}({args}) -> {returns}:")
+                documentation = ast.get_docstring(fn)
+                if documentation is not None:
+                    lines.append("        " + repr(documentation))
+                lines.append(f"        return self._runner.{runner}({call})")
             lines += [""]
     lines.insert(1, "from ._generated.models import (" + ", ".join(sorted(model_imports)) + ")")
     source = "\n".join(lines) + "\n"

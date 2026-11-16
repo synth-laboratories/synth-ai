@@ -275,6 +275,23 @@ class RunAllocationChoiceState(StrEnum):
     PLANNER_DECIDES = "planner_decides"
 
 
+class RunBlockerKind(StrEnum):
+    IN_DOUBT_CALL = "in_doubt_call"
+    OPEN_GATEWAY_CALL = "open_gateway_call"
+    GATEWAY_SESSION_OPEN = "gateway_session_open"
+    AGENTS_SESSION_UNSETTLED = "agents_session_unsettled"
+    PROGRAM_ATTEMPT_OPEN = "program_attempt_open"
+    COMPUTE_HOLD_OPEN = "compute_hold_open"
+    ORCHESTRA_SETTLE_PENDING = "orchestra_settle_pending"
+    SETTLEMENT_PENDING = "settlement_pending"
+    SETTLEMENT_REFUSED = "settlement_refused"
+    ACCOUNTING_NOT_FINAL = "accounting_not_final"
+    SANDBOX_ACTIVE = "sandbox_active"
+    ROLLOUT_ACTIVE = "rollout_active"
+    DEPLOYMENT_ACTIVE = "deployment_active"
+    EVALUATION_POOL_CLEANUP = "evaluation_pool_cleanup"
+
+
 class RunEvaluationStatus(StrEnum):
     PREPARED = "prepared"
     PENDING = "pending"
@@ -943,18 +960,6 @@ class ObjectiveAnswerAnswer(WireModel):
     sources: list[dict[str, JsonValue]] | None = None
 
 
-class ObjectiveClaim(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    id: str
-    kind: str
-    percent_complete: int
-    summary: str
-    by: str
-    observed_at: str | None
-
-
 class ObjectiveClaimedPayload(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1191,6 +1196,15 @@ class RunAllocationChoice(WireModel):
     ]
     profile_id: str | None = None
     option_id: str | None = None
+
+
+class RunBlocker(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[RunBlockerKind, BeforeValidator(enum_value(RunBlockerKind))]
+    id: Annotated[str, Field(max_length=256)]
+    since: str
 
 
 class RunComputeMeter(WireModel):
@@ -1889,6 +1903,19 @@ class ObjectiveAnswer(WireModel):
     objective_id: str
     definition_revision: int | None = None
     answer: ObjectiveAnswerAnswer
+
+
+class ObjectiveClaim(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    id: str
+    kind: str
+    percent_complete: int
+    summary: str
+    by: str
+    observed_at: str | None
+    evidence: list[ObjectiveReceipt] | None = None
 
 
 class ObjectiveMetricState(WireModel):
@@ -2839,6 +2866,8 @@ class RunSnapshot(WireModel):
     problems: list[RunProblem] | None
     problems_observed: bool
     charge: RunCharge | None = None
+    settlement_blockers: Annotated[list[RunBlocker], Field(max_length=1)] | None = None
+    cleanup_blockers: Annotated[list[RunBlocker], Field(max_length=66)] | None = None
     failure: JsonValue | None = None
     created_at: str
     started_at: str | None
@@ -2912,6 +2941,8 @@ class RunReport(WireModel):
     evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
     run_id: RunId
     settlement: RunSettlementSummary
+    settlement_blockers: Annotated[list[RunBlocker], Field(max_length=1)] | None = None
+    cleanup_blockers: Annotated[list[RunBlocker], Field(max_length=66)] | None = None
     attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
     by_model: list[RunModelUsage]
     by_role: list[RunRoleUsage]
@@ -2981,7 +3012,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "LimitRow": LimitRow,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
-    "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
     "ObjectiveMetric": ObjectiveMetric,
     "ObjectiveProgressPayload": ObjectiveProgressPayload,
@@ -2999,6 +3029,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunAllocationActorPlacementsItem": RunAllocationActorPlacementsItem,
     "RunAllocationChoice": RunAllocationChoice,
+    "RunBlocker": RunBlocker,
     "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
     "RunEvaluation": RunEvaluation,
@@ -3055,6 +3086,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
     "ObjectiveAnswer": ObjectiveAnswer,
+    "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveMetricState": ObjectiveMetricState,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,

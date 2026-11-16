@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.0rc1
+
+- Pin the public contract with settlement/cleanup blockers and public objective evidence; expose typed blocker records.
+- Add a public-SDK-only Craftax workflow: reusable benchmark templates, fresh run-owned resources, resumable bounded launches and metadata-only paired verification.
+- Export the evaluation result-format enum and metadata records used by customer tooling.
+- Correct release smoke budgets and document candidate publication before staging acceptance, with stable publication after production parity.
+
 ## Unreleased
 
 - Pin Core public contract 1.26.0 (through 1.25.0). New: `swarms.launch_choices()` (`getLaunchChoices`), the per-role menu and its `menu_revision`; `swarms.launch()`/`run()` accept `role_assignments` (`RoleAssignment`: `inference_profile`, `sandbox_profile`, `sandbox_option`, `planner_decides`) with `launch_menu_revision`; `swarms.allocation()` (`getRunAllocation`) reads per-actor choices, placements, replacements, usage and charge. CLI: `synth choices`, `synth run --assign/--planner-decides/--menu-revision`, `synth allocation`. MCP: `swarms_launch_choices`, `swarms_run_allocation`, and `role_assignments`/`launch_menu_revision` on launch.

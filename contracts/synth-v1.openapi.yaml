@@ -7473,6 +7473,20 @@ components:
             refusal on a run that then completed) is not listed.
         charge:
           $ref: '#/components/schemas/RunCharge'
+        settlement_blockers:
+          type: array
+          maxItems: 1
+          description: Single-run reads of a terminal run only. What its books wait on while `accounting_final`
+            is false; empty once it is true. Open runs and list pages omit it.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
+        cleanup_blockers:
+          type: array
+          maxItems: 66
+          description: Single-run reads of a terminal run only. What its `cleanup_complete` waits on; empty
+            when nothing is open. Open runs and list pages omit it.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
         failure:
           description: Open failure projection or null. Reasons include launch_not_dispatched (the worker
             found a queued run that never reached the execution service; the hold was refunded).
@@ -7498,6 +7512,43 @@ components:
           $ref: '#/components/schemas/RunSelection'
         routing:
           $ref: '#/components/schemas/RoutingReadback'
+    RunBlocker:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      description: One thing a terminal run waits on. Ids only.
+      required:
+      - kind
+      - id
+      - since
+      properties:
+        kind:
+          type: string
+          enum:
+          - in_doubt_call
+          - open_gateway_call
+          - gateway_session_open
+          - agents_session_unsettled
+          - program_attempt_open
+          - compute_hold_open
+          - orchestra_settle_pending
+          - settlement_pending
+          - settlement_refused
+          - accounting_not_final
+          - sandbox_active
+          - rollout_active
+          - deployment_active
+          - evaluation_pool_cleanup
+        id:
+          type: string
+          maxLength: 256
+          description: The blocking object's id (receipt, Gateway session, Agents session, resource or
+            run id); for settlement_refused, the refusal code.
+        since:
+          type: string
+          format: date-time
+          description: When this blocker started holding the run (first refusal with it, resource
+            creation, or the run's end).
     RunCharge:
       type: object
       additionalProperties: false
@@ -8092,6 +8143,11 @@ components:
           - string
           - 'null'
           format: date-time
+        evidence:
+          type: array
+          description: Public Rhodes result references retained by this claim; private owner evidence is omitted.
+          items:
+            $ref: '#/components/schemas/ObjectiveReceipt'
     ObjectiveVerdict:
       type: object
       required:
@@ -8697,6 +8753,18 @@ components:
           $ref: '#/components/schemas/RunId'
         settlement:
           $ref: '#/components/schemas/RunSettlementSummary'
+        settlement_blockers:
+          type: array
+          maxItems: 1
+          description: What the run's books wait on; empty once settled or while the run is open.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
+        cleanup_blockers:
+          type: array
+          maxItems: 66
+          description: What the run's cleanup_complete waits on; empty when nothing is open.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
         attribution:
           type: string
           description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained
