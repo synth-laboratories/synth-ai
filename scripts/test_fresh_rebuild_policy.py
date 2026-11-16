@@ -1,7 +1,7 @@
 """Fresh cohort promotion does not use the retired PR workflow."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class FreshRebuildPolicyTest(unittest.TestCase):
