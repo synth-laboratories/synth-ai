@@ -110,7 +110,9 @@ def test_planted_private_mcp_dispatch_fails(tmp_path: Path):
 
 def test_imported_mcp_dispatch_is_audited(tmp_path: Path):
     fixture(tmp_path)
-    (tmp_path / "synth_ai/mcp/server.py").write_text("from .dispatch import dispatch\n")
+    (tmp_path / "synth_ai/mcp/server.py").write_text(
+        "from .dispatch import dispatch\nasync def call_tool(client):\n return await dispatch(client)\n"
+    )
     (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
         "async def dispatch(client):\n return await client.swarms.get()\n"
     )
@@ -131,7 +133,9 @@ def test_unused_mcp_dispatch_does_not_prove_reachability(tmp_path: Path):
 
 def test_private_access_in_imported_dispatch_is_a_failure(tmp_path: Path):
     fixture(tmp_path)
-    (tmp_path / "synth_ai/mcp/server.py").write_text("from .dispatch import dispatch\n")
+    (tmp_path / "synth_ai/mcp/server.py").write_text(
+        "from .dispatch import dispatch\nasync def call_tool(client):\n return await dispatch(client)\n"
+    )
     (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
         'async def dispatch(client):\n return await client._transport.invoke("getRun")\n'
     )
