@@ -303,3 +303,49 @@ def test_read_only_entrypoint_retains_real_models_without_launch(contract, tmp_p
     assert not (target / "launch-intent.json").exists()
     assert len(requests) == 4
     assert all(isinstance(request, str) for request in requests)
+
+
+def test_cli_child_entrypoint_composes_public_http_client(contract, tmp_path):
+    import sys
+
+    # The child constructs a real HTTP client, invokes the actual public CLI
+    # and explicitly closes the borrowed client after CLI completion.
+    entrypoint = tmp_path / "cli_with_client.py"
+    closed = tmp_path / "closed"
+    entrypoint.write_text(
+        "import asyncio, os, sys\n"
+        "from pathlib import Path\n"
+        "import httpx\n"
+        "from synth_ai.cli import main\n"
+        "http = httpx.AsyncClient(follow_redirects=False)\n"
+        "try:\n"
+        "    status = main(sys.argv[1:], http_client=http)\n"
+        "finally:\n"
+        "    asyncio.run(http.aclose())\n"
+        "Path(os.environ['CLOSE_RECEIPT']).write_text(str(http.is_closed))\n"
+        "raise SystemExit(status)\n"
+    )
+    with fixture_api(contract, launch_resolution=True) as (origin, requests):
+        driver = CLIDriver(
+            python=Path(sys.executable),
+            entrypoint=entrypoint,
+            environment={
+                **os.environ,
+                "SYNTH_LOCAL_API_BASE_URL": origin,
+                "SYNTH_API_KEY": "fixture",
+                "CLOSE_RECEIPT": str(closed),
+            },
+            working_directory=Path(__file__).parents[2],
+        )
+        snapshot = driver.launch_auto(
+            message="task",
+            budget_usd="1.00",
+            files=(),
+            idempotency_key="j1-injected-child-once",
+            journal=LaunchJournal(tmp_path / "launch"),
+        )
+    assert snapshot.run_id == RUN
+    assert closed.read_text() == "True"
+    assert len(requests) == 1
+    assert requests[0][1]["optimizer"] == "auto"
+    assert requests[0][2] == "j1-injected-child-once"

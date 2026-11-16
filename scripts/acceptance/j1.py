@@ -201,19 +201,28 @@ def content_pin(output: RunOutput) -> ContentPin:
 
 class CLIDriver:
     def __init__(
-        self, *, python: Path, environment: Mapping[str, str], working_directory: Path
+        self,
+        *,
+        python: Path,
+        environment: Mapping[str, str],
+        working_directory: Path,
+        entrypoint: Optional[Path] = None,
     ) -> None:
         self.python = python
         self.environment = environment
         self.working_directory = working_directory
+        # An owned harness entrypoint may compose a public HTTP client and call
+        # synth_ai.cli.main(..., http_client=...). It is still a real child CLI.
+        self.entrypoint = entrypoint
 
     def _command(
         self, arguments: Sequence[str], *, run_id: str, seconds: int = COMMAND_SECONDS
     ) -> str:
         # The caller supplies the manager-selected origin via the named local
         # profile. Credentials remain in the child environment, never argv/logs.
+        entrypoint = ["-m", "synth_ai.cli"] if self.entrypoint is None else [str(self.entrypoint)]
         result = subprocess.run(
-            [str(self.python), "-m", "synth_ai.cli", "--env", "local", *arguments],
+            [str(self.python), *entrypoint, "--env", "local", *arguments],
             cwd=self.working_directory,
             env=self.environment,
             capture_output=True,

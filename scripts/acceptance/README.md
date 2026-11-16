@@ -32,3 +32,10 @@ permissions, and creates no launch-accepted artifact for an observation.
 
 T0 tests use real public OpenAPI models and local fixture HTTP only. CLI tests
 spawn the real CLI; they are not installed slot, replay or provider proof.
+
+CLIDriver accepts an optional owned Python `entrypoint` path for operator replay
+composition. The real child invokes `synth_ai.cli.main(argv, http_client=http)`
+through the public injection seam; the child owns closing the borrowed client.
+W06 LocalReplayTransport grant/credential/binding custody stays in that harness,
+with no public cache fields or operator credentials in argv. The default remains
+`python -m synth_ai.cli`. Injected-child tests prove source composition only.
