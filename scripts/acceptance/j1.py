@@ -34,8 +34,12 @@ __all__ = [
     "J1Observation",
     "Missing",
     "RecordedLaunch",
+    "RecordDriver",
     "SDKDriver",
+    "content_pin",
     "observe",
+    "observe_records",
+    "refusal",
 ]
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +49,8 @@ class Missing(StrEnum):
     RESULT_MARKDOWN = "result_markdown_unavailable"
     FINALITY = "run_not_fully_closed"
     CHARGE = "charge_unobserved"
+    # The surface lists pinned outputs but has no public content tool (MCP).
+    OUTPUT_CONTENT = "output_content_surface_unavailable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,16 +144,21 @@ class J1Observation:
     snapshot: RunSnapshot
     report: RunReport
     result: RunResult
+    # Every listed output record, whether or not this surface fetched bytes.
+    listed: tuple[RunOutput, ...]
     outputs: tuple[OutputEvidence, ...]
     result_markdown: Optional[str]
     missing: tuple[Missing, ...]
 
 
-class ReadDriver(Protocol):
+class RecordDriver(Protocol):
     def snapshot(self, run_id: str) -> RunSnapshot: ...
     def report(self, run_id: str) -> RunReport: ...
     def result(self, run_id: str) -> RunResult: ...
     def outputs(self, run_id: str) -> tuple[RunOutput, ...]: ...
+
+
+class ReadDriver(RecordDriver, Protocol):
     def download(self, run_id: str, output: RunOutput, target: Path) -> Path: ...
 
 
@@ -485,7 +496,17 @@ class CLIDriver:
         return target
 
 
-def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Observation:
+@dataclass(frozen=True, slots=True)
+class Records:
+    snapshot: RunSnapshot
+    report: RunReport
+    result: RunResult
+    outputs: tuple[RunOutput, ...]
+    missing: tuple[Missing, ...]
+
+
+def observe_records(driver: RecordDriver, *, run_id: str) -> Records:
+    """Read and cross-check the run records every surface exposes."""
     snapshot, report, result = driver.snapshot(run_id), driver.report(run_id), driver.result(run_id)
     if snapshot.run_id != run_id or report.run_id != run_id or result.run.run_id != run_id:
         raise refusal(
@@ -514,11 +535,9 @@ def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Obs
                 cause="result and report disagree on customer charge",
                 run_id=run_id,
             )
-    output_directory.mkdir(parents=True, exist_ok=True)
-    evidence: list[OutputEvidence] = []
+    outputs = driver.outputs(run_id)
     names: set[str] = set()
-    markdown: Optional[str] = None
-    for output in driver.outputs(run_id):
+    for output in outputs:
         if output.run_id != run_id:
             raise refusal(
                 "output_run_mismatch",
@@ -538,6 +557,34 @@ def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Obs
                 run_id=run_id,
             )
         names.add(output.filename)
+        content_pin(output)
+    return Records(snapshot, report, result, outputs, tuple(missing))
+
+
+def observe_listed(driver: RecordDriver, *, run_id: str) -> J1Observation:
+    """Observe a surface that lists pinned outputs but cannot fetch their bytes."""
+    records = observe_records(driver, run_id=run_id)
+    missing = [*records.missing, Missing.RESULT_MARKDOWN]
+    if records.outputs:
+        missing.append(Missing.OUTPUT_CONTENT)
+    return J1Observation(
+        records.snapshot,
+        records.report,
+        records.result,
+        records.outputs,
+        (),
+        None,
+        tuple(missing),
+    )
+
+
+def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Observation:
+    records = observe_records(driver, run_id=run_id)
+    missing = list(records.missing)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    evidence: list[OutputEvidence] = []
+    markdown: Optional[str] = None
+    for output in records.outputs:
         pin = content_pin(output)
         path = driver.download(run_id, output, output_directory / output.filename)
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -551,6 +598,14 @@ def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Obs
         evidence.append(OutputEvidence(output, path, digest))
         if output.filename == "result.md":
             markdown = path.read_text(encoding="utf-8")
-    if "result.md" not in names:
+    if markdown is None:
         missing.append(Missing.RESULT_MARKDOWN)
-    return J1Observation(snapshot, report, result, tuple(evidence), markdown, tuple(missing))
+    return J1Observation(
+        records.snapshot,
+        records.report,
+        records.result,
+        records.outputs,
+        tuple(evidence),
+        markdown,
+        tuple(missing),
+    )

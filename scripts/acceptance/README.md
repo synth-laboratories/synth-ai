@@ -39,3 +39,36 @@ through the public injection seam; the child owns closing the borrowed client.
 W06 LocalReplayTransport grant/credential/binding custody stays in that harness,
 with no public cache fields or operator credentials in argv. The default remains
 `python -m synth_ai.cli`. Injected-child tests prove source composition only.
+
+## MCP drivers (SYN-5693)
+
+`MCPDriver` runs the same journey through MCP `tools/call` only (catalog names in
+`contracts/mcp-tools.json`: `swarms_upload_file`, `swarms_run_launch`,
+`swarms_run_get`, `swarms_run_wait`, `swarms_run_report`, `swarms_run_result`,
+`swarms_run_outputs`, `usage_for_run`). It never calls SDK client methods; the
+launch body is built by the pure `launch_request` helper. Two transports share
+one blocking `SessionToolCaller`:
+
+- `mcp_stdio`: spawns `<venv>/bin/synth-ai-mcp --env local`. The stdio server
+  has no client-injection seam, so origin and key reach it via the child
+  environment only (SYNTH_LOCAL_API_BASE_URL, SYNTH_API_KEY).
+- `mcp_hosted`: streamable HTTP to `--mcp-url` with `Authorization: Bearer`.
+  Core's `/mcp` resolves an MCP OAuth access token (mcpoauth), so the entrypoint
+  reads SYNTH_MCP_ACCESS_TOKEN; the API key is not that credential.
+
+```
+python -m scripts.acceptance --driver mcp_stdio --run-id RUN --receipt-dir OWNED_NEW_DIR
+python -m scripts.acceptance --driver mcp_hosted --mcp-url http://127.0.0.1:PORT/mcp --run-id RUN --receipt-dir OWNED_NEW_DIR
+```
+
+The catalog lists pinned outputs but has no output-content tool, so MCP
+observations retain the listing and name `output_content_surface_unavailable`
+and `result_markdown_unavailable` instead of downloading. Tool-list gaps,
+isError results (stdio Problem, hosted `{"error","data":{"response"}}`),
+unstructured errors, wrong result models and transport failures are typed
+`AdapterError` refusals whose cause never includes response bodies.
+
+Every entrypoint run also writes `parity_view.json`
+(`synth.j1.parity_view.v1`): run id, state, customer charge, finality flags and
+`attempts: null` (no public attempt-tree contract yet). synth-dev
+`local_dev/release_tests/parity.py` loads one per driver for the same-run diff.
