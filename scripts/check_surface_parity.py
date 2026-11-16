@@ -140,7 +140,7 @@ def composition(root: Path) -> dict[str, str]:
                         if target.value.id == "self" and not target.attr.startswith("_"):
                             fields.append((target.attr, node.value.func.id))
             children[owner.name] = tuple(fields)
-    paths = {"AsyncSynthClient": "client"}
+    paths: dict[str, str] = {"AsyncSynthClient": "client"}
     pending = ["AsyncSynthClient"]
     while pending:
         owner = pending.pop()
