@@ -55,6 +55,7 @@ from ._generated.models import (
     RunInputs,
     RunLabels,
     RunLimitsProgress,
+    RunLimitUpdate,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -65,6 +66,7 @@ from ._generated.models import (
     RunSnapshot,
     RunTask,
     RunTaskPage,
+    RunWait,
     Scope,
     SpendAlerts,
     Subscription,
@@ -88,6 +90,45 @@ class SwarmsClient:
     def __init__(self, runner: Runner, source: AsyncSwarms) -> None:
         self._runner = runner
         self._async = source
+
+    def prepare_launch(
+        self,
+        message: str,
+        *,
+        budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
+        wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        parallel_workers: int | None = None,
+        inputs: RunInputs | None = None,
+        labels: dict[str, str] | None = None,
+        resources: builtins.list[OwnerResourceRequest] | None = None,
+        profile: str | None = None,
+        research_task: str | None = None,
+        routing: RoutingConstraints | None = None,
+        guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
+    ) -> LaunchRequest:
+        return self._async.prepare_launch(
+            message,
+            budget=budget,
+            domicile_requirement=domicile_requirement,
+            wall_time_seconds=wall_time_seconds,
+            maximum_tokens=maximum_tokens,
+            pause_retention_seconds=pause_retention_seconds,
+            parallel_workers=parallel_workers,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            profile=profile,
+            research_task=research_task,
+            routing=routing,
+            guidance=guidance,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
+        )
 
     def launch(
         self,
@@ -274,6 +315,9 @@ class SwarmsClient:
         "One run snapshot."
         return self._runner.call(self._async.get(run_id))
 
+    def wait_update(self, run_id: str, *, timeout_seconds: int = 30) -> RunWait:
+        return self._runner.call(self._async.wait_update(run_id, timeout_seconds=timeout_seconds))
+
     def wait(
         self,
         run_id: str,
@@ -349,6 +393,13 @@ class SwarmsClient:
                 reason=reason,
                 idempotency_key=idempotency_key,
             )
+        )
+
+    def update_limits_request(
+        self, run_id: str, request: RunLimitUpdate, *, idempotency_key: str | None = None
+    ) -> RunLimitsProgress:
+        return self._runner.call(
+            self._async.update_limits_request(run_id, request, idempotency_key=idempotency_key)
         )
 
     def configuration(self, run_id: str) -> RunConfiguration:

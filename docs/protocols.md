@@ -335,3 +335,16 @@ facades; generation and semantic fault tests retain the existing standards bar.
 See [executable recipes](../examples/README.md) for launch, profiles, routing,
 result/finality, timeout/cancel, restartable events, upload recovery, verified
 artifacts and usage readback.
+
+## CLI and MCP SDK boundary
+
+The CLI validates a launch with `swarms.prepare_launch()` before uploading files.
+It uses the same profile catalog state and validation as `swarms.launch()`.
+`cancel --idempotency-key` passes the caller's mutation identity unchanged.
+
+The stdio MCP adapter validates the generated tool schema, parses typed request
+bodies, then calls public SDK methods through `mcp.dispatch`. It never invokes
+transport directly. `swarms.wait_update()` exposes one bounded server wait
+response; `swarms.wait()` observes until the requested completion milestone.
+`update_limits_request()` preserves an exact typed limit body when an adapter
+already has the public request model. Sync delegates include these public methods.

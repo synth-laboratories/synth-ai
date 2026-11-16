@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from mcp.types import CallToolResult, TextContent, Tool
 
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, JsonValue
 
-from .._generated.operations import OPERATIONS
 from ..aclient import AsyncSynthClient
 from ..errors import InvalidRequestError, SwarmsAPIError, check_upload_format, local_problem
+from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
 
 UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
@@ -26,26 +26,7 @@ async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, Js
     if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
         raise ValueError("Tool arguments do not match the contract")
     validate_arguments(tool["operationId"], schema, arguments)
-    op = OPERATIONS[tool["operationId"]]
-    path = TypeAdapter(dict[str, str]).validate_python(
-        {key: arguments[key] for key in op["path_params"]}, strict=True
-    )
-    query = TypeAdapter(dict[str, str | int | float | bool | None]).validate_python(
-        {key: arguments[key] for key in op["query_params"] if key in arguments}, strict=True
-    )
-    body = TypeAdapter(dict[str, JsonValue] | None).validate_python(
-        arguments.get("body"), strict=True
-    )
-    idempotency_key = TypeAdapter(str | None).validate_python(
-        arguments.get("idempotency_key"), strict=True
-    )
-    result = await client._transport.invoke(
-        tool["operationId"],
-        path=path,
-        query=query,
-        body=body,
-        idempotency_key=idempotency_key,
-    )
+    result = await dispatch(client, tool["operationId"], arguments)
     if isinstance(result, BaseModel):
         return result.model_dump_json(exclude_unset=True)
     raise ValueError("Unexpected tool response")

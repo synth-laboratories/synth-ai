@@ -44,6 +44,7 @@ from ._generated.models import (
     RunSnapshot,
     RunTask,
     RunTaskPage,
+    RunWait,
     Upload,
 )
 from ._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
@@ -67,6 +68,48 @@ class AsyncSwarms:
         self._transport = transport
         self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
         self._default_profile = DEFAULT_RUN_PROFILE
+
+    def prepare_launch(
+        self,
+        message: str,
+        *,
+        budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
+        wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        parallel_workers: int | None = None,
+        inputs: RunInputs | None = None,
+        labels: dict[str, str] | None = None,
+        resources: builtins.list[OwnerResourceRequest] | None = None,
+        profile: str | None = None,
+        research_task: str | None = None,
+        routing: RoutingConstraints | None = None,
+        guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
+    ) -> LaunchRequest:
+        """Validate a launch before uploads; see docs/protocols.md."""
+        return launch_request(
+            message,
+            budget=budget,
+            domicile_requirement=domicile_requirement,
+            wall_time_seconds=wall_time_seconds,
+            maximum_tokens=maximum_tokens,
+            pause_retention_seconds=pause_retention_seconds,
+            parallel_workers=parallel_workers,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            profile=profile,
+            research_task=research_task,
+            routing=routing,
+            guidance=guidance,
+            profile_requirements=self._profile_requirements,
+            default_profile=self._default_profile,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
+        )
 
     async def launch(
         self,
@@ -94,7 +137,7 @@ class AsyncSwarms:
         The budget must be a decimal string or Decimal. Retain an explicit
         idempotency_key for uncertain retries. An acknowledgement does not prove
         execution, accounting or cleanup has finished; use wait and report."""
-        request = launch_request(
+        request = self.prepare_launch(
             message,
             budget=budget,
             domicile_requirement=domicile_requirement,
@@ -109,8 +152,6 @@ class AsyncSwarms:
             research_task=research_task,
             routing=routing,
             guidance=guidance,
-            profile_requirements=self._profile_requirements,
-            default_profile=self._default_profile,
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
         )
@@ -281,6 +322,15 @@ class AsyncSwarms:
         """One run snapshot."""
         return await self._transport.request("getRun", RunSnapshot, path={"run_id": run_id})
 
+    async def wait_update(self, run_id: str, *, timeout_seconds: int = 30) -> RunWait:
+        """Read one bounded server wait update; see docs/protocols.md."""
+        return await self._transport.request(
+            "waitRun",
+            RunWait,
+            path={"run_id": run_id},
+            query={"timeout_seconds": timeout_seconds},
+        )
+
     async def wait(
         self,
         run_id: str,
@@ -388,6 +438,18 @@ class AsyncSwarms:
             RunLimitsProgress,
             path={"run_id": run_id},
             body=request.model_dump(exclude_none=True),
+            idempotency_key=idempotency_key,
+        )
+
+    async def update_limits_request(
+        self, run_id: str, request: RunLimitUpdate, *, idempotency_key: str | None = None
+    ) -> RunLimitsProgress:
+        """Apply an exact typed limit request; see docs/protocols.md."""
+        return await self._transport.request(
+            "updateRunLimits",
+            RunLimitsProgress,
+            path={"run_id": run_id},
+            body=request,
             idempotency_key=idempotency_key,
         )
 

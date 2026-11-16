@@ -48,7 +48,9 @@ def generate() -> str:
             if name == "AccountClient":
                 lines += ["        self.api_keys=ApiKeysClient(runner, source.api_keys)"]
             for fn in cls.body:
-                if not isinstance(fn, ast.AsyncFunctionDef) or fn.name.startswith("_"):
+                if not isinstance(
+                    fn, (ast.AsyncFunctionDef, ast.FunctionDef)
+                ) or fn.name.startswith("_"):
                     continue
                 args = ast.unparse(fn.args)
                 if fn.returns is None:
@@ -67,11 +69,16 @@ def generate() -> str:
                     callargs += ["**" + fn.args.kwarg.arg]
                 call = f"self._async.{fn.name}(" + ",".join(callargs) + ")"
                 runner = "iterate" if returns.startswith("Iterator[") else "call"
+                delegated = (
+                    f"self._runner.{runner}({call})"
+                    if isinstance(fn, ast.AsyncFunctionDef)
+                    else call
+                )
                 lines.append(f"    def {fn.name}({args}) -> {returns}:")
                 documentation = ast.get_docstring(fn)
                 if documentation is not None:
                     lines.append("        " + repr(documentation))
-                lines.append(f"        return self._runner.{runner}({call})")
+                lines.append(f"        return {delegated}")
             lines += [""]
     lines.insert(1, "from ._generated.models import (" + ", ".join(sorted(model_imports)) + ")")
     source = "\n".join(lines) + "\n"

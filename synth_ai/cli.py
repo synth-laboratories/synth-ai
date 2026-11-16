@@ -27,7 +27,6 @@ from ._generated.models import (
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
-from ._requests import launch_request
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
@@ -211,7 +210,7 @@ def parser() -> argparse.ArgumentParser:
     limits.add_argument("--resume", action="store_true")
     limits.add_argument("--reason")
     limits.add_argument("--idempotency-key")
-    for name in ("pause", "resume"):
+    for name in ("pause", "resume", "cancel"):
         add(name).add_argument("--idempotency-key")
     evaluation_common = Parser(add_help=False)
     evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
@@ -355,7 +354,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
-            request = launch_request(
+            request = swarms.prepare_launch(
                 args.goal,
                 budget=args.budget,
                 profile=args.profile,
@@ -370,8 +369,6 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 resources=None,
                 routing=None,
                 guidance=None,
-                profile_requirements=swarms._profile_requirements,
-                default_profile=swarms._default_profile,
                 role_assignments=parse_role_assignments(args.assign, args.planner_decides),
                 launch_menu_revision=args.menu_revision,
             )
@@ -458,7 +455,10 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 view.receipt,
             )
         elif command == "cancel":
-            out.record(await swarms.cancel(args.run_id), view.snapshot)
+            out.record(
+                await swarms.cancel(args.run_id, idempotency_key=args.idempotency_key),
+                view.snapshot,
+            )
         elif command == "outputs":
             page = await swarms.outputs(args.run_id, cursor=args.cursor, limit=args.limit)
             out.record(page, view.outputs)
