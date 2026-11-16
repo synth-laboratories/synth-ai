@@ -1,4 +1,4 @@
-"""Read/download one retained run through SDK or CLI; never launch or spend.
+"""Read/download one retained run through SDK, CLI or MCP; never launch or spend.
 
 This entrypoint writes raw public-model evidence. It cannot report a complete J1
 pass while attempt-tree or result.md evidence is missing. See SYN-5692.
@@ -6,26 +6,34 @@ pass while attempt-tree or result.md evidence is missing. See SYN-5692.
 
 from __future__ import annotations
 
+# ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import argparse
 import json
 import os
 import sys
-from enum import StrEnum
 from pathlib import Path
+from typing import Optional
 
 from synth_ai import Environment, SynthClient
 
-from .j1 import CLIDriver, J1Observation, SDKDriver, observe
+from .j1 import CLIDriver, J1Observation, SDKDriver, observe, observe_listed
+from .mcp_driver import MCPDriver
+from .mcp_transport import (
+    HostedEndpoint,
+    SessionToolCaller,
+    StdioCommand,
+    hosted_session,
+    stdio_session,
+)
+from .parity_view import ParityDriver, project
 
 __all__ = ["main"]
 
 
-class Driver(StrEnum):
-    SDK = "sdk"
-    CLI = "cli"
+LOOPBACK = ("http://127.0.0.1:", "http://localhost:")
 
 
-def persist(observation: J1Observation, directory: Path) -> None:
+def persist(driver: ParityDriver, observation: J1Observation, directory: Path) -> None:
     # An observation gets a fresh, private directory; source artifacts survive
     # retries and cannot be silently overwritten by a later surface read.
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -41,6 +49,13 @@ def persist(observation: J1Observation, directory: Path) -> None:
             output.flush()
             os.fsync(output.fileno())
     descriptor = os.open(
+        directory / "parity_view.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+    )
+    with os.fdopen(descriptor, "w") as output:
+        output.write(project(driver, observation).to_json() + "\n")
+        output.flush()
+        os.fsync(output.fileno())
+    descriptor = os.open(
         directory / "observation.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
     )
     with os.fdopen(descriptor, "w") as output:
@@ -48,6 +63,7 @@ def persist(observation: J1Observation, directory: Path) -> None:
             json.dumps(
                 {
                     "run_id": observation.snapshot.run_id,
+                    "driver": driver.value,
                     "result": "Inconclusive",
                     "missing": list(observation.missing),
                     "supplier_charge": "unobserved",
@@ -68,34 +84,72 @@ def persist(observation: J1Observation, directory: Path) -> None:
         os.fsync(output.fileno())
 
 
+def observe_surface(
+    driver: ParityDriver,
+    *,
+    key: str,
+    run_id: str,
+    receipt_dir: Path,
+    mcp_url: Optional[str],
+) -> J1Observation:
+    match driver:
+        case ParityDriver.SDK:
+            with SynthClient(api_key=key, environment=Environment.LOCAL) as client:
+                return observe(
+                    SDKDriver(client),
+                    run_id=run_id,
+                    output_directory=receipt_dir / "outputs",
+                )
+        case ParityDriver.CLI:
+            cli = CLIDriver(
+                python=Path(sys.executable), environment=os.environ, working_directory=Path.cwd()
+            )
+            return observe(cli, run_id=run_id, output_directory=receipt_dir / "outputs")
+        case ParityDriver.MCP_STDIO:
+            # The stdio server reads origin/credential from its environment only.
+            command = StdioCommand(
+                Path(sys.executable).parent / "synth-ai-mcp",
+                ("--env", "local"),
+                dict(os.environ),
+                Path.cwd(),
+            )
+            with SessionToolCaller(stdio_session(command)) as caller:
+                return observe_listed(MCPDriver(caller, surface=driver), run_id=run_id)
+        case ParityDriver.MCP_HOSTED:
+            if mcp_url is None:
+                raise SystemExit("mcp_hosted requires --mcp-url")
+            # Core /mcp resolves an MCP OAuth access token, not the API key.
+            endpoint = HostedEndpoint(mcp_url, os.environ["SYNTH_MCP_ACCESS_TOKEN"])
+            with SessionToolCaller(hosted_session(endpoint)) as caller:
+                return observe_listed(MCPDriver(caller, surface=driver), run_id=run_id)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--driver", type=Driver, choices=tuple(Driver), required=True)
+    parser.add_argument("--driver", type=ParityDriver, choices=tuple(ParityDriver), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--receipt-dir", type=Path, required=True)
+    parser.add_argument("--mcp-url", help="hosted streamable HTTP /mcp endpoint (mcp_hosted)")
     options = parser.parse_args()
     # These required env contracts are explicit. No keychain, profile fallback,
     # default prod origin, new run or provider request is selected here.
     key = os.environ["SYNTH_API_KEY"]
     origin = os.environ["SYNTH_LOCAL_API_BASE_URL"]
-    if not origin.startswith(("http://127.0.0.1:", "http://localhost:")):
+    if not origin.startswith(LOOPBACK):
         parser.error("read-only local observation requires the leased loopback adapter origin")
     options.receipt_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
-    if options.driver == Driver.SDK:
-        with SynthClient(api_key=key, environment=Environment.LOCAL) as client:
-            observation = observe(
-                SDKDriver(client),
-                run_id=options.run_id,
-                output_directory=options.receipt_dir / "outputs",
-            )
-    else:
-        driver = CLIDriver(
-            python=Path(sys.executable), environment=os.environ, working_directory=Path.cwd()
-        )
-        observation = observe(
-            driver, run_id=options.run_id, output_directory=options.receipt_dir / "outputs"
-        )
-    persist(observation, options.receipt_dir)
+    if options.driver == ParityDriver.MCP_HOSTED and (
+        options.mcp_url is None or not options.mcp_url.startswith(LOOPBACK)
+    ):
+        parser.error("mcp_hosted requires --mcp-url on the leased loopback origin")
+    observation = observe_surface(
+        options.driver,
+        key=key,
+        run_id=options.run_id,
+        receipt_dir=options.receipt_dir,
+        mcp_url=options.mcp_url,
+    )
+    persist(options.driver, observation, options.receipt_dir)
     print(
         json.dumps(
             {
