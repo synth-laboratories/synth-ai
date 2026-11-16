@@ -18,13 +18,6 @@ from synth_ai import Environment, SynthClient
 
 from .j1 import CLIDriver, J1Observation, SDKDriver, observe, observe_listed
 from .mcp_driver import MCPDriver
-from .mcp_transport import (
-    HostedEndpoint,
-    SessionToolCaller,
-    StdioCommand,
-    hosted_session,
-    stdio_session,
-)
 from .parity_view import ParityDriver, project
 
 __all__ = ["main"]
@@ -106,6 +99,9 @@ def observe_surface(
             )
             return observe(cli, run_id=run_id, output_directory=receipt_dir / "outputs")
         case ParityDriver.MCP_STDIO:
+            # Optional extra: synth-ai[mcp] (a streamable_http_client release).
+            from .mcp_transport import SessionToolCaller, StdioCommand, stdio_session
+
             # The stdio server reads origin/credential from its environment only.
             command = StdioCommand(
                 Path(sys.executable).parent / "synth-ai-mcp",
@@ -118,7 +114,10 @@ def observe_surface(
         case ParityDriver.MCP_HOSTED:
             if mcp_url is None:
                 raise SystemExit("mcp_hosted requires --mcp-url")
-            # Core /mcp resolves an MCP OAuth access token, not the API key.
+            from .mcp_transport import HostedEndpoint, SessionToolCaller, hosted_session
+
+            # Opaque bearer for Core /mcp (s.Auth.Authenticate); its credential
+            # type is not asserted here. The API key env stays separate.
             endpoint = HostedEndpoint(mcp_url, os.environ["SYNTH_MCP_ACCESS_TOKEN"])
             with SessionToolCaller(hosted_session(endpoint)) as caller:
                 return observe_listed(MCPDriver(caller, surface=driver), run_id=run_id)
