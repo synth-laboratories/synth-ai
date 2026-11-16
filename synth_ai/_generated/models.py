@@ -327,6 +327,12 @@ class RunLimitWarningPayloadScope(StrEnum):
     RUN = "run"
 
 
+class RunMilestoneMilestone(StrEnum):
+    EXECUTION_CLOSED = "execution_closed"
+    ACCOUNTING_FINAL = "accounting_final"
+    CLEANUP_COMPLETE = "cleanup_complete"
+
+
 class RunObjectiveState(StrEnum):
     OPEN = "open"
     CLAIMED = "claimed"
@@ -1305,6 +1311,21 @@ class RunLimitsProgressFunding(WireModel):
     held: str
     settled: str
     currency: Literal["USD"]
+
+
+class RunMilestone(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    milestone: Annotated[RunMilestoneMilestone, BeforeValidator(enum_value(RunMilestoneMilestone))]
+    run_id: str
+    state: str
+    execution_closed: bool
+    accounting_final: bool
+    cleanup_complete: bool
+    result_available: bool
+    failure: JsonValue
+    final: bool
 
 
 class RunPauseLimit(WireModel):
@@ -3038,6 +3059,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLabelsRequest": RunLabelsRequest,
     "RunLimitWarningPayload": RunLimitWarningPayload,
     "RunLimitsProgressFunding": RunLimitsProgressFunding,
+    "RunMilestone": RunMilestone,
     "RunPauseLimit": RunPauseLimit,
     "RunProblem": RunProblem,
     "RunProfilePin": RunProfilePin,

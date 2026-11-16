@@ -16,7 +16,7 @@ from pydantic import BaseModel, JsonValue, RootModel, ValidationError
 
 from ._event_stream import decode_events, validate_stream_response
 from ._file_source import FileIO
-from ._generated.models import RunEvent, RunSnapshot, UploadGrant
+from ._generated.models import RunEvent, RunMilestone, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
 from ._operations import OperationExecutor
@@ -178,7 +178,7 @@ class Transport:
     @asynccontextmanager
     async def subscribe_events(
         self, run_id: str, state: StreamCheckpoint
-    ) -> AsyncGenerator[AsyncIterator[RunEvent], None]:
+    ) -> AsyncGenerator[AsyncIterator[RunEvent | RunMilestone], None]:
         """Open the durable feed before an observer performs its authoritative read."""
         state.bind(run_id)
         state.__post_init__()
@@ -236,7 +236,9 @@ class Transport:
                     try:
                         async with self.subscribe_events(run_id, state) as events:
                             async for item in events:
-                                yield item
+                                # Milestones advance recovery without leaking into follow().
+                                if isinstance(item, RunEvent):
+                                    yield item
                     except httpx.TransportError as error:
                         disconnected, cause = True, error
                     except SwarmsAPIError as refusal:

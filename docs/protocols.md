@@ -140,14 +140,18 @@ none of the consumer examples or live smoke operations are executed.
 Events wake the observer; only a fresh snapshot can prove a milestone. Idle
 connections reconcile at `max(30 seconds, poll_interval)` to cover missing
 notifications. Heartbeats do not trigger reads. One monotonic `timeout` covers
-subscription, reads, reconnect delays and fallback, and cancels observation only.
+subscription, reads and reconnect delays, and cancels observation only.
 
 Reconnect attempts are bounded by `RetryPolicy.attempts`; delays respect both its
 backoff and `poll_interval`. Unexpected EOF or a transport disconnect does not
-prove completion. Once the server closes a feed for an execution-closed run,
-accounting and cleanup continue through explicit polling at
-`max(1 second, poll_interval)`. The same polling fallback applies when opening a
-feed returns a valid 406, 415 or 501 Problem.
+prove completion. Core keeps the feed open through execution closure, accounting
+finality and cleanup, emitting typed `event: milestone` frames. Each milestone
+advances the composite `<sequence>.<level>` checkpoint and wakes one `getRun`;
+`follow()` yields run events only. A cut feed resumes past its last checkpoint.
+If Core ends its final milestone feed but `getRun` still cannot prove the
+requested state, `wait()` raises `ResponseContractError` with code
+`event_stream_ended_before_milestone`. A 406, 415 or 501 refusal propagates;
+there is no polling fallback.
 
 A server refusal of the feed, whether returned when the feed opens or sent
 in-stream as an `error` frame, reconnects only when the server marks it
@@ -172,7 +176,7 @@ disconnect or refusal is its `__cause__`. `WaitTimeoutError` retains the latest
 snapshot and run identity.
 
 `poll_interval` remains accepted by sync and async methods, but now controls the
-minimum reconnect/fallback cadence, not continuous polling while a feed is open.
+minimum reconnect cadence, not continuous polling while a feed is open.
 Use `contextlib.aclosing` if stopping `follow()` before exhaustion:
 
 ```python
