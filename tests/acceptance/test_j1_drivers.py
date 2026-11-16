@@ -266,3 +266,40 @@ def test_missing_optimizer_still_retains_accepted_run_receipt(contract, tmp_path
             )
     assert journal.read_accepted().run_id == RUN
     assert len(requests) == 1
+
+
+@pytest.mark.parametrize("selected", ["sdk", "cli"])
+def test_read_only_entrypoint_retains_real_models_without_launch(contract, tmp_path, selected):
+    import subprocess
+    import sys
+
+    target = tmp_path / selected
+    with fixture_api(contract, coherent=True) as (origin, requests):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.acceptance",
+                "--driver",
+                selected,
+                "--run-id",
+                RUN,
+                "--receipt-dir",
+                str(target),
+            ],
+            cwd=Path(__file__).parents[2],
+            env={**os.environ, "SYNTH_LOCAL_API_BASE_URL": origin, "SYNTH_API_KEY": "fixture"},
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    assert result.returncode == 2, result.stderr
+    receipt = json.loads((target / "observation.json").read_text())
+    assert receipt["result"] == "Inconclusive"
+    assert "attempt_tree_contract_unavailable" in receipt["missing"]
+    assert (target / "snapshot.json").stat().st_mode & 0o777 == 0o600
+    assert not (target / "launch-accepted.json").exists()
+    assert not (target / "launch-intent.json").exists()
+    assert len(requests) == 4
+    assert all(isinstance(request, str) for request in requests)
