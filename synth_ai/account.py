@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
+
+from pydantic import ValidationError
 
 from ._generated.models import (
     Account,
@@ -13,7 +15,10 @@ from ._generated.models import (
     MintApiKeyRequest,
     MintApiKeyRequestPurpose,
     MintedApiKey,
+    PlanRequest,
+    PlanRequestList,
     Scope,
+    SpecialFreeRequestInput,
     TermsAcceptance,
     TermsAcceptanceRequest,
     UpdateApiKeyRequest,
@@ -174,6 +179,36 @@ class AsyncAccount:
         unbounded. `current` is null when core has no exact measure for that row. `reset_at` is null when core defines
         no reset for that row, such as concurrency."""
         return await self._transport.request("listLimits", LimitList)
+
+    async def request_special_free(
+        self, *, use_case: str, links: Sequence[str] = (), idempotency_key: str | None = None
+    ) -> PlanRequest:
+        """Ask for owner review to move this org to Special Free. `use_case` (at most 4096 UTF-8 bytes) and
+        `links` (at most 5) are customer content: stored for review, never returned by the API and never logged by
+        this SDK. Refusals: `plan_request_pending_exists` (409), `plan_request_not_needed` (409, already on
+        Special Free or a paid plan), `plan_request_cooldown` (429 after a denial; never retried, the wait is
+        `retry_after_seconds` on the error), `plan_request_too_large` (422)."""
+        try:
+            body = SpecialFreeRequestInput(use_case=use_case, links=list(links))
+        except ValidationError:
+            # Pydantic's message echoes the rejected input; the use case must not reach logs.
+            raise ValueError(
+                "use_case must be a non-empty string and links a sequence of strings"
+            ) from None
+        return await self._transport.request(
+            "requestSpecialFree", PlanRequest, body=body, idempotency_key=idempotency_key
+        )
+
+    async def plan_requests(self) -> PlanRequestList:
+        """This org's plan requests, newest first (at most 100), as status projections without the use case."""
+        return await self._transport.request("listPlanRequests", PlanRequestList)
+
+    async def withdraw_plan_request(self, request_id: str) -> PlanRequest:
+        """Withdraw this org's pending plan request. Refusals: `plan_request_not_pending` (409),
+        `plan_request_unknown` (404)."""
+        return await self._transport.request(
+            "withdrawPlanRequest", PlanRequest, path={"request_id": request_id}
+        )
 
     async def iter_usage_records(
         self,

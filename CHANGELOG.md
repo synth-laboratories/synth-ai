@@ -2,6 +2,7 @@
 
 ## 0.41.0rc1
 
+- Special Free plan requests: `account.request_special_free(use_case=..., links=[...])`, `account.plan_requests()` and `account.withdraw_plan_request(request_id)`; CLI `synth plan request --use-case TEXT [--link URL]`, `synth plan requests`, `synth plan withdraw REQUEST`. API refusals carry `retry_after_seconds` when the server sends `Retry-After` in seconds. The use case is customer content and is never logged.
 - Pin the canonical Core contract 1.30.0. Adds the plan-request operations (`requestSpecialFree`, `listPlanRequests`, `withdrawPlanRequest`) with `PlanRequest`, `PlanRequestList` and `SpecialFreeRequestInput`. `RunBlocker.kind` `orchestra_settle_pending` is renamed `program_settle_pending`.
 - Pin the canonical Core contract 1.29.0. `RunResult.attempt_tree` is required: a typed available projection (protocol, experiment, research log and report record references, attempts, notes) or an explicit unavailable reason. Optimizer topology enums list only `swarms_v2` and `fork_flush`; research topologies refuse locally. Adds the container scoring fields, `Plan.kind` `granted`, and the typed `Problem.overload` object. Record references narrowed by `allOf` now generate as `RunRecordReference`, not untyped JSON.
 - Adopt integrated Core contract 1.28.0: typed optimizer pins and resolved admission receipts, topology availability catalog, SDK `optimizer="auto"` and CLI `--optimizer auto|TOPOLOGY@VERSION`. MCP launch carries the same schema. Unsupported tuning parameters refuse locally.

@@ -22,6 +22,8 @@ from ._generated.models import (
     LimitMeter,
     Money,
     OutputPage,
+    PlanRequest,
+    PlanRequestList,
     RunAllocation,
     RunAllocationChoice,
     RunCharge,
@@ -334,6 +336,28 @@ def limits(value: LimitList) -> str:
         )
         if value.items
         else ""
+    )
+
+
+def plan_request(value: PlanRequest) -> str:
+    return facts(
+        [
+            ("request", value.request_id),
+            ("state", value.state),
+            ("created", value.created_at),
+            ("decided", value.decided_at),
+            ("reason", value.decision_reason),
+        ]
+    )
+
+
+def plan_requests(value: PlanRequestList) -> str:
+    return table(
+        ["REQUEST", "STATE", "CREATED", "DECIDED", "REASON"],
+        [
+            [i.request_id, i.state, i.created_at, i.decided_at, i.decision_reason]
+            for i in value.items
+        ],
     )
 
 

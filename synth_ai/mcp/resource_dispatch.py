@@ -9,6 +9,7 @@ from .._generated.models import (
     CheckoutRequest,
     MintApiKeyRequest,
     SetSpendAlertsRequest,
+    SpecialFreeRequestInput,
     SubscriptionChangeRequest,
     TermsAcceptanceRequest,
     UpdateApiKeyRequest,
@@ -39,6 +40,19 @@ async def dispatch_resource(
             )
         case "listLimits":
             return await client.account.limits()
+        case "requestSpecialFree":
+            request = required(arguments, "body", SpecialFreeRequestInput)
+            return await client.account.request_special_free(
+                use_case=request.use_case,
+                links=request.links or [],
+                idempotency_key=optional(arguments, "idempotency_key", str),
+            )
+        case "listPlanRequests":
+            return await client.account.plan_requests()
+        case "withdrawPlanRequest":
+            return await client.account.withdraw_plan_request(
+                required(arguments, "request_id", str)
+            )
         case "createUsageExport":
             body = required(arguments, "body", UsageExportRequest)
             return await client.account.export_usage(

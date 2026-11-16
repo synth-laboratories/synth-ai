@@ -54,6 +54,8 @@ class PaginationError(SynthError, ValueError):
 class SwarmsAPIError(SynthError):
     kind = ErrorKind.API
     checkpoint: StreamCheckpoint | None = None
+    retry_after_seconds: int | None = None
+    """The refusal's `Retry-After` in whole seconds, when the server sent one."""
 
     def __init__(
         self, problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
@@ -380,16 +382,30 @@ def raise_for_response(response: httpx.Response) -> None:
         request_id=response.headers.get("x-request-id")
         or response.request.headers.get("x-request-id"),
         idempotency_key=response.request.headers.get("idempotency-key"),
+        retry_after_seconds=retry_after_seconds(response.headers.get("retry-after")),
     )
 
 
+def retry_after_seconds(value: str | None) -> int | None:
+    """A `Retry-After` delay in whole seconds; an absent or non-delay value is None."""
+    if value is None or not value.isascii() or not value.isdigit():
+        return None
+    return int(value)
+
+
 def raise_problem(
-    problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
+    problem: Problem,
+    *,
+    request_id: str | None = None,
+    idempotency_key: str | None = None,
+    retry_after_seconds: int | None = None,
 ) -> None:
     kind = _BY_CODE.get(problem.code) or _BY_STATUS.get(
         problem.status, ServerError if problem.status >= 500 else InvalidRequestError
     )
-    raise kind(problem, request_id=request_id, idempotency_key=idempotency_key)
+    error = kind(problem, request_id=request_id, idempotency_key=idempotency_key)
+    error.retry_after_seconds = retry_after_seconds
+    raise error
 
 
 def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupportedError:

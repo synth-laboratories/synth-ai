@@ -91,6 +91,7 @@ COMMANDS: dict[str, str] = {
     "usage": "Usage",
     "billing": "Balance",
     "limits": "Limits",
+    "plan": "Special Free plan requests",
 }
 
 EPILOG = """exit codes:
@@ -276,6 +277,15 @@ def parser() -> argparse.ArgumentParser:
     limits.add_argument("--idempotency-key")
     for name in ("pause", "resume", "cancel"):
         add(name).add_argument("--idempotency-key")
+    plan_common = Parser(add_help=False)
+    plan_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    plan = add("plan").add_subparsers(dest="plan_action", required=True)
+    plan_request = plan.add_parser("request", parents=[plan_common])
+    plan_request.add_argument("--use-case", required=True)
+    plan_request.add_argument("--link", action="append", default=[], dest="links")
+    plan_request.add_argument("--idempotency-key")
+    plan.add_parser("requests", parents=[plan_common])
+    plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
     evaluation_common = Parser(add_help=False)
     evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
     evaluation = add("evaluations").add_subparsers(dest="evaluation_action", required=True)
@@ -587,6 +597,18 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 out.record(await client.account.limits(), view.limits)
             else:
                 out.record(await swarms.limits(args.run_id), view.run_limits)
+        elif command == "plan":
+            if args.plan_action == "request":
+                # The use case is customer content: it goes to the SDK and nowhere else.
+                request = await client.account.request_special_free(
+                    use_case=args.use_case, links=args.links, idempotency_key=args.idempotency_key
+                )
+                out.record(request, view.plan_request)
+            elif args.plan_action == "requests":
+                out.record(await client.account.plan_requests(), view.plan_requests)
+            else:
+                withdrawn = await client.account.withdraw_plan_request(args.request_id)
+                out.record(withdrawn, view.plan_request)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK
@@ -729,6 +751,8 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
         return EXIT_SERVER_REFUSAL
     except SwarmsAPIError as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
+        if error.retry_after_seconds is not None and not as_json:
+            print(f"retry after {error.retry_after_seconds} seconds", file=sys.stderr, flush=True)
         return EXIT_SERVER_REFUSAL
     except UploadTransferError as error:
         if as_json:

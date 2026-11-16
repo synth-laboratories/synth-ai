@@ -46,6 +46,8 @@ from ._generated.models import (
     OwnerResourceRequest,
     PaymentMethodSession,
     PlanCatalog,
+    PlanRequest,
+    PlanRequestList,
     RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
@@ -700,6 +702,24 @@ class AccountClient:
     def limits(self) -> LimitList:
         "Plan limits, the concurrent Swarms run cap and the public API rate limit. `cap` is null when the limit is\nunbounded. `current` is null when core has no exact measure for that row. `reset_at` is null when core defines\nno reset for that row, such as concurrency."
         return self._runner.call(self._async.limits())
+
+    def request_special_free(
+        self, *, use_case: str, links: Sequence[str] = (), idempotency_key: str | None = None
+    ) -> PlanRequest:
+        "Ask for owner review to move this org to Special Free. `use_case` (at most 4096 UTF-8 bytes) and\n`links` (at most 5) are customer content: stored for review, never returned by the API and never logged by\nthis SDK. Refusals: `plan_request_pending_exists` (409), `plan_request_not_needed` (409, already on\nSpecial Free or a paid plan), `plan_request_cooldown` (429 after a denial; never retried, the wait is\n`retry_after_seconds` on the error), `plan_request_too_large` (422)."
+        return self._runner.call(
+            self._async.request_special_free(
+                use_case=use_case, links=links, idempotency_key=idempotency_key
+            )
+        )
+
+    def plan_requests(self) -> PlanRequestList:
+        "This org's plan requests, newest first (at most 100), as status projections without the use case."
+        return self._runner.call(self._async.plan_requests())
+
+    def withdraw_plan_request(self, request_id: str) -> PlanRequest:
+        "Withdraw this org's pending plan request. Refusals: `plan_request_not_pending` (409),\n`plan_request_unknown` (404)."
+        return self._runner.call(self._async.withdraw_plan_request(request_id))
 
     def iter_usage_records(
         self,
