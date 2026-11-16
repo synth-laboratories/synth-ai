@@ -20,7 +20,10 @@ async def test_diagnostics_are_safe_and_hook_failures_cannot_change_outcome(cont
         calls.append(request)
         if len(calls) == 1:
             return httpx.Response(
-                503, json=local_problem("busy", "admission").model_dump(mode="json")
+                503,
+                json=local_problem("busy", "admission")
+                .model_copy(update={"retryable": True})
+                .model_dump(mode="json"),
             )
         return httpx.Response(202, json=snapshot)
 

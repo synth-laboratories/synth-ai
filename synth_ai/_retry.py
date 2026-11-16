@@ -60,7 +60,7 @@ def retry_delay(value: str | None, attempt: int) -> float | None:
             seconds = (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
         except (ValueError, TypeError, OverflowError):
             return None
-    return max(0, seconds) if math.isfinite(seconds) and seconds <= 60 else None
+    return max(0, seconds) if math.isfinite(seconds) else None
 
 
 def stream_refusal_retryable(problem: Problem) -> bool:

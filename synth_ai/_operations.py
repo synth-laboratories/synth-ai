@@ -12,7 +12,7 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from ._generated.models import MODELS
+from ._generated.models import MODELS, Problem
 from ._generated.operations import OPERATIONS
 from ._retry import RetryPolicy
 from .diagnostics import DiagnosticHook, DiagnosticPhase, OperationDiagnostic
@@ -35,6 +35,16 @@ def ambiguous_response(response: httpx.Response) -> bool:
         or problem.outcome != "not_accepted"
         or legacy_unknown
     )
+
+
+def retryable_response(response: httpx.Response) -> bool:
+    """Only a valid server Problem with retryable=true permits overload recovery."""
+    try:
+        problem = Problem.model_validate_json(response.content)
+    except (ValueError, ValidationError):
+        # Refuse the retry; raise_for_response will surface the malformed body.
+        return False
+    return problem.status == response.status_code and problem.retryable is True
 
 
 @dataclass
@@ -186,6 +196,7 @@ class OperationExecutor:
                 response.status_code not in {429, 503}
                 or attempt + 1 == self.retry_policy.attempts
                 or op["retry"] == "never"
+                or not retryable_response(response)
                 or (op["method"] not in {"GET", "HEAD"} and ambiguous_response(response))
             ):
                 break

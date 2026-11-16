@@ -179,3 +179,19 @@ with the same key, which never runs it twice.
 - Exit 3: the run finished `failed` or `cancelled`. Run `synth report RUN`.
 - Exit 4: a server refusal; stderr carries `code: detail` (the problem JSON
   under `--json`). Use the codes above.
+
+
+## Capacity and queue refusals
+
+- `run_queue_full` (429): the admission queue has no room. A server Problem with
+  `retryable: true` permits a bounded retry after `Retry-After` plus jitter.
+- `overloaded` (503): the service cannot admit this request. Retry only when
+  the server marks it retryable; the SDK shares that decision with CLI and MCP.
+- Quota or spend exhaustion marked `retryable: false` surfaces immediately,
+  preserving the server's code, detail and named limit fields. An omitted
+  retryable member also refuses automatic replay.
+
+Automatic retries cover safe reads and contract-authorized writes with a stable
+idempotency key and a proven `not_accepted` outcome. Unknown mutation outcomes
+never retry automatically. `RetryPolicy` bounds attempts, jitter and the overall
+deadline; a server delay outside the remaining budget surfaces the refusal.
