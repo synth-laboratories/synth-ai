@@ -15,6 +15,14 @@ from synth_ai._generated.operations import OPERATIONS
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
 EXPECTED_COMMANDS = [
+    "content",
+    "labels",
+    "files",
+    "uploads",
+    "keys",
+    "organization",
+    "inspect",
+    "families",
     "runs",
     "evaluations",
     "login",

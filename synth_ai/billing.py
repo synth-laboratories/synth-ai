@@ -14,6 +14,7 @@ from ._generated.models import (
     BillingStatementPage,
     CheckoutAttempt,
     CheckoutRequest,
+    CheckoutRequestPackId,
     CheckoutSession,
     Money,
     PaymentMethodSession,
@@ -99,6 +100,7 @@ class AsyncBilling:
         self,
         *,
         plan_id: str | None = None,
+        pack_id: CheckoutRequestPackId | None = None,
         credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:
@@ -107,7 +109,7 @@ class AsyncBilling:
         or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),
         `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable), `stripe_price_missing` (503, names the lookup key),
         `stripe_checkout_failed` (502, `upstream_kind: stripe`)."""
-        body = CheckoutRequest(plan_id=plan_id, credit=credit)
+        body = CheckoutRequest(plan_id=plan_id, pack_id=pack_id, credit=credit)
         body = CheckoutRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
             "createCheckout", CheckoutSession, body=body, idempotency_key=idempotency_key
@@ -271,6 +273,14 @@ class AsyncBilling:
         body = SetSpendAlertsRequest.model_validate(fields)
         return await self._transport.request(
             "setSpendAlerts", SpendAlerts, body=body, idempotency_key=idempotency_key
+        )
+
+    async def set_spend_alerts_request(
+        self, request: SetSpendAlertsRequest, *, idempotency_key: str | None = None
+    ) -> SpendAlerts:
+        """Apply the canonical request, preserving whether enabled was supplied."""
+        return await self._transport.request(
+            "setSpendAlerts", SpendAlerts, body=request, idempotency_key=idempotency_key
         )
 
     async def iter_history(

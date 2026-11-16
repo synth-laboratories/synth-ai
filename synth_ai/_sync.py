@@ -20,6 +20,7 @@ from ._generated.models import (
     BillingStatement,
     BillingStatementPage,
     CheckoutAttempt,
+    CheckoutRequestPackId,
     CheckoutSession,
     EvaluationEvaluationRequest,
     EvaluationInput,
@@ -69,9 +70,11 @@ from ._generated.models import (
     RunTaskPage,
     RunWait,
     Scope,
+    SetSpendAlertsRequest,
     SpendAlerts,
     Subscription,
     SubscriptionChangePreview,
+    TermsAcceptance,
     Upload,
     UsageExport,
     UsageRecord,
@@ -646,6 +649,16 @@ class AccountClient:
         "The caller's org, principal and limits."
         return self._runner.call(self._async.get())
 
+    def accept_terms(
+        self, *, version: str, accepted_at: str, idempotency_key: str | None = None
+    ) -> TermsAcceptance:
+        "Record the caller's explicit acceptance of a terms version and claimed UTC time."
+        return self._runner.call(
+            self._async.accept_terms(
+                version=version, accepted_at=accepted_at, idempotency_key=idempotency_key
+            )
+        )
+
     def usage_summary(self, *, since: str | None = None, until: str | None = None) -> UsageSummary:
         'A projection of settled `billing.charge_usage` rows, not a separate meter: `total` equals the sum of\n`GET /v1/usage/records` over the same window. `data_through` is the newest settled row in the window\n(null when there is none) and `observed_at` is when this answer was read. `pending` is the org\'s live\nunsettled holds at `observed_at`; it is not limited to the window. `by_source.sessions` is usage from\nsessions outside a run, and `by_source.unattributed` means attribution is unknown, not "not a run".\nRefusals: `invalid_filter` (422) on an unparsable time, `usage_window_invalid` (422) when `until` is not\nafter `since` or the window exceeds 366 days.'
         return self._runner.call(self._async.usage_summary(since=since, until=until))
@@ -743,12 +756,15 @@ class BillingClient:
         self,
         *,
         plan_id: str | None = None,
+        pack_id: CheckoutRequestPackId | None = None,
         credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:
         "Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),\n`pack_id` (a credit pack: `credits.10` $10, `credits.25` $25, `credits.100` $100; priced inline)\nor `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),\n`plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable), `stripe_price_missing` (503, names the lookup key),\n`stripe_checkout_failed` (502, `upstream_kind: stripe`)."
         return self._runner.call(
-            self._async.checkout(plan_id=plan_id, credit=credit, idempotency_key=idempotency_key)
+            self._async.checkout(
+                plan_id=plan_id, pack_id=pack_id, credit=credit, idempotency_key=idempotency_key
+            )
         )
 
     def subscription(self) -> Subscription | None:
@@ -821,6 +837,14 @@ class BillingClient:
             self._async.set_spend_alerts(
                 monthly_amount=monthly_amount, enabled=enabled, idempotency_key=idempotency_key
             )
+        )
+
+    def set_spend_alerts_request(
+        self, request: SetSpendAlertsRequest, *, idempotency_key: str | None = None
+    ) -> SpendAlerts:
+        "Apply the canonical request, preserving whether enabled was supplied."
+        return self._runner.call(
+            self._async.set_spend_alerts_request(request, idempotency_key=idempotency_key)
         )
 
     def iter_history(

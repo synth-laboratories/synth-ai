@@ -6,7 +6,7 @@ parses its contract body before invoking a typed SDK method.
 
 # ruff: noqa: UP045 -- Public boundary optionals use Synth Style's Optional vocabulary.
 from collections.abc import Mapping
-from typing import Optional, TypeVar
+from typing import Optional
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
@@ -18,35 +18,19 @@ from .._generated.models import (
     RunLimitUpdate,
     UploadFileRequest,
 )
-from .._limits import MCP_PAGE_LIMIT_DEFAULT, SERVER_WAIT_SECONDS_DEFAULT
+from .._limits import SERVER_WAIT_SECONDS_DEFAULT
 from .._requests import DomicileRequirement
 from ..aclient import AsyncSynthClient
-from ..errors import ResponseContractError, local_problem
 from ..evaluations import EvaluationInputKind
+from ._arguments import optional, page_limit, required
+from .resource_dispatch import dispatch_resource
 
 __all__ = ["dispatch"]
-
-T = TypeVar("T")
-
-
-def required(arguments: Mapping[str, JsonValue], name: str, model: type[T]) -> T:
-    return TypeAdapter(model).validate_python(arguments[name], strict=True)
-
-
-def optional(arguments: Mapping[str, JsonValue], name: str, model: type[T]) -> Optional[T]:
-    if name not in arguments:
-        return None
-    return TypeAdapter(model).validate_python(arguments[name], strict=True)
-
-
-def page_limit(arguments: Mapping[str, JsonValue]) -> int:
-    # The generated public page schema defines 20 as its omitted limit.
-    return required(arguments, "limit", int) if "limit" in arguments else MCP_PAGE_LIMIT_DEFAULT
 
 
 async def dispatch(
     client: AsyncSynthClient, operation: str, arguments: Mapping[str, JsonValue]
-) -> BaseModel:
+) -> BaseModel | None:
     match operation:
         case "getAccount":
             return await client.account.get()
@@ -224,6 +208,4 @@ async def dispatch(
                 ),
             )
         case _:
-            raise ResponseContractError(
-                local_problem("mcp_operation_unbound", "mcp_dispatch", detail=operation)
-            )
+            return await dispatch_resource(client, operation, arguments)

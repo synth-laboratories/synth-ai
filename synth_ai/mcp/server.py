@@ -29,6 +29,8 @@ async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, Js
         raise ValueError("Tool arguments do not match the contract")
     validate_arguments(tool["operationId"], schema, arguments)
     result = await dispatch(client, tool["operationId"], arguments)
+    if result is None:
+        return "null"  # The public operation has no representation or a nullable result.
     if isinstance(result, BaseModel):
         return result.model_dump_json(exclude_unset=True)
     raise ValueError("Unexpected tool response")

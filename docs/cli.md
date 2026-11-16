@@ -69,8 +69,25 @@ charge, and whether the run is final.
 redirect URL that the browser reached (`http://127.0.0.1:PORT/callback?...`) from
 stdin. The state and issuer are verified as in the browser flow.
 
-API key minting, rotation and revocation are not offered here; keys are managed
-from a signed-in session.
+The resource commands below call the same public SDK methods. Mutations remain
+subject to the server's scopes and signed-in-session requirements.
+
+| Resource | Commands |
+| --- | --- |
+| Files | `synth files list`, `get FILE`, `upload-text TEXT --name NAME` |
+| Upload grants | `synth uploads prepare --body PATH`, `get UPLOAD`, `finalize UPLOAD` |
+| Keys | `synth keys list`, `mint --body PATH`, `update KEY --body PATH`, `rotate KEY`, `revoke KEY` |
+| Organization | `synth organization get`, `usage-summary`, `usage-records`, `usage-export --since TIME --until TIME`, `usage-export-status EXPORT`, `limits`, `accept-terms --version VERSION --accepted-at TIME` |
+| Billing | `synth billing balance`, `plans`, `history`, `statements`, `checkout --body PATH`, `checkout-status CHECKOUT`, `subscription`, `cancel-subscription`, `resume-subscription`, `preview-plan PLAN`, `change-plan --body PATH`, `payment-method`, `auto-reload`, `set-auto-reload --body PATH`, `spend-alerts`, `set-spend-alerts --body PATH` |
+| Run details | `synth inspect RUN --view program\|configuration\|sandboxes\|output\|wait-update`, `synth families` |
+| Run labels | `synth labels RUN --body PATH` |
+| Pinned bytes | `synth content RUN OUTPUT --out PATH --revision REVISION --sha256 DIGEST` |
+
+`--body` reads a JSON file validated against the generated request type. Resource
+commands print the canonical response JSON; a nullable response prints `null`.
+`content` verifies the immutable revision and SHA-256 before saving bytes, then
+prints the local destination path as a JSON string. Use each command's `--help`
+for its pagination, filter and idempotency options.
 
 ## Output
 

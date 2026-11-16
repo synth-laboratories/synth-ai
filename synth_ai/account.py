@@ -14,6 +14,8 @@ from ._generated.models import (
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Scope,
+    TermsAcceptance,
+    TermsAcceptanceRequest,
     UpdateApiKeyRequest,
     UsageExport,
     UsageRecord,
@@ -100,6 +102,17 @@ class AsyncAccount:
     async def get(self) -> Account:
         """The caller's org, principal and limits."""
         return await self._transport.request("getAccount", Account)
+
+    async def accept_terms(
+        self, *, version: str, accepted_at: str, idempotency_key: str | None = None
+    ) -> TermsAcceptance:
+        """Record the caller's explicit acceptance of a terms version and claimed UTC time."""
+        return await self._transport.request(
+            "acceptTerms",
+            TermsAcceptance,
+            body=TermsAcceptanceRequest(version=version, accepted_at=accepted_at),
+            idempotency_key=idempotency_key,
+        )
 
     async def usage_summary(
         self, *, since: str | None = None, until: str | None = None

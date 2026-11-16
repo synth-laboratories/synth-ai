@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
+from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
     CreateEvaluation,
     EvaluationInput,
@@ -56,6 +57,14 @@ UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
 DEFAULT_WAIT_SECONDS = 3600.0
 
 COMMANDS: dict[str, str] = {
+    "content": "Save output content",
+    "labels": "Update run labels",
+    "files": "Files",
+    "uploads": "Upload records",
+    "keys": "API keys",
+    "organization": "Organization",
+    "inspect": "Run details",
+    "families": "Topology catalog",
     "runs": "List runs",
     "evaluations": "Register inputs and evaluate policies",
     "login": "Sign in",
@@ -221,7 +230,7 @@ def parser() -> argparse.ArgumentParser:
     download.add_argument("output_id", nargs="?", metavar="OUTPUT")
     download.add_argument("-o", "--out", default=".", metavar="DIR")
     add("usage").add_argument("run_id", nargs="?", metavar="RUN")
-    add("billing")
+    configure(created, common)
     limits = add("limits")
     limits.add_argument("run_id", nargs="?", metavar="RUN|set")
     limits.add_argument("set_run_id", nargs="?", metavar="RUN")
@@ -354,7 +363,21 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
     ) as client:
         swarms = client.swarms
         command = str(args.command)
-        if command == "evaluations":
+        if command in {
+            "files",
+            "uploads",
+            "keys",
+            "organization",
+            "inspect",
+            "families",
+            "content",
+            "labels",
+        } or (command == "billing" and args.resource_action is not None):
+            value = await execute_resource(client, args)
+            print(
+                "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
+            )
+        elif command == "evaluations":
             result = await execute_evaluation(client.evaluations, args)
             out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
         elif command == "whoami":
@@ -548,8 +571,13 @@ async def execute_evaluation(evaluations: AsyncEvaluations, args: argparse.Names
         return await evaluations.get_input(args.kind, args.revision_id)
     if action in {"preflight", "create"}:
         payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
-        method = evaluations.preflight if action == "preflight" else evaluations.create
-        return await method(
+        if action == "preflight":
+            return await evaluations.preflight(
+                payload.request,
+                maximum_charge_micros=payload.maximum_charge_micros,
+                idempotency_key=args.idempotency_key,
+            )
+        return await evaluations.create(
             payload.request,
             maximum_charge_micros=payload.maximum_charge_micros,
             idempotency_key=args.idempotency_key,
