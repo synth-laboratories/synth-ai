@@ -2,6 +2,8 @@
 
 ## 0.41.0rc1
 
+- Adopt integrated Core contract 1.28.0: typed optimizer pins and resolved admission receipts, topology availability catalog, SDK `optimizer="auto"` and CLI `--optimizer auto|TOPOLOGY@VERSION`. MCP launch carries the same schema. Unsupported tuning parameters refuse locally.
+
 - Pin the public contract with settlement/cleanup blockers and public objective evidence; expose typed blocker records.
 - Add a public-SDK-only Craftax workflow: reusable benchmark templates, fresh run-owned resources, resumable bounded launches and metadata-only paired verification.
 - Export the evaluation result-format enum and metadata records used by customer tooling.

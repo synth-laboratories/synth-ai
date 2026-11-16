@@ -365,3 +365,30 @@ with `SYNTH_PROD_API_BASE_URL` and `SYNTH_STAGING_API_BASE_URL`. Both require HT
 Core declares no published host port, so the SDK does not guess one. Local HTTP
 is permitted. Empty values and non-origin URLs are refused before credential
 resolution or any request. These variables contain URL values, not feature flags.
+
+## Optimizer selection (contract 1.28)
+
+`run`, `launch` and `prepare_launch` accept `optimizer="auto"` or a generated
+`OptimizerPin`. Omitting the field uses Core's declared environment default.
+CLI: `--optimizer auto` or `--optimizer swarms_v2@2`. MCP launch uses the same
+public request schema. Core owns environment availability and resolution; a
+catalog entry labeled `unavailable` does not become runnable in the SDK.
+
+`FamilyList.topologies` is typed, including availability, label, version and
+cause. `RunSnapshot.optimizer` carries the immutable admitted topology, numeric
+version, parameters, selection reason and definition digest. A requested pin is
+separate from this resolved admission receipt. Current parameters are a closed
+empty object; extra tuning fields refuse locally. Pin models, resolved receipts
+and catalog types are exported from `synth_ai.models`.
+
+The event page method reads JSON; `follow()` owns SSE subscriptions and the
+checkpoint/milestone behavior described above. Report breakdowns sum to settled
+charges; pending reports have empty breakdowns, and absent historical attribution
+is `not_recorded`. Metered rollout compute belongs to `settlement.rollout` within
+`maximum_charge`; `not_metered` is uncharged and does not assert zero cost.
+Sandbox teardown is complete only after execution closure and verified resource
+absence; `unobserved` preserves missing evidence. Core result selection uses the
+latest available `text/*` output, then the latest `synth.objective-answer.v1`
+JSON (`answer.text`); absent answer fields stay None. An unfinished result read
+raises `ResultUnavailableError` with a fresh snapshot. Sync delegates preserve
+the same authored public documentation.

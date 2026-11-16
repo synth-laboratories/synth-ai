@@ -470,6 +470,31 @@ TOOLS: list[ToolDefinition] = [
                             "x-synth-max-bytes": 1048576,
                             "x-synth-message-text": True,
                         },
+                        "optimizer": {
+                            "default": "auto",
+                            "oneOf": [
+                                {"const": "auto", "type": "string"},
+                                {
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "params": {"additionalProperties": False, "type": "object"},
+                                        "topology": {
+                                            "enum": [
+                                                "swarms_v2",
+                                                "fork_flush",
+                                                "forgetting",
+                                                "mira",
+                                                "scalemas",
+                                            ],
+                                            "type": "string",
+                                        },
+                                        "version": {"minimum": 1, "type": "integer"},
+                                    },
+                                    "required": ["topology", "version"],
+                                    "type": "object",
+                                },
+                            ],
+                        },
                         "profile": {
                             "description": "Published run "
                             "profile ID "
