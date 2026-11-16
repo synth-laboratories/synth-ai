@@ -9,6 +9,7 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import hashlib
+import json
 import logging
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -21,8 +22,9 @@ from typing import Optional, Protocol
 from pydantic import TypeAdapter
 
 from synth_ai import SynthClient
-from synth_ai.models import File, RunOutput, RunReport, RunResult, RunSnapshot
+from synth_ai.models import File, InputFile, RunInputs, RunOutput, RunReport, RunResult, RunSnapshot
 
+from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
 
 __all__ = ["AdapterError", "CLIDriver", "J1Observation", "Missing", "SDKDriver", "observe"]
@@ -80,6 +82,47 @@ class SDKDriver:
 
     def upload(self, path: Path, *, idempotency_key: str) -> File:
         return self.client.swarms.upload_file(str(path), idempotency_key=idempotency_key)
+
+    def launch_auto(
+        self,
+        *,
+        message: str,
+        budget_usd: str,
+        files: Sequence[File],
+        idempotency_key: str,
+        journal: LaunchJournal,
+    ) -> RunSnapshot:
+        inputs = RunInputs(
+            files=[
+                InputFile(
+                    file_id=file.file_id,
+                    revision_id=file.revision_id,
+                    digest_sha256=file.digest_sha256,
+                )
+                for file in files
+            ]
+        )
+        request = self.client.swarms.prepare_launch(
+            message, budget=budget_usd, inputs=inputs, optimizer="auto"
+        )
+        journal.begin(
+            LaunchIntent(
+                "sdk",
+                idempotency_key,
+                journal.request_digest(request.model_dump_json()),
+                tuple(InputIdentity(file.name, file.digest_sha256) for file in files),
+            )
+        )
+        snapshot = self.client.swarms.launch_request(request, idempotency_key=idempotency_key)
+        journal.accepted(snapshot)
+        if snapshot.optimizer is None:
+            raise refusal(
+                "optimizer_resolution_unobserved",
+                stage="launch",
+                cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
+                run_id=snapshot.run_id,
+            )
+        return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
         return self.client.swarms.wait(run_id, timeout=WAIT_SECONDS, raise_on_failure=False)
@@ -194,6 +237,52 @@ class CLIDriver:
                 ["upload", "--json", *(str(path) for path in paths)], run_id="not_launched"
             )
         )
+
+    def launch_auto(
+        self,
+        *,
+        message: str,
+        budget_usd: str,
+        files: Sequence[Path],
+        idempotency_key: str,
+        journal: LaunchJournal,
+    ) -> RunSnapshot:
+        arguments = [
+            "run",
+            message,
+            "--budget",
+            budget_usd,
+            "--optimizer",
+            "auto",
+            "--idempotency-key",
+            idempotency_key,
+            "--json",
+        ]
+        for path in files:
+            arguments.extend(["--file", str(path)])
+        journal.begin(
+            LaunchIntent(
+                "cli",
+                idempotency_key,
+                journal.request_digest(json.dumps(arguments)),
+                tuple(
+                    InputIdentity(path.name, hashlib.sha256(path.read_bytes()).hexdigest())
+                    for path in files
+                ),
+            )
+        )
+        snapshot = RunSnapshot.model_validate_json(
+            self._command(arguments, run_id="launch_outcome_pending")
+        )
+        journal.accepted(snapshot)
+        if snapshot.optimizer is None:
+            raise refusal(
+                "optimizer_resolution_unobserved",
+                stage="launch",
+                cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
+                run_id=snapshot.run_id,
+            )
+        return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
         return RunSnapshot.model_validate_json(
