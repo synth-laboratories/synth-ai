@@ -371,15 +371,28 @@ RECORDED_BODY = {
         }
     ],
 }
-RECORDED_PUBLIC = {k: v for k, v in RECORDED_BODY.items() if k != "local_cache"}
+# The real cached-J1 solo recording (record-20261116T155453Z-55c1b03c-n1), ~11 KB message.
+RECORDED_CRAFTAX_BODY = json.loads(
+    (
+        Path(__file__).parent / "fixtures" / "recorded-craftax-launch-20261116T155453Z.json"
+    ).read_text()
+)
 
 
-def test_sdk_and_cli_send_the_recorded_public_launch_unchanged(contract, tmp_path):
+def public_launch(body: dict) -> dict:
+    """What a public client sends: the recording minus operator cache wiring, plus auto."""
+    return {**{k: v for k, v in body.items() if k != "local_cache"}, "optimizer": "auto"}
+
+
+@pytest.mark.parametrize(
+    "body", [RECORDED_BODY, RECORDED_CRAFTAX_BODY], ids=["synthetic", "recorded-craftax"]
+)
+def test_sdk_and_cli_send_the_recorded_public_launch_unchanged(contract, tmp_path, body):
     import sys
 
     from scripts.acceptance.j1 import RecordedLaunch
 
-    recording = RecordedLaunch.from_body(RECORDED_BODY)
+    recording = RecordedLaunch.from_body(body)
     with (
         fixture_api(contract, launch_resolution=True) as (origin, requests),
         SynthClient("fixture", base_url=origin) as client,
@@ -403,8 +416,8 @@ def test_sdk_and_cli_send_the_recorded_public_launch_unchanged(contract, tmp_pat
         ("/v1/runs", "j1-sdk-recorded"),
         ("/v1/runs", "j1-cli-recorded"),
     ]
-    assert requests[0][1] == RECORDED_PUBLIC
-    assert requests[1][1] == RECORDED_PUBLIC
+    assert requests[0][1] == public_launch(body)
+    assert requests[1][1] == public_launch(body)
 
 
 @pytest.mark.parametrize(

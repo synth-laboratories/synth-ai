@@ -225,10 +225,12 @@ class SDKDriver:
     def launch_recorded(
         self, *, recording: RecordedLaunch, idempotency_key: str, journal: LaunchJournal
     ) -> RunSnapshot:
-        # No optimizer field: the recording omitted it, so Core's declared default resolves.
+        # The recording omitted optimizer; J1 selects literal auto so Core resolves it
+        # and the accepted run must carry the authoritative optimizer receipt.
         request = self.client.swarms.prepare_launch(
             recording.message,
             budget=recording.budget_usd,
+            optimizer="auto",
             wall_time_seconds=recording.wall_time_seconds,
             labels=dict(recording.labels),
             resources=list(recording.resources),
@@ -240,6 +242,13 @@ class SDKDriver:
         )
         snapshot = self.client.swarms.launch_request(request, idempotency_key=idempotency_key)
         journal.accepted(snapshot)
+        if snapshot.optimizer is None:
+            raise refusal(
+                "optimizer_resolution_unobserved",
+                stage="launch",
+                cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
+                run_id=snapshot.run_id,
+            )
         return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
@@ -442,6 +451,8 @@ class CLIDriver:
             str(recording.wall_time_seconds),
             "--resources",
             str(resources),
+            "--optimizer",
+            "auto",
             "--idempotency-key",
             idempotency_key,
             "--json",
@@ -455,6 +466,13 @@ class CLIDriver:
             self._command(arguments, run_id="launch_outcome_pending")
         )
         journal.accepted(snapshot)
+        if snapshot.optimizer is None:
+            raise refusal(
+                "optimizer_resolution_unobserved",
+                stage="launch",
+                cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
+                run_id=snapshot.run_id,
+            )
         return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
