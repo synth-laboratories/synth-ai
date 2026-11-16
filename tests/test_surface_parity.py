@@ -106,3 +106,36 @@ def test_planted_private_mcp_dispatch_fails(tmp_path: Path):
     findings = parity.audit(tmp_path)
     assert any(item.surface == "mcp" and item.code == parity.Code.PRIVATE for item in findings)
     assert any(item.surface == "mcp" and item.code == parity.Code.MISSING for item in findings)
+
+
+def test_imported_mcp_dispatch_is_audited(tmp_path: Path):
+    fixture(tmp_path)
+    (tmp_path / "synth_ai/mcp/server.py").write_text("from .dispatch import dispatch\n")
+    (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
+        "async def dispatch(client):\n return await client.swarms.get()\n"
+    )
+    assert parity.audit(tmp_path) == ()
+
+
+def test_unused_mcp_dispatch_does_not_prove_reachability(tmp_path: Path):
+    fixture(tmp_path)
+    (tmp_path / "synth_ai/mcp/server.py").write_text("def execute():\n return 0\n")
+    (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
+        "async def dispatch(client):\n return await client.swarms.get()\n"
+    )
+    assert any(
+        item.surface == "mcp" and item.code == parity.Code.MISSING
+        for item in parity.audit(tmp_path)
+    )
+
+
+def test_private_access_in_imported_dispatch_is_a_failure(tmp_path: Path):
+    fixture(tmp_path)
+    (tmp_path / "synth_ai/mcp/server.py").write_text("from .dispatch import dispatch\n")
+    (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
+        'async def dispatch(client):\n return await client._transport.invoke("getRun")\n'
+    )
+    assert any(
+        item.surface == "mcp" and item.code == parity.Code.PRIVATE
+        for item in parity.audit(tmp_path)
+    )

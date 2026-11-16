@@ -149,6 +149,28 @@ def composition(root: Path) -> dict[str, str]:
     return paths
 
 
+def surface_sources(root: Path, relative: str) -> tuple[Path, ...]:
+    """Follow the surface's local imports; unused dispatch files prove nothing."""
+    entry = root / relative
+    pending = [entry]
+    visited: set[Path] = set()
+    while pending:
+        path = pending.pop()
+        if path in visited:
+            continue
+        visited.add(path)
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.ImportFrom) or node.level != 1 or node.module is None:
+                continue
+            # CLI domain clients are SDK dependencies, not CLI implementation.
+            if relative == "synth_ai/cli.py" and not node.module.startswith("_cli"):
+                continue
+            candidate = path.parent / (node.module.replace(".", "/") + ".py")
+            if candidate.is_file():
+                pending.append(candidate)
+    return tuple(sorted(visited))
+
+
 def audit(root: Path) -> tuple[Finding, ...]:
     document = yaml.safe_load((root / "contracts/synth-v1.openapi.yaml").read_text())
     operations = tuple(
@@ -168,10 +190,14 @@ def audit(root: Path) -> tuple[Finding, ...]:
     findings: list[Finding] = []
     calls: dict[str, frozenset[str]] = {}
     for surface, relative in (("cli", "synth_ai/cli.py"), ("mcp", "synth_ai/mcp/server.py")):
-        calls[surface], violations = surface_calls(
-            (root / relative).read_text(), surface=surface, path=relative
-        )
-        findings.extend(violations)
+        collected: set[str] = set()
+        for path in surface_sources(root, relative):
+            methods, violations = surface_calls(
+                path.read_text(), surface=surface, path=str(path.relative_to(root))
+            )
+            collected.update(methods)
+            findings.extend(violations)
+        calls[surface] = frozenset(collected)
     tools = json.loads((root / "contracts/mcp-tools.json").read_text())["tools"]
     names = {tool["operationId"]: tool["name"] for tool in tools}
     for operation, expected_name in operations:
