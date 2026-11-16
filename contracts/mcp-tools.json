@@ -276,6 +276,43 @@
                 "x-synth-max-bytes": 1048576,
                 "x-synth-message-text": true
               },
+              "optimizer": {
+                "default": "auto",
+                "oneOf": [
+                  {
+                    "const": "auto",
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "params": {
+                        "additionalProperties": false,
+                        "type": "object"
+                      },
+                      "topology": {
+                        "enum": [
+                          "swarms_v2",
+                          "fork_flush",
+                          "forgetting",
+                          "mira",
+                          "scalemas"
+                        ],
+                        "type": "string"
+                      },
+                      "version": {
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "topology",
+                      "version"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
               "profile": {
                 "description": "Published run profile ID from GET /v1/profiles. Omit for Core's default. No silent substitution of an explicit choice.",
                 "examples": [

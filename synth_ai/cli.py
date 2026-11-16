@@ -22,6 +22,8 @@ from ._generated.models import (
     EvaluationInput,
     InputFile,
     LaunchRequest,
+    OptimizerPin,
+    OptimizerRequest,
     RoleAssignment,
     RunInputs,
     RunSnapshot,
@@ -102,6 +104,18 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
+def parse_optimizer(value: str | None) -> OptimizerRequest | None:
+    """Parse the public optimizer selector; Core owns resolution and availability."""
+    if value is None:
+        return None  # Omitted selection uses Core's declared environment default.
+    if value == "auto":
+        return "auto"
+    topology, separator, version = value.partition("@")
+    if separator == "" or not version.isascii() or not version.isdecimal():
+        raise UsageError("optimizer must be auto or TOPOLOGY@VERSION")
+    return OptimizerPin.model_validate({"topology": topology, "version": int(version)})
+
+
 def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
     return str(
         uuid.uuid5(
@@ -150,6 +164,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--budget", required=True)
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
+    run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
     run.add_argument("--research-task")
     run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -381,6 +396,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 guidance=None,
                 role_assignments=parse_role_assignments(args.assign, args.planner_decides),
                 launch_menu_revision=args.menu_revision,
+                optimizer=parse_optimizer(args.optimizer),
             )
             uploaded = [
                 await swarms.upload_file(

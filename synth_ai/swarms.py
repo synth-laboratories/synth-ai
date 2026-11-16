@@ -18,6 +18,7 @@ from ._generated.models import (
     LaunchChoices,
     LaunchRequest,
     Money,
+    OptimizerRequest,
     OutputPage,
     OwnerResourceRequest,
     RoleAssignment,
@@ -88,6 +89,7 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
     ) -> LaunchRequest:
         """Validate a launch before uploads; see docs/protocols.md."""
         return launch_request(
@@ -109,6 +111,7 @@ class AsyncSwarms:
             default_profile=self._default_profile,
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
         )
 
     async def launch(
@@ -130,6 +133,7 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run with a maximum charge in USD and return its acknowledgement.
@@ -154,6 +158,7 @@ class AsyncSwarms:
             guidance=guidance,
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -190,6 +195,7 @@ class AsyncSwarms:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run, then wait for the selected completion milestone.
@@ -215,6 +221,7 @@ class AsyncSwarms:
             guidance=guidance,
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
             idempotency_key=idempotency_key,
         )
         return await self.wait(
@@ -460,13 +467,22 @@ class AsyncSwarms:
         )
 
     async def sandboxes(self, run_id: str) -> RunSandboxes:
-        """One record per admitted actor execution: role, provider, lifecycle state, image digest, requested CPU and memory, and created, ready and destroyed times. `teardown` is the run-level answer: `complete` only when execution is closed and every sandbox is verified gone. `unobserved` means at least one record could not be established; it never means absent."""
+        """Read actor role/provider, lifecycle, image, resource limits and sandbox times.
+
+        Teardown is complete only after execution closes and all sandboxes are verified
+        gone. Unobserved means a record could not be established, never absent.
+        See docs/protocols.md."""
         return await self._transport.request(
             "getRunSandboxes", RunSandboxes, path={"run_id": run_id}
         )
 
     async def report(self, run_id: str) -> RunReport:
-        """Charge and tokens per provider and model, per actor role and per sandbox, with the run's rollouts and timings. Every amount is a sum of settlement lines, so the parts reach the settled total. Before settlement, `settlement.status` is `pending` and the breakdowns are empty; a run settled before attribution was kept has `attribution: not_recorded`. `sandbox_compute: metered` means rollout sandbox compute is charged inside the run's `maximum_charge`, as `settlement.rollout`; `not_metered` means sandboxes carry no charge at all, which is not a zero cost."""
+        """Read settled charge/token breakdowns by provider/model, actor and sandbox.
+
+        Includes rollouts and timings. Parts sum to the settled total; pending means
+        empty breakdowns. Missing retained attribution is not_recorded. Metered
+        rollout compute is settlement.rollout within maximum_charge; not_metered
+        means uncharged, not zero cost. See docs/protocols.md."""
         return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
     async def allocation(self, run_id: str) -> RunAllocation:
@@ -493,7 +509,10 @@ class AsyncSwarms:
         )
 
     async def events(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> EventPage:
-        """Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling later events. Only native runs are exposed. SSE streams are re-authorized while open; when the credential, org membership or scope is revoked the server sends a final `event: error` whose data is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code streaming_unavailable means the server cannot re-authorize streams. Once the run's execution has closed and its event journal is complete, the stream sends run milestones as `event: milestone` frames whose data is a RunMilestone, in this order and each at most once per resume position: execution_closed, accounting_final, cleanup_complete. The stream stays open (heartbeats continue) until cleanup_complete, whose frame has final true, and then ends. Milestone frame ids are `<sequence>.<level>` (level 1-3 in the order above); resuming with such an id replays events after the sequence and only the milestones above the level. Usage closure is not a separate milestone: accounting_final is written only after usage receipts are closed. Every in-stream `event: error` Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id. event_owner_unavailable (the change subscription closed, for example during a deploy) and owner reads that are unavailable or time out are retryable: the run is unaffected and reopening with Last-Event-ID resumes without loss or duplication. credential_revoked, run_not_found, event_too_large and encoding failures are final."""
+        """Read one JSON page of retained native events.
+
+        next_cursor paginates; resume_cursor permits later reads. Use follow() for
+        SSE; see docs/protocols.md for stream recovery and milestone semantics."""
         return await self._transport.request(
             "listRunEvents",
             EventPage,
@@ -595,14 +614,11 @@ class AsyncSwarms:
         return destination
 
     async def result(self, run: RunSnapshot | str) -> RunResult:
-        """A finished run's answer, its source output, objective answer and charge.
+        """Read Core's answer, source output, objective answer and charge without waiting.
 
-        One `getRunResult` read: Core picks the most recently published available
-        `text/*` output, else the most recent `synth.objective-answer.v1` JSON output
-        (`answer` is its `answer.text`); without either, `answer`, `answer_output`
-        and `objective_answer` are `None`. It never waits: an unfinished run raises
-        `ResultUnavailableError` carrying a fresh snapshot.
-        """
+        Core chooses the latest available text output, then the latest objective-answer
+        JSON. Absent answer fields remain None. An unfinished run raises
+        ResultUnavailableError with a fresh snapshot. See docs/protocols.md."""
         run_id = run if isinstance(run, str) else run.run_id
         try:
             return await self._transport.request("getRunResult", RunResult, path={"run_id": run_id})

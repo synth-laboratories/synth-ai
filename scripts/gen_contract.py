@@ -285,6 +285,7 @@ def generate() -> dict[Path, str]:
     inline_names = {
         **inline_names_for_views,
         "LaunchRequestInputs": "RunInputs",
+        "OptimizerRequest1": "OptimizerPin",
         "RunInputsFilesItem": "InputFile",
         "UploadPut": "UploadGrant",
         "RunTaskPageItemsItem": "RunTask",
@@ -294,9 +295,12 @@ def generate() -> dict[Path, str]:
     def lift_child(schema: JSONObject, name: str) -> JSONObject:
         name = inline_names.get(name, name)
         types = schema.get("type", [])
-        if "properties" in schema and (
+        closed_empty = types == "object" and schema.get("additionalProperties") is False
+        if ("properties" in schema or closed_empty) and (
             types == "object" or (isinstance(types, list) and "object" in types)
         ):
+            if "properties" not in schema:
+                schema["properties"] = {}
             nullable = isinstance(types, list) and "null" in types
             schemas[name] = lift(JSONObject({**schema, "type": "object"}), name)
             ref = JSONObject({"$ref": "#/components/schemas/" + name})

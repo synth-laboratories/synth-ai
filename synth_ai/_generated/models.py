@@ -201,6 +201,14 @@ class MintedApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
+class OptimizerPinTopology(StrEnum):
+    SWARMS_V2 = "swarms_v2"
+    FORK_FLUSH = "fork_flush"
+    FORGETTING = "forgetting"
+    MIRA = "mira"
+    SCALEMAS = "scalemas"
+
+
 class PlanKind(StrEnum):
     FREE = "free"
     RECURRING = "recurring"
@@ -257,6 +265,19 @@ class RefundDetailRefundCause(StrEnum):
     RUN_FAILED = "run_failed"
     RUN_EXPIRED = "run_expired"
     LAUNCH_FAILED = "launch_failed"
+
+
+class ResolvedOptimizerReason(StrEnum):
+    ENVIRONMENT_DEFAULT = "environment_default"
+    EXPLICIT_PIN = "explicit_pin"
+
+
+class ResolvedOptimizerTopology(StrEnum):
+    SWARMS_V2 = "swarms_v2"
+    FORK_FLUSH = "fork_flush"
+    FORGETTING = "forgetting"
+    MIRA = "mira"
+    SCALEMAS = "scalemas"
 
 
 class RunAllocationActorComputeMetering(StrEnum):
@@ -560,6 +581,25 @@ class SelectionCandidateState(StrEnum):
 class SubscriptionChangeRequestPlanId(StrEnum):
     STANDARD_MONTHLY = "standard.monthly"
     MAX_MONTHLY = "max.monthly"
+
+
+class TopologyCatalogEntryAvailability(StrEnum):
+    SERVED = "served"
+    UNAVAILABLE = "unavailable"
+
+
+class TopologyCatalogEntryLabel(StrEnum):
+    DEFAULT = "default"
+    EXPERIMENTAL = "experimental"
+    RESEARCH = "research"
+
+
+class TopologyCatalogEntryTopology(StrEnum):
+    SWARMS_V2 = "swarms_v2"
+    FORK_FLUSH = "fork_flush"
+    FORGETTING = "forgetting"
+    MIRA = "mira"
+    SCALEMAS = "scalemas"
 
 
 class UploadCreateRequestMediaType(StrEnum):
@@ -1036,6 +1076,12 @@ class Only(WireModel):
     ]
 
 
+class OptimizerPinParams(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+
+
 class Org(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1136,6 +1182,12 @@ class RefundDetailRunUsage1(WireModel):
     output_tokens: int | None = None
     reasoning_tokens: int | None = None
     compute: dict[str, dict[str, JsonValue]] | None = None
+
+
+class ResolvedOptimizerParams(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
 
 
 class RoleAssignment(WireModel):
@@ -1535,6 +1587,26 @@ class TermsAcceptanceRequest(WireModel):
     )
     version: Annotated[str, Field(min_length=1, max_length=64)]
     accepted_at: str
+
+
+class TopologyCatalogEntry(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    topology: Annotated[
+        TopologyCatalogEntryTopology, BeforeValidator(enum_value(TopologyCatalogEntryTopology))
+    ]
+    version: Annotated[int, Field(ge=1)]
+    label: Annotated[
+        TopologyCatalogEntryLabel, BeforeValidator(enum_value(TopologyCatalogEntryLabel))
+    ]
+    auto: bool
+    availability: Annotated[
+        TopologyCatalogEntryAvailability,
+        BeforeValidator(enum_value(TopologyCatalogEntryAvailability)),
+    ]
+    definition_digest: str | None = None
+    cause: str | None = None
 
 
 class UploadCreateRequest(WireModel):
@@ -1953,6 +2025,15 @@ class ObjectiveMetricState(WireModel):
     percent: int
 
 
+class OptimizerPin(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    topology: Annotated[OptimizerPinTopology, BeforeValidator(enum_value(OptimizerPinTopology))]
+    version: Annotated[int, Field(ge=1)]
+    params: OptimizerPinParams | None = None
+
+
 class OwnerResourceRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2005,6 +2086,19 @@ class RefundDetail(WireModel):
     held: Money
     charged: Money
     refunded: Money
+
+
+class ResolvedOptimizer(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    topology: Annotated[
+        ResolvedOptimizerTopology, BeforeValidator(enum_value(ResolvedOptimizerTopology))
+    ]
+    version: Annotated[int, Field(ge=1)]
+    params: ResolvedOptimizerParams
+    reason: Annotated[ResolvedOptimizerReason, BeforeValidator(enum_value(ResolvedOptimizerReason))]
+    definition_digest: str
 
 
 class RoutingCatalog(WireModel):
@@ -2453,6 +2547,7 @@ class FamilyList(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    topologies: list[TopologyCatalogEntry] | None = None
     families: list[Family]
     routing: RoutingCatalog | None = None
 
@@ -2476,37 +2571,11 @@ class LaunchChoiceSandbox(WireModel):
     options: list[LaunchChoiceSandboxOptionsItem]
 
 
-class LaunchRequest(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    domicile_requirement: (
-        Annotated[
-            LaunchRequestDomicileRequirement,
-            BeforeValidator(enum_value(LaunchRequestDomicileRequirement)),
-        ]
-        | None
-    ) = None
-    message: Annotated[
-        str,
-        Field(min_length=1, max_length=1048576),
-        AfterValidator(message_text),
-        AfterValidator(utf8_max_bytes(1048576)),
-    ]
-    limits: Limits
-    inputs: RunInputs | None = None
-    guidance: Annotated[list[RunGuidance], Field(max_length=32)] | None = None
-    profile: Annotated[str, Field(min_length=1, max_length=128)] | None = None
-    research_task: Annotated[str, Field(pattern="^[a-z0-9][a-z0-9._-]{0,127}$")] | None = None
-    resources: Annotated[list[OwnerResourceRequest], Field(max_length=8)] | None = None
-    labels: dict[str, str] | None = None
-    routing: RoutingConstraints | None = None
-    role_assignments: dict[str, RoleAssignment] | None = None
-    launch_menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")] | None = None
-
-
 class ListEvaluationRolloutsResponse(RootModel[EvaluationRolloutPage | EvaluationRolloutSummary]):
     pass
+
+
+OptimizerRequest: TypeAlias = Literal["auto"] | OptimizerPin
 
 
 class OutputPage(WireModel):
@@ -2785,6 +2854,36 @@ class LaunchChoices(WireModel):
     exclusions: list[LaunchChoiceExclusion]
 
 
+class LaunchRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    optimizer: OptimizerRequest | None = None
+    domicile_requirement: (
+        Annotated[
+            LaunchRequestDomicileRequirement,
+            BeforeValidator(enum_value(LaunchRequestDomicileRequirement)),
+        ]
+        | None
+    ) = None
+    message: Annotated[
+        str,
+        Field(min_length=1, max_length=1048576),
+        AfterValidator(message_text),
+        AfterValidator(utf8_max_bytes(1048576)),
+    ]
+    limits: Limits
+    inputs: RunInputs | None = None
+    guidance: Annotated[list[RunGuidance], Field(max_length=32)] | None = None
+    profile: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    research_task: Annotated[str, Field(pattern="^[a-z0-9][a-z0-9._-]{0,127}$")] | None = None
+    resources: Annotated[list[OwnerResourceRequest], Field(max_length=8)] | None = None
+    labels: dict[str, str] | None = None
+    routing: RoutingConstraints | None = None
+    role_assignments: dict[str, RoleAssignment] | None = None
+    launch_menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")] | None = None
+
+
 class RunAllocation(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2857,6 +2956,7 @@ class RunSnapshot(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    optimizer: ResolvedOptimizer | None = None
     pause: RunPause | None = None
     limits_revision: Annotated[int, Field(ge=0)] | None = None
     pause_expires_at_ms: Annotated[int, Field(ge=0)] | None = None
@@ -3039,12 +3139,14 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveReceipt": ObjectiveReceipt,
     "ObjectiveVerdict": ObjectiveVerdict,
     "Only": Only,
+    "OptimizerPinParams": OptimizerPinParams,
     "Org": Org,
     "PaymentMethodSession": PaymentMethodSession,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
     "Problem": Problem,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
+    "ResolvedOptimizerParams": ResolvedOptimizerParams,
     "RoleAssignment": RoleAssignment,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
@@ -3077,6 +3179,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SwarmsVariantVersion": SwarmsVariantVersion,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
+    "TopologyCatalogEntry": TopologyCatalogEntry,
     "UploadCreateRequest": UploadCreateRequest,
     "UploadFileRequest": UploadFileRequest,
     "UploadGrant": UploadGrant,
@@ -3110,9 +3213,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveAnswer": ObjectiveAnswer,
     "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveMetricState": ObjectiveMetricState,
+    "OptimizerPin": OptimizerPin,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
     "RefundDetail": RefundDetail,
+    "ResolvedOptimizer": ResolvedOptimizer,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunAllocationActorLaunch": RunAllocationActorLaunch,
@@ -3152,7 +3257,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationRollout": EvaluationRollout,
     "FamilyList": FamilyList,
     "LaunchChoiceSandbox": LaunchChoiceSandbox,
-    "LaunchRequest": LaunchRequest,
     "ListEvaluationRolloutsResponse": ListEvaluationRolloutsResponse,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
@@ -3174,6 +3278,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationResponse": EvaluationResponse,
     "EvaluationRevision": EvaluationRevision,
     "LaunchChoices": LaunchChoices,
+    "LaunchRequest": LaunchRequest,
     "RunAllocation": RunAllocation,
     "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,

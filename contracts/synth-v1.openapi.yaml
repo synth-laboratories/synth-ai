@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.27.0
+  version: 1.28.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -6806,12 +6806,76 @@ components:
       required:
       - families
       properties:
+        topologies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyCatalogEntry'
         families:
           type: array
           items:
             $ref: '#/components/schemas/Family'
         routing:
           $ref: '#/components/schemas/RoutingCatalog'
+    TopologyCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [topology, version, label, auto, availability]
+      properties:
+        topology:
+          type: string
+          enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+        version:
+          type: integer
+          minimum: 1
+        label:
+          type: string
+          enum: [default, experimental, research]
+        auto:
+          type: boolean
+        availability:
+          type: string
+          enum: [served, unavailable]
+        definition_digest:
+          type: string
+        cause:
+          type: string
+    OptimizerRequest:
+      oneOf:
+      - type: string
+        const: auto
+      - type: object
+        additionalProperties: false
+        required: [topology, version]
+        properties:
+          topology:
+            type: string
+            enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+          version:
+            type: integer
+            minimum: 1
+          params:
+            type: object
+            additionalProperties: false
+      default: auto
+    ResolvedOptimizer:
+      type: object
+      additionalProperties: false
+      required: [topology, version, params, reason, definition_digest]
+      properties:
+        topology:
+          type: string
+          enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+        version:
+          type: integer
+          minimum: 1
+        params:
+          type: object
+          additionalProperties: false
+        reason:
+          type: string
+          enum: [environment_default, explicit_pin]
+        definition_digest:
+          type: string
     LaunchRequest:
       x-synth-profile-requirements:
         swarms-v2: false
@@ -6824,6 +6888,8 @@ components:
       - message
       - limits
       properties:
+        optimizer:
+          $ref: '#/components/schemas/OptimizerRequest'
         domicile_requirement:
           type: string
           enum: [us_only, us_or_europe, unrestricted]
@@ -7373,6 +7439,8 @@ components:
       - started_at
       - closed_at
       properties:
+        optimizer:
+          $ref: '#/components/schemas/ResolvedOptimizer'
         pause:
           $ref: '#/components/schemas/RunPause'
         limits_revision:

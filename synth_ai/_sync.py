@@ -40,6 +40,7 @@ from ._generated.models import (
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
+    OptimizerRequest,
     OutputPage,
     OwnerResourceRequest,
     PaymentMethodSession,
@@ -110,6 +111,7 @@ class SwarmsClient:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
     ) -> LaunchRequest:
         "Validate a launch before uploads; see docs/protocols.md."
         return self._async.prepare_launch(
@@ -129,6 +131,7 @@ class SwarmsClient:
             guidance=guidance,
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
         )
 
     def launch(
@@ -150,6 +153,7 @@ class SwarmsClient:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run with a maximum charge in USD and return its acknowledgement.\n\nThe budget must be a decimal string or Decimal. Retain an explicit\nidempotency_key for uncertain retries. An acknowledgement does not prove\nexecution, accounting or cleanup has finished; use wait and report."
@@ -171,6 +175,7 @@ class SwarmsClient:
                 guidance=guidance,
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
+                optimizer=optimizer,
                 idempotency_key=idempotency_key,
             )
         )
@@ -206,6 +211,7 @@ class SwarmsClient:
         guidance: builtins.list[RunGuidance] | None = None,
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run, then wait for the selected completion milestone.\n\nBudget is a maximum charge in USD; timeout and poll_interval are seconds.\nA local wait timeout does not cancel the server run. Set raise_on_failure\nto raise on a failed finished run."
@@ -231,6 +237,7 @@ class SwarmsClient:
                 guidance=guidance,
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
+                optimizer=optimizer,
                 idempotency_key=idempotency_key,
             )
         )
@@ -410,11 +417,11 @@ class SwarmsClient:
         return self._runner.call(self._async.configuration(run_id))
 
     def sandboxes(self, run_id: str) -> RunSandboxes:
-        "One record per admitted actor execution: role, provider, lifecycle state, image digest, requested CPU and memory, and created, ready and destroyed times. `teardown` is the run-level answer: `complete` only when execution is closed and every sandbox is verified gone. `unobserved` means at least one record could not be established; it never means absent."
+        "Read actor role/provider, lifecycle, image, resource limits and sandbox times.\n\nTeardown is complete only after execution closes and all sandboxes are verified\ngone. Unobserved means a record could not be established, never absent.\nSee docs/protocols.md."
         return self._runner.call(self._async.sandboxes(run_id))
 
     def report(self, run_id: str) -> RunReport:
-        "Charge and tokens per provider and model, per actor role and per sandbox, with the run's rollouts and timings. Every amount is a sum of settlement lines, so the parts reach the settled total. Before settlement, `settlement.status` is `pending` and the breakdowns are empty; a run settled before attribution was kept has `attribution: not_recorded`. `sandbox_compute: metered` means rollout sandbox compute is charged inside the run's `maximum_charge`, as `settlement.rollout`; `not_metered` means sandboxes carry no charge at all, which is not a zero cost."
+        "Read settled charge/token breakdowns by provider/model, actor and sandbox.\n\nIncludes rollouts and timings. Parts sum to the settled total; pending means\nempty breakdowns. Missing retained attribution is not_recorded. Metered\nrollout compute is settlement.rollout within maximum_charge; not_metered\nmeans uncharged, not zero cost. See docs/protocols.md."
         return self._runner.call(self._async.report(run_id))
 
     def allocation(self, run_id: str) -> RunAllocation:
@@ -430,7 +437,7 @@ class SwarmsClient:
         return self._runner.call(self._async.cancel(run_id, idempotency_key=idempotency_key))
 
     def events(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> EventPage:
-        "Cursor-paginated events, or SSE with Accept: text/event-stream. Last-Event-ID resumes SSE after a numeric sequence. Final JSON pages omit next_cursor; resume_cursor is for polling later events. Only native runs are exposed. SSE streams are re-authorized while open; when the credential, org membership or scope is revoked the server sends a final `event: error` whose data is a Problem with code credential_revoked (401 semantics) and closes the stream; the client must re-authenticate. Streams also end after 30 minutes; resume with Last-Event-ID. A 503 with code streaming_unavailable means the server cannot re-authorize streams. Once the run's execution has closed and its event journal is complete, the stream sends run milestones as `event: milestone` frames whose data is a RunMilestone, in this order and each at most once per resume position: execution_closed, accounting_final, cleanup_complete. The stream stays open (heartbeats continue) until cleanup_complete, whose frame has final true, and then ends. Milestone frame ids are `<sequence>.<level>` (level 1-3 in the order above); resuming with such an id replays events after the sequence and only the milestones above the level. Usage closure is not a separate milestone: accounting_final is written only after usage receipts are closed. Every in-stream `event: error` Problem carries an explicit boolean retryable and, once an id was delivered, last_event_id. event_owner_unavailable (the change subscription closed, for example during a deploy) and owner reads that are unavailable or time out are retryable: the run is unaffected and reopening with Last-Event-ID resumes without loss or duplication. credential_revoked, run_not_found, event_too_large and encoding failures are final."
+        "Read one JSON page of retained native events.\n\nnext_cursor paginates; resume_cursor permits later reads. Use follow() for\nSSE; see docs/protocols.md for stream recovery and milestone semantics."
         return self._runner.call(self._async.events(run_id, cursor=cursor, limit=limit))
 
     def iter_events(
@@ -497,7 +504,7 @@ class SwarmsClient:
         )
 
     def result(self, run: RunSnapshot | str) -> RunResult:
-        "A finished run's answer, its source output, objective answer and charge.\n\nOne `getRunResult` read: Core picks the most recently published available\n`text/*` output, else the most recent `synth.objective-answer.v1` JSON output\n(`answer` is its `answer.text`); without either, `answer`, `answer_output`\nand `objective_answer` are `None`. It never waits: an unfinished run raises\n`ResultUnavailableError` carrying a fresh snapshot."
+        "Read Core's answer, source output, objective answer and charge without waiting.\n\nCore chooses the latest available text output, then the latest objective-answer\nJSON. Absent answer fields remain None. An unfinished run raises\nResultUnavailableError with a fresh snapshot. See docs/protocols.md."
         return self._runner.call(self._async.result(run))
 
     def families(self) -> FamilyList:
