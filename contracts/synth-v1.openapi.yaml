@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.29.0
+  version: 1.30.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -2992,6 +2992,225 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/limits
+  /v1/plan-requests:
+    post:
+      tags:
+      - account
+      operationId: requestSpecialFree
+      x-synth-scope: "account:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests
+      summary: Ask for owner review to move this org to Special Free.
+      description: >-
+        Any org member with a user-bound credential may ask. An org has at most one pending request
+        (409 plan_request_pending_exists). A denial starts a 14-day cooldown (429 plan_request_cooldown
+        with Retry-After). An org already on Special Free or a paid plan gets 409 plan_request_not_needed.
+        use_case over 4096 bytes or more than 5 links gets 422 plan_request_too_large. The use case and
+        links are stored for review and are never returned by this API, logged or sent in email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpecialFreeRequestInput'
+      responses:
+        '201':
+          description: Request retained for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequest'
+              example:
+                request_id: 00000000-0000-4000-8000-000000000054
+                state: pending
+                created_at: '2026-11-16T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/planrequests/http.go
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      tags:
+      - account
+      operationId: listPlanRequests
+      x-synth-scope: "account:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests
+      summary: List this org's plan requests, newest first (at most 100).
+      responses:
+        '200':
+          description: The org's requests as status projections; the use case and links are not returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequestList'
+              example:
+                items:
+                - request_id: 00000000-0000-4000-8000-000000000054
+                  state: denied
+                  created_at: '2026-11-16T18:00:00Z'
+                  decided_at: '2026-11-17T18:00:00Z'
+                  decision_reason: not_a_fit
+                limit: 100
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/planrequests/http.go
+  /v1/plan-requests/{request_id}:
+    delete:
+      tags:
+      - account
+      operationId: withdrawPlanRequest
+      x-synth-scope: "account:write"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests/{request_id}
+      summary: Withdraw this org's pending plan request.
+      description: >-
+        Moves a pending request to withdrawn and frees the org's one pending place. A request that is
+        not pending gets 409 plan_request_not_pending; an unknown id gets 404 plan_request_unknown.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequest'
+              example:
+                request_id: 00000000-0000-4000-8000-000000000054
+                state: withdrawn
+                created_at: '2026-11-16T18:00:00Z'
+                decided_at: '2026-11-16T19:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+      x-synth-source: core/internal/public/planrequests/http.go
   /v1/billing/plans:
     get:
       tags:
@@ -6470,6 +6689,74 @@ components:
         org_id:
           type: string
           format: uuid
+    SpecialFreeRequestInput:
+      type: object
+      additionalProperties: false
+      required:
+      - use_case
+      properties:
+        use_case:
+          type: string
+          minLength: 1
+          description: Why the org needs Special Free, at most 4096 UTF-8 bytes (422 plan_request_too_large
+            above that). Customer content; stored for owner review, never logged, returned or emailed.
+        links:
+          type: array
+          default: []
+          description: At most 5 http(s) links (422 plan_request_too_large above that), each at most 2048 bytes.
+          items:
+            type: string
+    PlanRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - state
+      - created_at
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - pending
+          - approved
+          - denied
+          - withdrawn
+        created_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+        decision_reason:
+          type: string
+          enum:
+          - insufficient_detail
+          - not_a_fit
+          - abuse_risk
+          - duplicate
+          - other
+        assignment_id:
+          type: string
+          format: uuid
+    PlanRequestList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - limit
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PlanRequest'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
     Scope:
       type: string
       enum:
@@ -7615,7 +7902,7 @@ components:
           - agents_session_unsettled
           - program_attempt_open
           - compute_hold_open
-          - orchestra_settle_pending
+          - program_settle_pending
           - settlement_pending
           - settlement_refused
           - accounting_not_final

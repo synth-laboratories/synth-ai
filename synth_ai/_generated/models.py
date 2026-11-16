@@ -232,6 +232,21 @@ class PlanPriceState(StrEnum):
     NOT_CONFIGURED = "not_configured"
 
 
+class PlanRequestDecisionReason(StrEnum):
+    INSUFFICIENT_DETAIL = "insufficient_detail"
+    NOT_A_FIT = "not_a_fit"
+    ABUSE_RISK = "abuse_risk"
+    DUPLICATE = "duplicate"
+    OTHER = "other"
+
+
+class PlanRequestState(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    DENIED = "denied"
+    WITHDRAWN = "withdrawn"
+
+
 class PrincipalCredentialKind(StrEnum):
     API_KEY = "api_key"
     SESSION = "session"
@@ -319,7 +334,7 @@ class RunBlockerKind(StrEnum):
     AGENTS_SESSION_UNSETTLED = "agents_session_unsettled"
     PROGRAM_ATTEMPT_OPEN = "program_attempt_open"
     COMPUTE_HOLD_OPEN = "compute_hold_open"
-    ORCHESTRA_SETTLE_PENDING = "orchestra_settle_pending"
+    PROGRAM_SETTLE_PENDING = "program_settle_pending"
     SETTLEMENT_PENDING = "settlement_pending"
     SETTLEMENT_REFUSED = "settlement_refused"
     ACCOUNTING_NOT_FINAL = "accounting_not_final"
@@ -1120,6 +1135,21 @@ class PaymentMethodSession(WireModel):
     url: str
 
 
+class PlanRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    request_id: str
+    state: Annotated[PlanRequestState, BeforeValidator(enum_value(PlanRequestState))]
+    created_at: str
+    decided_at: str | None = None
+    decision_reason: (
+        Annotated[PlanRequestDecisionReason, BeforeValidator(enum_value(PlanRequestDecisionReason))]
+        | None
+    ) = None
+    assignment_id: str | None = None
+
+
 class PoolSelection(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1539,6 +1569,14 @@ class SelectionScore(WireModel):
     )
     numerator: Annotated[int, Field(ge=0)]
     denominator: Annotated[int, Field(ge=1)]
+
+
+class SpecialFreeRequestInput(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    use_case: Annotated[str, Field(min_length=1)]
+    links: list[str] | None = None
 
 
 class SpendAlertsLastNotified0(WireModel):
@@ -2089,6 +2127,14 @@ class Plan(WireModel):
     price: Money
     weekly_included: Money
     limits: list[Limit] | None = None
+
+
+class PlanRequestList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: Annotated[list[PlanRequest], Field(max_length=100)]
+    limit: Annotated[int, Field(ge=1, le=100)]
 
 
 class Problem(WireModel):
@@ -3257,6 +3303,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Org": Org,
     "Overload": Overload,
     "PaymentMethodSession": PaymentMethodSession,
+    "PlanRequest": PlanRequest,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
@@ -3290,6 +3337,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SandboxProfile": SandboxProfile,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
+    "SpecialFreeRequestInput": SpecialFreeRequestInput,
     "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
     "Subscription": Subscription,
     "SubscriptionChangeRequest": SubscriptionChangeRequest,
@@ -3333,6 +3381,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "OptimizerPin": OptimizerPin,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
+    "PlanRequestList": PlanRequestList,
     "Problem": Problem,
     "RefundDetail": RefundDetail,
     "ResolvedOptimizer": ResolvedOptimizer,
