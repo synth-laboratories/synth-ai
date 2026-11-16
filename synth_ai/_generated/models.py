@@ -440,6 +440,7 @@ class RunRoleUsageRole(StrEnum):
     WORKER = "worker"
     REVIEWER = "reviewer"
     OTHER = "other"
+    SCORING = "scoring"
 
 
 class RunSandboxObservation(StrEnum):
@@ -2949,6 +2950,7 @@ class RunReport(WireModel):
     sandboxes: list[RunReportSandbox]
     teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
     unattributed: RunUsage
+    scoring: RunUsage
     sandbox_compute: Annotated[
         RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
     ]

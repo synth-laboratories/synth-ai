@@ -1921,6 +1921,16 @@ paths:
                   output_tokens: 0
                   reasoning_tokens: 0
                   model_time_ms: 0
+                scoring:
+                  calls: 0
+                  failed_calls: 0
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 0
+                  cached_input_tokens: 0
+                  output_tokens: 0
+                  reasoning_tokens: 0
+                  model_time_ms: 0
                 sandbox_compute: metered
                 rollout_compute: attributed
                 compute_by_provider:
@@ -8506,6 +8516,7 @@ components:
           - worker
           - reviewer
           - other
+          - scoring
         calls:
           type: integer
           minimum: 0
@@ -8734,6 +8745,7 @@ components:
       - sandboxes
       - teardown
       - unattributed
+      - scoring
       - sandbox_compute
       - rollout_compute
       - compute_by_provider
@@ -8794,6 +8806,8 @@ components:
           - residual
           - unobserved
         unattributed:
+          $ref: '#/components/schemas/RunUsage'
+        scoring:
           $ref: '#/components/schemas/RunUsage'
         sandbox_compute:
           type: string
