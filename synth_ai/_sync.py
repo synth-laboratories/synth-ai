@@ -111,6 +111,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
     ) -> LaunchRequest:
+        "Validate a launch before uploads; see docs/protocols.md."
         return self._async.prepare_launch(
             message,
             budget=budget,
@@ -316,6 +317,7 @@ class SwarmsClient:
         return self._runner.call(self._async.get(run_id))
 
     def wait_update(self, run_id: str, *, timeout_seconds: int = 30) -> RunWait:
+        "Read one bounded server wait update; see docs/protocols.md."
         return self._runner.call(self._async.wait_update(run_id, timeout_seconds=timeout_seconds))
 
     def wait(
@@ -398,6 +400,7 @@ class SwarmsClient:
     def update_limits_request(
         self, run_id: str, request: RunLimitUpdate, *, idempotency_key: str | None = None
     ) -> RunLimitsProgress:
+        "Apply an exact typed limit request; see docs/protocols.md."
         return self._runner.call(
             self._async.update_limits_request(run_id, request, idempotency_key=idempotency_key)
         )
