@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 from contextlib import aclosing
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from ._directory_source import DirectorySource, open_directory
 from ._file_source import FileSource, open_source
 from ._generated.models import File, Upload
 from ._limits import UPLOAD_BINARY_MEDIA_TYPE
-from .errors import DataIntegrityError, SynthError, UploadTransferError, check_upload_format
+from .errors import (
+    DataIntegrityError,
+    DirectoryUploadError,
+    SynthError,
+    UploadTransferError,
+    check_upload_format,
+)
 
 if TYPE_CHECKING:
     from ._transport import Transport
@@ -19,6 +27,52 @@ if TYPE_CHECKING:
 class ArtifactUploads:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+
+    async def upload_directory(self, directory: str, *, idempotency_key: str) -> list[File]:
+        if not idempotency_key.strip() or len(idempotency_key.encode("utf-8")) > 255:
+            raise ValueError("directory idempotency key must be nonempty and at most 255 bytes")
+        completed: list[File] = []
+        async with open_directory(Path(directory), self._transport.file_io) as snapshot:
+            for file in snapshot.files:
+                key = hashlib.sha256(
+                    b"synth-directory.v1\0"
+                    + idempotency_key.encode("utf-8")
+                    + b"\0"
+                    + file.name.encode("ascii")
+                ).hexdigest()
+                try:
+                    media = {
+                        ".txt": "text/plain",
+                        ".md": "text/markdown",
+                        ".markdown": "text/markdown",
+                        ".json": "application/json",
+                    }.get(Path(file.name).suffix.lower(), UPLOAD_BINARY_MEDIA_TYPE)
+                    upload = await self._transport.request(
+                        "createUpload",
+                        Upload,
+                        body={
+                            "name": file.name,
+                            "media_type": media,
+                            "size_bytes": file.size,
+                            "digest_sha256": file.digest_sha256,
+                        },
+                        idempotency_key=key,
+                    )
+                    if upload.file.name != file.name:
+                        raise UploadTransferError(upload.upload_id, key) from DataIntegrityError(
+                            "upload name differs from the directory snapshot"
+                        )
+                    committed = await self._finish(upload, snapshot.source(file), key)
+                    if committed.name != file.name:
+                        raise UploadTransferError(upload.upload_id, key) from DataIntegrityError(
+                            "committed name differs from the directory snapshot"
+                        )
+                    completed.append(committed)
+                except (SynthError, OSError) as cause:
+                    raise DirectoryUploadError(
+                        file.name, tuple(completed), idempotency_key, key
+                    ) from cause
+        return completed
 
     async def upload_file(
         self, filename: str, *, media_type: str | None, idempotency_key: str | None
@@ -62,7 +116,7 @@ class ArtifactUploads:
                 raise DataIntegrityError("resume content differs from the retained upload")
             return await self._finish(upload, source, idempotency_key)
 
-    async def _finish(self, upload: Upload, source: FileSource, key: str) -> File:
+    async def _finish(self, upload: Upload, source: FileSource | DirectorySource, key: str) -> File:
         try:
             if (
                 upload.file.size_bytes != source.size

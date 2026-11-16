@@ -194,3 +194,50 @@ snapshot and run ID. Finished runs with no result raise `ResultUnavailableError`
 when waiting for a result; imported history that cannot prove the milestone is
 reported explicitly. CLI exit codes are listed in [cli.md](cli.md).
 The timeout bounds both streaming and final polling, and does not cancel the run.
+
+## Directory uploads
+
+```python
+files = await client.swarms.upload_directory("./task", idempotency_key="task-upload-1")
+inputs = {
+    "files": [
+        {
+            "file_id": file.file_id,
+            "revision_id": file.revision_id,
+            "digest_sha256": file.digest_sha256,
+        }
+        for file in files
+    ]
+}
+run = await client.swarms.launch("Solve the uploaded task", budget="4.50", inputs=inputs)
+```
+
+The synchronous client exposes the same method. File names are relative to the
+chosen directory; binary bytes and dotfiles are included. Each file uses the
+existing prepare, PUT and finalize protocol. An empty directory returns an empty
+list. Empty directories themselves have no uploaded file representation.
+
+Before any API request, the helper freezes the complete directory into a private
+disk spool using bounded chunks. Changes to the originals after that snapshot do
+not change submitted bytes. Symlink roots and entries, special files, unsupported
+names, and files that change while being copied are refused. Descriptor-relative traversal
+requires POSIX; unsupported platforms refuse before uploading.
+
+Bounds come from Core's pinned `contracts/file-limits.json`: 16 MiB per file,
+64 MiB total, 1,024-byte relative names and 255-byte path segments. The directory
+helper also bounds traversal to 10,000 entries, counting directories as well as
+files, so empty directory trees cannot make scanning unbounded. It does not apply
+ignore rules. The spool is closed on success, failure or cancellation.
+
+Use the same batch idempotency key and unchanged files to recover a partial
+upload. Per-file keys are derived from that key and the relative name; changed
+content retains the same key and the server can refuse a conflicting retry.
+Uploads are sequential, and already committed files remain in custody if a later
+file fails. `synth_ai.errors.DirectoryUploadError` retains `completed_files`, the
+failed `name`, the batch `idempotency_key`, and `file_idempotency_key`; its cause
+retains any upload-transfer or API refusal. Cancellation propagates normally, so
+the caller should retain its supplied batch key before starting.
+
+The file-limit projection and provenance are checked by
+`python scripts/gen_file_limits.py --check` in CI. This helper adds no public API
+operation or hosted MCP access to local files.

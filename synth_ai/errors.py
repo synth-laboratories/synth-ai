@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem, ProblemOutcome, RunSnapshot
+from ._generated.models import File, Problem, ProblemOutcome, RunSnapshot
 from ._limits import UPLOAD_MEDIA_TYPE_MAX_BYTES
 
 
@@ -200,6 +200,26 @@ class UploadTransferError(SynthError):
         super().__init__("Upload is incomplete; resume the retained upload")
         self.upload_id = upload_id
         self.idempotency_key = idempotency_key
+
+
+class DirectoryUploadError(SynthError):
+    """A partial directory upload retains committed files and retry identity."""
+
+    kind = ErrorKind.UPLOAD
+    code = "directory_upload_incomplete"
+
+    def __init__(
+        self,
+        name: str,
+        completed_files: tuple[File, ...],
+        idempotency_key: str,
+        file_idempotency_key: str,
+    ) -> None:
+        super().__init__(f"Directory upload is incomplete at {name}")
+        self.name = name
+        self.completed_files = completed_files
+        self.idempotency_key = idempotency_key
+        self.file_idempotency_key = file_idempotency_key
 
 
 class ResponseContractError(SwarmsAPIError):

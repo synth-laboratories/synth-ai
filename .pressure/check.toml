@@ -1,6 +1,19 @@
 scope = "repo"
 
 [[checks]]
+id = "sdk_canonical_file_limits"
+description = "Upload bounds are generated from the exact pinned Core file-limit artifact"
+severity = "error"
+require_paths = ["contracts/file-limits.json", "contracts/FILE_LIMITS_SOURCE.toml", "scripts/gen_file_limits.py", "synth_ai/_generated/file_limits.py", ".venv/bin/python"]
+file_contains = [
+  { path = "synth_ai/_limits.py", pattern = "UPLOAD_MAX_BYTES = FILE_MAX_BYTES" },
+  { path = ".github/workflows/ci.yml", pattern = "scripts/gen_file_limits.py --check" },
+]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/gen_file_limits.py --check"
+command_timeout_seconds = 10
+remedy = "Refresh the canonical Core artifact and its exact provenance together, regenerate the SDK projection, and preserve pre-transfer directory bounds and identity checks."
+
+[[checks]]
 id = "sdk_strict_typed_protocols"
 description = "Generated strict models and semantic payloads remain guarded by ty and boundary regressions"
 severity = "error"

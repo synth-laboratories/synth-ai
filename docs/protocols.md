@@ -269,7 +269,8 @@ providers remain separately readable in generated records.
 
 `upload_file` and `resume_upload` hash and stream regular files in 64 KiB chunks.
 Each client permits at most four outstanding disk operations; cancellation joins
-an outstanding operation before closing its file. Size remains bounded to 32 MiB.
+an outstanding operation before closing its file, including repeated cancellation.
+Core's pinned file-limit projection bounds each file to 16 MiB.
 Device/inode, size, modification/change timestamps and a streaming digest must
 match the prepared source. Replacing or editing the file is refused before
 finalization. Prepare/finalize and retry requests retain the original upload key;

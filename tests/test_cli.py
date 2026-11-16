@@ -414,14 +414,35 @@ def test_result_prints_an_objective_answer(api, capsys, contract):
     assert document["objective_answer"]["objective_id"] == "codename"
 
 
-def test_upload_in_an_unsupported_format_is_a_typed_refusal(api, capsys, tmp_path):
+def test_binary_upload_uses_prepare_protocol_without_a_format_allowlist(api, capsys, tmp_path):
     pdf = tmp_path / "paper.pdf"
-    pdf.write_bytes(b"%PDF-1.4")
+    content = b"%PDF-1.4\x00\xff"
+    pdf.write_bytes(content)
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="paper.pdf",
+        media_type="application/octet-stream",
+        size_bytes=len(content),
+        digest_sha256=hashlib.sha256(content).hexdigest(),
+    )
+
+    def prepare(request):
+        assert json.loads(request.content) == {
+            "name": "paper.pdf",
+            "media_type": "application/octet-stream",
+            "size_bytes": len(content),
+            "digest_sha256": file["digest_sha256"],
+        }
+        return httpx.Response(
+            201,
+            json={"upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA", "state": "committed", "file": file},
+        )
+
+    api.overrides["createUpload"] = prepare
     code, out, err = invoke(api, capsys, "upload", str(pdf))
-    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
-    assert err.startswith("upload_format_unsupported: ")
-    assert "text/plain, text/markdown, application/json" in err
-    assert not api.calls
+    assert code == cli.EXIT_OK and err == ""
+    assert "paper.pdf" in out
+    assert [operation for operation, _ in api.calls] == ["createUpload"]
 
 
 def test_result_without_a_text_answer_says_so(api, capsys, contract):

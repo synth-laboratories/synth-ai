@@ -203,6 +203,12 @@ class SwarmsClient:
             )
         )
 
+    def upload_directory(self, directory: str, *, idempotency_key: str) -> builtins.list[File]:
+        "Upload a bounded POSIX directory snapshot, preserving relative file names.\n\nIncludes dotfiles; refuses links and special files before any API request.\nReuse the key with unchanged files to recover a partial upload. Failure\nretains committed file records in DirectoryUploadError.completed_files."
+        return self._runner.call(
+            self._async.upload_directory(directory, idempotency_key=idempotency_key)
+        )
+
     def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
         "Resume an existing upload using the same local file and idempotency key."
         return self._runner.call(
@@ -217,7 +223,7 @@ class SwarmsClient:
         media_type: str = "text/markdown",
         idempotency_key: str | None = None,
     ) -> File:
-        "Upload a text, Markdown or JSON file (up to 32 KiB inline)."
+        "Upload UTF-8 content inline (up to 32 KiB)."
         return self._runner.call(
             self._async.upload_text(
                 content, name=name, media_type=media_type, idempotency_key=idempotency_key

@@ -44,10 +44,12 @@ with SynthClient() as client:
     )
 ```
 
-Uploads accept UTF-8 text, Markdown and JSON, at most 32 MiB per file and per
-launch, with at most 32 references. `upload_text` and MCP `swarms_upload_file`
+Uploads accept binary files with bounded ASCII media types, at most 16 MiB per
+file and 64 MiB per launch, with at most 10,000 references. `upload_text` and MCP `swarms_upload_file`
 accept up to 32 KiB inline. `synth upload task.md` uses
 the full upload protocol. Pool resources use the public selector `pool`.
+`upload_directory` preserves relative names through that same protocol; see
+[directory uploads](docs/swarms.md#directory-uploads) for snapshot and recovery semantics.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
 
