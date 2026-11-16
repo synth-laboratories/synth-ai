@@ -9,17 +9,30 @@ from synth_ai.errors import InvalidRequestError, UploadFormatUnsupportedError
 from synth_ai.mcp.server import call_tool
 
 
-async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tmp_path):
+@pytest.mark.parametrize(
+    "name,content,media_type",
+    [
+        ("task.md", b"# Task\nReturn done.\n", "text/markdown"),
+        ("policy.bin", b"\x00\xff\x80policy", "application/octet-stream"),
+    ],
+)
+async def test_upload_finalize_and_launch_keep_identity_and_custody(
+    contract, tmp_path, name, content, media_type
+):
     upload_id = "upl_AAAAAAAAAAAAAAAAAAAAAA"
-    content = b"# Task\nReturn done.\n"
-    filename = tmp_path / "task.md"
+    filename = tmp_path / name
     filename.write_bytes(content)
     manifest = dict(
         contract["paths"]["/v1/files"]["post"]["responses"]["201"]["content"]["application/json"][
             "example"
         ]
     )
-    manifest.update(size_bytes=len(content), digest_sha256=hashlib.sha256(content).hexdigest())
+    manifest.update(
+        name=name,
+        media_type=media_type,
+        size_bytes=len(content),
+        digest_sha256=hashlib.sha256(content).hexdigest(),
+    )
     calls = []
 
     def handle(request):
@@ -33,7 +46,7 @@ async def test_upload_finalize_and_launch_keep_identity_and_custody(contract, tm
         assert request.headers["Authorization"] == "Bearer fixture"
         if request.url.path.endswith("/uploads"):
             body = json.loads(request.content)
-            assert body["media_type"] == "text/markdown"
+            assert body["media_type"] == media_type
             assert body["digest_sha256"] == manifest["digest_sha256"]
             return httpx.Response(
                 201,
@@ -108,19 +121,18 @@ async def test_mcp_upload_text_uses_public_operation_and_formats(contract):
             )
             assert json.loads(result)["digest_sha256"] == file["digest_sha256"]
             with pytest.raises(UploadFormatUnsupportedError) as caught:
-                await client.swarms.upload_file("task.pdf")
+                await client.swarms.upload_text("x", name="a.pdf", media_type="application/\npdf")
             assert caught.value.code == "upload_format_unsupported"
             assert caught.value.status == 422
-            assert caught.value.supported_formats == (
-                "text/plain",
-                "text/markdown",
-                "application/json",
-            )
+            assert caught.value.maximum_media_type_bytes == 255
             with pytest.raises(UploadFormatUnsupportedError):
-                await client.swarms.upload_text("x", name="a.pdf", media_type="application/pdf")
+                await client.swarms.upload_text("x", name="a.pdf", media_type="application/\npdf")
             with pytest.raises(UploadFormatUnsupportedError):
                 await client.swarms.prepare_upload(
-                    name="a.pdf", media_type="application/pdf", size_bytes=1, digest_sha256="0" * 64
+                    name="a.pdf",
+                    media_type="application/\npdf",
+                    size_bytes=1,
+                    digest_sha256="0" * 64,
                 )
             with pytest.raises(UploadFormatUnsupportedError) as tool:
                 await call_tool(
@@ -128,7 +140,11 @@ async def test_mcp_upload_text_uses_public_operation_and_formats(contract):
                     "swarms_upload_file",
                     {
                         "idempotency_key": "pdf",
-                        "body": {"name": "a.pdf", "media_type": "application/pdf", "content": "x"},
+                        "body": {
+                            "name": "a.pdf",
+                            "media_type": "application/\npdf",
+                            "content": "x",
+                        },
                     },
                 )
             assert tool.value.problem.code == "upload_format_unsupported"

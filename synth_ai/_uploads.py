@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from ._file_source import FileSource, open_source
 from ._generated.models import File, Upload
+from ._limits import UPLOAD_BINARY_MEDIA_TYPE
 from .errors import DataIntegrityError, SynthError, UploadTransferError, check_upload_format
 
 if TYPE_CHECKING:
@@ -29,7 +30,11 @@ class ArtifactUploads:
             ".markdown": "text/markdown",
             ".json": "application/json",
         }
-        media = check_upload_format(media_type or formats.get(path.suffix.lower()))
+        media = check_upload_format(
+            media_type
+            if media_type is not None
+            else formats.get(path.suffix.lower(), UPLOAD_BINARY_MEDIA_TYPE)
+        )
         key = idempotency_key or str(uuid4())
         async with open_source(path, self._transport.file_io) as source:
             upload = await self._transport.request(

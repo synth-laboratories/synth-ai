@@ -1,6 +1,8 @@
 """Local transfer and recovery bounds; admission limits come from the contract."""
 
-UPLOAD_MAX_BYTES = 32 << 20
+UPLOAD_MAX_BYTES = 16 << 20
+UPLOAD_MEDIA_TYPE_MAX_BYTES = 255
+UPLOAD_BINARY_MEDIA_TYPE = "application/octet-stream"
 SSE_FRAME_MAX_BYTES = 1 << 20
 ERROR_RESPONSE_MAX_BYTES = 64 << 10
 CHECKPOINT_MAX_EVENTS = 4096
