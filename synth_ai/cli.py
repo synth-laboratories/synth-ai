@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import NoReturn, TypeVar
 
 import httpx
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from typing_extensions import override
 
 from . import _cli_view as view
@@ -25,6 +25,7 @@ from ._generated.models import (
     LaunchRequest,
     OptimizerPin,
     OptimizerRequest,
+    OwnerResourceRequest,
     RoleAssignment,
     RunInputs,
     RunSnapshot,
@@ -125,6 +126,32 @@ def parse_optimizer(value: str | None) -> OptimizerRequest | None:
     return OptimizerPin.model_validate({"topology": topology, "version": int(version)})
 
 
+RESOURCES = TypeAdapter(list[OwnerResourceRequest])
+
+
+def parse_resources(path: str | None) -> list[OwnerResourceRequest] | None:
+    """Read the public owner resource requests (the launch body's `resources` array)."""
+    if path is None:
+        return None
+    try:
+        document = Path(path).read_bytes()
+    except OSError as error:
+        raise UsageError(
+            "--resources file unreadable: " + path + ": " + error.__class__.__name__
+        ) from error
+    try:
+        resources = RESOURCES.validate_json(document)
+    except ValidationError as error:
+        first = error.errors()[0]
+        where = ".".join(str(part) for part in first["loc"]) or "document"
+        raise UsageError(
+            "--resources must be a JSON array of resource requests: " + where + ": " + first["msg"]
+        ) from error
+    if not resources:
+        raise UsageError("--resources must name at least one resource request")
+    return resources
+
+
 def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
     return str(
         uuid.uuid5(
@@ -189,6 +216,11 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--tokens", type=int)
     run.add_argument("--pause-retention", type=int, metavar="SECONDS")
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
+    run.add_argument(
+        "--resources",
+        metavar="PATH",
+        help="JSON array of resource requests, sent as the launch's resources",
+    )
     run.add_argument(
         "--assign",
         action="append",
@@ -414,7 +446,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 parallel_workers=args.parallel_workers,
                 inputs=None,
                 labels=parse_labels(args.label),
-                resources=None,
+                resources=parse_resources(args.resources),
                 routing=None,
                 guidance=None,
                 role_assignments=parse_role_assignments(args.assign, args.planner_decides),

@@ -349,3 +349,70 @@ def test_cli_child_entrypoint_composes_public_http_client(contract, tmp_path):
     assert len(requests) == 1
     assert requests[0][1]["optimizer"] == "auto"
     assert requests[0][2] == "j1-injected-child-once"
+
+
+RECORDED_BODY = {
+    "message": "Improve the Craftax policy.",
+    "labels": {"eval.config": "solo", "eval.task": "craftax-classic-enginebench-policy-v1"},
+    "limits": {"maximum_charge": {"amount": "10.00", "currency": "USD"}, "wall_time_seconds": 1800},
+    "local_cache": {"mode": "write", "namespace": "swarms-fixture"},
+    "resources": [
+        {
+            "evaluation_templates": ["sha256:" + "5c" * 32],
+            "limits": {"rollouts": 90, "spend_micros": 11000},
+            "plugin": "pool",
+            "roles": ["planner", "worker"],
+            "selection": {},
+            "version": 1,
+        }
+    ],
+}
+RECORDED_PUBLIC = {k: v for k, v in RECORDED_BODY.items() if k != "local_cache"}
+
+
+def test_sdk_and_cli_send_the_recorded_public_launch_unchanged(contract, tmp_path):
+    import sys
+
+    from scripts.acceptance.j1 import RecordedLaunch
+
+    recording = RecordedLaunch.from_body(RECORDED_BODY)
+    with (
+        fixture_api(contract, launch_resolution=True) as (origin, requests),
+        SynthClient("fixture", base_url=origin) as client,
+    ):
+        SDKDriver(client).launch_recorded(
+            recording=recording,
+            idempotency_key="j1-sdk-recorded",
+            journal=LaunchJournal(tmp_path / "sdk-launch"),
+        )
+        CLIDriver(
+            python=Path(sys.executable),
+            environment={**os.environ, "SYNTH_LOCAL_API_BASE_URL": origin, "SYNTH_API_KEY": "x"},
+            working_directory=Path(__file__).parents[2],
+        ).launch_recorded(
+            recording=recording,
+            idempotency_key="j1-cli-recorded",
+            journal=LaunchJournal(tmp_path / "cli-launch"),
+            work_directory=tmp_path,
+        )
+    assert [(path, key) for path, _, key in requests] == [
+        ("/v1/runs", "j1-sdk-recorded"),
+        ("/v1/runs", "j1-cli-recorded"),
+    ]
+    assert requests[0][1] == RECORDED_PUBLIC
+    assert requests[1][1] == RECORDED_PUBLIC
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {**RECORDED_BODY, "inputs": {"files": []}},
+        {k: v for k, v in RECORDED_BODY.items() if k != "resources"},
+        {**RECORDED_BODY, "limits": {**RECORDED_BODY["limits"], "parallel_workers": 2}},
+    ],
+)
+def test_recorded_launch_refuses_shapes_it_cannot_send_unchanged(body):
+    from scripts.acceptance.j1 import RecordedLaunch
+
+    with pytest.raises(AdapterError, match="recorded_launch_shape_unsupported"):
+        RecordedLaunch.from_body(body)

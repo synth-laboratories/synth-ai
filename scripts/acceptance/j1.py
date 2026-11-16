@@ -22,12 +22,21 @@ from typing import Optional, Protocol
 from pydantic import TypeAdapter
 
 from synth_ai import SynthClient
+from synth_ai._generated.models import OwnerResourceRequest
 from synth_ai.models import File, InputFile, RunInputs, RunOutput, RunReport, RunResult, RunSnapshot
 
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
 
-__all__ = ["AdapterError", "CLIDriver", "J1Observation", "Missing", "SDKDriver", "observe"]
+__all__ = [
+    "AdapterError",
+    "CLIDriver",
+    "J1Observation",
+    "Missing",
+    "RecordedLaunch",
+    "SDKDriver",
+    "observe",
+]
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -49,6 +58,72 @@ class AdapterError(Exception):
 def refusal(code: str, *, stage: str, cause: str, run_id: str) -> AdapterError:
     _LOGGER.error("code=%s stage=%s run_id=%s cause=%s", code, stage, run_id, cause)
     return AdapterError(code, stage, cause, run_id)
+
+
+PUBLIC_LAUNCH_FIELDS = frozenset({"message", "labels", "limits", "resources"})
+# The recording's operator field; LocalReplayTransport owns it, never a public surface.
+OPERATOR_LAUNCH_FIELDS = frozenset({"local_cache"})
+RECORDED_LIMIT_FIELDS = frozenset({"maximum_charge", "wall_time_seconds"})
+RESOURCES = TypeAdapter(list[OwnerResourceRequest])
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedLaunch:
+    """The exact public launch body of a cached recording (SYN-5692).
+
+    Cached J1 must send these bytes' public meaning unchanged through both the SDK
+    and the CLI: a changed workload must miss the recording, never be adjusted.
+    """
+
+    message: str
+    budget_usd: str
+    wall_time_seconds: int
+    labels: Mapping[str, str]
+    resources: tuple[OwnerResourceRequest, ...]
+
+    @classmethod
+    def from_body(cls, body: Mapping[str, object]) -> RecordedLaunch:
+        unknown = set(body) - PUBLIC_LAUNCH_FIELDS - OPERATOR_LAUNCH_FIELDS
+        if unknown or not PUBLIC_LAUNCH_FIELDS <= set(body):
+            raise refusal(
+                "recorded_launch_shape_unsupported",
+                stage="recording",
+                cause="fields " + ",".join(sorted(set(body) ^ PUBLIC_LAUNCH_FIELDS)),
+                run_id="not_launched",
+            )
+        limits = body["limits"]
+        message = body["message"]
+        labels = body["labels"]
+        if (
+            not isinstance(limits, dict)
+            or set(limits) != RECORDED_LIMIT_FIELDS
+            or not isinstance(message, str)
+            or not isinstance(labels, dict)
+        ):
+            raise refusal(
+                "recorded_launch_shape_unsupported",
+                stage="recording",
+                cause="message, labels or limits outside the supported public subset",
+                run_id="not_launched",
+            )
+        charge = limits["maximum_charge"]
+        if not isinstance(charge, dict) or charge.get("currency") != "USD":
+            raise refusal(
+                "recorded_launch_shape_unsupported",
+                stage="recording",
+                cause="maximum_charge is not a USD amount",
+                run_id="not_launched",
+            )
+        return cls(
+            message=message,
+            budget_usd=str(charge["amount"]),
+            wall_time_seconds=int(limits["wall_time_seconds"]),
+            labels={str(key): str(value) for key, value in labels.items()},
+            resources=tuple(RESOURCES.validate_python(body["resources"])),
+        )
+
+    def resources_json(self) -> str:
+        return RESOURCES.dump_json(list(self.resources), exclude_none=True).decode()
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +197,26 @@ class SDKDriver:
                 cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
                 run_id=snapshot.run_id,
             )
+        return snapshot
+
+    def launch_recorded(
+        self, *, recording: RecordedLaunch, idempotency_key: str, journal: LaunchJournal
+    ) -> RunSnapshot:
+        # No optimizer field: the recording omitted it, so Core's declared default resolves.
+        request = self.client.swarms.prepare_launch(
+            recording.message,
+            budget=recording.budget_usd,
+            wall_time_seconds=recording.wall_time_seconds,
+            labels=dict(recording.labels),
+            resources=list(recording.resources),
+        )
+        journal.begin(
+            LaunchIntent(
+                "sdk", idempotency_key, journal.request_digest(request.model_dump_json()), ()
+            )
+        )
+        snapshot = self.client.swarms.launch_request(request, idempotency_key=idempotency_key)
+        journal.accepted(snapshot)
         return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
@@ -291,6 +386,40 @@ class CLIDriver:
                 cause="accepted run has no authoritative optimizer receipt; retain its identity and do not relaunch",
                 run_id=snapshot.run_id,
             )
+        return snapshot
+
+    def launch_recorded(
+        self,
+        *,
+        recording: RecordedLaunch,
+        idempotency_key: str,
+        journal: LaunchJournal,
+        work_directory: Path,
+    ) -> RunSnapshot:
+        resources = work_directory / "resources.json"
+        resources.write_text(recording.resources_json())
+        arguments = [
+            "run",
+            recording.message,
+            "--budget",
+            recording.budget_usd,
+            "--wall",
+            str(recording.wall_time_seconds),
+            "--resources",
+            str(resources),
+            "--idempotency-key",
+            idempotency_key,
+            "--json",
+        ]
+        for key, value in sorted(recording.labels.items()):
+            arguments.extend(["--label", key + "=" + value])
+        journal.begin(
+            LaunchIntent("cli", idempotency_key, journal.request_digest(json.dumps(arguments)), ())
+        )
+        snapshot = RunSnapshot.model_validate_json(
+            self._command(arguments, run_id="launch_outcome_pending")
+        )
+        journal.accepted(snapshot)
         return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:

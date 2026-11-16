@@ -237,6 +237,58 @@ def test_run_refuses_bad_flags_before_any_upload(api, capsys, tmp_path, flags):
     assert api.calls == []
 
 
+RECORDED_CRAFTAX_RESOURCES = [
+    {
+        "plugin": "pool",
+        "version": 1,
+        "roles": ["planner", "worker"],
+        "limits": {"rollouts": 90, "spend_micros": 11000},
+        "selection": {},
+        "evaluation_templates": [
+            "sha256:5c6763bbbb0a481d071ccd340b02133e2a4907c3b1088d16c87bd1d9d40e6007"
+        ],
+    }
+]
+
+
+def test_run_sends_recorded_resources_exactly(api, capsys, tmp_path):
+    path = tmp_path / "resources.json"
+    path.write_text(json.dumps(RECORDED_CRAFTAX_RESOURCES))
+    argv = ["run", "Goal", "--budget", "10.00", "--resources", str(path)]
+    code, _, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_OK, err
+    launch = json.loads(next(r for oid, r in api.calls if oid == "createRun").content)
+    assert launch["resources"] == RECORDED_CRAFTAX_RESOURCES
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "{}",
+        "not json",
+        json.dumps([{**RECORDED_CRAFTAX_RESOURCES[0], "plugin": "other"}]),
+        json.dumps([{**RECORDED_CRAFTAX_RESOURCES[0], "local_cache": {"mode": "replay"}}]),
+    ],
+)
+def test_run_refuses_bad_resources_before_any_call(api, capsys, tmp_path, document):
+    path = tmp_path / "resources.json"
+    path.write_text(document)
+    upload = tmp_path / "notes.md"
+    upload.write_bytes(b"# Notes\n")
+    argv = ["run", "Goal", "--budget", "1.00", "--file", str(upload), "--resources", str(path)]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "", err
+    assert err.startswith("client_error: --resources ")
+    assert api.calls == []
+
+
+def test_run_refuses_unreadable_resources_file(api, capsys, tmp_path):
+    argv = ["run", "Goal", "--budget", "1.00", "--resources", str(tmp_path / "absent.json")]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "", err
+    assert api.calls == []
+
+
 def test_upload_is_one_step(api, capsys, contract, tmp_path):
     content = b"{}"
     path = tmp_path / "data.json"
