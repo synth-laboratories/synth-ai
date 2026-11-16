@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from scripts.acceptance.j1 import AdapterError, CLIDriver, SDKDriver, observe
+from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
 from synth_ai import SynthClient
 
 pytestmark = pytest.mark.acceptance
@@ -23,7 +24,7 @@ RUN = "run_AAAAAAAAAAAAAAAAAAAAAA"
 
 
 @contextmanager
-def fixture_api(contract, *, coherent=False):
+def fixture_api(contract, *, coherent=False, launch_resolution=False):
     examples = {}
     for path, item in contract["paths"].items():
         if "get" in item and path in {
@@ -53,6 +54,25 @@ def fixture_api(contract, *, coherent=False):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            requests.append((self.path, body, self.headers.get("Idempotency-Key")))
+            response = json.loads(json.dumps(examples[f"/v1/runs/{RUN}"]))
+            if launch_resolution:
+                response["optimizer"] = {
+                    "topology": "swarms_v2",
+                    "version": 2,
+                    "params": {},
+                    "reason": "environment_default",
+                    "definition_digest": "sha256:" + "a" * 64,
+                }
+            raw = json.dumps(response).encode()
+            self.send_response(202)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
 
         def log_message(self, *_):
             return
@@ -140,3 +160,109 @@ def test_supported_observation_retains_missing_journey_projections(contract, tmp
     assert Missing.RESULT_MARKDOWN in result.missing
     assert result.result_markdown is None
     assert result.outputs == ()
+
+
+def test_sdk_launch_auto_preserves_wire_selection_and_mutation_identity(contract, tmp_path):
+    with (
+        fixture_api(contract, launch_resolution=True) as (origin, requests),
+        SynthClient("fixture", base_url=origin) as client,
+    ):
+        snapshot = SDKDriver(client).launch_auto(
+            message="task",
+            budget_usd="1.00",
+            files=(),
+            idempotency_key="j1-sdk-once",
+            journal=LaunchJournal(tmp_path / "launch"),
+        )
+    assert snapshot.optimizer.topology == "swarms_v2"
+    assert len(requests) == 1
+    assert requests[0][0] == "/v1/runs"
+    assert requests[0][1]["optimizer"] == "auto"
+    assert requests[0][2] == "j1-sdk-once"
+
+
+def test_cli_launch_auto_uses_real_subprocess_and_same_wire_selection(contract, tmp_path):
+    import sys
+
+    with fixture_api(contract, launch_resolution=True) as (origin, requests):
+        driver = CLIDriver(
+            python=Path(sys.executable),
+            environment={
+                **os.environ,
+                "SYNTH_LOCAL_API_BASE_URL": origin,
+                "SYNTH_API_KEY": "fixture",
+            },
+            working_directory=Path(__file__).parents[2],
+        )
+        snapshot = driver.launch_auto(
+            message="task",
+            budget_usd="1.00",
+            files=(),
+            idempotency_key="j1-cli-once",
+            journal=LaunchJournal(tmp_path / "launch"),
+        )
+    assert snapshot.optimizer.topology == "swarms_v2"
+    assert len(requests) == 1
+    assert requests[0][1]["optimizer"] == "auto"
+    assert requests[0][2] == "j1-cli-once"
+
+
+def test_missing_optimizer_receipt_preserves_accepted_run_without_relaunch(contract, tmp_path):
+    with (
+        fixture_api(contract) as (origin, requests),
+        SynthClient("fixture", base_url=origin) as client,
+    ):
+        with pytest.raises(AdapterError, match="optimizer_resolution_unobserved") as failure:
+            SDKDriver(client).launch_auto(
+                message="task",
+                budget_usd="1.00",
+                files=(),
+                idempotency_key="j1-missing-receipt",
+                journal=LaunchJournal(tmp_path / "launch"),
+            )
+        assert failure.value.run_id == RUN
+    assert len(requests) == 1
+
+
+def test_launch_intent_prevents_relaunch_after_accepted_response(contract, tmp_path):
+    journal = LaunchJournal(tmp_path / "launch")
+    with (
+        fixture_api(contract, launch_resolution=True) as (origin, requests),
+        SynthClient("fixture", base_url=origin) as client,
+    ):
+        driver = SDKDriver(client)
+        accepted = driver.launch_auto(
+            message="task",
+            budget_usd="1.00",
+            files=(),
+            idempotency_key="single-launch",
+            journal=journal,
+        )
+        assert journal.read_accepted() == accepted
+        with pytest.raises(LaunchJournalError, match="launch_journal_record_exists"):
+            driver.launch_auto(
+                message="task",
+                budget_usd="1.00",
+                files=(),
+                idempotency_key="single-launch",
+                journal=journal,
+            )
+    assert len(requests) == 1
+
+
+def test_missing_optimizer_still_retains_accepted_run_receipt(contract, tmp_path):
+    journal = LaunchJournal(tmp_path / "launch")
+    with (
+        fixture_api(contract) as (origin, requests),
+        SynthClient("fixture", base_url=origin) as client,
+    ):
+        with pytest.raises(AdapterError, match="optimizer_resolution_unobserved"):
+            SDKDriver(client).launch_auto(
+                message="task",
+                budget_usd="1.00",
+                files=(),
+                idempotency_key="retain-accepted",
+                journal=journal,
+            )
+    assert journal.read_accepted().run_id == RUN
+    assert len(requests) == 1
