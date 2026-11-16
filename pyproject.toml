@@ -29,6 +29,7 @@ packages = ["synth_ai"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = ["acceptance: customer-path drivers; runtime cases require an explicit owned cached target"]
 
 [tool.ty.src]
 include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]

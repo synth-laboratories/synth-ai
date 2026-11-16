@@ -1,0 +1,329 @@
+"""SDK and real CLI subprocess adapters for the supported J1 customer operations.
+
+See SYN-5692. Observation/download can run on a retained existing run without
+launching it again. Missing attempt-tree or result.md projections remain named
+blockers; they do not prevent exercising supported public SDK/CLI methods.
+"""
+
+from __future__ import annotations
+
+# ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
+import hashlib
+import logging
+import subprocess
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from enum import StrEnum
+from pathlib import Path
+from typing import Optional, Protocol
+
+from pydantic import TypeAdapter
+
+from synth_ai import SynthClient
+from synth_ai.models import File, RunOutput, RunReport, RunResult, RunSnapshot
+
+from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
+
+__all__ = ["AdapterError", "CLIDriver", "J1Observation", "Missing", "SDKDriver", "observe"]
+_LOGGER = logging.getLogger(__name__)
+
+
+class Missing(StrEnum):
+    ATTEMPT_TREE = "attempt_tree_contract_unavailable"
+    RESULT_MARKDOWN = "result_markdown_unavailable"
+    FINALITY = "run_not_fully_closed"
+    CHARGE = "charge_unobserved"
+
+
+@dataclass(frozen=True, slots=True)
+class AdapterError(Exception):
+    code: str
+    stage: str
+    cause: str
+    run_id: str
+
+
+def refusal(code: str, *, stage: str, cause: str, run_id: str) -> AdapterError:
+    _LOGGER.error("code=%s stage=%s run_id=%s cause=%s", code, stage, run_id, cause)
+    return AdapterError(code, stage, cause, run_id)
+
+
+@dataclass(frozen=True, slots=True)
+class OutputEvidence:
+    output: RunOutput
+    path: Path
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class J1Observation:
+    snapshot: RunSnapshot
+    report: RunReport
+    result: RunResult
+    outputs: tuple[OutputEvidence, ...]
+    result_markdown: Optional[str]
+    missing: tuple[Missing, ...]
+
+
+class ReadDriver(Protocol):
+    def snapshot(self, run_id: str) -> RunSnapshot: ...
+    def report(self, run_id: str) -> RunReport: ...
+    def result(self, run_id: str) -> RunResult: ...
+    def outputs(self, run_id: str) -> tuple[RunOutput, ...]: ...
+    def download(self, run_id: str, output: RunOutput, target: Path) -> Path: ...
+
+
+class SDKDriver:
+    def __init__(self, client: SynthClient) -> None:
+        self.client = client
+
+    def upload(self, path: Path, *, idempotency_key: str) -> File:
+        return self.client.swarms.upload_file(str(path), idempotency_key=idempotency_key)
+
+    def wait(self, run_id: str) -> RunSnapshot:
+        return self.client.swarms.wait(run_id, timeout=WAIT_SECONDS, raise_on_failure=False)
+
+    def snapshot(self, run_id: str) -> RunSnapshot:
+        return self.client.swarms.get(run_id)
+
+    def report(self, run_id: str) -> RunReport:
+        return self.client.swarms.report(run_id)
+
+    def result(self, run_id: str) -> RunResult:
+        return self.client.swarms.result(run_id)
+
+    def outputs(self, run_id: str) -> tuple[RunOutput, ...]:
+        cursor: Optional[str] = None
+        items: list[RunOutput] = []
+        seen: set[str] = set()
+        for _ in range(OUTPUT_PAGES_MAX):
+            page = self.client.swarms.outputs(run_id, cursor=cursor, limit=PAGE_ITEMS)
+            items.extend(page.items)
+            if not page.has_more:
+                return tuple(items)
+            if page.next_cursor is None or page.next_cursor in seen:
+                raise refusal(
+                    "output_cursor_invalid",
+                    stage="outputs",
+                    cause="missing or repeated next cursor",
+                    run_id=run_id,
+                )
+            cursor = page.next_cursor
+            seen.add(cursor)
+        raise refusal(
+            "output_page_limit",
+            stage="outputs",
+            cause="bounded output page count exceeded",
+            run_id=run_id,
+        )
+
+    def download(self, run_id: str, output: RunOutput, target: Path) -> Path:
+        pin = content_pin(output)
+        return self.client.swarms.download_output(
+            run_id,
+            output.output_id,
+            str(target),
+            revision_id=pin.revision_id,
+            digest_sha256=pin.digest_sha256,
+            max_bytes=OUTPUT_BYTES_MAX,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContentPin:
+    revision_id: str
+    digest_sha256: str
+
+
+def content_pin(output: RunOutput) -> ContentPin:
+    if output.reference is None:
+        raise refusal(
+            "output_content_unavailable",
+            stage="download",
+            cause="authoritative output reference is absent",
+            run_id=output.run_id,
+        )
+    # reference is the canonical SDK wire Mapping[str,str]; required keys have
+    # one meaning, and an absent key is a refusal rather than a legacy shape.
+    if "revision_id" not in output.reference or "digest_sha256" not in output.reference:
+        raise refusal(
+            "output_pin_unavailable",
+            stage="download",
+            cause="revision or content digest is absent",
+            run_id=output.run_id,
+        )
+    return ContentPin(output.reference["revision_id"], output.reference["digest_sha256"])
+
+
+class CLIDriver:
+    def __init__(
+        self, *, python: Path, environment: Mapping[str, str], working_directory: Path
+    ) -> None:
+        self.python = python
+        self.environment = environment
+        self.working_directory = working_directory
+
+    def _command(
+        self, arguments: Sequence[str], *, run_id: str, seconds: int = COMMAND_SECONDS
+    ) -> str:
+        # The caller supplies the manager-selected origin via the named local
+        # profile. Credentials remain in the child environment, never argv/logs.
+        result = subprocess.run(
+            [str(self.python), "-m", "synth_ai.cli", "--env", "local", *arguments],
+            cwd=self.working_directory,
+            env=self.environment,
+            capture_output=True,
+            text=True,
+            timeout=seconds,
+            check=False,
+        )
+        if result.returncode:
+            # Retain the classified exit without printing server bodies or keys.
+            raise refusal(
+                "cli_command_failed",
+                stage=arguments[0],
+                cause="CLI exit " + str(result.returncode),
+                run_id=run_id,
+            )
+        return result.stdout
+
+    def upload(self, paths: Sequence[Path]) -> tuple[File, ...]:
+        return TypeAdapter(tuple[File, ...]).validate_json(
+            self._command(
+                ["upload", "--json", *(str(path) for path in paths)], run_id="not_launched"
+            )
+        )
+
+    def wait(self, run_id: str) -> RunSnapshot:
+        return RunSnapshot.model_validate_json(
+            self._command(
+                ["wait", run_id, "--timeout", str(WAIT_SECONDS), "--json"],
+                run_id=run_id,
+                seconds=WAIT_SECONDS + COMMAND_SECONDS,
+            )
+        )
+
+    def snapshot(self, run_id: str) -> RunSnapshot:
+        return RunSnapshot.model_validate_json(
+            self._command(["status", run_id, "--json"], run_id=run_id)
+        )
+
+    def report(self, run_id: str) -> RunReport:
+        return RunReport.model_validate_json(
+            self._command(["report", run_id, "--json"], run_id=run_id)
+        )
+
+    def result(self, run_id: str) -> RunResult:
+        return RunResult.model_validate_json(
+            self._command(["result", run_id, "--json"], run_id=run_id)
+        )
+
+    def outputs(self, run_id: str) -> tuple[RunOutput, ...]:
+        # Current CLI emits one OutputPage, preserving the cursor contract.
+        from synth_ai.models import OutputPage
+
+        cursor: Optional[str] = None
+        items: list[RunOutput] = []
+        seen: set[str] = set()
+        for _ in range(OUTPUT_PAGES_MAX):
+            arguments = ["outputs", run_id, "--json", "--limit", str(PAGE_ITEMS)]
+            if cursor is not None:
+                arguments.extend(["--cursor", cursor])
+            page = OutputPage.model_validate_json(self._command(arguments, run_id=run_id))
+            items.extend(page.items)
+            if not page.has_more:
+                return tuple(items)
+            if page.next_cursor is None or page.next_cursor in seen:
+                raise refusal(
+                    "output_cursor_invalid",
+                    stage="outputs",
+                    cause="missing or repeated next cursor",
+                    run_id=run_id,
+                )
+            cursor = page.next_cursor
+            seen.add(cursor)
+        raise refusal(
+            "output_page_limit",
+            stage="outputs",
+            cause="bounded output page count exceeded",
+            run_id=run_id,
+        )
+
+    def download(self, run_id: str, output: RunOutput, target: Path) -> Path:
+        self._command(
+            ["download", run_id, output.output_id, "--out", str(target.parent), "--json"],
+            run_id=run_id,
+        )
+        return target
+
+
+def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Observation:
+    snapshot, report, result = driver.snapshot(run_id), driver.report(run_id), driver.result(run_id)
+    if snapshot.run_id != run_id or report.run_id != run_id or result.run.run_id != run_id:
+        raise refusal(
+            "observation_run_mismatch",
+            stage="observation",
+            cause="surface returned another run identity",
+            run_id=run_id,
+        )
+    missing = [Missing.ATTEMPT_TREE]
+    if not (snapshot.execution_closed and snapshot.accounting_final and snapshot.cleanup_complete):
+        missing.append(Missing.FINALITY)
+    if result.charge is None or report.settlement.total is None:
+        missing.append(Missing.CHARGE)
+    if result.charge is not None and report.settlement.total is not None:
+        if result.charge.amount.currency != "USD" or report.settlement.total.currency != "USD":
+            raise refusal(
+                "charge_currency_invalid",
+                stage="cost",
+                cause="J1 cost comparison requires USD",
+                run_id=run_id,
+            )
+        if Decimal(result.charge.amount.amount) != Decimal(report.settlement.total.amount):
+            raise refusal(
+                "charge_projection_mismatch",
+                stage="cost",
+                cause="result and report disagree on customer charge",
+                run_id=run_id,
+            )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    evidence: list[OutputEvidence] = []
+    names: set[str] = set()
+    markdown: Optional[str] = None
+    for output in driver.outputs(run_id):
+        if output.run_id != run_id:
+            raise refusal(
+                "output_run_mismatch",
+                stage="outputs",
+                cause="output belongs to another run",
+                run_id=run_id,
+            )
+        if (
+            Path(output.filename).name != output.filename
+            or output.filename in {"", ".", ".."}
+            or output.filename in names
+        ):
+            raise refusal(
+                "output_filename_invalid",
+                stage="outputs",
+                cause="unsafe or duplicate destination name",
+                run_id=run_id,
+            )
+        names.add(output.filename)
+        pin = content_pin(output)
+        path = driver.download(run_id, output, output_directory / output.filename)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest != pin.digest_sha256:
+            raise refusal(
+                "output_digest_mismatch",
+                stage="download",
+                cause="downloaded bytes differ from pinned output",
+                run_id=run_id,
+            )
+        evidence.append(OutputEvidence(output, path, digest))
+        if output.filename == "result.md":
+            markdown = path.read_text(encoding="utf-8")
+    if "result.md" not in names:
+        missing.append(Missing.RESULT_MARKDOWN)
+    return J1Observation(snapshot, report, result, tuple(evidence), markdown, tuple(missing))
