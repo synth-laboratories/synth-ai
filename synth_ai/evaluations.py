@@ -85,6 +85,7 @@ class AsyncEvaluations:
     async def list_inputs(
         self, kind: EvaluationInputKind, *, name: str | None = None
     ) -> EvaluationRevisionList:
+        """List registered evaluation inputs."""
         return await self._transport.request(
             "listEvaluationInputs",
             EvaluationRevisionList,
@@ -93,6 +94,7 @@ class AsyncEvaluations:
         )
 
     async def get_input(self, kind: EvaluationInputKind, revision_id: str) -> EvaluationRevision:
+        """Read an immutable evaluation input."""
         return await self._transport.request(
             "getEvaluationInput",
             EvaluationRevision,
@@ -130,6 +132,7 @@ class AsyncEvaluations:
         )
 
     async def get(self, evaluation_id: str) -> EvaluationResponse:
+        """Read evaluation progress and signed results."""
         return await self._transport.request(
             "getEvaluation", EvaluationResponse, path={"evaluation_id": evaluation_id}
         )
@@ -174,6 +177,7 @@ class AsyncEvaluations:
     async def cancel(
         self, evaluation_id: str, *, idempotency_key: str | None = None
     ) -> EvaluationResponse:
+        """Cancel an evaluation and reconcile its compute."""
         return await self._transport.request(
             "cancelEvaluation",
             EvaluationResponse,
