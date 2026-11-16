@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections.abc import AsyncGenerator, Callable, Mapping, Sequence
+from concurrent.futures import CancelledError as FutureCancelled
 from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -53,7 +54,7 @@ class StdioCommand:
 @dataclass(frozen=True, slots=True)
 class HostedEndpoint:
     url: str
-    # Opaque bearer for /mcp (Core mcpoauth resolves an MCP OAuth access token).
+    # Opaque bearer for /mcp; Core mcpoauth authenticates it via s.Auth.
     bearer: str
 
 
@@ -171,7 +172,7 @@ class SessionToolCaller:
         future = asyncio.run_coroutine_threadsafe(session.call_tool(name, dict(arguments)), loop)
         try:
             result = future.result(MCP_CALL_SECONDS)
-        except (McpError, httpx.HTTPError, FutureTimeout) as error:
+        except (McpError, httpx.HTTPError, FutureTimeout, FutureCancelled) as error:
             future.cancel()
             raise refusal(
                 MCPRefusal.TRANSPORT_FAILED,

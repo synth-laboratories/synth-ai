@@ -53,8 +53,10 @@ one blocking `SessionToolCaller`:
   has no client-injection seam, so origin and key reach it via the child
   environment only (SYNTH_LOCAL_API_BASE_URL, SYNTH_API_KEY).
 - `mcp_hosted`: streamable HTTP to `--mcp-url` with `Authorization: Bearer`.
-  Core's `/mcp` resolves an MCP OAuth access token (mcpoauth), so the entrypoint
-  reads SYNTH_MCP_ACCESS_TOKEN; the API key is not that credential.
+  The entrypoint reads an opaque bearer from SYNTH_MCP_ACCESS_TOKEN (a harness
+  name introduced here). Core mcpoauth authenticates it via `s.Auth`; whether an
+  API key or only an MCP OAuth access token is accepted is not verified yet.
+  `mcp` is an optional extra, imported only for the MCP drivers.
 
 ```
 python -m scripts.acceptance --driver mcp_stdio --run-id RUN --receipt-dir OWNED_NEW_DIR

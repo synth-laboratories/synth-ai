@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from test_j1_drivers import RUN, fixture_api
 
+pytest.importorskip("mcp")
+
 from scripts.acceptance.j1 import AdapterError, Missing, SDKDriver, observe, observe_listed
 from scripts.acceptance.mcp_driver import MCPDriver, MCPRefusal, Tool, ToolOutcome
 from scripts.acceptance.mcp_transport import SessionToolCaller, StdioCommand, stdio_session
@@ -39,8 +41,18 @@ def coherent_examples(contract):
     return examples
 
 
+def check_arguments(name, arguments):
+    # Same contract the real servers enforce: the catalog inputSchema.
+    from jsonschema import Draft202012Validator
+
+    from synth_ai.mcp.tools import TOOLS
+
+    [tool] = [tool for tool in TOOLS if tool["name"] == name]
+    Draft202012Validator(tool["inputSchema"]).validate(arguments)
+
+
 class FakeCaller:
-    """Records calls; answers with stdio-server-shaped text per tool."""
+    """Records schema-valid calls; answers with stdio-server-shaped text per tool."""
 
     def __init__(self, answers, *, names=None):
         self.answers = answers
@@ -51,6 +63,7 @@ class FakeCaller:
         return self.names
 
     def call(self, name, arguments):
+        check_arguments(name, dict(arguments))
         self.calls.append((name, dict(arguments)))
         answer = self.answers[name]
         if isinstance(answer, list):
@@ -275,3 +288,10 @@ def test_upload_refuses_formats_the_catalog_cannot_carry(tmp_path):
         MCPDriver(caller, surface="mcp_stdio").upload(binary, idempotency_key="u1")
     assert failure.value.code == MCPRefusal.UPLOAD_MEDIA_TYPE
     assert caller.calls == []
+
+
+def test_usage_for_run_reads_one_bounded_page():
+    caller = FakeCaller({Tool.USAGE: {"has_more": False, "items": []}})
+    page = MCPDriver(caller, surface="mcp_stdio").usage(RUN)
+    assert page.items == []
+    assert caller.calls == [(Tool.USAGE, {"run_id": RUN, "limit": 100})]
