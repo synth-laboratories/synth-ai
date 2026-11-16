@@ -47,6 +47,31 @@ async def test_cancellation_joins_disk_worker_before_returning():
         await task
 
 
+@pytest.mark.parametrize("fails", [False, True])
+async def test_repeated_cancellation_still_joins_disk_worker(fails):
+    io = FileIO()
+    started, release = threading.Event(), threading.Event()
+
+    def work():
+        started.set()
+        release.wait(5)
+        if fails:
+            raise OSError("fixture disk failure during cancellation")
+
+    task = asyncio.create_task(io.run(work))
+    assert await asyncio.to_thread(started.wait, 5)
+    try:
+        task.cancel()
+        await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.sleep(0.01)
+        assert not task.done(), "cancelled disk worker must be joined before returning"
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
 async def test_source_changed_after_prepare_never_finalizes_upload(contract, tmp_path, monkeypatch):
     path = tmp_path / "task.txt"
     path.write_bytes(b"original")
