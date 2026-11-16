@@ -377,6 +377,13 @@ def serve_result(api, contract, answer, *, media_type="text/markdown", objective
                 "answer_output": None if answer is None else source,
                 "objective_answer": objective,
                 "charge": run.get("charge"),
+                "attempt_tree": {
+                    "state": "unavailable",
+                    "run_id": run["run_id"],
+                    "code": "run_records_projection_unavailable",
+                    "stage": "run_result",
+                    "cause": "Canonical research record projection is unavailable for this cohort.",
+                },
             },
         )
 

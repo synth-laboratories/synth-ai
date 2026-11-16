@@ -204,13 +204,18 @@ class MintedApiKeyPurpose(StrEnum):
 class OptimizerPinTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
-    FORGETTING = "forgetting"
-    MIRA = "mira"
-    SCALEMAS = "scalemas"
+
+
+class OverloadCode(StrEnum):
+    RATELIMITED = "RateLimited"
+    OVERLOADED = "Overloaded"
+    DEPENDENCYUNAVAILABLE = "DependencyUnavailable"
+    QUEUEFULL = "QueueFull"
 
 
 class PlanKind(StrEnum):
     FREE = "free"
+    GRANTED = "granted"
     RECURRING = "recurring"
     CREDIT_PACK = "credit_pack"
     INTERNAL = "internal"
@@ -275,9 +280,6 @@ class ResolvedOptimizerReason(StrEnum):
 class ResolvedOptimizerTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
-    FORGETTING = "forgetting"
-    MIRA = "mira"
-    SCALEMAS = "scalemas"
 
 
 class RunAllocationActorComputeMetering(StrEnum):
@@ -294,6 +296,20 @@ class RunAllocationChoiceSource(StrEnum):
 class RunAllocationChoiceState(StrEnum):
     ASSIGNED = "assigned"
     PLANNER_DECIDES = "planner_decides"
+
+
+class RunAttemptReviewDecision(StrEnum):
+    COMMENT = "comment"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    NEEDS_CORRECTION = "needs_correction"
+
+
+class RunAttemptTreeUnavailableCode(StrEnum):
+    RUN_RECORDS_PROJECTION_UNAVAILABLE = "run_records_projection_unavailable"
+    RUN_RECORDS_NOT_RETAINED = "run_records_not_retained"
+    RUN_RECORDS_PENDING = "run_records_pending"
+    RUN_RECORDS_IN_DOUBT = "run_records_in_doubt"
 
 
 class RunBlockerKind(StrEnum):
@@ -467,6 +483,7 @@ class RunRoleUsageRole(StrEnum):
     WORKER = "worker"
     REVIEWER = "reviewer"
     OTHER = "other"
+    SCORING = "scoring"
 
 
 class RunSandboxObservation(StrEnum):
@@ -591,27 +608,11 @@ class TopologyCatalogEntryAvailability(StrEnum):
 class TopologyCatalogEntryLabel(StrEnum):
     DEFAULT = "default"
     EXPERIMENTAL = "experimental"
-    RESEARCH = "research"
 
 
 class TopologyCatalogEntryTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
-    FORGETTING = "forgetting"
-    MIRA = "mira"
-    SCALEMAS = "scalemas"
-
-
-class UploadCreateRequestMediaType(StrEnum):
-    TEXT_PLAIN = "text/plain"
-    TEXT_MARKDOWN = "text/markdown"
-    APPLICATION_JSON = "application/json"
-
-
-class UploadFileRequestMediaType(StrEnum):
-    TEXT_PLAIN = "text/plain"
-    TEXT_MARKDOWN = "text/markdown"
-    APPLICATION_JSON = "application/json"
 
 
 class UploadState(StrEnum):
@@ -899,7 +900,7 @@ class File(WireModel):
 
 class InputFile(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     file_id: str
     revision_id: str
@@ -1097,6 +1098,18 @@ class Org(WireModel):
 
 OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 
+
+class Overload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    code: Annotated[OverloadCode, BeforeValidator(enum_value(OverloadCode))]
+    service: Annotated[str, Field(min_length=1)]
+    limit: Annotated[str, Field(min_length=1)]
+    retry_after: Annotated[int, Field(ge=0)]
+    retryable: bool
+
+
 OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372036854775807)]]
 
 
@@ -1142,35 +1155,6 @@ class Principal(WireModel):
         None
     )
     access_tier: str
-
-
-class Problem(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    type: str
-    title: str
-    status: Annotated[int, Field(ge=400, le=599)]
-    detail: str
-    instance: str
-    code: str
-    service: str
-    stage: str
-    upstream_status: int | None = None
-    cause: str | None = None
-    outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
-    retryable: bool | None = None
-    last_event_id: Annotated[str, Field(pattern="^[0-9]+(\\.[1-3])?$")] | None = None
-    current_revision: Annotated[int, Field(ge=0)] | None = None
-    window: Annotated[ProblemWindow, BeforeValidator(enum_value(ProblemWindow))] | None = None
-    cap: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
-    current: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
-    requested: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
-    unit: Annotated[ProblemUnit, BeforeValidator(enum_value(ProblemUnit))] | None = None
-    minimum_version: str | None = None
-    client_version: str | None = None
-    field: str | None = None
-    reason: str | None = None
 
 
 class RefundDetailRunUsage1(WireModel):
@@ -1254,6 +1238,12 @@ class RunAllocationChoice(WireModel):
     ]
     profile_id: str | None = None
     option_id: str | None = None
+
+
+class RunAttemptScore(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
 
 
 class RunBlocker(WireModel):
@@ -1452,12 +1442,29 @@ class RunProgramProgram(WireModel):
     version: str
 
 
+class RunRecordReference(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+
+
+class RunResearchNote(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+
+
 class RunTask(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     task_id: str
     state: str
+
+
+RunTrialState: TypeAlias = Literal[
+    "registered", "running", "succeeded", "failed", "interrupted", "rejected"
+]
 
 
 class SandboxImage(WireModel):
@@ -1613,11 +1620,16 @@ class UploadCreateRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    media_type: Annotated[
-        UploadCreateRequestMediaType, BeforeValidator(enum_value(UploadCreateRequestMediaType))
+    name: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=1024,
+            pattern="^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+        ),
     ]
-    size_bytes: Annotated[int, Field(ge=0, le=33554432)]
+    media_type: Annotated[str, Field(min_length=1, max_length=255)]
+    size_bytes: Annotated[int, Field(ge=0, le=16777216)]
     digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
 
 
@@ -1625,10 +1637,15 @@ class UploadFileRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    name: Annotated[str, Field(min_length=1, max_length=256)]
-    media_type: Annotated[
-        UploadFileRequestMediaType, BeforeValidator(enum_value(UploadFileRequestMediaType))
+    name: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=1024,
+            pattern="^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+        ),
     ]
+    media_type: Annotated[str, Field(min_length=1, max_length=255)]
     content: Annotated[str, Field(max_length=32768)]
 
 
@@ -2074,6 +2091,36 @@ class Plan(WireModel):
     limits: list[Limit] | None = None
 
 
+class Problem(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    overload: Overload | None = None
+    type: str
+    title: str
+    status: Annotated[int, Field(ge=400, le=599)]
+    detail: str
+    instance: str
+    code: str
+    service: str
+    stage: str
+    upstream_status: int | None = None
+    cause: str | None = None
+    outcome: Annotated[ProblemOutcome, BeforeValidator(enum_value(ProblemOutcome))]
+    retryable: bool | None = None
+    last_event_id: Annotated[str, Field(pattern="^[0-9]+(\\.[1-3])?$")] | None = None
+    current_revision: Annotated[int, Field(ge=0)] | None = None
+    window: Annotated[ProblemWindow, BeforeValidator(enum_value(ProblemWindow))] | None = None
+    cap: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    current: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    requested: Annotated[str, Field(pattern="^[0-9]+$")] | None = None
+    unit: Annotated[ProblemUnit, BeforeValidator(enum_value(ProblemUnit))] | None = None
+    minimum_version: str | None = None
+    client_version: str | None = None
+    field: str | None = None
+    reason: str | None = None
+
+
 class RefundDetail(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2125,6 +2172,32 @@ class RunAllocationActorLaunch(WireModel):
     )
     inference: RunAllocationChoice
     sandbox: RunAllocationChoice
+
+
+class RunAttemptReview(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    record: RunRecordReference
+    target: RunRecordReference
+    decision: Annotated[
+        RunAttemptReviewDecision, BeforeValidator(enum_value(RunAttemptReviewDecision))
+    ]
+    rationale: Annotated[str, Field(min_length=1, max_length=8000)]
+    sources: Annotated[list[RunRecordReference], Field(max_length=1024)]
+
+
+class RunAttemptTreeUnavailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    state: Literal["unavailable"]
+    run_id: RunId
+    code: Annotated[
+        RunAttemptTreeUnavailableCode, BeforeValidator(enum_value(RunAttemptTreeUnavailableCode))
+    ]
+    stage: Literal["run_result"]
+    cause: Annotated[str, Field(min_length=1, max_length=1024)]
 
 
 class RunCharge(WireModel):
@@ -2190,7 +2263,7 @@ class RunInputs(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    files: Annotated[list[InputFile], Field(max_length=32)] | None = None
+    files: Annotated[list[InputFile], Field(max_length=10000)] | None = None
 
 
 class RunLimitChanges(WireModel):
@@ -2624,6 +2697,28 @@ class RunAllocationActor(WireModel):
     compute_charge: Money | None = None
 
 
+class RunAttemptNode(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    trial: RunRecordReference
+    parent_trial: RunRecordReference | None
+    protocol: RunRecordReference
+    experiment: RunRecordReference
+    arm: str | None
+    state: RunTrialState
+    scores: Annotated[list[RunAttemptScore], Field(max_length=4096)]
+    reviews: Annotated[list[RunAttemptReview], Field(max_length=4096)]
+    notes: Annotated[list[RunResearchNote], Field(max_length=4096)]
+    input_gaps: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=8000)]], Field(max_length=256)
+    ]
+    deviations: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=8000)]], Field(max_length=256)
+    ]
+    charge: RunCharge | None
+
+
 class RunLimitStatePayload(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2894,6 +2989,20 @@ class RunAllocation(WireModel):
     actors: list[RunAllocationActor]
 
 
+class RunAttemptTreeAvailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    state: Literal["available"]
+    run_id: RunId
+    protocol: RunRecordReference
+    experiment: RunRecordReference
+    research_log: RunRecordReference
+    report: RunRecordReference
+    attempts: Annotated[list[RunAttemptNode], Field(max_length=135168)]
+    notes: Annotated[list[RunResearchNote], Field(max_length=4096)]
+
+
 class RunEvent(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3045,6 +3154,9 @@ class EventPage(WireModel):
     resume_cursor: str | None
 
 
+RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
+
+
 class RunPage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3070,6 +3182,7 @@ class RunReport(WireModel):
     sandboxes: list[RunReportSandbox]
     teardown: Annotated[RunReportTeardown, BeforeValidator(enum_value(RunReportTeardown))]
     unattributed: RunUsage
+    scoring: RunUsage
     sandbox_compute: Annotated[
         RunReportSandboxCompute, BeforeValidator(enum_value(RunReportSandboxCompute))
     ]
@@ -3081,24 +3194,25 @@ class RunReport(WireModel):
     timings: RunTimings
 
 
-class RunResult(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    run: RunSnapshot
-    state: str
-    answer: str | None
-    answer_output: RunOutput | None
-    objective_answer: ObjectiveAnswer | None
-    charge: RunCharge | None
-
-
 class RunWait(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     outcome: Annotated[RunWaitOutcome, BeforeValidator(enum_value(RunWaitOutcome))]
     run: RunSnapshot
+
+
+class RunResult(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    attempt_tree: RunAttemptTree
+    run: RunSnapshot
+    state: str
+    answer: str | None
+    answer_output: RunOutput | None
+    objective_answer: ObjectiveAnswer | None
+    charge: RunCharge | None
 
 
 MODELS: dict[str, type[BaseModel]] = {
@@ -3141,10 +3255,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "Only": Only,
     "OptimizerPinParams": OptimizerPinParams,
     "Org": Org,
+    "Overload": Overload,
     "PaymentMethodSession": PaymentMethodSession,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
-    "Problem": Problem,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
     "ResolvedOptimizerParams": ResolvedOptimizerParams,
     "RoleAssignment": RoleAssignment,
@@ -3152,6 +3266,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunAllocationActorPlacementsItem": RunAllocationActorPlacementsItem,
     "RunAllocationChoice": RunAllocationChoice,
+    "RunAttemptScore": RunAttemptScore,
     "RunBlocker": RunBlocker,
     "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
@@ -3166,6 +3281,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunProblem": RunProblem,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
+    "RunRecordReference": RunRecordReference,
+    "RunResearchNote": RunResearchNote,
     "RunTask": RunTask,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
@@ -3216,11 +3333,14 @@ MODELS: dict[str, type[BaseModel]] = {
     "OptimizerPin": OptimizerPin,
     "OwnerResourceRequest": OwnerResourceRequest,
     "Plan": Plan,
+    "Problem": Problem,
     "RefundDetail": RefundDetail,
     "ResolvedOptimizer": ResolvedOptimizer,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunAllocationActorLaunch": RunAllocationActorLaunch,
+    "RunAttemptReview": RunAttemptReview,
+    "RunAttemptTreeUnavailable": RunAttemptTreeUnavailable,
     "RunCharge": RunCharge,
     "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
@@ -3262,6 +3382,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "PlanCatalog": PlanCatalog,
     "RoutingReadback": RoutingReadback,
     "RunAllocationActor": RunAllocationActor,
+    "RunAttemptNode": RunAttemptNode,
     "RunLimitStatePayload": RunLimitStatePayload,
     "RunLimitUpdate": RunLimitUpdate,
     "RunLimitsProgress": RunLimitsProgress,
@@ -3280,6 +3401,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchChoices": LaunchChoices,
     "LaunchRequest": LaunchRequest,
     "RunAllocation": RunAllocation,
+    "RunAttemptTreeAvailable": RunAttemptTreeAvailable,
     "RunEvent": RunEvent,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReward": RunReward,
@@ -3288,7 +3410,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "EventPage": EventPage,
     "RunPage": RunPage,
     "RunReport": RunReport,
-    "RunResult": RunResult,
     "RunWait": RunWait,
+    "RunResult": RunResult,
     "EvaluationInput": RootModel[EvaluationInput],
 }

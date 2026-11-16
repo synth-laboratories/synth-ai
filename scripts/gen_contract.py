@@ -317,6 +317,10 @@ def generate() -> dict[Path, str]:
     def annotation(s: JSONObject, name: str = "") -> str:
         if "$ref" in s:
             return s.text("$ref").split("/")[-1]
+        refinements = s.object_array("allOf", optional=True)
+        if refinements and "$ref" in refinements[0]:
+            # A referenced model narrowed by const properties keeps the model's type.
+            return annotation(refinements[0])
         variants = s.object_array("anyOf", optional=True) or s.object_array("oneOf", optional=True)
         if variants:
             result = " | ".join(dict.fromkeys(annotation(v) for v in variants))

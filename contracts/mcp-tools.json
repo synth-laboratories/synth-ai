@@ -175,6 +175,7 @@
                 "properties": {
                   "files": {
                     "items": {
+                      "additionalProperties": false,
                       "properties": {
                         "digest_sha256": {
                           "pattern": "^[0-9a-f]{64}$",
@@ -194,7 +195,7 @@
                       ],
                       "type": "object"
                     },
-                    "maxItems": 32,
+                    "maxItems": 10000,
                     "type": "array"
                   }
                 },
@@ -293,10 +294,7 @@
                       "topology": {
                         "enum": [
                           "swarms_v2",
-                          "fork_flush",
-                          "forgetting",
-                          "mira",
-                          "scalemas"
+                          "fork_flush"
                         ],
                         "type": "string"
                       },
@@ -1017,7 +1015,7 @@
       "scope": "account:billing:read"
     },
     {
-      "description": "Upload a text, Markdown or JSON file (up to 32 KiB inline).",
+      "description": "Upload a file inline (up to 32 KiB). The name may be a relative path such as `src/main.py`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1029,16 +1027,14 @@
                 "type": "string"
               },
               "media_type": {
-                "enum": [
-                  "text/plain",
-                  "text/markdown",
-                  "application/json"
-                ],
+                "maxLength": 255,
+                "minLength": 1,
                 "type": "string"
               },
               "name": {
-                "maxLength": 256,
+                "maxLength": 1024,
                 "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
                 "type": "string"
               }
             },

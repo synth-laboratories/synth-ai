@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.28.0
+  version: 1.29.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1921,6 +1921,16 @@ paths:
                   output_tokens: 0
                   reasoning_tokens: 0
                   model_time_ms: 0
+                scoring:
+                  calls: 0
+                  failed_calls: 0
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 0
+                  cached_input_tokens: 0
+                  output_tokens: 0
+                  reasoning_tokens: 0
+                  model_time_ms: 0
                 sandbox_compute: metered
                 rollout_compute: attributed
                 compute_by_provider:
@@ -2374,6 +2384,12 @@ paths:
                 $ref: '#/components/schemas/RunResult'
               example:
                 state: completed
+                attempt_tree:
+                  state: unavailable
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  code: run_records_projection_unavailable
+                  stage: run_result
+                  cause: Canonical research record projection is unavailable for this cohort.
                 answer: The answer.
                 answer_output:
                   run_id: run_AAAAAAAAAAAAAAAAAAAAAA
@@ -4525,7 +4541,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
-      summary: Upload a text, Markdown or JSON file (up to 32 KiB inline).
+      summary: Upload a file inline (up to 32 KiB). The name may be a relative path such as `src/main.py`.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
@@ -4542,8 +4558,8 @@ paths:
               additionalProperties: false
               required: [name, media_type, content]
               properties:
-                name: {type: string, minLength: 1, maxLength: 256}
-                media_type: {type: string, enum: [text/plain, text/markdown, application/json]}
+                name: {type: string, minLength: 1, maxLength: 1024, pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'}
+                media_type: {type: string, minLength: 1, maxLength: 255}
                 content: {type: string, maxLength: 32768}
       responses:
         '201':
@@ -6823,13 +6839,13 @@ components:
       properties:
         topology:
           type: string
-          enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+          enum: [swarms_v2, fork_flush]
         version:
           type: integer
           minimum: 1
         label:
           type: string
-          enum: [default, experimental, research]
+          enum: [default, experimental]
         auto:
           type: boolean
         availability:
@@ -6849,7 +6865,7 @@ components:
         properties:
           topology:
             type: string
-            enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+            enum: [swarms_v2, fork_flush]
           version:
             type: integer
             minimum: 1
@@ -6864,7 +6880,7 @@ components:
       properties:
         topology:
           type: string
-          enum: [swarms_v2, fork_flush, forgetting, mira, scalemas]
+          enum: [swarms_v2, fork_flush]
         version:
           type: integer
           minimum: 1
@@ -6909,9 +6925,10 @@ components:
           properties:
             files:
               type: array
-              maxItems: 32
+              maxItems: 10000
               items:
                 type: object
+                additionalProperties: false
                 required:
                 - file_id
                 - revision_id
@@ -8213,7 +8230,7 @@ components:
           format: date-time
         evidence:
           type: array
-          description: Public Rhodes result references retained by this claim; private owner evidence is omitted.
+          description: Public evaluation result references retained by this claim; private owner evidence is omitted.
           items:
             $ref: '#/components/schemas/ObjectiveReceipt'
     ObjectiveVerdict:
@@ -8574,6 +8591,7 @@ components:
           - worker
           - reviewer
           - other
+          - scoring
         calls:
           type: integer
           minimum: 0
@@ -8802,6 +8820,7 @@ components:
       - sandboxes
       - teardown
       - unattributed
+      - scoring
       - sandbox_compute
       - rollout_compute
       - compute_by_provider
@@ -8862,6 +8881,8 @@ components:
           - residual
           - unobserved
         unattributed:
+          $ref: '#/components/schemas/RunUsage'
+        scoring:
           $ref: '#/components/schemas/RunUsage'
         sandbox_compute:
           type: string
@@ -8990,11 +9011,540 @@ components:
           - content_ref: '...'
         filename:
           type: string
+    RunRecordReference:
+      type: object
+      additionalProperties: false
+      description: Exact retained provenance with a public authority class, canonical
+        record kind, revision and digest. Historical record IDs are opaque; this reference
+        is never a storage URL or credential.
+      required:
+      - source
+      - kind
+      - record_id
+      - revision
+      - digest_sha256
+      properties:
+        source:
+          type: string
+          enum:
+          - research
+          - evaluation
+          - execution
+          - files
+          - billing
+          - admission
+          description: Public authority class assigned by the authenticated projection
+            reader; never a private service identity.
+        kind:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        record_id:
+          type: string
+          pattern: ^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$
+        revision:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      allOf:
+      - if:
+          properties:
+            record_id:
+              pattern: '^intern-exec:'
+          required:
+          - record_id
+        then:
+          properties:
+            kind:
+              const: mloky_execution
+            source:
+              const: execution
+    RunTrialState:
+      type: string
+      enum:
+      - registered
+      - running
+      - succeeded
+      - failed
+      - interrupted
+      - rejected
+      description: The canonical research TrialV2 state; review and score outcomes remain
+        separate.
+    RunScoreOutcome:
+      type: string
+      enum:
+      - measured
+      - failed
+      - negative
+      - 'null'
+      - inconclusive
+      - interrupted
+      - rejected
+    RunScoreVerification:
+      type: string
+      enum:
+      - unverified
+      - producer_bound
+      description: Canonical Result verification. Producer-bound evidence does not imply
+        held-out evaluation.
+    RunScoreMeasurement:
+      type: object
+      additionalProperties: false
+      description: Canonical research Measurement; no score is inferred from a run outcome.
+      required:
+      - name
+      - value
+      - unit
+      - uncertainty
+      properties:
+        name:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        value:
+          type:
+          - number
+          - 'null'
+          description: Null is a measurement with no observed numeric value, never zero.
+        unit:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        uncertainty:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          description: Null means uncertainty was not reported.
+    RunAttemptScore:
+      type: object
+      additionalProperties: false
+      description: Projection of one retained canonical Result, with its exact record
+        identity and scientific limitations. Usage references are not monetary totals.
+      required:
+      - record
+      - trial
+      - outcome
+      - measurements
+      - evaluator
+      - verification
+      - scorer_receipt
+      - evidence
+      - usage
+      - missing_evidence
+      - limitations
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: result
+              source:
+                const: research
+        trial:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: trial
+              source:
+                const: research
+        outcome:
+          $ref: '#/components/schemas/RunScoreOutcome'
+        measurements:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/RunScoreMeasurement'
+        evaluator:
+          description: Absent only when the Result declares no evaluator.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        verification:
+          $ref: '#/components/schemas/RunScoreVerification'
+        scorer_receipt:
+          description: Absent for an unverified Result that declares no scorer receipt.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        evidence:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+        usage:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+        missing_evidence:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        limitations:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+      allOf:
+      - if:
+          properties:
+            verification:
+              const: producer_bound
+          required:
+          - verification
+        then:
+          properties:
+            scorer_receipt:
+              $ref: '#/components/schemas/RunRecordReference'
+      - if:
+          properties:
+            outcome:
+              const: measured
+          required:
+          - outcome
+        then:
+          properties:
+            evaluator:
+              $ref: '#/components/schemas/RunRecordReference'
+            evidence:
+              minItems: 1
+            measurements:
+              minItems: 1
+              contains:
+                properties:
+                  value:
+                    type: number
+                required:
+                - value
+    RunAttemptReview:
+      type: object
+      additionalProperties: false
+      description: A retained ReviewV2, joined through exact canonical references rather
+        than prose or event order.
+      required:
+      - record
+      - target
+      - decision
+      - rationale
+      - sources
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: review
+              source:
+                const: research
+        target:
+          $ref: '#/components/schemas/RunRecordReference'
+        decision:
+          type: string
+          enum:
+          - comment
+          - approved
+          - rejected
+          - needs_correction
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        sources:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+    RunResearchNote:
+      type: object
+      additionalProperties: false
+      description: A bounded canonical LogEntry. Transcripts and model outputs are not
+        projected here.
+      required:
+      - record
+      - log
+      - category
+      - text
+      - occurred_at
+      - correction_of
+      - sources
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: log_entry
+              source:
+                const: research
+        log:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: research_log
+              source:
+                const: research
+        category:
+          type: string
+          enum:
+          - observation
+          - rationale
+          - attempt
+          - failure
+          - decision
+          - correction
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        occurred_at:
+          type: string
+          format: date-time
+        correction_of:
+          description: An exact preceding LogEntry only for a correction.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        sources:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+      allOf:
+      - if:
+          properties:
+            category:
+              const: correction
+          required:
+          - category
+        then:
+          properties:
+            correction_of:
+              allOf:
+              - $ref: '#/components/schemas/RunRecordReference'
+              - properties:
+                  kind:
+                    const: log_entry
+                  source:
+                    const: research
+        else:
+          properties:
+            correction_of:
+              type: 'null'
+    RunAttemptNode:
+      type: object
+      additionalProperties: false
+      description: One retained TrialV2 revision with exact parent linkage. Scientific
+        evidence, review, and billing remain independent authorities.
+      required:
+      - trial
+      - parent_trial
+      - protocol
+      - experiment
+      - arm
+      - state
+      - scores
+      - reviews
+      - notes
+      - input_gaps
+      - deviations
+      - charge
+      properties:
+        trial:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: trial
+              source:
+                const: research
+        parent_trial:
+          description: Null identifies a root trial; siblings retain the same exact parent.
+          oneOf:
+          - allOf:
+            - $ref: '#/components/schemas/RunRecordReference'
+            - properties:
+                kind:
+                  const: trial
+                source:
+                  const: research
+          - type: 'null'
+        protocol:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: protocol
+              source:
+                const: research
+        experiment:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: experiment
+              source:
+                const: research
+        arm:
+          type:
+          - string
+          - 'null'
+          description: The canonical Trial arm, or null when not declared.
+        state:
+          $ref: '#/components/schemas/RunTrialState'
+        scores:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunAttemptScore'
+        reviews:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunAttemptReview'
+        notes:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunResearchNote'
+        input_gaps:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        deviations:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        charge:
+          description: Only a billing-authoritative trial attribution. Null means no authoritative
+            attribution is available; it never means free.
+          oneOf:
+          - $ref: '#/components/schemas/RunCharge'
+          - type: 'null'
+    RunAttemptTreeAvailable:
+      type: object
+      additionalProperties: false
+      description: An authenticated projection of retained research records for this run.
+        An empty attempts array is permitted only after the record authority established
+        that no trials exist. The projection itself never establishes settlement or cleanup
+        finality.
+      required:
+      - state
+      - run_id
+      - protocol
+      - experiment
+      - research_log
+      - report
+      - attempts
+      - notes
+      properties:
+        state:
+          type: string
+          const: available
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        protocol:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: protocol
+              source:
+                const: research
+        experiment:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: experiment
+              source:
+                const: research
+        research_log:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: research_log
+              source:
+                const: research
+        report:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: report
+              source:
+                const: research
+        attempts:
+          type: array
+          maxItems: 135168
+          items:
+            $ref: '#/components/schemas/RunAttemptNode'
+        notes:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunResearchNote'
+    RunAttemptTreeUnavailable:
+      type: object
+      additionalProperties: false
+      description: Missing or uncertain record authority is explicit. This variant contains
+        no attempt inventory, score, or inferred zero cost.
+      required:
+      - state
+      - run_id
+      - code
+      - stage
+      - cause
+      properties:
+        state:
+          type: string
+          const: unavailable
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        code:
+          type: string
+          enum:
+          - run_records_projection_unavailable
+          - run_records_not_retained
+          - run_records_pending
+          - run_records_in_doubt
+        stage:
+          type: string
+          const: run_result
+        cause:
+          type: string
+          minLength: 1
+          maxLength: 1024
+    RunAttemptTree:
+      description: The one public attempt-tree contract used by SDK, CLI, MCP and Console.
+        Availability is distinct from execution, accounting and cleanup.
+      oneOf:
+      - $ref: '#/components/schemas/RunAttemptTreeAvailable'
+      - $ref: '#/components/schemas/RunAttemptTreeUnavailable'
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/RunAttemptTreeAvailable'
+          unavailable: '#/components/schemas/RunAttemptTreeUnavailable'
     RunResult:
       type: object
       additionalProperties: false
-      description: A finished run's result as getRunResult serves it. The same fields as the SDK's
-        RunResult (run, answer, answer_output, objective_answer, charge).
+      description: A finished run's result with an explicit canonical research-record projection.
+        Unavailable research records never imply an empty attempt tree or zero charge.
       required:
       - run
       - state
@@ -9002,7 +9552,10 @@ components:
       - answer_output
       - objective_answer
       - charge
+      - attempt_tree
       properties:
+        attempt_tree:
+          $ref: '#/components/schemas/RunAttemptTree'
         run:
           $ref: '#/components/schemas/RunSnapshot'
         state:
@@ -9100,6 +9653,7 @@ components:
           type: string
           enum:
           - free
+          - granted
           - recurring
           - credit_pack
           - internal
@@ -9862,6 +10416,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LimitRow'
+    Overload:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - service
+      - limit
+      - retry_after
+      - retryable
+      properties:
+        code:
+          type: string
+          enum:
+          - RateLimited
+          - Overloaded
+          - DependencyUnavailable
+          - QueueFull
+        service:
+          type: string
+          minLength: 1
+          description: Machine identifier of the service refusing admission.
+        limit:
+          type: string
+          minLength: 1
+          description: Machine limit identifier, such as outbound_requests; not its numeric capacity.
+        retry_after:
+          type: integer
+          minimum: 0
+          description: Delay in seconds; the HTTP Retry-After delta-seconds value must match.
+        retryable:
+          type: boolean
+          description: Explicit retry permission subject to the operation's mutation-safety rules.
     Problem:
       type: object
       required:
@@ -9875,6 +10461,8 @@ components:
       - stage
       - outcome
       properties:
+        overload:
+          $ref: '#/components/schemas/Overload'
         type:
           type: string
           format: uri
@@ -9906,12 +10494,10 @@ components:
           - unknown
         retryable:
           type: boolean
-          description: Present on every in-stream SSE error event, and false on 426
-            client_upgrade_required; absent elsewhere. On a stream, true means the
-            condition is transient (for example the event subscription closed while Core instances
-            were replaced) and reopening the stream with Last-Event-ID resumes it; false means the
-            error is final for this stream (credential revoked, run not found, an event that cannot
-            be delivered).
+          description: Explicit retry permission for HTTP overload refusals and in-stream errors.
+            When overload is present, this equals overload.retryable; a mutation requires explicit
+            request-intake nonacceptance evidence. Missing or unknown evidence grants no retry.
+            Stream retries retain Last-Event-ID checkpoint semantics.
         last_event_id:
           type: string
           pattern: ^[0-9]+(\.[1-3])?$
@@ -10592,17 +11178,16 @@ components:
         name:
           type: string
           minLength: 1
-          maxLength: 256
+          maxLength: 1024
+          pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'
         media_type:
           type: string
-          enum:
-          - text/plain
-          - text/markdown
-          - application/json
+          minLength: 1
+          maxLength: 255
         size_bytes:
           type: integer
           minimum: 0
-          maximum: 33554432
+          maximum: 16777216
         digest_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$

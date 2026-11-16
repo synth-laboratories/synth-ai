@@ -2,10 +2,17 @@
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from synth_ai import AsyncSynthClient, SynthClient
-from synth_ai.errors import ConflictError, ResultUnavailableError
-from synth_ai.models import RunCharge, RunResult
+from synth_ai.errors import ConflictError, ResponseContractError, ResultUnavailableError
+from synth_ai.models import (
+    OptimizerPin,
+    OptimizerPinTopology,
+    ResolvedOptimizer,
+    RunCharge,
+    RunResult,
+)
 
 
 def snapshot(contract, **changes):
@@ -36,7 +43,28 @@ def output(run_id, suffix, media_type):
     )
 
 
-def body(state, *, answer=None, answer_output=None, objective_answer=None):
+def unavailable_tree(run_id):
+    return dict(
+        state="unavailable",
+        run_id=run_id,
+        code="run_records_projection_unavailable",
+        stage="run_result",
+        cause="Canonical research record projection is unavailable for this cohort.",
+    )
+
+
+def record(kind):
+    """Schema control only; not a retained record or run receipt."""
+    return dict(
+        source="research",
+        kind=kind,
+        record_id="contract-control-" + kind,
+        revision="1",
+        digest_sha256="a" * 64,
+    )
+
+
+def body(state, *, answer=None, answer_output=None, objective_answer=None, attempt_tree=None):
     return dict(
         run=state,
         state=state["state"],
@@ -44,6 +72,7 @@ def body(state, *, answer=None, answer_output=None, objective_answer=None):
         answer_output=answer_output,
         objective_answer=objective_answer,
         charge=state.get("charge"),
+        attempt_tree=attempt_tree or unavailable_tree(state["run_id"]),
     )
 
 
@@ -167,3 +196,57 @@ async def test_result_carries_the_run_charge(contract):
     uncharged = snapshot(contract)
     uncharged.pop("charge", None)
     assert (await read(uncharged, body(uncharged), [])).charge is None
+
+
+async def test_result_carries_the_resolved_optimizer_and_attempt_tree(contract):
+    optimizer = dict(
+        topology="swarms_v2",
+        version=1,
+        params={},
+        reason="environment_default",
+        definition_digest="b" * 64,
+    )
+    state = snapshot(contract, optimizer=optimizer)
+    tree = dict(
+        state="available",
+        run_id=state["run_id"],
+        protocol=record("protocol"),
+        experiment=record("experiment"),
+        research_log=record("research_log"),
+        report=record("report"),
+        attempts=[],
+        notes=[],
+    )
+    result = await read(state, body(state, attempt_tree=tree), [])
+    assert result.run.optimizer is not None
+    assert result.run.optimizer.topology == "swarms_v2"
+    assert result.attempt_tree.state == "available"
+    assert result.attempt_tree.report.kind == "report"
+    unavailable = await read(state, body(state), [])
+    assert unavailable.attempt_tree.state == "unavailable"
+    assert unavailable.attempt_tree.code == "run_records_projection_unavailable"
+
+
+async def test_result_without_an_attempt_tree_violates_the_contract(contract):
+    state = snapshot(contract)
+    missing = body(state)
+    missing.pop("attempt_tree")
+    with pytest.raises(ResponseContractError):
+        await read(state, missing, [])
+
+
+@pytest.mark.parametrize("topology", ["forgetting", "mira", "scalemas"])
+def test_public_optimizer_pin_refuses_research_topologies(topology):
+    with pytest.raises(ValidationError):
+        OptimizerPin.model_validate({"topology": topology, "version": 1})
+    assert {t.value for t in OptimizerPinTopology} == {"swarms_v2", "fork_flush"}
+    with pytest.raises(ValidationError):
+        ResolvedOptimizer.model_validate(
+            {
+                "topology": topology,
+                "version": 1,
+                "params": {},
+                "reason": "explicit_pin",
+                "definition_digest": "b" * 64,
+            }
+        )

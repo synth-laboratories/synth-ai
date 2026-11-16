@@ -186,6 +186,13 @@ class FakeApi:
                     "answer_output": self.output,
                     "objective_answer": None,
                     "charge": run.get("charge"),
+                    "attempt_tree": {
+                        "state": "unavailable",
+                        "run_id": run["run_id"],
+                        "code": "run_records_projection_unavailable",
+                        "stage": "run_result",
+                        "cause": "Canonical research record projection is unavailable for this cohort.",
+                    },
                 },
             )
         if oid == "getRunOutputContent":

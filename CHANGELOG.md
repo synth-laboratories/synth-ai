@@ -2,6 +2,7 @@
 
 ## 0.41.0rc1
 
+- Pin the canonical Core contract 1.29.0. `RunResult.attempt_tree` is required: a typed available projection (protocol, experiment, research log and report record references, attempts, notes) or an explicit unavailable reason. Optimizer topology enums list only `swarms_v2` and `fork_flush`; research topologies refuse locally. Adds the container scoring fields, `Plan.kind` `granted`, and the typed `Problem.overload` object. Record references narrowed by `allOf` now generate as `RunRecordReference`, not untyped JSON.
 - Adopt integrated Core contract 1.28.0: typed optimizer pins and resolved admission receipts, topology availability catalog, SDK `optimizer="auto"` and CLI `--optimizer auto|TOPOLOGY@VERSION`. MCP launch carries the same schema. Unsupported tuning parameters refuse locally.
 
 - Pin the public contract with settlement/cleanup blockers and public objective evidence; expose typed blocker records.
