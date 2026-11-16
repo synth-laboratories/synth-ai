@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import subprocess
 from collections.abc import Sequence
@@ -29,6 +30,7 @@ class Code(StrEnum):
     PRIVATE = "private_sdk_access"
     TRANSPORT = "raw_transport_access"
     NAME = "mcp_name_mismatch"
+    CHANGED = "audit_input_changed"
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -159,11 +161,19 @@ def surface_sources(root: Path, relative: str) -> tuple[Path, ...]:
         if path in visited:
             continue
         visited.add(path)
-        for node in ast.walk(ast.parse(path.read_text())):
+        tree = ast.parse(path.read_text())
+        invoked = frozenset(
+            ast.unparse(node.func).split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+        )
+        for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom) or node.level != 1 or node.module is None:
                 continue
             # CLI domain clients are SDK dependencies, not CLI implementation.
             if relative == "synth_ai/cli.py" and not node.module.startswith("_cli"):
+                continue
+            if not any((alias.asname or alias.name) in invoked for alias in node.names):
                 continue
             candidate = path.parent / (node.module.replace(".", "/") + ".py")
             if candidate.is_file():
@@ -189,6 +199,7 @@ def audit(root: Path) -> tuple[Finding, ...]:
     paths = composition(root)
     findings: list[Finding] = []
     calls: dict[str, frozenset[str]] = {}
+    named_mcp_calls: dict[str, frozenset[str]] = {}
     for surface, relative in (("cli", "synth_ai/cli.py"), ("mcp", "synth_ai/mcp/server.py")):
         collected: set[str] = set()
         for path in surface_sources(root, relative):
@@ -197,6 +208,21 @@ def audit(root: Path) -> tuple[Finding, ...]:
             )
             collected.update(methods)
             findings.extend(violations)
+            if surface == "mcp":
+                for case in ast.walk(ast.parse(path.read_text())):
+                    if not isinstance(case, ast.match_case) or not isinstance(
+                        case.pattern, ast.MatchValue
+                    ):
+                        continue
+                    value = case.pattern.value
+                    if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+                        continue
+                    branch_methods, _ = surface_calls(
+                        ast.unparse(ast.Module(body=case.body, type_ignores=[])),
+                        surface=surface,
+                        path=str(path.relative_to(root)),
+                    )
+                    named_mcp_calls[value.value] = branch_methods
         calls[surface] = frozenset(collected)
     tools = json.loads((root / "contracts/mcp-tools.json").read_text())["tools"]
     names = {tool["operationId"]: tool["name"] for tool in tools}
@@ -220,7 +246,10 @@ def audit(root: Path) -> tuple[Finding, ...]:
                 )
             )
         for surface in ("cli", "mcp"):
-            if not (reachable | methods).intersection(calls[surface]):
+            observed = calls[surface]
+            if surface == "mcp" and named_mcp_calls:
+                observed = named_mcp_calls.get(operation, frozenset())
+            if not (reachable | methods).intersection(observed):
                 findings.append(
                     Finding(
                         surface,
@@ -245,16 +274,48 @@ def audit(root: Path) -> tuple[Finding, ...]:
     return tuple(sorted(set(findings)))
 
 
+def input_hashes(root: Path) -> dict[str, str]:
+    paths = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--",
+            "synth_ai",
+            "contracts/synth-v1.openapi.yaml",
+            "contracts/mcp-tools.json",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    ).stdout.split("\0")
+    return {
+        relative: hashlib.sha256((root / relative).read_bytes()).hexdigest()
+        for relative in paths
+        if relative and (relative.endswith(".py") or relative.startswith("contracts/"))
+    }
+
+
 def main(arguments: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     options = parser.parse_args(arguments)
+    before = input_hashes(options.root)
     findings = audit(options.root)
+    if input_hashes(options.root) != before:
+        findings = (
+            *findings,
+            Finding("input", Code.CHANGED, "*", "source bytes changed during audit", "*", 0),
+        )
     print(
         json.dumps(
             {
                 "stage": "T0",
                 "gate": "surface_parity",
+                "detector_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "input_sha256": before,
                 "result": "Fail" if findings else "Pass",
                 "source_commit": subprocess.run(
                     ["git", "rev-parse", "HEAD"],

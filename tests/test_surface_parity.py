@@ -139,3 +139,26 @@ def test_private_access_in_imported_dispatch_is_a_failure(tmp_path: Path):
         item.surface == "mcp" and item.code == parity.Code.PRIVATE
         for item in parity.audit(tmp_path)
     )
+
+
+def test_imported_but_unused_dispatch_does_not_prove_coverage(tmp_path: Path):
+    fixture(tmp_path)
+    (tmp_path / "synth_ai/mcp/server.py").write_text("from .dispatch import dispatch\n")
+    (tmp_path / "synth_ai/mcp/dispatch.py").write_text(
+        "async def dispatch(client):\n return await client.swarms.get()\n"
+    )
+    assert any(
+        item.surface == "mcp" and item.code == parity.Code.MISSING
+        for item in parity.audit(tmp_path)
+    )
+
+
+def test_dispatch_call_under_wrong_operation_name_fails(tmp_path: Path):
+    fixture(tmp_path)
+    (tmp_path / "synth_ai/mcp/server.py").write_text(
+        'async def execute(client, operation):\n match operation:\n  case "wrongOperation":\n   return await client.swarms.get()\n'
+    )
+    assert any(
+        item.surface == "mcp" and item.operation == "getRun" and item.code == parity.Code.MISSING
+        for item in parity.audit(tmp_path)
+    )
