@@ -138,6 +138,24 @@ async def test_each_refusal_is_typed_unretried_and_silent(
     assert not leaked(repr(diagnostics))
 
 
+async def test_cooldown_marked_retryable_is_still_never_slept_on(contract):
+    problem = local_problem("plan_request_cooldown", "plan_request", status=429).model_dump(
+        mode="json"
+    )
+    problem["retryable"] = True
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(429, headers={"Retry-After": str(COOLDOWN_SECONDS)}, json=problem)
+
+    async with client_for(handle) as client:
+        with pytest.raises(RateLimitedError) as caught:
+            await client.account.request_special_free(use_case=SENTINEL)
+    assert caught.value.retry_after_seconds == COOLDOWN_SECONDS
+    assert len(requests) == 1  # The wait exceeds the operation deadline, so no retry is scheduled.
+
+
 @pytest.mark.parametrize("use_case", ["", 7])
 async def test_local_validation_refuses_without_echoing_input_or_calling(contract, use_case):
     core = FakeCore(contract)
@@ -217,7 +235,11 @@ def test_cli_refusals_exit_four_and_surface_retry_after_without_the_use_case(
     assert exit_code == cli.EXIT_SERVER_REFUSAL and out == ""
     assert code in err and not leaked(err)
     assert len(api.calls) == 1
-    if retry_after is not None and not as_json:
+    if as_json:
+        document = json.loads(err)
+        assert document["code"] == code and document["status"] == status
+        assert document.get("retry_after_seconds") == retry_after
+    elif retry_after is not None:
         assert f"retry after {retry_after} seconds" in err
 
 

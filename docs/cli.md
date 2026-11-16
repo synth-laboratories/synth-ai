@@ -79,7 +79,7 @@ subject to the server's scopes and signed-in-session requirements.
 | Keys | `synth keys list`, `mint --body PATH`, `update KEY --body PATH`, `rotate KEY`, `revoke KEY` |
 | Organization | `synth organization get`, `usage-summary`, `usage-records`, `usage-export --since TIME --until TIME`, `usage-export-status EXPORT`, `limits`, `accept-terms --version VERSION --accepted-at TIME` |
 | Billing | `synth billing balance`, `plans`, `history`, `statements`, `checkout --body PATH`, `checkout-status CHECKOUT`, `subscription`, `cancel-subscription`, `resume-subscription`, `preview-plan PLAN`, `change-plan --body PATH`, `payment-method`, `auto-reload`, `set-auto-reload --body PATH`, `spend-alerts`, `set-spend-alerts --body PATH` |
-| Plan requests | `synth plan request --use-case TEXT [--link URL ...]`, `synth plan requests`, `synth plan withdraw REQUEST`. The use case is sent to Synth for owner review and is never printed or logged; a denial cooldown refuses with `plan_request_cooldown` and prints the wait in seconds |
+| Plan requests | `synth plan request --use-case TEXT [--link URL ...]`, `synth plan requests`, `synth plan withdraw REQUEST`. The use case is sent to Synth for owner review and is never printed or logged; a denial cooldown refuses with `plan_request_cooldown` and prints the wait in seconds (`retry_after_seconds` in the `--json` error document) |
 | Run details | `synth inspect RUN --view program\|configuration\|sandboxes\|output\|wait-update`, `synth families` |
 | Run labels | `synth labels RUN --body PATH` |
 | Pinned bytes | `synth content RUN OUTPUT --out PATH --revision REVISION --sha256 DIGEST` |

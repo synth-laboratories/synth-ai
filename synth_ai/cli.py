@@ -750,8 +750,15 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
             print(upgrade_hint(error), file=sys.stderr, flush=True)
         return EXIT_SERVER_REFUSAL
     except SwarmsAPIError as error:
-        fail(error.problem.code, error.problem.detail, as_json, error.problem)
-        if error.retry_after_seconds is not None and not as_json:
+        if error.retry_after_seconds is None:
+            fail(error.problem.code, error.problem.detail, as_json, error.problem)
+        elif as_json:
+            # The wait arrives as a header; carry it beside the problem's own members.
+            document = error.problem.model_dump(mode="json")
+            document["retry_after_seconds"] = error.retry_after_seconds
+            print(json.dumps(document), file=sys.stderr, flush=True)
+        else:
+            fail(error.problem.code, error.problem.detail, False)
             print(f"retry after {error.retry_after_seconds} seconds", file=sys.stderr, flush=True)
         return EXIT_SERVER_REFUSAL
     except UploadTransferError as error:
