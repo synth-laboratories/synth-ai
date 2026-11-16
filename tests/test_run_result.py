@@ -250,3 +250,9 @@ def test_public_optimizer_pin_refuses_research_topologies(topology):
                 "definition_digest": "b" * 64,
             }
         )
+
+
+def test_public_run_profiles_exclude_research_topologies():
+    from synth_ai._generated.policy import PROFILE_REQUIRES_RESEARCH_TASK
+
+    assert set(PROFILE_REQUIRES_RESEARCH_TASK) == {"swarms-v2", "fork-flush"}

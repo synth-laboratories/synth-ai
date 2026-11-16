@@ -617,7 +617,6 @@
             "type": "object",
             "x-synth-default-profile": "swarms-v2",
             "x-synth-profile-requirements": {
-              "forgetting": true,
               "fork-flush": true,
               "swarms-v2": false
             }

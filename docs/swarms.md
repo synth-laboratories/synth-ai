@@ -101,7 +101,6 @@ revalidates those facts and checks the requested budget and resources.
 | --- | --- | --- |
 | Swarms v2 | `swarms-v2` | None |
 | Fork & Flush | `fork-flush` | `research_task` |
-| Forgetting | `forgetting` | `research_task` |
 
 Omit `profile` for Core's default. An explicit profile is never silently
 replaced. The public API does not accept `program`, `method`,
