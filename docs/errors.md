@@ -45,6 +45,18 @@ workers at once (each parallel worker holds an equal slice of the budget). The
 Problem `detail` states the minimum in micro-USD. Raise `budget` or lower
 `parallel_workers` (`--parallel-workers`).
 
+## Continuation codes
+
+| Code | HTTP | Error class |
+| --- | --- | --- |
+| `continue_from_not_found` | 404 | `ContinueFromNotFoundError` |
+| `continue_from_not_terminal` | 409 | `ContinueFromNotTerminalError` |
+| `continue_from_inputs_unavailable` | 409 | `ContinueFromInputsUnavailableError` |
+
+These refusals leave the parent unchanged and do not create a child run. The
+current source refuses missing retained input producers explicitly; the
+launch argument alone does not establish successful continuation.
+
 ## Message codes
 
 | Code | HTTP | Error class |

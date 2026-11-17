@@ -356,7 +356,9 @@ def test_customer_thread_actor_updates_are_allowed_but_other_threads_refuse(cont
     assert messages.message_isolation(ctx).cause == "internal_thread_message_leaked"
 
 
-@pytest.mark.parametrize("author", ["actor", "actor:", "actor:bad role", {"kind": "customer"}, None])
+@pytest.mark.parametrize(
+    "author", ["actor", "actor:", "actor:bad role", {"kind": "customer"}, None]
+)
 def test_public_history_rejects_provisional_or_malformed_author(context, author):
     ctx, surface, _ = context
     assert messages.message_question(ctx).verdict == Verdict.PASS

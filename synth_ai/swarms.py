@@ -228,6 +228,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
     ) -> LaunchRequest:
         """Validate a launch before uploads; see docs/protocols.md."""
         return launch_request(
@@ -250,6 +251,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
 
     async def launch(
@@ -272,6 +274,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run with a maximum charge in USD and return its acknowledgement.
@@ -297,6 +300,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -334,6 +338,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run, then wait for the selected completion milestone.
@@ -360,6 +365,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
             idempotency_key=idempotency_key,
         )
         return await self.wait(

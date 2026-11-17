@@ -100,6 +100,18 @@ class ConflictError(SwarmsAPIError):
     pass
 
 
+class ContinueFromNotFoundError(NotFoundError):
+    """The parent run is absent or inaccessible in the caller's organization."""
+
+
+class ContinueFromNotTerminalError(ConflictError):
+    """The selected parent has not reached a terminal state."""
+
+
+class ContinueFromInputsUnavailableError(ConflictError):
+    """The parent's required retained input references are unavailable."""
+
+
 class LimitsRevisionConflictError(ConflictError):
     @property
     def current_revision(self) -> int | None:
@@ -373,6 +385,9 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "continue_from_not_found": ContinueFromNotFoundError,
+    "continue_from_not_terminal": ContinueFromNotTerminalError,
+    "continue_from_inputs_unavailable": ContinueFromInputsUnavailableError,
     "message_too_large": MessageTooLargeError,
     "run_message_rate_limited": RunMessageRateLimitedError,
     "run_not_accepting_messages": RunNotAcceptingMessagesError,

@@ -154,6 +154,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
     ) -> LaunchRequest:
         "Validate a launch before uploads; see docs/protocols.md."
         return self._async.prepare_launch(
@@ -174,6 +175,7 @@ class SwarmsClient:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
 
     def launch(
@@ -196,6 +198,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run with a maximum charge in USD and return its acknowledgement.\n\nThe budget must be a decimal string or Decimal. Retain an explicit\nidempotency_key for uncertain retries. An acknowledgement does not prove\nexecution, accounting or cleanup has finished; use wait and report."
@@ -218,6 +221,7 @@ class SwarmsClient:
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
                 optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )
@@ -254,6 +258,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run, then wait for the selected completion milestone.\n\nBudget is a maximum charge in USD; timeout and poll_interval are seconds.\nA local wait timeout does not cancel the server run. Set raise_on_failure\nto raise on a failed finished run."
@@ -280,6 +285,7 @@ class SwarmsClient:
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
                 optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )

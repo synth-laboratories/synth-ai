@@ -211,6 +211,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
+    run.add_argument("--continue-from", metavar="RUN")
     run.add_argument("--research-task")
     run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -472,6 +473,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 role_assignments=parse_role_assignments(args.assign, args.planner_decides),
                 launch_menu_revision=args.menu_revision,
                 optimizer=parse_optimizer(args.optimizer),
+                continue_from=args.continue_from,
             )
             uploaded = [
                 await swarms.upload_file(

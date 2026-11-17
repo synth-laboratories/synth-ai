@@ -6,6 +6,9 @@ from .aclient import AsyncSynthClient
 from .client import SynthClient
 from .environments import Environment, EnvironmentProfile
 from .errors import (
+    ContinueFromInputsUnavailableError,
+    ContinueFromNotFoundError,
+    ContinueFromNotTerminalError,
     LimitAboveCeilingError,
     LimitsRevisionConflictError,
     LimitStillReachedError,
@@ -38,6 +41,9 @@ from .models import (
 __all__ = [
     "AsyncSynthClient",
     "CompletionMilestone",
+    "ContinueFromInputsUnavailableError",
+    "ContinueFromNotFoundError",
+    "ContinueFromNotTerminalError",
     "Environment",
     "EnvironmentProfile",
     "Exclude",
