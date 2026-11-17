@@ -41,21 +41,26 @@ def open_surface(
     credential: str,
     work_directory: Path,
     mcp_url: Optional[str],
+    profile: str = "local",
 ) -> Generator[Surface]:
-    environment = {**os.environ, "SYNTH_LOCAL_API_BASE_URL": origin, "SYNTH_API_KEY": credential}
+    variable = "SYNTH_" + profile.upper() + "_API_BASE_URL"
+    environment = {**os.environ, variable: origin, "SYNTH_API_KEY": credential}
     if driver == SurfaceName.SDK:
         with SynthClient(credential, base_url=origin) as client:
             yield SDKSurface(client)
     elif driver == SurfaceName.CLI:
         yield CLISurface(
-            python=Path(sys.executable), environment=environment, work_directory=work_directory
+            python=Path(sys.executable),
+            environment=environment,
+            work_directory=work_directory,
+            profile=profile,
         )
     elif driver == SurfaceName.MCP_STDIO:
         from .mcp_transport import SessionToolCaller, StdioCommand, stdio_session
 
         command = StdioCommand(
             Path(sys.executable).parent / "synth-ai-mcp",
-            ("--env", "local"),
+            ("--env", profile),
             environment,
             Path.cwd(),
         )
@@ -70,19 +75,46 @@ def open_surface(
             yield MCPSurface(caller, name=driver)
 
 
-def surface_factory(
-    driver: SurfaceName, *, origin: str, work_directory: Path, mcp_url: Optional[str]
-) -> Callable[[str], AbstractContextManager[Surface]]:
-    def make(credential: str) -> AbstractContextManager[Surface]:
+class SurfaceFactory:
+    """Opens one driver's surface per credential against one named profile origin."""
+
+    def __init__(
+        self,
+        driver: SurfaceName,
+        *,
+        origin: str,
+        work_directory: Path,
+        mcp_url: Optional[str],
+        profile: str = "local",
+    ) -> None:
+        self.driver = driver
+        self.origin = origin
+        self.work_directory = work_directory
+        self.mcp_url = mcp_url
+        self.profile = profile
+
+    def __call__(self, credential: str) -> AbstractContextManager[Surface]:
         return open_surface(
-            driver,
-            origin=origin,
+            self.driver,
+            origin=self.origin,
             credential=credential,
-            work_directory=work_directory,
-            mcp_url=mcp_url,
+            work_directory=self.work_directory,
+            mcp_url=self.mcp_url,
+            profile=self.profile,
         )
 
-    return make
+
+def surface_factory(
+    driver: SurfaceName,
+    *,
+    origin: str,
+    work_directory: Path,
+    mcp_url: Optional[str],
+    profile: str = "local",
+) -> SurfaceFactory:
+    return SurfaceFactory(
+        driver, origin=origin, work_directory=work_directory, mcp_url=mcp_url, profile=profile
+    )
 
 
 def summary(receipts: list[StepReceipt]) -> Verdict:
@@ -137,12 +169,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
     if options.driver is None or options.steps is None or options.receipt_dir is None:
         parser.error("--driver, --steps and --receipt-dir are required")
-    steps = [Step(name) for name in options.steps.split(",") if name]
     origin = os.environ["SYNTH_LOCAL_API_BASE_URL"].rstrip("/")
     if not origin.startswith(LOOPBACK):
         parser.error("journeys run only against the leased loopback slot origin")
     if options.mcp_url is not None and not options.mcp_url.startswith(LOOPBACK):
         parser.error("--mcp-url must be the leased loopback origin")
+    return execute(options, origin, profile="local", receipt_name="steps.json")
+
+
+def execute(options: argparse.Namespace, origin: str, *, profile: str, receipt_name: str) -> int:
+    """Run the selected steps on one driver; the caller has already validated the origin."""
+    steps = [Step(name) for name in options.steps.split(",") if name]
     primary = (
         os.environ["SYNTH_MCP_ACCESS_TOKEN"]
         if options.driver == SurfaceName.MCP_HOSTED
@@ -156,22 +193,31 @@ def main(argv: Optional[list[str]] = None) -> int:
     }
     secrets["SYNTH_API_KEY"] = os.environ["SYNTH_API_KEY"]
     make = surface_factory(
-        options.driver, origin=origin, work_directory=options.receipt_dir, mcp_url=options.mcp_url
+        options.driver,
+        origin=origin,
+        work_directory=options.receipt_dir,
+        mcp_url=options.mcp_url,
+        profile=profile,
     )
     receipts: list[StepReceipt] = []
     try:
         run_all(options, make, primary, origin, secrets, steps, receipts)
     finally:
         # Written even after an exception, so applied mutations keep their receipts.
-        write_steps(options.receipt_dir, options.driver, receipts)
+        write_steps(options.receipt_dir, options.driver, receipts, receipt_name)
     verdict = summary(receipts)
     print(json.dumps({"driver": options.driver.value, "verdict": verdict.value}))
     return {Verdict.PASS: 0, Verdict.FAIL: 1}.get(verdict, 2)
 
 
-def write_steps(directory: Path, driver: SurfaceName, receipts: list[StepReceipt]) -> None:
+def write_steps(
+    directory: Path,
+    driver: SurfaceName,
+    receipts: list[StepReceipt],
+    receipt_name: str = "steps.json",
+) -> None:
     retain(
-        directory / "steps.json",
+        directory / receipt_name,
         json.dumps(
             {
                 "schema": "synth.journeys.steps.v1",

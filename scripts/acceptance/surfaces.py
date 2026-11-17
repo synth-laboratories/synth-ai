@@ -429,19 +429,25 @@ def cli_problem(text: str) -> Optional[dict[str, JsonValue]]:
 
 
 class CLISurface:
-    """`python -m synth_ai.cli --env local ... --json` in a real child process."""
+    """`python -m synth_ai.cli --env PROFILE ... --json` in a real child process."""
 
     name = SurfaceName.CLI
 
     def __init__(
-        self, *, python: Path, environment: Mapping[str, str], work_directory: Path
+        self,
+        *,
+        python: Path,
+        environment: Mapping[str, str],
+        work_directory: Path,
+        profile: str = "local",
     ) -> None:
         self.python = python
         self.environment = dict(environment)
         self.work_directory = work_directory
+        self.profile = profile
 
     def argv(self, arguments: Sequence[str]) -> list[str]:
-        return [str(self.python), "-m", "synth_ai.cli", "--env", "local", *arguments, "--json"]
+        return [str(self.python), "-m", "synth_ai.cli", "--env", self.profile, *arguments, "--json"]
 
     def run(self, operation: str, arguments: Sequence[str]) -> Outcome:
         try:
