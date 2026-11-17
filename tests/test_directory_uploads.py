@@ -214,3 +214,64 @@ async def test_cancellation_retains_previously_committed_file(contract, tmp_path
     assert caught.value.name == "b.bin"
     assert caught.value.idempotency_key == "cancel-batch"
     assert not isinstance(caught.value, Exception)
+
+
+async def test_repeated_cancel_during_snapshot_close_retains_partial_custody(
+    contract, tmp_path, monkeypatch
+):
+    import threading
+    from dataclasses import replace
+
+    (tmp_path / "a.bin").write_bytes(b"done")
+    (tmp_path / "b.bin").write_bytes(b"pending")
+    closing, release, pending = threading.Event(), threading.Event(), asyncio.Event()
+    original = DirectorySnapshot.prepare
+
+    class SlowClose:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+        def close(self):
+            closing.set()
+            release.wait(timeout=5)
+            self.stream.close()
+
+    def prepare(path):
+        snapshot = original(path)
+        return replace(snapshot, stream=SlowClose(snapshot.stream))
+
+    monkeypatch.setattr(DirectorySnapshot, "prepare", prepare)
+
+    async def handle(request):
+        if json.loads(request.content)["name"] == "a.bin":
+            return httpx.Response(
+                201,
+                json={
+                    "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+                    "state": "committed",
+                    "file": manifest(contract, "a.bin", b"done"),
+                },
+            )
+        pending.set()
+        await asyncio.Event().wait()
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://api.example.test", http_client=http
+        ) as client:
+            task = asyncio.create_task(
+                client.swarms.upload_directory(str(tmp_path), idempotency_key="double-cancel")
+            )
+            await asyncio.wait_for(pending.wait(), timeout=5)
+            task.cancel()
+            assert await asyncio.to_thread(closing.wait, 5)
+            task.cancel()
+            release.set()
+            with pytest.raises(DirectoryUploadCancelledError) as caught:
+                await task
+    assert [file.name for file in caught.value.completed_files] == ["a.bin"]
+    assert caught.value.name == "b.bin"
+    assert caught.value.idempotency_key == "double-cancel"

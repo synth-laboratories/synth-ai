@@ -34,52 +34,62 @@ class ArtifactUploads:
         if not idempotency_key.strip() or len(idempotency_key.encode("utf-8")) > 255:
             raise ValueError("directory idempotency key must be nonempty and at most 255 bytes")
         completed: list[File] = []
-        async with open_directory(
-            directory if isinstance(directory, int) else Path(directory), self._transport.file_io
-        ) as snapshot:
-            for file in snapshot.files:
-                key = hashlib.sha256(
-                    b"synth-directory.v1\0"
-                    + idempotency_key.encode("utf-8")
-                    + b"\0"
-                    + file.name.encode("ascii")
-                ).hexdigest()
-                try:
-                    media = {
-                        ".txt": "text/plain",
-                        ".md": "text/markdown",
-                        ".markdown": "text/markdown",
-                        ".json": "application/json",
-                    }.get(Path(file.name).suffix.lower(), UPLOAD_BINARY_MEDIA_TYPE)
-                    upload = await self._transport.request(
-                        "createUpload",
-                        Upload,
-                        body={
-                            "name": file.name,
-                            "media_type": media,
-                            "size_bytes": file.size,
-                            "digest_sha256": file.digest_sha256,
-                        },
-                        idempotency_key=key,
-                    )
-                    if upload.file.name != file.name:
-                        raise UploadTransferError(upload.upload_id, key) from DataIntegrityError(
-                            "upload name differs from the directory snapshot"
+        current: tuple[str, str] | None = None
+        try:
+            async with open_directory(
+                directory if isinstance(directory, int) else Path(directory),
+                self._transport.file_io,
+            ) as snapshot:
+                for file in snapshot.files:
+                    key = hashlib.sha256(
+                        b"synth-directory.v1\0"
+                        + idempotency_key.encode("utf-8")
+                        + b"\0"
+                        + file.name.encode("ascii")
+                    ).hexdigest()
+                    current = (file.name, key)
+                    try:
+                        media = {
+                            ".txt": "text/plain",
+                            ".md": "text/markdown",
+                            ".markdown": "text/markdown",
+                            ".json": "application/json",
+                        }.get(Path(file.name).suffix.lower(), UPLOAD_BINARY_MEDIA_TYPE)
+                        upload = await self._transport.request(
+                            "createUpload",
+                            Upload,
+                            body={
+                                "name": file.name,
+                                "media_type": media,
+                                "size_bytes": file.size,
+                                "digest_sha256": file.digest_sha256,
+                            },
+                            idempotency_key=key,
                         )
-                    committed = await self._finish(upload, snapshot.source(file), key)
-                    if committed.name != file.name:
-                        raise UploadTransferError(upload.upload_id, key) from DataIntegrityError(
-                            "committed name differs from the directory snapshot"
-                        )
-                    completed.append(committed)
-                except asyncio.CancelledError as cause:
-                    raise DirectoryUploadCancelledError(
-                        file.name, tuple(completed), idempotency_key, key
-                    ) from cause
-                except (SynthError, OSError) as cause:
-                    raise DirectoryUploadError(
-                        file.name, tuple(completed), idempotency_key, key
-                    ) from cause
+                        if upload.file.name != file.name:
+                            raise UploadTransferError(
+                                upload.upload_id, key
+                            ) from DataIntegrityError(
+                                "upload name differs from the directory snapshot"
+                            )
+                        committed = await self._finish(upload, snapshot.source(file), key)
+                        if committed.name != file.name:
+                            raise UploadTransferError(
+                                upload.upload_id, key
+                            ) from DataIntegrityError(
+                                "committed name differs from the directory snapshot"
+                            )
+                        completed.append(committed)
+                    except (SynthError, OSError) as cause:
+                        raise DirectoryUploadError(
+                            file.name, tuple(completed), idempotency_key, key
+                        ) from cause
+        except asyncio.CancelledError as cause:
+            if current is None:
+                raise
+            raise DirectoryUploadCancelledError(
+                current[0], tuple(completed), idempotency_key, current[1]
+            ) from cause
         return completed
 
     async def upload_file(
