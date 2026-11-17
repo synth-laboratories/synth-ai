@@ -88,3 +88,107 @@ async def test_get_and_limits_read_real_core_bodies():
     assert run.pause is not None and run.pause.limit is not None
     assert run.pause.limit.reason == "planner_left_park_unfunded"
     assert limits.run_id == SNAPSHOT["run_id"]
+
+
+async def test_transitive_control_progress_is_typed_without_asserting_physical_stop():
+    control = {
+        "operation_id": "core-operation",
+        "runtime_operation_id": "producer-operation",
+        "command": "pause",
+        "state": "blocked",
+        "origin": "compensation",
+        "caused_by_operation_id": "expired-resume",
+        "generation": 4,
+        "requested_at": "2026-11-13T19:00:00Z",
+        "deadline_at": "2026-11-13T19:02:00Z",
+        "owners": [
+            {"owner": "orchestra", "delivery_state": "acknowledged", "failure_code": None},
+            {
+                "owner": "resources",
+                "delivery_state": "blocked",
+                "failure_code": "physical_stop_unconfirmed",
+            },
+        ],
+    }
+    body = {
+        **SNAPSHOT,
+        "state": "pausing",
+        "control": control,
+        "execution_closed": False,
+        "cleanup_complete": False,
+        "accounting_final": False,
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))
+    ) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            run = await client.swarms.get(SNAPSHOT["run_id"])
+    assert run.control is not None and run.control.owners is not None
+    assert run.control.model_dump(mode="json", exclude_none=True)["generation"] == 4
+    assert (
+        run.control.origin == "compensation"
+        and run.control.caused_by_operation_id == "expired-resume"
+    )
+    assert run.control.runtime_operation_id == "producer-operation"
+    assert run.control.owners[0].delivery_state == "acknowledged"
+    assert run.control.owners[1].failure_code == "physical_stop_unconfirmed"
+    assert not run.execution_closed and not run.cleanup_complete and not run.accounting_final
+
+
+def test_control_owner_observation_requires_complete_identity_and_state():
+    from synth_ai._generated.models import ControlOwner
+
+    with pytest.raises(ValueError):
+        ControlOwner.model_validate({"owner": "resources", "delivery_state": "acknowledged"})
+    with pytest.raises(ValueError):
+        ControlOwner.model_validate(
+            {"owner": "resources", "delivery_state": "physically_stopped", "failure_code": None}
+        )
+
+
+@pytest.mark.parametrize(
+    "proof",
+    [
+        {
+            "runtime_quiescence": {
+                "producer_sequence": 12,
+                "state_digest": "a" * 64,
+                "observed_at": "2026-11-13T21:00:00Z",
+            }
+        },
+        {
+            "runtime_absence": {
+                "operation_id": "cb266ae2-94aa-4a6a-b164-1bb666314cf1",
+                "generation": 1,
+                "recorded_at_ms": 1794600000000,
+            }
+        },
+    ],
+)
+async def test_physical_cancellation_preserves_pending_accounting(proof):
+    body = {
+        **SNAPSHOT,
+        "state": "cancelled",
+        "execution_closed": True,
+        "cleanup_complete": False,
+        "accounting_final": False,
+        "control": {
+            "operation_id": "cb266ae2-94aa-4a6a-b164-1bb666314cf1",
+            "generation": 1,
+            "command": "cancel",
+            "state": "satisfied",
+            **proof,
+        },
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))
+    ) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            run = await client.swarms.get(SNAPSHOT["run_id"])
+    assert run.control is not None and run.control.state == "satisfied"
+    assert run.execution_closed and not run.accounting_final and not run.cleanup_complete
+    assert run.control.runtime_quiescence is not None or run.control.runtime_absence is not None

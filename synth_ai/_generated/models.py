@@ -71,6 +71,42 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_100 = "credits.100"
 
 
+class ControlOwnerDeliveryState(StrEnum):
+    PENDING = "pending"
+    DELIVERING = "delivering"
+    ACKNOWLEDGED = "acknowledged"
+    BLOCKED = "blocked"
+    SUPERSEDED = "superseded"
+    REFUSED = "refused"
+
+
+class ControlOwnerOwner(StrEnum):
+    ORCHESTRA = "orchestra"
+    GRANTS = "grants"
+    RESOURCES = "resources"
+
+
+class ControlRefCommand(StrEnum):
+    CANCEL = "cancel"
+    PAUSE = "pause"
+    RESUME = "resume"
+
+
+class ControlRefOrigin(StrEnum):
+    CUSTOMER = "customer"
+    RUNTIME = "runtime"
+    COMPENSATION = "compensation"
+
+
+class ControlRefState(StrEnum):
+    ACCEPTED = "accepted"
+    APPLYING = "applying"
+    SATISFIED = "satisfied"
+    BLOCKED = "blocked"
+    SUPERSEDED = "superseded"
+    REFUSED = "refused"
+
+
 class EvaluationAttestationIssuer(StrEnum):
     SYNTH = "synth"
 
@@ -567,13 +603,15 @@ class ChargeUsageUnits(WireModel):
 CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 
-class ControlRef(WireModel):
+class ControlOwner(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    operation_id: str
-    command: str
-    state: str
+    owner: Annotated[ControlOwnerOwner, BeforeValidator(enum_value(ControlOwnerOwner))]
+    delivery_state: Annotated[
+        ControlOwnerDeliveryState, BeforeValidator(enum_value(ControlOwnerDeliveryState))
+    ]
+    failure_code: str | None
 
 
 class EvaluationAttestation(WireModel):
@@ -1211,6 +1249,24 @@ class RunTask(WireModel):
     state: str
 
 
+class RuntimeAbsence(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    operation_id: str
+    generation: Annotated[int, Field(ge=1, le=9223372036854775807)]
+    recorded_at_ms: Annotated[int, Field(ge=0, le=9223372036854775807)]
+
+
+class RuntimeQuiescence(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    producer_sequence: Annotated[int, Field(ge=1)]
+    state_digest: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    observed_at: str
+
+
 class SandboxImage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1531,6 +1587,24 @@ class CheckoutSession(WireModel):
     checkout_id: CheckoutId
     session_id: str
     url: str
+
+
+class ControlRef(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    operation_id: str
+    command: Annotated[ControlRefCommand, BeforeValidator(enum_value(ControlRefCommand))]
+    state: Annotated[ControlRefState, BeforeValidator(enum_value(ControlRefState))]
+    runtime_operation_id: str | None = None
+    origin: Annotated[ControlRefOrigin, BeforeValidator(enum_value(ControlRefOrigin))] | None = None
+    caused_by_operation_id: str | None = None
+    generation: Annotated[int, Field(ge=1)] | None = None
+    requested_at: str | None = None
+    deadline_at: str | None = None
+    owners: list[ControlOwner] | None = None
+    runtime_quiescence: RuntimeQuiescence | None = None
+    runtime_absence: RuntimeAbsence | None = None
 
 
 class CreateEvaluation(WireModel):
@@ -2638,7 +2712,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "ChargeUsageUnits": ChargeUsageUnits,
-    "ControlRef": ControlRef,
+    "ControlOwner": ControlOwner,
     "EvaluationAttestation": EvaluationAttestation,
     "EvaluationEvaluationRequest": EvaluationEvaluationRequest,
     "EvaluationLimits": EvaluationLimits,
@@ -2687,6 +2761,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
     "RunTask": RunTask,
+    "RuntimeAbsence": RuntimeAbsence,
+    "RuntimeQuiescence": RuntimeQuiescence,
     "SandboxImage": SandboxImage,
     "SandboxMoment": SandboxMoment,
     "SandboxPerformance": SandboxPerformance,
@@ -2715,6 +2791,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
+    "ControlRef": ControlRef,
     "CreateEvaluation": CreateEvaluation,
     "EvaluationDataset": EvaluationDataset,
     "EvaluationEvaluator": EvaluationEvaluator,

@@ -6624,17 +6624,95 @@ components:
           type: string
         command:
           type: string
+          enum: [cancel, pause, resume]
           examples:
           - cancel
           - pause
           - resume
         state:
           type: string
+          enum: [accepted, applying, satisfied, blocked, superseded, refused]
+          description: Delivery intake and physical execution are separate. Satisfied requires matching owner-observed behavior; blocked retains cleanup custody.
           examples:
           - accepted
-          - applied
-          - quiesced
+          - applying
+          - satisfied
+          - blocked
+          - superseded
           - refused
+        runtime_operation_id:
+          type: string
+          description: Exact producer operation reference; distinct from the Core control operation UUID.
+        origin:
+          type: string
+          enum: [customer, runtime, compensation]
+        caused_by_operation_id:
+          type: string
+          description: Original operation whose unresolved expiry caused a restrictive compensation.
+        generation:
+          type: integer
+          minimum: 1
+        requested_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+          description: Original control delivery deadline. Restrictive cleanup continues after this deadline without replacing the operation or extending it.
+        owners:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlOwner'
+        runtime_quiescence:
+          $ref: '#/components/schemas/RuntimeQuiescence'
+        runtime_absence:
+          $ref: '#/components/schemas/RuntimeAbsence'
+    RuntimeAbsence:
+      type: object
+      additionalProperties: false
+      description: Immutable reference to the runtime owner's fence of this never-materialized run. Independent owners and accounting retain separate barriers.
+      required: [operation_id, generation, recorded_at_ms]
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        generation:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+        recorded_at_ms:
+          type: integer
+          minimum: 0
+          maximum: 9223372036854775807
+    RuntimeQuiescence:
+      type: object
+      additionalProperties: false
+      description: Exact runtime journal revision proving its execution subtree is physically quiescent. Other owners and accounting retain separate barriers.
+      required: [producer_sequence, state_digest, observed_at]
+      properties:
+        producer_sequence:
+          type: integer
+          minimum: 1
+        state_digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        observed_at:
+          type: string
+          format: date-time
+    ControlOwner:
+      type: object
+      additionalProperties: false
+      required: [owner, delivery_state, failure_code]
+      properties:
+        owner:
+          type: string
+          enum: [orchestra, grants, resources]
+        delivery_state:
+          type: string
+          enum: [pending, delivering, acknowledged, blocked, superseded, refused]
+          description: Acknowledged means the owner accepted this delivery; it alone does not prove physical stop or final accounting.
+        failure_code:
+          type: [string, 'null']
     RunProfile:
       type: object
       additionalProperties: false
