@@ -19,5 +19,8 @@ revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.tom
   position, estimate and expiry while waiting for admission.
 - Special Free requests, self-serve billing, run-limit updates and per-role
   launch choices use the same typed public API.
-- Contract 1.32.0 adds queued run standing. Source and fixture qualification do
+- Contract 1.34.0 includes queued run standing and result.md references. Source and fixture qualification do
   not establish acceptance of a deployed cohort.
+
+- Nov 16 admits `swarms_v2` only. `fork_flush` stays a reserved public enum;
+  pinned requests receive a typed refusal and experimental entries never default.
