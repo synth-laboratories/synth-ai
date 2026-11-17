@@ -234,9 +234,26 @@ content retains the same key and the server can refuse a conflicting retry.
 Uploads are sequential, and already committed files remain in custody if a later
 file fails. `synth_ai.errors.DirectoryUploadError` retains `completed_files`, the
 failed `name`, the batch `idempotency_key`, and `file_idempotency_key`; its cause
-retains any upload-transfer or API refusal. Cancellation propagates normally, so
-the caller should retain its supplied batch key before starting.
+retains any upload-transfer or API refusal. Cancellation during an API transfer raises `DirectoryUploadCancelledError`,
+which remains an `asyncio.CancelledError` and retains the same custody fields.
+Cancellation before the snapshot completes makes no API requests. Retain the
+batch key before starting.
 
 The file-limit projection and provenance are checked by
 `python scripts/gen_file_limits.py --check` in CI. This helper adds no public API
 operation or hosted MCP access to local files.
+
+
+For local stdio MCP, explicitly grant one directory at server startup:
+
+```sh
+synth-ai-mcp --upload-root /absolute/path/to/bundle
+```
+
+Only this invocation advertises `swarms_upload_directory`; its only argument is
+`idempotency_key`. The server pins the root through descriptor-relative traversal
+without following symlinks, and uploads exactly that root. No tool parameter can
+select another local path. Success returns the ordered file records and batch key;
+partial failure or cancellation returns an MCP error containing completed files,
+the current file name and both retry keys. Hosted MCP and stdio without the grant
+retain the generated public catalog with no local filesystem authority.

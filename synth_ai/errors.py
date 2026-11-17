@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
@@ -256,6 +257,12 @@ class DirectoryUploadError(SynthError):
         self.completed_files = completed_files
         self.idempotency_key = idempotency_key
         self.file_idempotency_key = file_idempotency_key
+
+
+class DirectoryUploadCancelledError(DirectoryUploadError, asyncio.CancelledError):
+    """Cancellation retains directory custody while remaining a CancelledError."""
+
+    code = "directory_upload_cancelled"
 
 
 class ResponseContractError(SwarmsAPIError):

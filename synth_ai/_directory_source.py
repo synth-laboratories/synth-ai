@@ -144,12 +144,16 @@ class DirectorySnapshot:
     size: int
 
     @classmethod
-    def prepare(cls, path: Path) -> DirectorySnapshot:
+    def prepare(cls, path: Path | int) -> DirectorySnapshot:
         if os.name != "posix":
             raise NotImplementedError("directory uploads require POSIX descriptor-relative I/O")
         stream = tempfile.TemporaryFile(mode="w+b")
         try:
-            descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            descriptor = (
+                os.dup(path)
+                if isinstance(path, int)
+                else os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            )
             try:
                 writer = _DirectoryWriter(stream)
                 writer.walk(descriptor, "")
@@ -166,7 +170,7 @@ class DirectorySnapshot:
 
 
 @asynccontextmanager
-async def open_directory(path: Path, io: FileIO) -> AsyncGenerator[DirectorySnapshot, None]:
+async def open_directory(path: Path | int, io: FileIO) -> AsyncGenerator[DirectorySnapshot, None]:
     owned: list[DirectorySnapshot] = []
 
     def prepare() -> DirectorySnapshot:

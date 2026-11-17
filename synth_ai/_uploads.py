@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from contextlib import aclosing
 from pathlib import Path
@@ -14,6 +15,7 @@ from ._generated.models import File, Upload
 from ._limits import UPLOAD_BINARY_MEDIA_TYPE
 from .errors import (
     DataIntegrityError,
+    DirectoryUploadCancelledError,
     DirectoryUploadError,
     SynthError,
     UploadTransferError,
@@ -28,11 +30,13 @@ class ArtifactUploads:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
 
-    async def upload_directory(self, directory: str, *, idempotency_key: str) -> list[File]:
+    async def upload_directory(self, directory: str | int, *, idempotency_key: str) -> list[File]:
         if not idempotency_key.strip() or len(idempotency_key.encode("utf-8")) > 255:
             raise ValueError("directory idempotency key must be nonempty and at most 255 bytes")
         completed: list[File] = []
-        async with open_directory(Path(directory), self._transport.file_io) as snapshot:
+        async with open_directory(
+            directory if isinstance(directory, int) else Path(directory), self._transport.file_io
+        ) as snapshot:
             for file in snapshot.files:
                 key = hashlib.sha256(
                     b"synth-directory.v1\0"
@@ -68,6 +72,10 @@ class ArtifactUploads:
                             "committed name differs from the directory snapshot"
                         )
                     completed.append(committed)
+                except asyncio.CancelledError as cause:
+                    raise DirectoryUploadCancelledError(
+                        file.name, tuple(completed), idempotency_key, key
+                    ) from cause
                 except (SynthError, OSError) as cause:
                     raise DirectoryUploadError(
                         file.name, tuple(completed), idempotency_key, key

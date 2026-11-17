@@ -13,14 +13,29 @@ from pydantic import BaseModel, JsonValue
 
 from ..aclient import AsyncSynthClient
 from ..environments import Environment
-from ..errors import InvalidRequestError, SwarmsAPIError, check_upload_format, local_problem
+from ..errors import (
+    DirectoryUploadError,
+    InvalidRequestError,
+    SwarmsAPIError,
+    check_upload_format,
+    local_problem,
+)
+from . import directory
 from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
 
 UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
 
 
-async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, JsonValue]) -> str:
+async def call_tool(
+    client: AsyncSynthClient,
+    name: str,
+    arguments: dict[str, JsonValue],
+    *,
+    upload_descriptor: int | None = None,
+) -> str:
+    if name == directory.NAME and upload_descriptor is not None:
+        return await directory.upload(client, upload_descriptor, arguments)
     tool = next((tool for tool in TOOLS if tool["name"] == name), None)
     if tool is None:
         raise ValueError("Unknown tool")
@@ -58,7 +73,12 @@ def validate_arguments(
         )
 
 
-async def serve(*, environment: Environment | None = None) -> None:
+async def serve(*, environment: Environment | None = None, upload_root: str | None = None) -> None:
+    with directory.grant_root(upload_root) as descriptor:
+        await _serve(environment=environment, upload_descriptor=descriptor)
+
+
+async def _serve(*, environment: Environment | None, upload_descriptor: int | None) -> None:
     try:
         from mcp.server import Server
         from mcp.server.stdio import stdio_server
@@ -69,16 +89,31 @@ async def serve(*, environment: Environment | None = None) -> None:
     async with AsyncSynthClient(environment=environment) as client:
 
         async def list_tools() -> list[Tool]:
-            return [
+            catalog = [
                 Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
                 for t in TOOLS
             ]
+            if upload_descriptor is not None:
+                catalog.append(
+                    Tool(
+                        name=directory.NAME,
+                        description=directory.DESCRIPTION,
+                        inputSchema=directory.SCHEMA,
+                    )
+                )
+            return catalog
 
         async def invoke(
             name: str, arguments: dict[str, JsonValue]
         ) -> list[TextContent] | CallToolResult:
             try:
-                content = await call_tool(client, name, arguments)
+                content = await call_tool(
+                    client, name, arguments, upload_descriptor=upload_descriptor
+                )
+            except DirectoryUploadError as error:
+                return CallToolResult(
+                    isError=True, content=[TextContent(type="text", text=directory.failure(error))]
+                )
             except SwarmsAPIError as error:
                 return CallToolResult(
                     isError=True,
@@ -96,5 +131,8 @@ async def serve(*, environment: Environment | None = None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="synth-ai-mcp")
     parser.add_argument("--env", type=Environment, choices=tuple(Environment))
+    parser.add_argument(
+        "--upload-root", help="Grant upload of exactly this absolute local directory"
+    )
     options = parser.parse_args()
-    asyncio.run(serve(environment=options.env))
+    asyncio.run(serve(environment=options.env, upload_root=options.upload_root))

@@ -178,6 +178,10 @@ async def test_cancellation_during_api_call_closes_snapshot(tmp_path, monkeypatc
             )
             await ready.wait()
             task.cancel()
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(asyncio.CancelledError) as caught:
                 await task
+            assert isinstance(caught.value, DirectoryUploadError)
+            assert caught.value.idempotency_key == "cancelled-batch"
+            assert caught.value.name == "task.md"
+            assert caught.value.completed_files == ()
     assert snapshots[0].stream.closed
