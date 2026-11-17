@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.31.0
+  version: 1.32.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -7928,6 +7928,39 @@ components:
           $ref: '#/components/schemas/RunSelection'
         routing:
           $ref: '#/components/schemas/RoutingReadback'
+        queue:
+          $ref: '#/components/schemas/RunQueueStanding'
+    RunQueueStanding:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      description: Launch and single-run reads of a run waiting for capacity only (state queued, not yet
+        admitted). Absent once the run is admitted, and on list pages.
+      required:
+      - position
+      - ahead
+      - estimated_start_at
+      - expires_at
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: 1-based FIFO place among all runs waiting for capacity; the same number as the
+            launch's X-Synth-Queue-Position header.
+        ahead:
+          type: integer
+          minimum: 0
+        estimated_start_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: An estimate, not a promise, from the rolling median time recent runs held a running
+            slot. Null when there are too few recent runs to measure.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the run fails with run_queue_expired if it has not been admitted.
     RunBlocker:
       type: object
       additionalProperties: false

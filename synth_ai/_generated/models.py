@@ -1504,6 +1504,16 @@ class RunProgramProgram(WireModel):
     version: str
 
 
+class RunQueueStanding(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    position: Annotated[int, Field(ge=1)]
+    ahead: Annotated[int, Field(ge=0)]
+    estimated_start_at: str | None
+    expires_at: str
+
+
 class RunRecordReference(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3504,6 +3514,7 @@ class RunSnapshot(WireModel):
     profile: RunProfilePin | None = None
     selection: RunSelection | None = None
     routing: RoutingReadback | None = None
+    queue: RunQueueStanding | None = None
 
     @property
     def known_state(self) -> RunState | None:
@@ -3681,6 +3692,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunProblem": RunProblem,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
+    "RunQueueStanding": RunQueueStanding,
     "RunRecordReference": RunRecordReference,
     "RunScoreMeasurement": RunScoreMeasurement,
     "RunTask": RunTask,

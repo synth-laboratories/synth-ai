@@ -72,17 +72,23 @@ def table(header: Sequence[str], rows: Sequence[Sequence[object]]) -> str:
 
 
 def snapshot(value: RunSnapshot) -> str:
-    return facts(
-        [
-            ("run", value.run_id),
-            ("state", value.state),
-            ("profile", value.profile.id if value.profile is not None else None),
-            ("model", value.model),
-            ("result", "available" if value.result_available else "pending"),
-            ("created", value.created_at),
-            ("closed", value.closed_at),
+    rows: list[tuple[str, object]] = [
+        ("run", value.run_id),
+        ("state", value.state),
+        ("profile", value.profile.id if value.profile is not None else None),
+        ("model", value.model),
+        ("result", "available" if value.result_available else "pending"),
+        ("created", value.created_at),
+        ("closed", value.closed_at),
+    ]
+    # Contract 1.32.0: only a run waiting for capacity carries its queue standing.
+    if value.queue is not None:
+        rows += [
+            ("queue", f"position {value.queue.position} ({value.queue.ahead} ahead)"),
+            ("starts", value.queue.estimated_start_at),
+            ("expires", value.queue.expires_at),
         ]
-    )
+    return facts(rows)
 
 
 def receipt(value: RunControlReceipt) -> str:
