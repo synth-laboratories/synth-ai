@@ -91,7 +91,7 @@ def message_question(context: JourneyContext) -> StepReceipt:
     initial = customer_messages(context.surface, value.run_id)
     if isinstance(initial, str):
         return receipt(context, step, Verdict.FAIL, initial)
-    if any(obj(item.get("sender")).get("kind") == "customer" for item in initial):
+    if any(item.get("author") == "customer" for item in initial):
         return missing(context, step, "fresh_run_before_recorded_customer_input")
     sent = _send_question(context, value)
     if isinstance(sent, StepReceipt):
@@ -109,7 +109,12 @@ def _send_question(context: JourneyContext, value: MessageFixture) -> QuestionSe
     message_id = accepted_message.get("message_id")
     if not accepted.accepted or not isinstance(message_id, str) or not message_id:
         return receipt(context, step, Verdict.FAIL, "message_not_accepted", accepted)
-    if accepted_message.get("run_id") != value.run_id or accepted_message.get("kind") != "question":
+    if (
+        accepted_message.get("run_id") != value.run_id
+        or accepted_message.get("thread_id") != value.customer_thread_id
+        or accepted_message.get("author") != "customer"
+        or accepted_message.get("kind") != "question"
+    ):
         return receipt(context, step, Verdict.FAIL, "message_identity_or_kind_changed", accepted)
     context.state["message_id"] = message_id
     repeated = context.surface.call(question_call(value, value.run_id, "question"))
@@ -204,6 +209,8 @@ def _read_answer(
         or read_message.get("message_id") != message_id
         or read_message.get("run_id") != value.run_id
         or read_message.get("thread_id") != value.customer_thread_id
+        or read_message.get("author") != "customer"
+        or read_message.get("kind") != "question"
         or read_state.get("kind") != "disposed"
         or read_state.get("decision_step") != observed.decision_step
         or obj(read_state.get("disposition")).get("kind") != "answered"
@@ -213,7 +220,14 @@ def _read_answer(
     if isinstance(page, str):
         return receipt(context, step, Verdict.FAIL, page)
     replies = [item for item in page if item.get("reply_to_message_id") == message_id]
-    if len(replies) != 1 or obj(replies[0].get("sender")).get("kind") != "manager":
+    if (
+        len(replies) != 1
+        or replies[0].get("author") != "manager"
+        or replies[0].get("kind") != "reply"
+        or replies[0].get("run_id") != value.run_id
+        or replies[0].get("thread_id") != value.customer_thread_id
+        or obj(replies[0].get("state")) != {"kind": "posted"}
+    ):
         return receipt(context, step, Verdict.FAIL, "manager_reply_missing_or_duplicated")
     body = obj(replies[0].get("body"))
     if body.get("kind") == "unavailable" and body.get("reason") == "retention":
@@ -340,6 +354,17 @@ def message_rate(context: JourneyContext) -> StepReceipt:
     return checked
 
 
+def public_author(value: object) -> bool:
+    if value in ("customer", "manager"):
+        return True
+    if not isinstance(value, str) or not value.startswith("actor:"):
+        return False
+    role = value[len("actor:") :]
+    return 1 <= len(role) <= 64 and all(
+        character.isascii() and (character.isalnum() or character in "_.-") for character in role
+    )
+
+
 def message_isolation(context: JourneyContext) -> StepReceipt:
     step = Step.MESSAGE_ISOLATION
     value = fixture(context, step)
@@ -395,7 +420,7 @@ def message_isolation(context: JourneyContext) -> StepReceipt:
         item.get("message_id") in value.internal_message_ids
         or item.get("visibility") == "internal"
         or item.get("thread_id") != value.customer_thread_id
-        or obj(item.get("sender")).get("kind") not in {"customer", "manager", "actor"}
+        or not public_author(item.get("author"))
         for item in messages
     ):
         return receipt(context, step, Verdict.FAIL, "internal_thread_message_leaked", *outcomes)

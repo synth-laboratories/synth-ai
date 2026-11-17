@@ -66,7 +66,7 @@ class ScriptedSurface:
             "run_id": RUN,
             "thread_id": THREAD,
             "kind": "question",
-            "sender": {"kind": "customer"},
+            "author": "customer",
             "body": {"kind": "available", "text": QUESTION},
             "state": {"kind": "queued"}
             if queued
@@ -144,12 +144,15 @@ class ScriptedSurface:
                     "message_id": "reply_fixture",
                     "thread_id": THREAD,
                     "reply_to_message_id": MESSAGE,
-                    "sender": {"kind": "manager"},
+                    "author": "manager",
+                    "kind": "reply",
+                    "run_id": RUN,
+                    "state": {"kind": "posted"},
                     "body": self.reply_body,
                 },
             ]
             if self.leak_internal:
-                items.append({"message_id": "internal_fixture", "sender": {"kind": "actor"}})
+                items.append({"message_id": "internal_fixture", "author": "actor:worker"})
             return Outcome(call.operation, True, {"items": items, "has_more": False})
         raise AssertionError(call.operation)
 
@@ -342,7 +345,7 @@ def test_customer_thread_actor_updates_are_allowed_but_other_threads_refuse(cont
                 {
                     "message_id": "actor_update",
                     "thread_id": actor_thread,
-                    "sender": {"kind": "actor", "role": "worker"},
+                    "author": "actor:worker",
                 }
             )
         return result
@@ -351,3 +354,33 @@ def test_customer_thread_actor_updates_are_allowed_but_other_threads_refuse(cont
     assert messages.message_isolation(ctx).verdict == Verdict.PASS
     actor_thread = "other_thread"
     assert messages.message_isolation(ctx).cause == "internal_thread_message_leaked"
+
+
+@pytest.mark.parametrize("author", ["actor", "actor:", "actor:bad role", {"kind": "customer"}, None])
+def test_public_history_rejects_provisional_or_malformed_author(context, author):
+    ctx, surface, _ = context
+    assert messages.message_question(ctx).verdict == Verdict.PASS
+    original = surface.call
+
+    def malformed(call):
+        result = original(call)
+        if call.operation == "listRunMessages":
+            result.value["items"][0]["author"] = author
+        return result
+
+    surface.call = malformed
+    assert messages.message_isolation(ctx).cause == "internal_thread_message_leaked"
+
+
+def test_reply_must_be_posted_manager_output(context):
+    ctx, surface, _ = context
+    original = surface.call
+
+    def wrongly_queued(call):
+        result = original(call)
+        if call.operation == "listRunMessages" and surface.sends:
+            result.value["items"][1]["state"] = {"kind": "queued"}
+        return result
+
+    surface.call = wrongly_queued
+    assert messages.message_question(ctx).cause == "manager_reply_missing_or_duplicated"
