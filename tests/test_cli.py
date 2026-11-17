@@ -711,3 +711,99 @@ def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path
         assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
         assert f"idempotency_key={key}" in err
     assert all(oid != "createRun" for oid, _ in api.calls)
+
+
+def test_directory_upload_requires_explicit_single_root_and_retry_key(api, capsys, tmp_path):
+    for arguments in (
+        ["upload", "--directory", str(tmp_path)],
+        ["upload", "--directory", str(tmp_path), str(tmp_path), "--idempotency-key", "batch"],
+    ):
+        code, _, error = invoke(api, capsys, *arguments)
+        assert code == cli.EXIT_CLIENT_ERROR
+        assert "one path and --idempotency-key" in error
+        assert api.calls == []
+
+
+def test_directory_upload_cli_preserves_binary_names_and_retry_identity(api, capsys, tmp_path):
+    root = tmp_path / "bundle"
+    (root / "nested").mkdir(parents=True)
+    content = b"\x00\xffbinary"
+    (root / "nested" / "policy.bin").write_bytes(content)
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="nested/policy.bin",
+        media_type="application/octet-stream",
+        size_bytes=len(content),
+        digest_sha256=hashlib.sha256(content).hexdigest(),
+    )
+    api.overrides["createUpload"] = (
+        201,
+        {
+            "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+            "state": "committed",
+            "file": file,
+        },
+    )
+    for _ in range(2):
+        code, output, error = invoke(
+            api,
+            capsys,
+            "upload",
+            "--directory",
+            str(root),
+            "--idempotency-key",
+            "directory-batch",
+            "--json",
+        )
+        assert code == 0, error
+        assert json.loads(output)[0]["name"] == "nested/policy.bin"
+    assert [operation for operation, _ in api.calls] == ["createUpload", "createUpload"]
+    first, second = [request for _, request in api.calls]
+    assert first.headers["Idempotency-Key"] == second.headers["Idempotency-Key"]
+    assert json.loads(first.content)["digest_sha256"] == hashlib.sha256(content).hexdigest()
+
+
+def test_directory_upload_cli_reports_partial_custody(api, capsys, tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "a.bin").write_bytes(b"a")
+    (root / "b.bin").write_bytes(b"b")
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="a.bin",
+        media_type="application/octet-stream",
+        size_bytes=1,
+        digest_sha256=hashlib.sha256(b"a").hexdigest(),
+    )
+
+    def partial(request):
+        if json.loads(request.content)["name"] == "a.bin":
+            return httpx.Response(
+                201,
+                json={
+                    "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+                    "state": "committed",
+                    "file": file,
+                },
+            )
+        return httpx.Response(503, json={"code": "unavailable"})
+
+    api.overrides["createUpload"] = partial
+    code, output, error = invoke(
+        api,
+        capsys,
+        "upload",
+        "--directory",
+        str(root),
+        "--idempotency-key",
+        "partial-batch",
+        "--json",
+    )
+    assert code == cli.EXIT_CLIENT_ERROR
+    assert output == ""
+    receipt = json.loads(error)
+    assert receipt["code"] == "directory_upload_incomplete"
+    assert receipt["name"] == "b.bin"
+    assert receipt["idempotency_key"] == "partial-batch"
+    assert receipt["file_idempotency_key"]
+    assert receipt["completed_files"][0]["name"] == "a.bin"

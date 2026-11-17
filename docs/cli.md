@@ -117,3 +117,11 @@ The constants are `EXIT_*` in `synth_ai/cli.py`.
 `SYNTH_STATE_DIR` to use another directory. The checkpoint advances only after
 an event has been written to stdout, so a restarted `logs -f` resumes after the
 last printed event without repeating it.
+
+### Directory uploads
+
+`synth upload --directory ./bundle --idempotency-key bundle-1 --json` snapshots
+one directory with the SDK's bounded binary-safe traversal and preserves relative
+names. Keep the key when retrying unchanged inputs. A partial failure returns
+exit 1 and a JSON receipt on stderr containing committed files, the failed name,
+and both retry keys. Committed files are retained; the batch is not atomic.

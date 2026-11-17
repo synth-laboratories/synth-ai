@@ -34,6 +34,7 @@ from ._version import __version__
 from .aclient import AsyncSynthClient
 from .environments import Environment, resolve_base_url
 from .errors import (
+    DirectoryUploadError,
     ResponseContractError,
     RunPausedError,
     SwarmsAPIError,
@@ -189,7 +190,10 @@ def parser() -> argparse.ArgumentParser:
     choices.add_argument("--parallel-workers", type=int, metavar="N")
     choices.add_argument("--wall", type=int, metavar="SECONDS")
     choices.add_argument("--budget", help="list choices this maximum charge cannot afford")
-    add("upload").add_argument("paths", nargs="+", metavar="PATH")
+    upload = add("upload")
+    upload.add_argument("paths", nargs="+", metavar="PATH")
+    upload.add_argument("--directory", action="store_true")
+    upload.add_argument("--idempotency-key")
     run = add("run")
     run.add_argument("goal")
     run.add_argument("--budget", required=True)
@@ -402,7 +406,17 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 view.launch_choices,
             )
         elif command == "upload":
-            out.records([await swarms.upload_file(path) for path in args.paths], view.files)
+            if args.directory:
+                if len(args.paths) != 1 or not args.idempotency_key:
+                    raise UsageError("directory upload requires one path and --idempotency-key")
+                files = await swarms.upload_directory(
+                    args.paths[0], idempotency_key=args.idempotency_key
+                )
+            else:
+                if args.idempotency_key:
+                    raise UsageError("--idempotency-key requires --directory")
+                files = [await swarms.upload_file(path) for path in args.paths]
+            out.records(files, view.files)
         elif command == "run":
             if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
                 raise UsageError("idempotency key must contain 1 to 128 characters")
@@ -689,6 +703,18 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
             fail(error.problem.code, error.problem.detail, False)
             print(f"retry after {error.retry_after_seconds} seconds", file=sys.stderr, flush=True)
         return EXIT_SERVER_REFUSAL
+    except DirectoryUploadError as error:
+        receipt = {
+            "code": error.code,
+            "name": error.name,
+            "idempotency_key": error.idempotency_key,
+            "file_idempotency_key": error.file_idempotency_key,
+            "completed_files": [file.model_dump(mode="json") for file in error.completed_files],
+        }
+        # A partial upload is not rolled back. Keep the committed identities and
+        # caller's retry key on stderr in either output mode.
+        print(json.dumps(receipt), file=sys.stderr, flush=True)
+        return EXIT_CLIENT_ERROR
     except UploadTransferError as error:
         if as_json:
             print(
