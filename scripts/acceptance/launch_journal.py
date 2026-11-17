@@ -19,7 +19,7 @@ __all__ = ["InputIdentity", "LaunchIntent", "LaunchJournal", "LaunchJournalError
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class LaunchJournalError(Exception):
     code: str
     stage: str

@@ -31,7 +31,8 @@ from synth_ai.models import (
     LaunchBudget,
     LaunchRequest,
     Limits,
-    MCPOutputContent,
+    McpOutputContent,
+    McpOutputContentEncoding,
     OutputPage,
     Problem,
     RunInputs,
@@ -44,7 +45,7 @@ from synth_ai.models import (
     UsageRecordPage,
 )
 
-from .j1 import AdapterError, content_pin, refusal
+from .j1 import AdapterError, RecordedLaunch, content_pin, refusal
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import (
     MCP_UPLOAD_BYTES_MAX,
@@ -254,11 +255,15 @@ class MCPDriver:
                 "revision_id": pin.revision_id,
                 "digest_sha256": pin.digest_sha256,
             },
-            MCPOutputContent,
+            McpOutputContent,
             run_id=run_id,
         )
         try:
-            body = b64decode(envelope.data, validate=True)
+            body = (
+                envelope.content.encode("utf-8")
+                if envelope.encoding == McpOutputContentEncoding.UTF8
+                else b64decode(envelope.content, validate=True)
+            )
         except (binascii.Error, ValueError) as error:
             raise refusal(
                 MCPRefusal.RESULT_INVALID,
@@ -267,9 +272,8 @@ class MCPDriver:
                 run_id=run_id,
             ) from error
         if (
-            len(body) > 1 << 20
-            or envelope.revision_id != pin.revision_id
-            or envelope.digest_sha256 != pin.digest_sha256
+            len(body) != envelope.byte_size
+            or envelope.sha256 != pin.digest_sha256
             or hashlib.sha256(body).hexdigest() != pin.digest_sha256
         ):
             raise refusal(
@@ -343,6 +347,37 @@ class MCPDriver:
             File,
             run_id="not_launched",
         )
+
+    def launch_recorded(
+        self, *, recording: RecordedLaunch, idempotency_key: str, journal: LaunchJournal
+    ) -> RunSnapshot:
+        """Preserve the recorded public launch; operator cache authority stays outside MCP."""
+        request = LaunchRequest(
+            message=recording.message,
+            limits=Limits(
+                maximum_charge=LaunchBudget(amount=recording.budget_usd, currency="USD"),
+                wall_time_seconds=recording.wall_time_seconds,
+            ),
+            labels=dict(recording.labels),
+            resources=list(recording.resources),
+        )
+        body = JSON_OBJECT.validate_json(request.model_dump_json(exclude_unset=True))
+        journal.begin(
+            LaunchIntent(
+                self.surface,
+                idempotency_key,
+                journal.request_digest(json.dumps(body, sort_keys=True)),
+                (),
+            )
+        )
+        snapshot = self._call(
+            Tool.LAUNCH,
+            {"body": body, "idempotency_key": idempotency_key},
+            RunSnapshot,
+            run_id="launch_outcome_pending",
+        )
+        journal.accepted(snapshot)
+        return snapshot
 
     def launch_auto(
         self,

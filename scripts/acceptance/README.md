@@ -63,8 +63,8 @@ python -m scripts.acceptance --driver mcp_stdio --run-id RUN --receipt-dir OWNED
 python -m scripts.acceptance --driver mcp_hosted --mcp-url http://127.0.0.1:PORT/mcp --run-id RUN --receipt-dir OWNED_NEW_DIR
 ```
 
-The output-content tool returns the canonical base64 envelope for at most 1 MiB
-of exact bytes. The driver verifies the revision, digest and decoded bytes before
+The output-content tool returns the canonical UTF-8 or base64 envelope for at most 256 KiB
+of exact bytes. The driver sends the pinned revision and verifies the declared size, digest and decoded bytes before
 creating an exclusive evidence file. Larger outputs require the REST download
 path and cannot qualify MCP parity through this tool. Tool-list gaps,
 isError results (stdio Problem, hosted `{"error","data":{"response"}}`),

@@ -316,10 +316,10 @@ def test_output_content_preserves_exact_bytes(body, tmp_path):
         {
             Tool.CONTENT: {
                 "encoding": "base64",
-                "data": b64encode(body).decode(),
-                "content_type": "application/octet-stream",
-                "revision_id": "rev_fixture",
-                "digest_sha256": digest,
+                "content": b64encode(body).decode(),
+                "media_type": "application/octet-stream",
+                "byte_size": len(body),
+                "sha256": digest,
             }
         }
     )
@@ -331,7 +331,7 @@ def test_output_content_preserves_exact_bytes(body, tmp_path):
 
 @pytest.mark.parametrize(
     "change",
-    [{"data": "!!!!"}, {"data": "Yg=="}, {"revision_id": "rev_other"}, {"digest_sha256": "b" * 64}],
+    [{"content": "!!!!"}, {"content": "Yg=="}, {"byte_size": 2}, {"sha256": "b" * 64}],
 )
 def test_output_mismatch_refuses_before_writing(change, tmp_path):
     from hashlib import sha256
@@ -348,10 +348,10 @@ def test_output_mismatch_refuses_before_writing(change, tmp_path):
     )
     envelope = {
         "encoding": "base64",
-        "data": "YQ==",
-        "content_type": "application/octet-stream",
-        "revision_id": "rev_fixture",
-        "digest_sha256": digest,
+        "content": "YQ==",
+        "media_type": "application/octet-stream",
+        "byte_size": 1,
+        "sha256": digest,
     } | change
     caller = FakeCaller({Tool.CONTENT: envelope})
     with pytest.raises(AdapterError) as failure:
@@ -371,3 +371,84 @@ def test_adapter_refusal_survives_generator_context_manager():
     with pytest.raises(AdapterError) as failure, scope():
         raise error
     assert failure.value is error
+
+
+@pytest.mark.parametrize("surface", ["mcp_stdio", "mcp_hosted"])
+def test_mcp_recorded_launch_preserves_public_body_and_refuses_repeat(contract, tmp_path, surface):
+    from test_j1_drivers import RECORDED_BODY, RECORDED_PUBLIC
+
+    from scripts.acceptance.j1 import RecordedLaunch
+    from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
+
+    answers = coherent_examples(contract)
+    caller = FakeCaller({Tool.LAUNCH: answers["/v1/runs/{run_id}"]})
+    driver = MCPDriver(caller, surface=surface)
+    journal = LaunchJournal(tmp_path / "launch")
+    recording = RecordedLaunch.from_body(RECORDED_BODY)
+    accepted = driver.launch_recorded(
+        recording=recording, idempotency_key="recorded-once", journal=journal
+    )
+    assert journal.read_accepted() == accepted
+    assert caller.calls == [
+        (Tool.LAUNCH, {"body": RECORDED_PUBLIC, "idempotency_key": "recorded-once"})
+    ]
+    with pytest.raises(LaunchJournalError):
+        driver.launch_recorded(
+            recording=recording, idempotency_key="recorded-once", journal=journal
+        )
+    assert len(caller.calls) == 1
+
+
+def test_mcp_recorded_launch_keeps_intent_after_transport_failure(tmp_path):
+    from test_j1_drivers import RECORDED_BODY
+
+    from scripts.acceptance.j1 import RecordedLaunch
+    from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
+
+    class LostReply(FakeCaller):
+        def call(self, name, arguments):
+            raise AdapterError("mcp_transport_failed", str(name), "reply lost", RUN)
+
+    caller = LostReply({}, names=frozenset({Tool.LAUNCH}))
+    driver = MCPDriver(caller, surface="mcp_hosted")
+    journal = LaunchJournal(tmp_path / "launch")
+    recording = RecordedLaunch.from_body(RECORDED_BODY)
+    with pytest.raises(AdapterError):
+        driver.launch_recorded(recording=recording, idempotency_key="uncertain", journal=journal)
+    assert (journal.directory / "launch-intent.json").is_file()
+    assert not (journal.directory / "launch-accepted.json").exists()
+    with pytest.raises(LaunchJournalError):
+        driver.launch_recorded(recording=recording, idempotency_key="uncertain", journal=journal)
+
+
+def test_mcp_utf8_output_preserves_unicode_bytes(tmp_path):
+    from hashlib import sha256
+
+    from synth_ai.models import RunOutput
+
+    body = "Résumé 🦀\n".encode()
+    digest = sha256(body).hexdigest()
+    output = RunOutput(
+        run_id=RUN,
+        output_id="out_AAAAAAAAAAAAAAAAAAAAAA",
+        state="ready",
+        filename="result.md",
+        reference={"revision_id": "rev_fixture", "digest_sha256": digest},
+    )
+    caller = FakeCaller(
+        {
+            Tool.CONTENT: {
+                "encoding": "utf8",
+                "content": body.decode(),
+                "media_type": "text/markdown",
+                "byte_size": len(body),
+                "sha256": digest,
+            }
+        }
+    )
+    assert (
+        MCPDriver(caller, surface="mcp_hosted")
+        .download(RUN, output, tmp_path / "result.md")
+        .read_bytes()
+        == body
+    )
