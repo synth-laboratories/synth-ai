@@ -94,3 +94,38 @@ sorted canonical trial ancestry. `attempt_id` is the public trial record ID and
 `parent_id` is its parent trial record ID; internal worker IDs are not inferred.
 `attempts: null` means unavailable; an authoritative empty tree is `[]`. synth-dev
 `local_dev/release_tests/parity.py` loads one per driver for the same-run diff.
+
+## J2 money, J3 access and J-refusals (SYN-5695)
+
+synth-dev `local_dev/release_tests/journeys.py` defines the journeys as data:
+step order, drivers, expected codes, preconditions and named product gaps. This
+checkout executes one step on one surface (`surfaces.py`: public SDK methods,
+the real `synth --json` child, or MCP `tools/call` by catalog operationId) and
+returns a typed step receipt. The synth-dev orchestrator invokes it per driver:
+
+```
+python -m scripts.acceptance.journey_main --capabilities
+python -m scripts.acceptance.journey_main --driver sdk --steps STEP[,STEP] --receipt-dir NEW_DIR \
+  [--run-id RUN] [--limit-run-id RUN] [--queued-journal DIR] [--foreign-ids FILE] [--mcp-url URL]
+```
+
+Environment names (values never printed): SYNTH_API_KEY and
+SYNTH_LOCAL_API_BASE_URL (loopback only); SYNTH_JOURNEY_SESSION_TOKEN (keys,
+PKCE, MCP consent: the contract makes those routes `clerkSession`-only),
+SYNTH_JOURNEY_MEMBER_API_KEY, SYNTH_JOURNEY_EXPIRED_API_KEY,
+SYNTH_JOURNEY_FOREIGN_API_KEY (org B for the 404 matrix) and, for mcp_hosted,
+SYNTH_MCP_ACCESS_TOKEN. An absent name makes its steps Inconclusive.
+
+Steps never launch an uncached run. `queued_launch` observes a run that the
+cached harness launched (its launch journal) while capacity was saturated.
+Refusal probes send launches Core must refuse, capped at $0.50; an unexpected
+acceptance is cancelled at once and fails. `raise_limit` on the SDK uses
+`live_limits.raise_live_limits`; CLI and MCP raise the spend cap once and read
+the next budget view. The cross-org matrix covers every ID-bearing contract
+operation; operations a surface cannot express stay uncovered (Inconclusive).
+
+Known client findings, retained as failing/Inconclusive steps rather than stubs:
+the SDK refuses a contract-invalid launch (oversize message, unknown topology)
+with a raw `pydantic.ValidationError` that has no public code, and `synth run`
+accepts the goal only as argv, so a message over the 1 MiB contract limit cannot
+be sent from the CLI (E2BIG). `tests/acceptance/test_journeys.py` pins both.
