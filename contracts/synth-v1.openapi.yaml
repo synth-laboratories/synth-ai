@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.35.0
+  version: 1.36.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -5377,6 +5377,153 @@ paths:
                 has_more: false
         default:
           $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/messages:
+    post:
+      tags:
+      - swarms
+      operationId: sendRunMessage
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "mq_owner_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_run_message_send
+      summary: Send a message to the run.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Message accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMessage'
+              example:
+                message_id: msg_AAAAAAAAAAAAAAAAAAAAAA
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                thread_id: thr_AAAAAAAAAAAAAAAAAAAAAA
+                author: customer
+                kind: guidance
+                sequence: 1
+                body:
+                  kind: available
+                  text: Consider the measured score.
+                state:
+                  kind: queued
+                created_at: '2026-11-17T20:00:00Z'
+                updated_at: '2026-11-17T20:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRunMessage'
+    get:
+      tags:
+      - swarms
+      operationId: listRunMessages
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_messages
+      summary: Read the customer-visible conversation.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Visible message history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMessagePage'
+              example:
+                items: []
+                next_cursor: null
+                has_more: false
+                availability:
+                  kind: unavailable
+                  reason: messaging_unavailable
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/messages/{message_id}:
+    get:
+      tags:
+      - swarms
+      operationId: getRunMessage
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_message
+      summary: Read a customer-visible message.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - name: message_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/MessageId'
+      responses:
+        '200':
+          description: Visible message history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMessage'
+              example:
+                message_id: msg_AAAAAAAAAAAAAAAAAAAAAA
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                thread_id: thr_AAAAAAAAAAAAAAAAAAAAAA
+                author: customer
+                kind: guidance
+                sequence: 1
+                body:
+                  kind: available
+                  text: Consider the measured score.
+                state:
+                  kind: queued
+                created_at: '2026-11-17T20:00:00Z'
+                updated_at: '2026-11-17T20:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     apiKey:
@@ -5682,6 +5829,292 @@ components:
         Cache-Control:
           $ref: '#/components/headers/Cache-Control'
   schemas:
+    MessageId:
+      type: string
+      pattern: ^msg_[A-Za-z0-9_-]{22}$
+    MessageKind:
+      type: string
+      enum:
+      - guidance
+      - directive
+      - question
+    PostedMessageKind:
+      type: string
+      enum: [reply, update]
+    ManagerMessageState:
+      type: string
+      enum:
+      - accepted
+      - queued
+      - delivered
+      - disposed
+      - expired
+      - posted
+    MessageDisposition:
+      type: string
+      enum:
+      - acknowledged
+      - applied
+      - declined
+      - answered
+    SendRunMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - text
+      properties:
+        kind:
+          $ref: '#/components/schemas/MessageKind'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          x-synth-max-bytes: 8192
+          x-synth-no-nul: true
+    BodyAvailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - text
+      properties:
+        kind:
+          type: string
+          const: available
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          x-synth-max-bytes: 8192
+    BodyUnavailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - reason
+      properties:
+        kind:
+          type: string
+          const: unavailable
+        reason:
+          type: string
+          const: retention
+    RunMessageBody:
+      oneOf:
+      - $ref: '#/components/schemas/BodyAvailable'
+      - $ref: '#/components/schemas/BodyUnavailable'
+      discriminator:
+        propertyName: kind
+        mapping:
+          available: '#/components/schemas/BodyAvailable'
+          unavailable: '#/components/schemas/BodyUnavailable'
+    MessageDispositionRecord:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      properties:
+        kind:
+          $ref: '#/components/schemas/MessageDisposition'
+        reason_message_id:
+          $ref: '#/components/schemas/MessageId'
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: declined
+        then:
+          required:
+          - reason_message_id
+        else:
+          not:
+            required:
+            - reason_message_id
+    RunMessageState:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      properties:
+        kind:
+          $ref: '#/components/schemas/ManagerMessageState'
+        decision_step:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+        disposition:
+          $ref: '#/components/schemas/MessageDispositionRecord'
+      allOf:
+      - if:
+          properties:
+            kind:
+              enum:
+              - delivered
+              - disposed
+        then:
+          required:
+          - decision_step
+        else:
+          not:
+            required:
+            - decision_step
+      - if:
+          properties:
+            kind:
+              const: disposed
+        then:
+          required:
+          - disposition
+        else:
+          not:
+            required:
+            - disposition
+    RunMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - message_id
+      - run_id
+      - thread_id
+      - author
+      - kind
+      - sequence
+      - body
+      - state
+      - created_at
+      - updated_at
+      properties:
+        message_id:
+          $ref: '#/components/schemas/MessageId'
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        thread_id:
+          type: string
+          pattern: ^thr_[A-Za-z0-9_-]{22}$
+        author:
+          type: string
+          pattern: ^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$
+        kind:
+          anyOf:
+          - $ref: '#/components/schemas/MessageKind'
+          - $ref: '#/components/schemas/PostedMessageKind'
+        sequence:
+          type: integer
+          minimum: 1
+        body:
+          $ref: '#/components/schemas/RunMessageBody'
+        state:
+          $ref: '#/components/schemas/RunMessageState'
+        reply_to_message_id:
+          $ref: '#/components/schemas/MessageId'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MessageHistoryAvailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      properties:
+        kind:
+          type: string
+          const: available
+    MessageHistoryUnavailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - reason
+      properties:
+        kind:
+          type: string
+          const: unavailable
+        reason:
+          type: string
+          const: messaging_unavailable
+    RunMessagePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      - has_more
+      - availability
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/RunMessage'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+        has_more:
+          type: boolean
+        availability:
+          oneOf:
+          - $ref: '#/components/schemas/MessageHistoryAvailable'
+          - $ref: '#/components/schemas/MessageHistoryUnavailable'
+          discriminator:
+            propertyName: kind
+            mapping:
+              available: '#/components/schemas/MessageHistoryAvailable'
+              unavailable: '#/components/schemas/MessageHistoryUnavailable'
+    RunMessageEventPayload:
+      type: object
+      additionalProperties: false
+      required:
+      - message_id
+      - state
+      - author
+      properties:
+        message_id:
+          $ref: '#/components/schemas/MessageId'
+        state:
+          $ref: '#/components/schemas/RunMessageState'
+        author:
+          type: string
+          pattern: ^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$
+        reply_to_message_id:
+          $ref: '#/components/schemas/MessageId'
+    RunLineage:
+      type: object
+      additionalProperties: false
+      required:
+      - parent_run_id
+      - inherited_artifacts
+      properties:
+        parent_run_id:
+          $ref: '#/components/schemas/RunId'
+        inherited_artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunInheritedArtifact'
+    RunInheritedArtifact:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - artifact_id
+      - digest_sha256
+      properties:
+        kind:
+          type: string
+          enum:
+          - best_output
+          - attempt_summaries
+          - manager_queue
+        artifact_id:
+          type: string
+          format: uuid
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
     Limit:
       type: object
       required:
@@ -6455,6 +6888,9 @@ components:
       - message
       - limits
       properties:
+        continue_from:
+          $ref: '#/components/schemas/RunId'
+          description: Seed a fresh run from a terminal run in this organization; unavailable retained inputs refuse admission.
         optimizer:
           $ref: '#/components/schemas/OptimizerRequest'
         domicile_requirement:
@@ -7007,6 +7443,8 @@ components:
       - started_at
       - closed_at
       properties:
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
         optimizer:
           $ref: '#/components/schemas/ResolvedOptimizer'
         pause:
@@ -7437,6 +7875,16 @@ components:
             x-synth-event-kind: actor.parked
           - $ref: '#/components/schemas/ActorUnparkedPayload'
             x-synth-event-kind: actor.unparked
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.accepted
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.delivered
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.disposed
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.expired
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.posted
           - type: 'null'
     RunGuidance:
       type: object
@@ -8411,6 +8859,8 @@ components:
       - reward
       - timings
       properties:
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
         sandbox_performance:
           type: array
           items:
@@ -9139,6 +9589,8 @@ components:
       - attempt_tree
       - result_file
       properties:
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
         attempt_tree:
           $ref: '#/components/schemas/RunAttemptTree'
         result_file:

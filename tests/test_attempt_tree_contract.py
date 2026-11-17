@@ -148,4 +148,4 @@ def test_correction_and_observation_round_trip():
 
 def test_unknown_constraint_vocabulary_fails_generation():
     with pytest.raises(ValueError, match="unsupported schema constraint"):
-        constraint_expression(JSONObject.parse({"not": {"const": "unsafe"}}), "self.value")
+        constraint_expression(JSONObject.parse({"oneOf": [{"const": "unsafe"}]}), "self.value")

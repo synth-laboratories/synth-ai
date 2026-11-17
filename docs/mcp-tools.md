@@ -66,3 +66,6 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_limits | getRunLimits | swarms:read |
 | swarms_run_limits_update | updateRunLimits | swarms:run |
 | swarms_run_tasks | listRunTasks | swarms:read |
+| swarms_run_message_send | sendRunMessage | swarms:control |
+| swarms_run_messages | listRunMessages | swarms:read |
+| swarms_run_message | getRunMessage | swarms:read |

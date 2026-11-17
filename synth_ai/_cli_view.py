@@ -30,6 +30,8 @@ from ._generated.models import (
     RunControlReceipt,
     RunEvent,
     RunLimitsProgress,
+    RunMessage,
+    RunMessagePage,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -97,6 +99,22 @@ def receipt(value: RunControlReceipt) -> str:
 
 def event(value: RunEvent) -> str:
     return "  ".join([str(value.sequence).rjust(6), value.observed_at or "-", value.kind])
+
+
+def message(value: RunMessage) -> str:
+    """Keep retention unavailability distinct from a blank message."""
+    text = (
+        value.body.text
+        if value.body.kind == "available"
+        else "message no longer available (retention)"
+    )
+    return "  ".join([value.message_id, value.author, value.state.kind, text])
+
+
+def messages(value: RunMessagePage) -> str:
+    if value.availability.kind == "unavailable":
+        return value.availability.reason
+    return "\n".join(message(item) for item in value.items)
 
 
 def events(value: EventPage) -> str:
