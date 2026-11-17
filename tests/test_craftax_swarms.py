@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -9,6 +10,62 @@ from examples.craftax_swarms import run
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import TransportFailureError
 from synth_ai.models import RunReport, RunSnapshot
+
+
+async def test_template_receipt_validation_does_not_import_retired_preparation_api(
+    tmp_path, monkeypatch, capsys
+):
+    task = tmp_path / "task.txt"
+    task.write_text("fixture task")
+    template = tmp_path / "template.json"
+    template.write_text(
+        json.dumps(
+            {
+                "schema_version": "synth.craftax-template.v1",
+                "base_url": "http://127.0.0.1:9",
+                "evaluator_revision_id": "sha256:" + "a" * 64,
+                "dataset_revision_id": "sha256:" + "b" * 64,
+                "template_pool_revision_id": "sha256:" + "c" * 64,
+                "baseline_sha256": "d" * 64,
+                "field_sha256": "e" * 64,
+                "task_sha256": hashlib.sha256(task.read_bytes()).hexdigest(),
+                "provider": "fixture",
+                "region": "local",
+            }
+        )
+    )
+    cohort = tmp_path / "cohort.json"
+    cohort.write_text("{}")
+    receipt = tmp_path / "run.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run",
+            "--base-url",
+            "http://127.0.0.1:9",
+            "--task-file",
+            str(task),
+            "--template-file",
+            str(template),
+            "--cohort-file",
+            str(cohort),
+            "--budget",
+            "1.00",
+            "--evaluation-micros",
+            "100000",
+            "--wall-seconds",
+            "60",
+            "--timeout",
+            "1",
+            "--receipt",
+            str(receipt),
+            "--api-key-env",
+            "UNSET_FIXTURE_KEY",
+        ],
+    )
+    assert await run.main() == 0
+    assert json.loads(capsys.readouterr().out)["network_calls"] == 0
+    assert not receipt.exists()
 
 
 def example(contract, path):
