@@ -13,6 +13,7 @@ refuse; an unexpected acceptance is cancelled at once and recorded as Fail.
 from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
+import base64
 import json
 import os
 import re
@@ -1166,6 +1167,9 @@ def absent_like(foreign: str) -> str:
     if match is None:
         return "absent" + secrets.token_hex(8)
     tail = match.group("tail")
+    if len(tail) == 22:  # Core public IDs: prefix + unpadded base64url of a UUID.
+        encoded = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode().rstrip("=")
+        return str(match.group("prefix")) + encoded
     alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     return str(match.group("prefix")) + "".join(secrets.choice(alphabet) for _ in tail)
 

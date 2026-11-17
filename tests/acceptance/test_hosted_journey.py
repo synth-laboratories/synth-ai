@@ -55,3 +55,22 @@ def test_driver_receipt_is_written_with_profile_bound_surfaces(tmp_path, monkeyp
     assert document["driver"] == SurfaceName.SDK.value
     assert [row["verdict"] for row in document["steps"]] == ["Pass"]
     assert "fixture-a" not in capsys.readouterr().out
+
+
+def test_absent_public_id_decodes_to_a_uuid_like_the_foreign_one():
+    import base64
+    import uuid
+
+    from scripts.acceptance.journeys import absent_like
+
+    foreign = "run_vHFjCEemQYK1RQGwKUhG2g"  # base64url of a UUID, as Core mints it
+    for _ in range(64):  # a random alphanumeric tail is malformed most of the time
+        absent = absent_like(foreign)
+        assert absent.startswith("run_") and absent != foreign
+        uuid.UUID(bytes=base64.urlsafe_b64decode(absent[4:] + "=="))
+        assert (
+            base64.urlsafe_b64encode(base64.urlsafe_b64decode(absent[4:] + "=="))
+            .decode()
+            .rstrip("=")
+            == absent[4:]
+        )
