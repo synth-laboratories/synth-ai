@@ -6,7 +6,7 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 
 | Step | Command | SDK record under `--json` |
 | --- | --- | --- |
-| Sign in | `synth login [--no-browser]` | `AuthStatus` |
+| Sign in | `synth login [--no-browser \| --device]` | `AuthStatus` |
 | | `synth whoami` | `Account` |
 | | `synth logout` | `AuthStatus` |
 | Discover | `synth profiles [--research-task T]` | `RunProfileCatalog` |
@@ -70,6 +70,11 @@ charge, and whether the run is final.
 `synth login --no-browser` prints the authorization URL to stderr and reads the
 redirect URL that the browser reached (`http://127.0.0.1:PORT/callback?...`) from
 stdin. The state and issuer are verified as in the browser flow.
+
+`synth login --device` is for a machine with no browser at all (RFC 8628). It prints
+the console's device page and a code such as `BCDF-GHJK` to stderr, then polls until
+someone signed in to the console enters the code and approves it, denies it, or it
+expires after ten minutes. The secret device code is never printed.
 
 The resource commands below call the same public SDK methods. Mutations remain
 subject to the server's scopes and signed-in-session requirements.

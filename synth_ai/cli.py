@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
+from ._auth_models import DeviceAuthorization
 from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
     InputFile,
@@ -182,7 +183,9 @@ def parser() -> argparse.ArgumentParser:
     runs_list.add_argument("--limit", type=int, default=20)
     runs_list.add_argument("--cursor")
     runs_list.add_argument("--state")
-    add("login").add_argument("--no-browser", action="store_true")
+    login = add("login").add_mutually_exclusive_group()
+    login.add_argument("--no-browser", action="store_true")
+    login.add_argument("--device", action="store_true")
     add("whoami")
     promo = add("promo").add_subparsers(dest="promo_action", required=True)
     redeem = promo.add_parser("redeem", parents=[common])
@@ -653,10 +656,22 @@ def paste_redirect(authorization: str) -> str:
     return str(sys.stdin.readline())
 
 
+def show_device_code(device: DeviceAuthorization) -> None:
+    print(
+        f"Open {device.verification_uri} and enter {device.user_code}",
+        file=sys.stderr,
+        flush=True,
+    )
+    if device.verification_uri_complete is not None:
+        print(device.verification_uri_complete, file=sys.stderr, flush=True)
+
+
 def run_auth(args: argparse.Namespace) -> int:
     out = Output(args.json)
     base_url = resolve_base_url(args.base_url, args.environment)
-    if args.command == "login":
+    if args.command == "login" and args.device:
+        auth.login_device(base_url, show=show_device_code)
+    elif args.command == "login":
         auth.login(
             base_url,
             open_browser=not args.no_browser,

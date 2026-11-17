@@ -1,4 +1,7 @@
-"""Environment credentials and discovery-based OAuth PKCE; no embedded client identity."""
+"""Environment credentials, discovery-based OAuth PKCE, and RFC 8628 device sign-in.
+
+PKCE registers its own client; device sign-in uses the server's first-party CLI client.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ from ._auth_models import (
     ClientRegistration,
     CredentialRecord,
     CredentialSource,
+    DeviceAuthorization,
     OAuthMetadata,
     OAuthToken,
 )
@@ -32,6 +36,9 @@ from .errors import SynthError
 
 DEFAULT_BASE_URL = "https://api.usesynth.ai"
 DEFAULT_OAUTH_BASE_URL = "https://mcp.usesynth.ai"
+# The server's verified first-party client: the only one it lets start a device sign-in.
+DEVICE_CLIENT_ID = "synth-ai-cli"
+DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 
 def token_path() -> Path:
@@ -289,6 +296,86 @@ def login(
         records = read_tokens()
         records[base] = token
         save_tokens(records)
+
+
+def login_device(
+    base_url: str | None = None,
+    *,
+    show: Callable[[DeviceAuthorization], None],
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> None:
+    """Sign in with the OAuth device authorization grant (RFC 8628), for a machine
+    without a browser. ``show`` receives the verification URI and user code to tell
+    the person; this polls the token endpoint until they approve, deny or the code
+    expires. The device code is never shown.
+    """
+    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    oauth = oauth_base(base)
+    with httpx.Client(timeout=30, follow_redirects=False) as client:
+        metadata = discover(client, oauth)
+        if metadata.device_authorization_endpoint is None:
+            raise SynthError("This server does not offer device sign-in; use synth login")
+        response = client.post(
+            endpoint(metadata, "device_authorization_endpoint", oauth),
+            data={
+                "client_id": DEVICE_CLIENT_ID,
+                "scope": " ".join(SDK_OAUTH_SCOPES),
+                "resource": oauth + "/mcp",
+            },
+        )
+        if not response.is_success:
+            raise SynthError("Device sign-in refused: " + _oauth_error(response))
+        device = DeviceAuthorization.model_validate_json(response.content)
+        show(device)
+        token_url = endpoint(metadata, "token_endpoint", oauth)
+        interval = float(device.interval)
+        deadline = clock() + device.expires_in
+        while True:
+            sleep(interval)
+            if clock() >= deadline:
+                raise SynthError("Device sign-in code expired; run synth login --device again")
+            response = client.post(
+                token_url,
+                data={
+                    "grant_type": DEVICE_GRANT_TYPE,
+                    "client_id": DEVICE_CLIENT_ID,
+                    "device_code": device.device_code,
+                    "resource": oauth + "/mcp",
+                },
+            )
+            if response.is_success:
+                break
+            error = _oauth_error(response)
+            if error == "authorization_pending":
+                continue
+            if error == "slow_down":
+                interval += 5
+                continue
+            if error == "access_denied":
+                raise SynthError("Device sign-in denied")
+            if error == "expired_token":
+                raise SynthError("Device sign-in code expired; run synth login --device again")
+            raise SynthError("Device sign-in failed: " + error)
+        response_token = OAuthToken.model_validate_json(response.content)
+        records = read_tokens()
+        records[base] = CredentialRecord(
+            access_token=response_token.access_token,
+            refresh_token=response_token.refresh_token,
+            client_id=DEVICE_CLIENT_ID,
+            expires_at=time.time() + response_token.expires_in,
+        )
+        save_tokens(records)
+
+
+def _oauth_error(response: httpx.Response) -> str:
+    """The RFC 6749 error code of a refused OAuth response, or its HTTP status."""
+    try:
+        value = TypeAdapter(dict[str, JsonValue]).validate_json(response.content)
+    except ValueError:
+        return f"http_{response.status_code}"
+    error = value.get("error")
+    return error if isinstance(error, str) and error != "" else f"http_{response.status_code}"
 
 
 def logout(base_url: str | None = None) -> None:

@@ -858,3 +858,26 @@ def test_directory_upload_cli_reports_partial_custody(api, capsys, tmp_path):
     assert receipt["idempotency_key"] == "partial-batch"
     assert receipt["file_idempotency_key"]
     assert receipt["completed_files"][0]["name"] == "a.bin"
+
+
+def test_login_device_shows_the_code_and_never_the_device_code(capsys):
+    from synth_ai._auth_models import DeviceAuthorization
+
+    cli.show_device_code(
+        DeviceAuthorization(
+            device_code="synth_odc_v1_secret",
+            user_code="BCDF-GHJK",
+            verification_uri="https://usesynth.ai/mcp/device",
+            verification_uri_complete="https://usesynth.ai/mcp/device?user_code=BCDF-GHJK",
+            expires_in=600,
+            interval=5,
+        )
+    )
+    err = capsys.readouterr().err
+    assert "BCDF-GHJK" in err and "https://usesynth.ai/mcp/device" in err
+    assert "synth_odc_v1_secret" not in err
+
+
+def test_login_device_and_no_browser_are_exclusive(capsys):
+    assert cli.main(["login", "--device", "--no-browser"]) != cli.EXIT_OK
+    assert "not allowed with argument --device" in capsys.readouterr().err

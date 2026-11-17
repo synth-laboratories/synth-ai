@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.35.0
+  version: 1.35.1
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -661,11 +661,13 @@ paths:
                 token_endpoint: https://mcp.usesynth.ai/mcp/oauth/token
                 registration_endpoint: https://mcp.usesynth.ai/mcp/oauth/register
                 revocation_endpoint: https://mcp.usesynth.ai/mcp/oauth/revoke
+                device_authorization_endpoint: https://mcp.usesynth.ai/mcp/oauth/device_authorization
                 response_types_supported:
                 - code
                 grant_types_supported:
                 - authorization_code
                 - refresh_token
+                - urn:ietf:params:oauth:grant-type:device_code
                 code_challenge_methods_supported:
                 - S256
                 token_endpoint_auth_methods_supported:
@@ -981,7 +983,7 @@ paths:
       x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/token
-      summary: authorization_code (PKCE S256) and refresh_token grants; rotation with reuse detection.
+      summary: authorization_code (PKCE S256), refresh_token and RFC 8628 device_code grants; rotation with reuse detection.
       security: []
       requestBody:
         required: true
@@ -1010,6 +1012,178 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device_authorization:
+    post:
+      tags:
+      - mcp
+      operationId: authorizeOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device_authorization
+      summary: RFC 8628 device authorization for the first-party CLI; returns a device code and a short user code.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceAuthorizationRequest'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDeviceAuthorization'
+              example:
+                device_code: example
+                user_code: BCDF-GHJK
+                verification_uri: https://usesynth.ai/mcp/device
+                verification_uri_complete: https://usesynth.ai/mcp/device?user_code=BCDF-GHJK
+                expires_in: 600
+                interval: 5
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: unauthorized_client
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: slow_down
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device/verify:
+    post:
+      tags:
+      - mcp
+      operationId: readOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device/verify
+      summary: Pending device authorization behind a user code (console origin, Clerk session only; attempts are rate-limited).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceUserCode'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDevicePending'
+              example:
+                user_code: BCDF-GHJK
+                client_id: synth-ai-cli
+                client_name: Synth AI CLI
+                scopes:
+                - synth:read
+                resource: https://mcp.usesynth.ai/mcp
+                verified: true
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: rate_limited
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device/consent:
+    post:
+      tags:
+      - mcp
+      operationId: decideOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device/consent
+      summary: Approve or deny a device authorization for the session user and active org (console origin, Clerk session only).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceDecision'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDeviceDecided'
+              example:
+                status: approved
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: rate_limited
         default:
           description: Protocol response.
           content:
@@ -10296,6 +10470,9 @@ components:
         revocation_endpoint:
           type: string
           format: uri
+        device_authorization_endpoint:
+          type: string
+          format: uri
         response_types_supported:
           type: array
           items:
@@ -10473,6 +10650,108 @@ components:
       - redirect_host
       - verified
       additionalProperties: false
+    OAuthDeviceAuthorizationRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+        scope:
+          type: string
+        resource:
+          type: string
+          format: uri
+      required:
+      - client_id
+      - scope
+      additionalProperties: false
+    OAuthDeviceAuthorization:
+      type: object
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          pattern: ^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$
+        verification_uri:
+          type: string
+          format: uri
+        verification_uri_complete:
+          type: string
+          format: uri
+        expires_in:
+          type: integer
+          minimum: 1
+        interval:
+          type: integer
+          minimum: 1
+      required:
+      - device_code
+      - user_code
+      - verification_uri
+      - verification_uri_complete
+      - expires_in
+      - interval
+      additionalProperties: false
+    OAuthDeviceUserCode:
+      type: object
+      properties:
+        user_code:
+          type: string
+          minLength: 8
+          maxLength: 32
+      required:
+      - user_code
+      additionalProperties: false
+    OAuthDevicePending:
+      type: object
+      properties:
+        user_code:
+          type: string
+        client_id:
+          type: string
+        client_name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        resource:
+          type: string
+          format: uri
+        verified:
+          type: boolean
+      required:
+      - user_code
+      - client_id
+      - client_name
+      - scopes
+      - resource
+      - verified
+      additionalProperties: false
+    OAuthDeviceDecision:
+      type: object
+      properties:
+        user_code:
+          type: string
+          minLength: 8
+          maxLength: 32
+        approve:
+          type: boolean
+      required:
+      - user_code
+      - approve
+      additionalProperties: false
+    OAuthDeviceDecided:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - approved
+          - denied
+      required:
+      - status
+      additionalProperties: false
     OAuthConsentDecision:
       type: object
       properties:
@@ -10524,7 +10803,10 @@ components:
           enum:
           - authorization_code
           - refresh_token
+          - urn:ietf:params:oauth:grant-type:device_code
         client_id:
+          type: string
+        device_code:
           type: string
         code:
           type: string
