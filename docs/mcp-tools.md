@@ -30,6 +30,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | account_usage_summary | getUsageSummary | account:usage:read |
 | account_usage_for_run | listUsageRecords | account:usage:read |
 | account_limits_list | listLimits | account:limits:read |
+| account_promo_redeem | redeemPromo | account:billing:write |
 | account_plan_request_create | requestSpecialFree | account:write |
 | account_plan_requests_list | listPlanRequests | account:read |
 | account_plan_request_withdraw | withdrawPlanRequest | account:write |

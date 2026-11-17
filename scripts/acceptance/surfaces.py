@@ -26,6 +26,7 @@ from pydantic import BaseModel, JsonValue, ValidationError
 
 from synth_ai import SynthClient
 from synth_ai._generated.models import CheckoutRequestPackId, MintApiKeyRequestPurpose, Scope
+from synth_ai.environments import Environment
 from synth_ai.errors import SwarmsAPIError, SynthError
 from synth_ai.models import Money, OptimizerRequest, RunLimitUpdate
 
@@ -414,14 +415,28 @@ class CLISurface:
     name = SurfaceName.CLI
 
     def __init__(
-        self, *, python: Path, environment: Mapping[str, str], work_directory: Path
+        self,
+        *,
+        python: Path,
+        environment: Mapping[str, str],
+        work_directory: Path,
+        profile: Environment = Environment.LOCAL,
     ) -> None:
         self.python = python
         self.environment = dict(environment)
         self.work_directory = work_directory
+        self.profile = profile
 
     def argv(self, arguments: Sequence[str]) -> list[str]:
-        return [str(self.python), "-m", "synth_ai.cli", "--env", "local", *arguments, "--json"]
+        return [
+            str(self.python),
+            "-m",
+            "synth_ai.cli",
+            "--env",
+            self.profile.value,
+            *arguments,
+            "--json",
+        ]
 
     def run(self, operation: str, arguments: Sequence[str]) -> Outcome:
         try:

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from synth_ai import SynthClient
+from synth_ai.environments import Environment
 
 from .journeys import JourneyContext, Secret, Step, StepReceipt, Verdict, capabilities, run_step
 from .live_limits import retain
@@ -41,21 +42,30 @@ def open_surface(
     credential: str,
     work_directory: Path,
     mcp_url: Optional[str],
+    profile: Environment = Environment.LOCAL,
 ) -> Generator[Surface]:
-    environment = {**os.environ, "SYNTH_LOCAL_API_BASE_URL": origin, "SYNTH_API_KEY": credential}
+    variable = {
+        Environment.LOCAL: "SYNTH_LOCAL_API_BASE_URL",
+        Environment.STAGING: "SYNTH_STAGING_API_BASE_URL",
+        Environment.PROD: "SYNTH_PROD_API_BASE_URL",
+    }[profile]
+    environment = {**os.environ, variable: origin, "SYNTH_API_KEY": credential}
     if driver == SurfaceName.SDK:
         with SynthClient(credential, base_url=origin) as client:
             yield SDKSurface(client)
     elif driver == SurfaceName.CLI:
         yield CLISurface(
-            python=Path(sys.executable), environment=environment, work_directory=work_directory
+            python=Path(sys.executable),
+            environment=environment,
+            work_directory=work_directory,
+            profile=profile,
         )
     elif driver == SurfaceName.MCP_STDIO:
         from .mcp_transport import SessionToolCaller, StdioCommand, stdio_session
 
         command = StdioCommand(
             Path(sys.executable).parent / "synth-ai-mcp",
-            ("--env", "local"),
+            ("--env", profile.value),
             environment,
             Path.cwd(),
         )
@@ -71,7 +81,12 @@ def open_surface(
 
 
 def surface_factory(
-    driver: SurfaceName, *, origin: str, work_directory: Path, mcp_url: Optional[str]
+    driver: SurfaceName,
+    *,
+    origin: str,
+    work_directory: Path,
+    mcp_url: Optional[str],
+    profile: Environment = Environment.LOCAL,
 ) -> Callable[[str], AbstractContextManager[Surface]]:
     def make(credential: str) -> AbstractContextManager[Surface]:
         return open_surface(
@@ -80,6 +95,7 @@ def surface_factory(
             credential=credential,
             work_directory=work_directory,
             mcp_url=mcp_url,
+            profile=profile,
         )
 
     return make

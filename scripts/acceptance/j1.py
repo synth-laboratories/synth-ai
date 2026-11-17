@@ -22,6 +22,7 @@ from typing import Optional, Protocol
 from pydantic import TypeAdapter
 
 from synth_ai import SynthClient
+from synth_ai.environments import Environment
 from synth_ai.models import (
     File,
     InputFile,
@@ -322,6 +323,7 @@ class CLIDriver:
         environment: Mapping[str, str],
         working_directory: Path,
         entrypoint: Optional[Path] = None,
+        profile: Environment = Environment.LOCAL,
     ) -> None:
         self.python = python
         self.environment = environment
@@ -329,6 +331,7 @@ class CLIDriver:
         # An owned harness entrypoint may compose a public HTTP client and call
         # synth_ai.cli.main(..., http_client=...). It is still a real child CLI.
         self.entrypoint = entrypoint
+        self.profile = profile
 
     def _command(
         self, arguments: Sequence[str], *, run_id: str, seconds: int = COMMAND_SECONDS
@@ -337,7 +340,7 @@ class CLIDriver:
         # profile. Credentials remain in the child environment, never argv/logs.
         entrypoint = ["-m", "synth_ai.cli"] if self.entrypoint is None else [str(self.entrypoint)]
         result = subprocess.run(
-            [str(self.python), *entrypoint, "--env", "local", *arguments],
+            [str(self.python), *entrypoint, "--env", self.profile.value, *arguments],
             cwd=self.working_directory,
             env=self.environment,
             capture_output=True,

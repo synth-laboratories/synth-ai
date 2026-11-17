@@ -12,6 +12,7 @@ from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from .._generated.models import (
     LaunchRequest,
+    PromoRedeemRequest,
     RunLabelsRequest,
     RunLimitUpdate,
     UploadFileRequest,
@@ -29,6 +30,11 @@ async def dispatch(
     client: AsyncSynthClient, operation: str, arguments: Mapping[str, JsonValue]
 ) -> BaseModel | None:
     match operation:
+        case "redeemPromo":
+            body = required(arguments, "body", PromoRedeemRequest)
+            return await client.account.redeem_promo(
+                body.code, idempotency_key=required(arguments, "idempotency_key", str)
+            )
         case "getAccount":
             return await client.account.get()
         case "getBalance":

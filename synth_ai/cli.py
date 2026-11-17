@@ -90,6 +90,7 @@ COMMANDS: dict[str, str] = {
     "billing": "Balance",
     "limits": "Limits",
     "plan": "Special Free plan requests",
+    "promo": "Promotional credit",
 }
 
 EPILOG = """exit codes:
@@ -183,6 +184,10 @@ def parser() -> argparse.ArgumentParser:
     runs_list.add_argument("--state")
     add("login").add_argument("--no-browser", action="store_true")
     add("whoami")
+    promo = add("promo").add_subparsers(dest="promo_action", required=True)
+    redeem = promo.add_parser("redeem", parents=[common])
+    redeem.add_argument("code")
+    redeem.add_argument("--idempotency-key")
     add("logout")
     add("profiles").add_argument("--research-task")
     choices = add("choices")
@@ -394,6 +399,11 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             print(
                 "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
             )
+        elif command == "promo":
+            value = await client.account.redeem_promo(
+                args.code, idempotency_key=args.idempotency_key
+            )
+            print(value.model_dump_json(), flush=True)
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":

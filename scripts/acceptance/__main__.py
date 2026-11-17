@@ -84,10 +84,11 @@ def observe_surface(
     run_id: str,
     receipt_dir: Path,
     mcp_url: Optional[str],
+    profile: Environment = Environment.LOCAL,
 ) -> J1Observation:
     match driver:
         case ParityDriver.SDK:
-            with SynthClient(api_key=key, environment=Environment.LOCAL) as client:
+            with SynthClient(api_key=key, environment=profile) as client:
                 return observe(
                     SDKDriver(client),
                     run_id=run_id,
@@ -95,7 +96,10 @@ def observe_surface(
                 )
         case ParityDriver.CLI:
             cli = CLIDriver(
-                python=Path(sys.executable), environment=os.environ, working_directory=Path.cwd()
+                python=Path(sys.executable),
+                environment=os.environ,
+                working_directory=Path.cwd(),
+                profile=profile,
             )
             return observe(cli, run_id=run_id, output_directory=receipt_dir / "outputs")
         case ParityDriver.MCP_STDIO:
@@ -105,7 +109,7 @@ def observe_surface(
             # The stdio server reads origin/credential from its environment only.
             command = StdioCommand(
                 Path(sys.executable).parent / "synth-ai-mcp",
-                ("--env", "local"),
+                ("--env", profile.value),
                 dict(os.environ),
                 Path.cwd(),
             )

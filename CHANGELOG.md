@@ -19,8 +19,12 @@ revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.tom
   position, estimate and expiry while waiting for admission.
 - Special Free requests, self-serve billing, run-limit updates and per-role
   launch choices use the same typed public API.
-- Contract 1.34.0 includes queued run standing and result.md references. Source and fixture qualification do
+- Contract 1.35.0 includes queued run standing, result.md references and promotional redemption. Source and fixture qualification do
   not establish acceptance of a deployed cohort.
 
 - Nov 16 admits `swarms_v2` only. `fork_flush` stays a reserved public enum;
   pinned requests receive a typed refusal and experimental entries never default.
+
+- Promo redemption shares the typed account API, `synth promo redeem` command and
+  MCP `account_promo_redeem` tool. Active account grants preserve remaining credit
+  and expiry. Hosted acceptance adapters select explicit staging/prod profiles.

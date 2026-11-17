@@ -1010,6 +1010,26 @@ class Principal(WireModel):
     access_tier: str
 
 
+class PromoRedeemRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    code: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class PromoRedemption(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    redemption_id: str
+    campaign_id: str
+    org_id: str
+    redeemed_at: str
+    grant_ids: list[str]
+    override_ids: list[str]
+    replayed: bool
+
+
 class RefundDetailRunUsage1(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1591,17 +1611,6 @@ class UsageExportRequest(WireModel):
     format: Literal["csv"]
 
 
-class Account(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    org: Org
-    principal: Principal
-    limits: list[Limit]
-    terms: AccountTerms | None = None
-    billing_attention: BillingAttention | None = None
-
-
 class ActorLimitsProgress(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1960,6 +1969,16 @@ class Problem(WireModel):
     client_version: str | None = None
     field: str | None = None
     reason: str | None = None
+
+
+class PromotionalGrant(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    grant_id: str
+    amount: Money
+    remaining: Money
+    expires_at: str
 
 
 class RefundDetail(WireModel):
@@ -2574,6 +2593,18 @@ class UsageTotals(WireModel):
     input_tokens: Annotated[int, Field(ge=0)]
     output_tokens: Annotated[int, Field(ge=0)]
     records: Annotated[int, Field(ge=0)]
+
+
+class Account(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    org: Org
+    principal: Principal
+    limits: list[Limit]
+    terms: AccountTerms | None = None
+    billing_attention: BillingAttention | None = None
+    promotional_grants: Annotated[list[PromotionalGrant], Field(max_length=100)] | None = None
 
 
 class ApiKeyPage(WireModel):
@@ -3348,6 +3379,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "PlanRequest": PlanRequest,
     "PoolSelection": PoolSelection,
     "Principal": Principal,
+    "PromoRedeemRequest": PromoRedeemRequest,
+    "PromoRedemption": PromoRedemption,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
     "ResolvedOptimizerParams": ResolvedOptimizerParams,
     "RoleAssignment": RoleAssignment,
@@ -3393,7 +3426,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "UploadGrant": UploadGrant,
     "UsageExport": UsageExport,
     "UsageExportRequest": UsageExportRequest,
-    "Account": Account,
     "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
     "AutoReloadLimits": AutoReloadLimits,
@@ -3420,6 +3452,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Plan": Plan,
     "PlanRequestList": PlanRequestList,
     "Problem": Problem,
+    "PromotionalGrant": PromotionalGrant,
     "RefundDetail": RefundDetail,
     "ResolvedOptimizer": ResolvedOptimizer,
     "RoutingCatalog": RoutingCatalog,
@@ -3459,6 +3492,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummaryPending": UsageSummaryPending,
     "UsageSummarySettling": UsageSummarySettling,
     "UsageTotals": UsageTotals,
+    "Account": Account,
     "ApiKeyPage": ApiKeyPage,
     "AutoReloadDisclosure": AutoReloadDisclosure,
     "BillingHistoryEntry": BillingHistoryEntry,
