@@ -129,3 +129,18 @@ the SDK refuses a contract-invalid launch (oversize message, unknown topology)
 with a raw `pydantic.ValidationError` that has no public code, and `synth run`
 accepts the goal only as argv, so a message over the 1 MiB contract limit cannot
 be sent from the CLI (E2BIG). `tests/acceptance/test_journeys.py` pins both.
+
+SYN-5737 strengthens the cross-org comparison: only equal, typed resource-404
+Problems pass. Untyped 404s and `route_not_found` stay unproven, and an empty
+operation matrix cannot pass. Every path parameter ending in `_id` is included,
+so newly published message IDs enter the matrix automatically. Until SYN-5744
+publishes sendRunMessage/listRunMessages/getRunMessage, each missing operation
+is an explicit uncovered cell. A planned message body is fixture data only;
+no route is treated as published until it appears in the shipped contract.
+
+The API matrix is a component of tenant-isolation acceptance. The batch owner
+also retains paired sandbox network/storage denial receipts, B's account/usage/
+billing projections with A's unique fixture markers absent, revoked/expired
+message grants, cross-swarm IDs and archived/BodyUnavailable message cases.
+API 404s alone do not prove those boundaries. SYN-5737 stays In Review until
+all required SDK/CLI/MCP cells and the separate sandbox/staging receipts pass.

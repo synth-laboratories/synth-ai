@@ -35,6 +35,7 @@ import httpx
 import yaml
 from pydantic import JsonValue
 
+from .isolation import classify
 from .surfaces import (
     CLI_ARGV,
     CLI_ARGV_TOO_LONG,
@@ -72,6 +73,9 @@ OVERLOAD_CODES = frozenset({"overloaded", "rate_limit_exceeded", "run_queue_full
 TERMINAL = frozenset({"completed", "partial", "failed", "cancelled"})
 # A resumed run left `paused` and did not end unsuccessfully.
 RESUMED = frozenset({"running", "completed", "partial"})
+# SYN-5744 contract publication is required; missing routes remain unproven.
+REQUIRED_MESSAGE_OPERATIONS = frozenset({"sendRunMessage", "listRunMessages", "getRunMessage"})
+
 ID_PARAMETERS = frozenset(
     {
         "run_id",
@@ -1046,7 +1050,7 @@ def matrix_operations() -> tuple[tuple[str, str, str, tuple[str, ...]], ...]:
             if method not in {"get", "post", "put", "patch", "delete"}:
                 continue
             names = tuple(path_parameters(document, operation))
-            if any(name in ID_PARAMETERS for name in names):
+            if any(name in ID_PARAMETERS or name.endswith("_id") for name in names):
                 rows.append((str(operation["operationId"]), method, route, names))
     return tuple(rows)
 
@@ -1071,33 +1075,10 @@ def absent_like(foreign: str) -> str:
 
 MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
     "updateRunLimits": {"expected_revision": 0, "limits": {"wall_time_seconds": 60}},
+    "sendRunMessage": {"kind": "guidance", "body": "Tenant-isolation fixture probe."},
     "updateRunLabels": {"expected_revision": 0, "labels": {}},
     "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
 }
-
-
-def masked(problem: Optional[Mapping[str, JsonValue]], identifiers: tuple[str, ...]) -> str:
-    text = json.dumps(problem or {}, sort_keys=True)
-    for identifier in identifiers:
-        text = text.replace(identifier, "<id>")
-    return text
-
-
-def classify(foreign: Outcome, absent: Outcome, identifiers: tuple[str, ...]) -> str:
-    """pass | leak | differs (Fail) or unproven:* (Inconclusive)."""
-    if foreign.accepted or absent.accepted:
-        return "leak" if foreign.accepted else "differs"
-    signature = [
-        (item.status, item.code, item.cause, masked(item.problem, identifiers))
-        for item in (foreign, absent)
-    ]
-    if signature[0] != signature[1]:
-        return "differs"  # A foreign ID answers unlike an absent one: existence leaks.
-    if foreign.status is None:
-        return "unproven:never_reached_core"
-    if foreign.status != 404:
-        return f"unproven:uniform_{foreign.status}"
-    return "pass"
 
 
 def cross_org(context: JourneyContext) -> StepReceipt:
@@ -1110,8 +1091,15 @@ def cross_org(context: JourneyContext) -> StepReceipt:
         return missing(context, step, "foreign_org_ids")
     rows: list[Mapping[str, JsonValue]] = []
     failed = uncovered = 0
+    operations = matrix_operations()
+    if not operations:
+        return missing(context, step, "id_bearing_operation_matrix_empty")
+    published = {operation for operation, _, _, _ in operations}
+    for operation in sorted(REQUIRED_MESSAGE_OPERATIONS - published):
+        uncovered += 1
+        rows.append({"operation": operation, "result": "uncovered:contract_operation_missing"})
     with context.make(actor) as surface:
-        for operation, method, route, names in matrix_operations():
+        for operation, method, route, names in operations:
             if not covered(surface, operation):
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:surface_unmapped"})
