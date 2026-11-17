@@ -22,6 +22,8 @@ from synth_ai import AsyncSynthClient, CompletionMilestone, __version__
 from synth_ai.errors import SwarmsAPIError, SynthError
 from synth_ai.models import LaunchRequest, Limits, OwnerResourceRequest, RunReport, RunSnapshot
 
+from .template_receipt import TemplateReceipt
+
 MAXIMUM_BUDGET_USD = Decimal("50")
 MAXIMUM_TASK_BYTES = 32768
 
@@ -244,9 +246,7 @@ async def main() -> int:
     task = args.task_file.read_text()
     template = None
     if args.template_file is not None:
-        from .prepare import Prepared
-
-        prepared = Prepared.model_validate_json(args.template_file.read_text())
+        prepared = TemplateReceipt.model_validate_json(args.template_file.read_text())
         if (
             prepared.base_url != args.base_url
             or prepared.task_sha256 != hashlib.sha256(task.encode()).hexdigest()
