@@ -195,3 +195,22 @@ Automatic retries cover safe reads and contract-authorized writes with a stable
 idempotency key and a proven `not_accepted` outcome. Unknown mutation outcomes
 never retry automatically. `RetryPolicy` bounds attempts, jitter and the overall
 deadline; a server delay outside the remaining budget surfaces the refusal.
+
+### Journey refusal cases
+
+- `optimizer_topology_not_allowed`: this environment does not admit the topology.
+  Select an admitted topology from its current catalog.
+- `optimizer_topology_unavailable`: the topology has no usable served definition.
+  Choose an available topology from the current catalog.
+- `optimizer_version_unavailable`: the requested topology version is not served.
+  Use the version published by the current catalog.
+- `launch_request_too_large`: the serialized launch exceeds the server's limit.
+  Shorten the message or upload long material as files referenced by the launch.
+- `route_not_found`: the requested API route is not served. Check the origin and
+  current contract; retired products have no replacement route at that URL.
+- `billing_admin_required`: the operation requires an organization admin or owner.
+  Ask an authorized admin to perform it; retrying the same credential will not help.
+
+These entries describe server Problems. Strict request-model validation can
+reject malformed values locally with `pydantic.ValidationError` before any HTTP
+request; that validation result is not a server refusal receipt.
