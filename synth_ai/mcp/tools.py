@@ -1247,8 +1247,11 @@ TOOLS: list[ToolDefinition] = [
                                     "type": "string",
                                 },
                                 "result_format": {
-                                    "const": "synth.evaluation-result.v1",
                                     "default": "synth.evaluation-result.v1",
+                                    "enum": [
+                                        "synth.evaluation-result.v1",
+                                        "synth.evaluation-result.v2",
+                                    ],
                                     "title": "Result Format",
                                     "type": "string",
                                 },
@@ -1624,6 +1627,22 @@ TOOLS: list[ToolDefinition] = [
         },
         "name": "get_evaluation",
         "operationId": "getEvaluation",
+        "scope": "swarms:read",
+    },
+    {
+        "description": "Read bounded per-rollout reports and evidence digests.",
+        "inputSchema": {
+            "additionalProperties": False,
+            "properties": {
+                "cursor": {"maxLength": 1024, "type": "string"},
+                "evaluation_id": {"type": "string"},
+                "instance_ids": {"items": {"type": "string"}, "maxItems": 256, "type": "array"},
+            },
+            "required": ["evaluation_id"],
+            "type": "object",
+        },
+        "name": "list_evaluation_rollouts",
+        "operationId": "listEvaluationRollouts",
         "scope": "swarms:read",
     },
     {

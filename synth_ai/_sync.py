@@ -5,6 +5,7 @@ import builtins
 from collections.abc import Iterator, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
+from typing import Optional
 
 from pydantic import JsonValue
 
@@ -27,6 +28,7 @@ from ._generated.models import (
     EvaluationResponse,
     EvaluationRevision,
     EvaluationRevisionList,
+    EvaluationRolloutPage,
     EvaluationTaskInstance,
     EventPage,
     FamilyList,
@@ -747,6 +749,17 @@ class EvaluationsClient:
 
     def get(self, evaluation_id: str) -> EvaluationResponse:
         return self._runner.call(self._async.get(evaluation_id))
+
+    def rollouts(
+        self,
+        evaluation_id: str,
+        *,
+        cursor: Optional[str] = None,
+        instance_ids: Optional[Sequence[str]] = None,
+    ) -> EvaluationRolloutPage:
+        return self._runner.call(
+            self._async.rollouts(evaluation_id, cursor=cursor, instance_ids=instance_ids)
+        )
 
     def cancel(
         self, evaluation_id: str, *, idempotency_key: str | None = None

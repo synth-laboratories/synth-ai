@@ -6,7 +6,7 @@ import asyncio
 import math
 import time
 from collections.abc import Mapping, Sequence
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import JsonValue
 
@@ -17,6 +17,7 @@ from ._generated.models import (
     EvaluationInput,
     EvaluationQuote,
     EvaluationResponse,
+    EvaluationRolloutPage,
     EvaluationRevision,
     EvaluationRevisionList,
     EvaluationTaskInstance,
@@ -130,6 +131,17 @@ class AsyncEvaluations:
     async def get(self, evaluation_id: str) -> EvaluationResponse:
         return await self._transport.request(
             "getEvaluation", EvaluationResponse, path={"evaluation_id": evaluation_id}
+        )
+
+    async def rollouts(
+        self, evaluation_id: str, *, cursor: Optional[str] = None,
+        instance_ids: Optional[Sequence[str]] = None,
+    ) -> EvaluationRolloutPage:
+        """Read a bounded report page; pass next_cursor to continue the same evaluation."""
+        return await self._transport.request(
+            "listEvaluationRollouts", EvaluationRolloutPage,
+            path={"evaluation_id": evaluation_id},
+            query={"cursor": cursor, "instance_ids": list(instance_ids) if instance_ids is not None else None},
         )
 
     async def cancel(

@@ -5069,6 +5069,55 @@ paths:
                 attestation: null
         default:
           $ref: '#/components/responses/ServiceUnavailable'
+  /v1/evaluations/{evaluation_id}/rollouts:
+    get:
+      operationId: listEvaluationRollouts
+      tags:
+      - evaluations
+      summary: Read bounded per-rollout reports and evidence digests.
+      x-synth-scope: swarms:read
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/evaluations
+      x-synth-legacy-path: none
+      x-synth-idempotency: safe_read
+      x-synth-retry: safe_read
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: list_evaluation_rollouts
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 1024
+      - name: instance_ids
+        in: query
+        style: form
+        explode: true
+        schema:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+      responses:
+        '200':
+          description: Evaluation operation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRolloutPage'
+              example:
+                schema_version: synth.evaluation-rollout-page.v1
+                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                rollouts: []
+                next_cursor: null
+                attestation_digest: null
+        default:
+          $ref: '#/components/responses/ServiceUnavailable'
   /v1/evaluations/{evaluation_id}/cancel:
     post:
       operationId: cancelEvaluation
@@ -5534,7 +5583,9 @@ components:
           title: Isolation
           type: string
         result_format:
-          const: synth.evaluation-result.v1
+          enum:
+          - synth.evaluation-result.v1
+          - synth.evaluation-result.v2
           default: synth.evaluation-result.v1
           title: Result Format
           type: string
@@ -5707,12 +5758,172 @@ components:
       - max_concurrency
       title: EvaluationRequest
       type: object
+    EvaluationEpisodeAction:
+      additionalProperties: false
+      properties:
+        step:
+          maximum: 1000000
+          minimum: 0
+          title: Step
+          type: integer
+        action:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[A-Za-z0-9_ .:/-]+$
+          title: Action
+          type: string
+        failures:
+          items:
+            maxLength: 64
+            minLength: 1
+            pattern: ^[A-Za-z0-9_ .:/-]+$
+            type: string
+          maxItems: 8
+          title: Failures
+          type: array
+      required:
+      - step
+      - action
+      title: EpisodeAction
+      type: object
+    EvaluationEpisodeReport:
+      additionalProperties: false
+      description: Trusted evaluator observations only; no seed, prompt or hidden-state
+        fields.
+      properties:
+        schema_version:
+          const: synth.episode-report.v1
+          default: synth.episode-report.v1
+          title: Schema Version
+          type: string
+        environment:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Environment
+          type: string
+        outcome:
+          enum:
+          - success
+          - failure
+          - died
+          - max_steps
+          - policy_error
+          - terminated
+          - error
+          title: Outcome
+          type: string
+        ended_step:
+          maximum: 1000000
+          minimum: 0
+          title: Ended Step
+          type: integer
+        termination_reason:
+          anyOf:
+          - maxLength: 64
+            minLength: 1
+            pattern: ^[A-Za-z0-9_ .:/-]+$
+            type: string
+          - type: 'null'
+          default: null
+          title: Termination Reason
+        achievement_steps:
+          maxProperties: 32
+          patternProperties:
+            ^[A-Za-z0-9_ .:/-]+$:
+              maximum: 1000000
+              minimum: 0
+              type: integer
+          propertyNames:
+            maxLength: 64
+            minLength: 1
+          title: Achievement Steps
+          type: object
+        final_inventory:
+          maxProperties: 64
+          patternProperties:
+            ^[A-Za-z0-9_ .:/-]+$:
+              type: number
+          propertyNames:
+            maxLength: 64
+            minLength: 1
+          title: Final Inventory
+          type: object
+        final_vitals:
+          maxProperties: 16
+          patternProperties:
+            ^[A-Za-z0-9_ .:/-]+$:
+              type: number
+          propertyNames:
+            maxLength: 64
+            minLength: 1
+          title: Final Vitals
+          type: object
+        action_counts:
+          maxProperties: 64
+          patternProperties:
+            ^[A-Za-z0-9_ .:/-]+$:
+              maximum: 1000000
+              minimum: 0
+              type: integer
+          propertyNames:
+            maxLength: 64
+            minLength: 1
+          title: Action Counts
+          type: object
+        failure_counts:
+          maxProperties: 64
+          patternProperties:
+            ^[A-Za-z0-9_ .:/-]+$:
+              maximum: 1000000
+              minimum: 0
+              type: integer
+          propertyNames:
+            maxLength: 64
+            minLength: 1
+          title: Failure Counts
+          type: object
+        recent_actions:
+          items:
+            $ref: '#/components/schemas/EvaluationEpisodeAction'
+          maxItems: 20
+          title: Recent Actions
+          type: array
+        idle_steps:
+          default: 0
+          minimum: 0
+          title: Idle Steps
+          type: integer
+        repeated_action_steps:
+          default: 0
+          minimum: 0
+          title: Repeated Action Steps
+          type: integer
+        truncated:
+          default: false
+          title: Truncated
+          type: boolean
+        omitted_fields:
+          items:
+            maxLength: 64
+            minLength: 1
+            pattern: ^[A-Za-z0-9_ .:/-]+$
+            type: string
+          maxItems: 8
+          title: Omitted Fields
+          type: array
+      required:
+      - environment
+      - outcome
+      - ended_step
+      title: EpisodeReport
+      type: object
     EvaluationResult:
       additionalProperties: false
       properties:
         schema_version:
-          const: synth.evaluation-result.v1
           default: synth.evaluation-result.v1
+          enum:
+          - synth.evaluation-result.v1
+          - synth.evaluation-result.v2
           title: Schema Version
           type: string
         score:
@@ -5724,9 +5935,116 @@ components:
           maxProperties: 256
           title: Metrics
           type: object
+        report:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationEpisodeReport'
+          - type: 'null'
+          default: null
       required:
       - score
       title: Result
+      type: object
+    EvaluationRolloutPageRow:
+      additionalProperties: false
+      properties:
+        ordinal:
+          minimum: 0
+          title: Ordinal
+          type: integer
+        instance_id:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Instance Id
+          type: string
+        rollout_id:
+          anyOf:
+          - pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+            type: string
+          - type: 'null'
+          title: Rollout Id
+        status:
+          enum:
+          - pending
+          - dispatching
+          - running
+          - recovering
+          - completed
+          - failed
+          - cancelled
+          title: Status
+          type: string
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/EvaluationResult'
+          - type: 'null'
+        report_status:
+          enum:
+          - available
+          - not_provided
+          title: Report Status
+          type: string
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        execution_digest:
+          anyOf:
+          - pattern: ^sha256:[0-9a-f]{64}$
+            type: string
+          - type: 'null'
+          title: Execution Digest
+        result_digest:
+          anyOf:
+          - pattern: ^sha256:[0-9a-f]{64}$
+            type: string
+          - type: 'null'
+          title: Result Digest
+      required:
+      - ordinal
+      - instance_id
+      - rollout_id
+      - status
+      - result
+      - report_status
+      - error_code
+      - execution_digest
+      - result_digest
+      title: RolloutPageRow
+      type: object
+    EvaluationRolloutPage:
+      additionalProperties: false
+      properties:
+        schema_version:
+          const: synth.evaluation-rollout-page.v1
+          default: synth.evaluation-rollout-page.v1
+          title: Schema Version
+          type: string
+        evaluation_id:
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+          title: Evaluation Id
+          type: string
+        rollouts:
+          items:
+            $ref: '#/components/schemas/EvaluationRolloutPageRow'
+          title: Rollouts
+          type: array
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+        attestation_digest:
+          anyOf:
+          - pattern: ^sha256:[0-9a-f]{64}$
+            type: string
+          - type: 'null'
+          title: Attestation Digest
+      required:
+      - evaluation_id
+      - rollouts
+      - next_cursor
+      - attestation_digest
+      title: RolloutPage
       type: object
     CreateEvaluation:
       type: object
@@ -6620,6 +6938,12 @@ components:
       - command
       - state
       properties:
+        generation:
+          type: integer
+          minimum: 0
+        recovery_deadline:
+          type: string
+          format: date-time
         operation_id:
           type: string
         command:
@@ -6635,6 +6959,19 @@ components:
           - applied
           - quiesced
           - refused
+        stage:
+          type: string
+        last_code:
+          type: string
+        attempts:
+          type: integer
+          minimum: 0
+        deadline:
+          type: string
+          format: date-time
+        next_attempt_at:
+          type: string
+          format: date-time
     RunProfile:
       type: object
       additionalProperties: false
@@ -6819,6 +7156,55 @@ components:
         version:
           type: string
           pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+    RunTokenUsage:
+      type: object
+      additionalProperties: false
+      description: Observed gateway token counts before financial settlement. Null measurements are unavailable. Input includes cached input; refresh status describes the retained observation age.
+      required: [source, status, refresh_status, observed_at, last_code, calls, pending_calls, input_observed_calls, cached_observed_calls, output_observed_calls, input_tokens, cached_input_tokens, non_cached_input_tokens, output_tokens, final]
+      properties:
+        source:
+          type: string
+          const: gateway_receipt_projection
+        status:
+          type: string
+          enum: [unobserved, observed, partial]
+        refresh_status:
+          type: string
+          enum: [unobserved, pending, current, stale, unavailable]
+        observed_at:
+          type: [string, 'null']
+          format: date-time
+        last_code:
+          type: string
+        calls:
+          type: integer
+          minimum: 0
+        pending_calls:
+          type: integer
+          minimum: 0
+        input_observed_calls:
+          type: integer
+          minimum: 0
+        cached_observed_calls:
+          type: integer
+          minimum: 0
+        output_observed_calls:
+          type: integer
+          minimum: 0
+        input_tokens:
+          type: [integer, 'null']
+          minimum: 0
+        cached_input_tokens:
+          type: [integer, 'null']
+          minimum: 0
+        non_cached_input_tokens:
+          type: [integer, 'null']
+          minimum: 0
+        output_tokens:
+          type: [integer, 'null']
+          minimum: 0
+        final:
+          type: boolean
     RunSnapshot:
       type: object
       required:
@@ -6841,6 +7227,8 @@ components:
       - started_at
       - closed_at
       properties:
+        usage:
+          $ref: '#/components/schemas/RunTokenUsage'
         pause:
           $ref: '#/components/schemas/RunPause'
         limits_revision:

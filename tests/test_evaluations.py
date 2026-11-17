@@ -137,3 +137,31 @@ async def test_preflight_create_get_and_wait_round_trip_contract_examples(contra
 def test_evaluations_are_not_a_swarms_surface():
     client = AsyncSynthClient("fixture", base_url="https://example.test")
     assert not any("evaluat" in name for name in dir(client.swarms))
+
+
+def report_page():
+    return {"schema_version":"synth.evaluation-rollout-page.v1","evaluation_id":"eval_"+"a"*40,
+            "rollouts":[{"ordinal":0,"instance_id":"episode-0","rollout_id":None,"status":"completed",
+                "result":{"schema_version":"synth.evaluation-result.v2","score":0.5,"metrics":{},
+                    "report":{"schema_version":"synth.episode-report.v1","environment":"fixture","outcome":"died","ended_step":121,"termination_reason":"thirst"}},
+                "report_status":"available","error_code":None,"execution_digest":None,"result_digest":None}],
+            "next_cursor":"next-page","attestation_digest":None}
+
+
+async def test_rollout_pages_preserve_typed_report_and_opaque_cursor():
+    paths=[]
+    def handle(request):
+        paths.append(request)
+        return httpx.Response(200,json=report_page())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient("fixture",base_url="https://example.test",http_client=http) as api:
+            page=await api.evaluations.rollouts("eval_"+"a"*40,cursor="opaque-cursor",instance_ids=["episode-0","episode-1"])
+    assert page.next_cursor=="next-page" and page.rollouts[0].result.report.termination_reason=="thirst"
+    assert paths[0].method=="GET" and paths[0].url.params.get_list("instance_ids")==["episode-0","episode-1"]
+    assert paths[0].url.params["cursor"]=="opaque-cursor"
+
+
+def test_sync_rollout_pages_use_the_same_public_operation():
+    with SynthClient("fixture",base_url="https://example.test",transport=httpx.MockTransport(lambda request:httpx.Response(200,json=report_page()))) as api:
+        page=api.evaluations.rollouts("eval_"+"a"*40)
+    assert page.rollouts[0].result.report.ended_step==121
