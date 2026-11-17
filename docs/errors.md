@@ -1,6 +1,6 @@
 # Errors
 
-Every refusal and local failure carries a stable `code`. Branch on the code, not
+HTTP refusals and SDK transport failures carry a stable `code`. Branch on the code, not
 the message. The [error guide](#error-guide) below says what each one means and
 what to do.
 
