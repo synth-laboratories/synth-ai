@@ -257,7 +257,7 @@ class AsyncSwarms:
     ) -> builtins.list[File]:
         """Upload a bounded POSIX directory snapshot, preserving relative file names.
 
-        An integer is a borrowed directory descriptor; the SDK duplicates it.
+        An integer is a borrowed directory descriptor; each snapshot opens its own cursor.
         Includes dotfiles; refuses links and special files before any API request.
         Reuse the key with unchanged files to recover a partial upload. Failure
         retains committed file records in DirectoryUploadError.completed_files.

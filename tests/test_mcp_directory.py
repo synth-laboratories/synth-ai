@@ -92,3 +92,22 @@ def test_cancellation_remains_cancellation_with_retry_custody():
         "idempotency_key": "batch",
         "file_idempotency_key": "file-key",
     }
+
+
+def test_parallel_snapshots_have_independent_directory_cursors(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    names = [f"file-{n:03d}" for n in range(100)]
+    for name in names:
+        (tmp_path / name).write_bytes(b"data")
+    with directory.grant_root(str(tmp_path)) as fd:
+
+        def snapshot_names(_):
+            snapshot = DirectorySnapshot.prepare(fd)
+            try:
+                return [f.name for f in snapshot.files]
+            finally:
+                snapshot.stream.close()
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            assert list(executor.map(snapshot_names, range(8))) == [names] * 8

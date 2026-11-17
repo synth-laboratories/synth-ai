@@ -147,10 +147,12 @@ class DirectorySnapshot:
     def prepare(cls, path: Path | int) -> DirectorySnapshot:
         if os.name != "posix":
             raise NotImplementedError("directory uploads require POSIX descriptor-relative I/O")
+        if isinstance(path, bool):
+            raise ValueError("directory descriptor must be an integer, not a boolean")
         stream = tempfile.TemporaryFile(mode="w+b")
         try:
             descriptor = (
-                os.dup(path)
+                os.open(".", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=path)
                 if isinstance(path, int)
                 else os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             )

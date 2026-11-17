@@ -249,7 +249,7 @@ class SwarmsClient:
     def upload_directory(
         self, directory: str | int, *, idempotency_key: str
     ) -> builtins.list[File]:
-        "Upload a bounded POSIX directory snapshot, preserving relative file names.\n\nAn integer is a borrowed directory descriptor; the SDK duplicates it.\nIncludes dotfiles; refuses links and special files before any API request.\nReuse the key with unchanged files to recover a partial upload. Failure\nretains committed file records in DirectoryUploadError.completed_files."
+        "Upload a bounded POSIX directory snapshot, preserving relative file names.\n\nAn integer is a borrowed directory descriptor; each snapshot opens its own cursor.\nIncludes dotfiles; refuses links and special files before any API request.\nReuse the key with unchanged files to recover a partial upload. Failure\nretains committed file records in DirectoryUploadError.completed_files."
         return self._runner.call(
             self._async.upload_directory(directory, idempotency_key=idempotency_key)
         )
