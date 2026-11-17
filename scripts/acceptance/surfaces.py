@@ -521,7 +521,10 @@ class MCPSurface:
         if not outcome.is_error:
             return Outcome(operation, True, document)
         if isinstance(document, dict) and isinstance(document.get("code"), str):
-            return refused_problem(operation, document, retry_after=None)
+            retry = document.pop("retry_after_seconds", None)
+            return refused_problem(
+                operation, document, retry_after=retry if isinstance(retry, int) else None
+            )
         try:
             hosted = HostedFailure.model_validate(document)
         except ValidationError:

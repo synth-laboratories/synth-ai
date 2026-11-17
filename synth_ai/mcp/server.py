@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -108,6 +109,19 @@ async def _serve(
             await server.run(reader, writer, server.create_initialization_options())
 
 
+def refusal(error: SwarmsAPIError) -> str:
+    """The tool error text: the Problem, plus `retry_after_seconds` like the CLI's JSON.
+
+    MCP has no response headers, so the server's Retry-After rides beside the
+    Problem's own members instead of being dropped (SYN-5723).
+    """
+    if error.retry_after_seconds is None:
+        return error.problem.model_dump_json()
+    document = error.problem.model_dump(mode="json")
+    document["retry_after_seconds"] = error.retry_after_seconds
+    return json.dumps(document)
+
+
 def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> Server:
     """The MCP server bound to an open client; the caller owns the client's lifetime."""
     try:
@@ -143,8 +157,7 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
             )
         except SwarmsAPIError as error:
             return CallToolResult(
-                isError=True,
-                content=[TextContent(type="text", text=error.problem.model_dump_json())],
+                isError=True, content=[TextContent(type="text", text=refusal(error))]
             )
         return [TextContent(type="text", text=content)]
 

@@ -120,6 +120,7 @@ class Step(StrEnum):
     EXPIRED_KEY = "expired_key_refusal"
     OVERLOAD_REFUSAL = "retryable_overload_refusal"
     OVERLOAD_RECOVERY = "overload_recovery"
+    RATE_LIMIT_REFUSAL = "retryable_rate_limit_refusal"
     QUEUED_LAUNCH = "queued_launch"
     CROSS_ORG_404 = "cross_org_not_found_matrix"
     MESSAGE_QUESTION = "run_message_question"
@@ -975,6 +976,94 @@ def overload_refusal(context: JourneyContext) -> StepReceipt:
     return result
 
 
+# Core's per-organization launch window (core public/operation_limits.go,
+# organizationLaunchesPerMinute = 10). Every authenticated POST /v1/runs counts
+# before the handler runs, so empty bodies (422 before any effect) fill it.
+LAUNCH_WINDOW_FILL = 12
+VERSION_REFUSALS = frozenset({"optimizer_version_unavailable", "optimizer_topology_unavailable"})
+
+
+def rate_limit_refusal(context: JourneyContext) -> StepReceipt:
+    """SYN-5723 retryable 429: fill the org launch window, then launch through the client.
+
+    The probe launch reaches Core but is refused before any effect (unknown
+    optimizer version), so a client that honours Retry-After and retries ends
+    on that refusal no sooner than Retry-After; a client whose budget is shorter
+    surfaces the typed retryable 429. Either is a Pass; an early retry is not.
+    """
+    step = Step.RATE_LIMIT_REFUSAL
+    api_key = context.secrets.get("SYNTH_API_KEY", "")
+    statuses: list[int] = []
+    retry_after: Optional[int] = None
+    with httpx.Client(timeout=30) as client:
+        for _ in range(LAUNCH_WINDOW_FILL):
+            response = client.post(
+                context.origin + "/v1/runs",
+                json={},
+                headers={"Authorization": "Bearer " + api_key, "Idempotency-Key": key("fill")},
+            )
+            statuses.append(response.status_code)
+            if response.status_code == 429:
+                value = response.headers.get("Retry-After", "")
+                retry_after = int(value) if value.isdigit() else None
+                break
+    notes: dict[str, JsonValue] = {"fill_statuses": list(statuses), "retry_after": retry_after}
+    if statuses[-1:] != [429] or retry_after is None:
+        return receipt(
+            context,
+            step,
+            Verdict.INCONCLUSIVE,
+            "precondition_not_met:launch_window_not_saturated",
+            notes=notes,
+        )
+    body = launch_body("SYN-5723 rate probe", optimizer={"topology": "swarms_v2", "version": 999})
+    started = time.monotonic()
+    outcome = context.surface.call(Call("createRun", body=body, idempotency_key=key("rate")))
+    notes["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    if outcome.accepted:
+        # An accepted probe is a defect; stop it before it spends more.
+        run = outcome.value.get("run_id") if isinstance(outcome.value, dict) else None
+        cancelled = (
+            context.surface.call(
+                Call("cancelRun", path={"run_id": str(run)}, idempotency_key=key("cancel"))
+            )
+            if isinstance(run, str)
+            else Outcome("cancelRun", False, cause="accepted run id absent")
+        )
+        return receipt(
+            context,
+            step,
+            Verdict.FAIL,
+            "refusal_expected_but_accepted",
+            outcome,
+            cancelled,
+            notes=notes,
+        )
+    if outcome.code == "rate_limit_exceeded":
+        ok = outcome.status == 429 and outcome.retryable is True and outcome.retry_after is not None
+        return receipt(
+            context,
+            step,
+            Verdict.PASS if ok else Verdict.FAIL,
+            "" if ok else "rate_limit_not_retryable",
+            outcome,
+            notes=notes,
+        )
+    if outcome.code in VERSION_REFUSALS:
+        # Retry-After was read before this call; the window cannot reopen sooner than one
+        # second before it, so an earlier answer means the client did not wait.
+        waited = time.monotonic() - started >= retry_after - 1
+        return receipt(
+            context,
+            step,
+            Verdict.PASS if waited else Verdict.FAIL,
+            "" if waited else "retried_before_retry_after",
+            outcome,
+            notes=notes,
+        )
+    return receipt(context, step, Verdict.FAIL, "refusal_code_unexpected", outcome, notes=notes)
+
+
 def overload_recovery(context: JourneyContext) -> StepReceipt:
     outcome = context.surface.call(Call("getAccount"))
     verdict = Verdict.PASS if outcome.accepted else Verdict.FAIL
@@ -1218,7 +1307,11 @@ STEPS: Mapping[Step, tuple[StepFunction, frozenset[SurfaceName]]] = {
     Step.EXPIRED_KEY: (expired_key, frozenset(SurfaceName)),
     Step.OVERLOAD_REFUSAL: (overload_refusal, frozenset(SurfaceName)),
     Step.OVERLOAD_RECOVERY: (overload_recovery, frozenset(SurfaceName)),
-    Step.QUEUED_LAUNCH: (queued_launch, frozenset({SurfaceName.SDK, SurfaceName.CLI})),
+    Step.RATE_LIMIT_REFUSAL: (rate_limit_refusal, frozenset(SurfaceName)),
+    Step.QUEUED_LAUNCH: (
+        queued_launch,
+        frozenset({SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO}),
+    ),
     Step.CROSS_ORG_404: (cross_org, frozenset(SurfaceName)),
 }
 

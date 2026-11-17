@@ -483,7 +483,7 @@ def test_key_mint_rotate_revoke_with_a_session(contract, tmp_path, surface):
     assert live == set()
 
 
-@pytest.mark.parametrize("surface", [SurfaceName.SDK, SurfaceName.CLI])
+@pytest.mark.parametrize("surface", SURFACES)
 @pytest.mark.parametrize(
     ("states", "expected"),
     [
@@ -586,3 +586,62 @@ def test_a_step_exception_keeps_earlier_receipts(tmp_path, monkeypatch):
         ("Pass", ""),
         ("Inconclusive", "step_outcome_unknown:TimeoutError"),
     ]
+
+
+def launch_window(cap, retry_after, *, then):
+    """Core's org launch window: `cap` counted launches, then 429 until it reopens."""
+    import time
+
+    state = {"count": 0, "reopens": None, "posts": []}
+
+    def responder(method, path, request):
+        if method != "POST" or path != "/v1/runs":
+            raise AssertionError(f"unexpected {method} {path}")
+        now = time.monotonic()
+        state["posts"].append((now, request["body"]))
+        if state["reopens"] is not None and now >= state["reopens"]:
+            return then
+        state["count"] += 1
+        if state["count"] <= cap:
+            return 422, problem("invalid_launch_request", 422), {}
+        if state["reopens"] is None:
+            state["reopens"] = now + retry_after
+        return (
+            429,
+            problem("rate_limit_exceeded", 429, retryable=True),
+            {"Retry-After": str(retry_after)},
+        )
+
+    return responder, state
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_rate_limit_refusal_waits_retry_after_then_ends_on_pre_effect_refusal(tmp_path, surface):
+    responder, state = launch_window(
+        3, 2, then=(422, problem("optimizer_version_unavailable", 422), {})
+    )
+    result, _ = run(surface, responder, tmp_path, Step.RATE_LIMIT_REFUSAL)
+    assert (result.verdict, result.cause) == (Verdict.PASS, ""), result
+    probes = [at for at, body in state["posts"] if body != {}]
+    assert len(probes) >= 2 and probes[-1] >= state["reopens"]  # retried only after reopening
+    assert result.evidence[-1]["fill_statuses"] == [422, 422, 422, 429]
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_rate_limit_refusal_that_never_reopens_surfaces_typed_retryable_429(tmp_path, surface):
+    responder, _ = launch_window(1, 600, then=(500, {}, {}))
+    result, _ = run(surface, responder, tmp_path, Step.RATE_LIMIT_REFUSAL)
+    assert result.verdict == Verdict.PASS, result
+    assert result.evidence[0]["code"] == "rate_limit_exceeded"
+
+
+def test_rate_limit_refusal_without_a_saturated_window_is_inconclusive(tmp_path):
+    def responder(method, path, _):
+        return 422, problem("invalid_launch_request", 422), {}
+
+    result, requests = run(SurfaceName.SDK, responder, tmp_path, Step.RATE_LIMIT_REFUSAL)
+    assert (result.verdict, result.cause) == (
+        Verdict.INCONCLUSIVE,
+        "precondition_not_met:launch_window_not_saturated",
+    )
+    assert len(requests) == 12
