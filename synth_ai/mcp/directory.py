@@ -8,7 +8,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..errors import DirectoryUploadError, InvalidRequestError, local_problem
+from ..errors import (
+    DirectoryUploadCancelledError,
+    DirectoryUploadError,
+    InvalidRequestError,
+    local_problem,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -63,7 +68,7 @@ async def upload(client: AsyncSynthClient, descriptor: int, arguments: dict[str,
     return json.dumps({"idempotency_key": key, "files": [f.model_dump(mode="json") for f in files]})
 
 
-def failure(error: DirectoryUploadError) -> str:
+def failure(error: DirectoryUploadError | DirectoryUploadCancelledError) -> str:
     return json.dumps(
         {
             "code": error.code,

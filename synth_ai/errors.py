@@ -259,10 +259,23 @@ class DirectoryUploadError(SynthError):
         self.file_idempotency_key = file_idempotency_key
 
 
-class DirectoryUploadCancelledError(DirectoryUploadError, asyncio.CancelledError):
+class DirectoryUploadCancelledError(asyncio.CancelledError):
     """Cancellation retains directory custody while remaining a CancelledError."""
 
     code = "directory_upload_cancelled"
+
+    def __init__(
+        self,
+        name: str,
+        completed_files: tuple[File, ...],
+        idempotency_key: str,
+        file_idempotency_key: str,
+    ) -> None:
+        super().__init__(f"Directory upload cancelled at {name}")
+        self.name = name
+        self.completed_files = completed_files
+        self.idempotency_key = idempotency_key
+        self.file_idempotency_key = file_idempotency_key
 
 
 class ResponseContractError(SwarmsAPIError):

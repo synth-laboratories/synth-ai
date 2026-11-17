@@ -7,7 +7,7 @@ import pytest
 
 from synth_ai import AsyncSynthClient
 from synth_ai._directory_source import DirectorySnapshot
-from synth_ai.errors import DirectoryUploadError
+from synth_ai.errors import DirectoryUploadCancelledError, DirectoryUploadError
 
 
 def manifest(contract, name, content):
@@ -180,8 +180,37 @@ async def test_cancellation_during_api_call_closes_snapshot(tmp_path, monkeypatc
             task.cancel()
             with pytest.raises(asyncio.CancelledError) as caught:
                 await task
-            assert isinstance(caught.value, DirectoryUploadError)
+            assert isinstance(caught.value, DirectoryUploadCancelledError)
             assert caught.value.idempotency_key == "cancelled-batch"
             assert caught.value.name == "task.md"
             assert caught.value.completed_files == ()
     assert snapshots[0].stream.closed
+
+
+async def test_cancellation_retains_previously_committed_file(contract, tmp_path):
+    (tmp_path / "a.bin").write_bytes(b"\0\xff")
+    (tmp_path / "b.bin").write_bytes(b"pending")
+
+    async def handle(request):
+        body = json.loads(request.content)
+        if body["name"] == "b.bin":
+            raise asyncio.CancelledError()
+        return httpx.Response(
+            201,
+            json={
+                "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+                "state": "committed",
+                "file": manifest(contract, "a.bin", b"\0\xff"),
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://api.example.test", http_client=http
+        ) as client:
+            with pytest.raises(DirectoryUploadCancelledError) as caught:
+                await client.swarms.upload_directory(str(tmp_path), idempotency_key="cancel-batch")
+    assert [file.name for file in caught.value.completed_files] == ["a.bin"]
+    assert caught.value.name == "b.bin"
+    assert caught.value.idempotency_key == "cancel-batch"
+    assert not isinstance(caught.value, Exception)

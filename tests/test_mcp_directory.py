@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from synth_ai._directory_source import DirectorySnapshot
-from synth_ai.errors import DirectoryUploadCancelledError, DirectoryUploadError, InvalidRequestError
+from synth_ai.errors import DirectoryUploadCancelledError, InvalidRequestError
 from synth_ai.mcp import directory
 from synth_ai.mcp.server import call_tool
 
@@ -84,7 +84,7 @@ async def test_granted_tool_uses_borrowed_descriptor():
 def test_cancellation_remains_cancellation_with_retry_custody():
     error = DirectoryUploadCancelledError("b.bin", (), "batch", "file-key")
     assert isinstance(error, asyncio.CancelledError)
-    assert isinstance(error, DirectoryUploadError)
+    assert not isinstance(error, Exception)
     assert json.loads(directory.failure(error)) == {
         "code": "directory_upload_cancelled",
         "name": "b.bin",

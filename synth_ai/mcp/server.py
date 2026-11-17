@@ -14,6 +14,7 @@ from pydantic import BaseModel, JsonValue
 from ..aclient import AsyncSynthClient
 from ..environments import Environment
 from ..errors import (
+    DirectoryUploadCancelledError,
     DirectoryUploadError,
     InvalidRequestError,
     SwarmsAPIError,
@@ -110,7 +111,7 @@ async def _serve(*, environment: Environment | None, upload_descriptor: int | No
                 content = await call_tool(
                     client, name, arguments, upload_descriptor=upload_descriptor
                 )
-            except DirectoryUploadError as error:
+            except (DirectoryUploadError, DirectoryUploadCancelledError) as error:
                 return CallToolResult(
                     isError=True, content=[TextContent(type="text", text=directory.failure(error))]
                 )
