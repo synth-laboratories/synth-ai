@@ -301,7 +301,7 @@ def message_oversize(context: JourneyContext) -> StepReceipt:
         )
     )
     return expect_refusal(
-        context, step, outcome, codes=frozenset({"run_message_too_large"}), status=422
+        context, step, outcome, codes=frozenset({"message_too_large"}), status=422
     )
 
 
@@ -314,7 +314,7 @@ def message_rate(context: JourneyContext) -> StepReceipt:
         return missing(context, step, "recorded_rate_limited_message_run")
     outcome = context.surface.call(question_call(value, value.rate_limited_run_id, "rate"))
     checked = expect_refusal(
-        context, step, outcome, codes=frozenset({"rate_limit_exceeded"}), status=429
+        context, step, outcome, codes=frozenset({"run_message_rate_limited"}), status=429
     )
     if checked.verdict != Verdict.PASS:
         return checked

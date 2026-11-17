@@ -97,11 +97,11 @@ class ScriptedSurface:
             if run == "run_terminal":
                 return self.problem(call.operation, "run_not_accepting_messages", 409, run)
             if len(str(call.body["text"]).encode()) > MESSAGE_BYTES_MAX:
-                return self.problem(call.operation, "run_message_too_large", 422, run)
+                return self.problem(call.operation, "message_too_large", 422, run)
             if run == "run_rate":
                 return self.problem(
                     call.operation,
-                    "rate_limit_exceeded",
+                    "run_message_rate_limited",
                     429,
                     run,
                     retryable=True,
