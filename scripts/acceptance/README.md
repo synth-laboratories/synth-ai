@@ -156,11 +156,12 @@ on a local timeout. A fresh, running cached fixture must be parked before its
 recorded customer input. An existing customer message cannot substitute for a
 new mid-run send. Retained events are read with bounded cursor pages.
 
-The currently published contract lacks sendRunMessage/listRunMessages/
-getRunMessage. Those operations and their SDK/CLI/MCP mappings must be published
-by SYN-5744/5745 before live execution; capability validation currently refuses.
-Browser message interaction remains a SYN-5746 adapter gap. Offline fake-surface
-checks prove step logic only, not wire transport or installed acceptance.
+This candidate includes the held1.36 contract and SDK/CLI/MCP message mappings.
+The shared owner must publish and integrate that coherent contract before live
+execution. Browser message interaction remains a SYN-5747 adapter gap; Console
+selectors and the seeded Bombadil source are prepared by SYN-5746. Offline
+fake-surface tests check step logic. Separate owned fake-HTTP tests exercise the
+actual SDK methods and CLI child routes, without Core or installed acceptance.
 
 The batch owner supplies one mode0600 fixture per fresh driver run, at most64KiB:
 
@@ -189,7 +190,7 @@ execution and preserve it with the receipts; changing an expected delivery
 position after capture is a failure. Question/reply text stays out of step and
 gate receipts. The rate fixture must already have consumed its message-hour
 quota; this driver does not manufacture20 accepted messages during locked replay.
-It requires `rate_limit_exceeded`429 with Overload code RateLimited, limit
+It requires `run_message_rate_limited`429 with Overload code RateLimited, limit
 `run_messages_per_hour`, retryable true and matching positive Retry-After.
 
 After the source gaps above are complete, the batch owner may invoke a single
@@ -212,5 +213,14 @@ reconciliation; step receipts alone do not establish zero cache misses or spend.
 
 The send input uses `{kind, text}` as required by SYN-5744. Isolation binds every
 history entry to `customer_thread_id`; actor updates in that customer-visible
-thread are allowed. An actor sender alone does not identify an internal thread.
+thread are allowed. The canonical author is customer, manager or actor:<role>. Replies are posted
+manager output with exact reply_to_message_id; customer lifecycle receipts keep
+the recorded decision step.
 The exact published message schema remains a C4 prerequisite.
+
+
+The SDK and CLI launch adapters also forward continue_from unchanged. A request
+with an explicit non-string parent fails before a launch; it cannot turn into an
+ordinary launch by omission. Four owned fake-HTTP adapter tests cover the three
+message routes and parent forwarding, in addition to the scripted journey tests.
+These tests make no successful-continuation or installed-service claim.

@@ -41,6 +41,7 @@ class ScriptedSurface:
         self.rate_limit = "run_messages_per_hour"
         self.refusal_outcome = "not_accepted"
         self.preexisting_question = False
+        self.history_availability = {"kind": "available"}
 
     def problem(self, operation, code, status, run_id, **extra):
         body = {
@@ -137,7 +138,11 @@ class ScriptedSurface:
             return Outcome(call.operation, True, self.message())
         if call.operation == "listRunMessages":
             if self.sends == 0 and not self.preexisting_question:
-                return Outcome(call.operation, True, {"items": [], "has_more": False})
+                return Outcome(
+                    call.operation,
+                    True,
+                    {"items": [], "has_more": False, "availability": self.history_availability},
+                )
             items = [
                 self.message(),
                 {
@@ -153,7 +158,11 @@ class ScriptedSurface:
             ]
             if self.leak_internal:
                 items.append({"message_id": "internal_fixture", "author": "actor:worker"})
-            return Outcome(call.operation, True, {"items": items, "has_more": False})
+            return Outcome(
+                call.operation,
+                True,
+                {"items": items, "has_more": False, "availability": self.history_availability},
+            )
         raise AssertionError(call.operation)
 
 
@@ -386,3 +395,21 @@ def test_reply_must_be_posted_manager_output(context):
 
     surface.call = wrongly_queued
     assert messages.message_question(ctx).cause == "manager_reply_missing_or_duplicated"
+
+
+@pytest.mark.parametrize(
+    "availability,verdict",
+    [
+        ({"kind": "unavailable", "reason": "messaging_unavailable"}, Verdict.INCONCLUSIVE),
+        (None, Verdict.FAIL),
+        ({"kind": "unknown"}, Verdict.FAIL),
+    ],
+)
+def test_unavailable_or_invalid_history_never_proves_empty_fresh_thread(
+    context, availability, verdict
+):
+    ctx, surface, _ = context
+    surface.history_availability = availability
+    result = messages.message_question(ctx)
+    assert result.verdict == verdict
+    assert not any(call.operation == "sendRunMessage" for call in surface.calls)

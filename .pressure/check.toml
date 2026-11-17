@@ -88,8 +88,8 @@ remedy = "Bind the operation through a public SDK method, the CLI and MCP dispat
 id = "recorded_message_driver_integrity"
 description = "Message fixtures keep immutable replay identity and receipts omit body text"
 severity = "error"
-require_paths = ["scripts/acceptance/message_fixture.py", "scripts/acceptance/message_journey.py", "tests/acceptance/test_message_journey_offline.py"]
-command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests/acceptance/test_message_journey_offline.py"
+require_paths = ["scripts/acceptance/message_fixture.py", "scripts/acceptance/message_journey.py", "tests/acceptance/test_message_journey_offline.py", "tests/acceptance/test_message_surface_bindings.py"]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests/acceptance/test_message_journey_offline.py tests/acceptance/test_message_surface_bindings.py"
 command_timeout_seconds = 100
 remedy = "Restore frozen fixture hashes, fresh-run checks, typed refusals and body redaction. These are scripted-surface checks, not installed transport/browser/replay acceptance."
 
