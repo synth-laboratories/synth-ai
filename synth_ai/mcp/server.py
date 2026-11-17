@@ -7,6 +7,8 @@ import asyncio
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import httpx
+    from mcp.server import Server
     from mcp.types import CallToolResult, TextContent, Tool
 
 from pydantic import BaseModel, JsonValue
@@ -74,59 +76,82 @@ def validate_arguments(
         )
 
 
-async def serve(*, environment: Environment | None = None, upload_root: str | None = None) -> None:
+async def serve(
+    *,
+    environment: Environment | None = None,
+    upload_root: str | None = None,
+    http_client: httpx.AsyncClient | None = None,
+) -> None:
+    """Serve the catalog on stdio.
+
+    `http_client` lets a harness route the public calls through its own
+    transport (for example a cached replay grant) while the stdio framing, tool
+    validation and dispatch stay this server's own.
+    """
     with directory.grant_root(upload_root) as descriptor:
-        await _serve(environment=environment, upload_descriptor=descriptor)
+        await _serve(environment=environment, upload_descriptor=descriptor, http_client=http_client)
 
 
-async def _serve(*, environment: Environment | None, upload_descriptor: int | None) -> None:
+async def _serve(
+    *,
+    environment: Environment | None,
+    upload_descriptor: int | None,
+    http_client: httpx.AsyncClient | None = None,
+) -> None:
+    try:
+        from mcp.server.stdio import stdio_server
+    except ImportError as error:
+        raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
+    async with AsyncSynthClient(environment=environment, http_client=http_client) as client:
+        server = build_server(client, upload_descriptor=upload_descriptor)
+        async with stdio_server() as (reader, writer):
+            await server.run(reader, writer, server.create_initialization_options())
+
+
+def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> Server:
+    """The MCP server bound to an open client; the caller owns the client's lifetime."""
     try:
         from mcp.server import Server
-        from mcp.server.stdio import stdio_server
         from mcp.types import CallToolResult, TextContent, Tool
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
     server = Server("synth")
-    async with AsyncSynthClient(environment=environment) as client:
 
-        async def list_tools() -> list[Tool]:
-            catalog = [
-                Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
-                for t in TOOLS
-            ]
-            if upload_descriptor is not None:
-                catalog.append(
-                    Tool(
-                        name=directory.NAME,
-                        description=directory.DESCRIPTION,
-                        inputSchema=directory.SCHEMA,
-                    )
+    async def list_tools() -> list[Tool]:
+        catalog = [
+            Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
+            for t in TOOLS
+        ]
+        if upload_descriptor is not None:
+            catalog.append(
+                Tool(
+                    name=directory.NAME,
+                    description=directory.DESCRIPTION,
+                    inputSchema=directory.SCHEMA,
                 )
-            return catalog
+            )
+        return catalog
 
-        async def invoke(
-            name: str, arguments: dict[str, JsonValue]
-        ) -> list[TextContent] | CallToolResult:
-            try:
-                content = await call_tool(
-                    client, name, arguments, upload_descriptor=upload_descriptor
-                )
-            except (DirectoryUploadError, DirectoryUploadCancelledError) as error:
-                return CallToolResult(
-                    isError=True, content=[TextContent(type="text", text=directory.failure(error))]
-                )
-            except SwarmsAPIError as error:
-                return CallToolResult(
-                    isError=True,
-                    content=[TextContent(type="text", text=error.problem.model_dump_json())],
-                )
-            return [TextContent(type="text", text=content)]
+    async def invoke(
+        name: str, arguments: dict[str, JsonValue]
+    ) -> list[TextContent] | CallToolResult:
+        try:
+            content = await call_tool(client, name, arguments, upload_descriptor=upload_descriptor)
+        except (DirectoryUploadError, DirectoryUploadCancelledError) as error:
+            return CallToolResult(
+                isError=True, content=[TextContent(type="text", text=directory.failure(error))]
+            )
+        except SwarmsAPIError as error:
+            return CallToolResult(
+                isError=True,
+                content=[TextContent(type="text", text=error.problem.model_dump_json())],
+            )
+        return [TextContent(type="text", text=content)]
 
-        server.list_tools()(list_tools)
-        # call_tool validates input itself so refusals are Problems, not schema text.
-        server.call_tool(validate_input=False)(invoke)
-        async with stdio_server() as (reader, writer):
-            await server.run(reader, writer, server.create_initialization_options())
+    server.list_tools()(list_tools)
+    # call_tool validates input itself so refusals are Problems, not schema text.
+    server.call_tool(validate_input=False)(invoke)
+    return server
 
 
 def main() -> None:
