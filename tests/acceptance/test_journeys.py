@@ -226,10 +226,18 @@ def test_overload_surfaces_retryable_after_bounded_retries(tmp_path, surface):
 def test_index_is_refused_on_every_surface(tmp_path, surface):
     def responder(method, path, _):
         assert path.startswith("/v1/index/")
-        return 404, problem("route_not_found", 404), {}
+        return 404, problem("index_not_available", 404), {}
 
     result, _ = run(surface, responder, tmp_path, Step.INDEX)
     assert result.verdict == Verdict.PASS, result
+
+
+def test_generic_route_miss_for_index_is_not_a_typed_refusal(tmp_path):
+    def responder(method, path, _):
+        return 404, problem("route_not_found", 404), {}
+
+    result, _ = run(SurfaceName.SDK, responder, tmp_path, Step.INDEX)
+    assert result.verdict == Verdict.FAIL, result
 
 
 def test_missing_precondition_is_inconclusive_without_requests(tmp_path):

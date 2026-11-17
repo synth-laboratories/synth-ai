@@ -680,6 +680,27 @@ def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None
         print(code + ": " + detail, file=sys.stderr, flush=True)
 
 
+# Core answers /v1/index/* with 404 index_not_available; the CLI names the same code
+# locally, before any request, since it has no Index command (SYN-5666).
+INDEX_NOT_AVAILABLE = (
+    "Index is not available on the Swarms API; launch a run with files and a message."
+)
+
+
+# Root options that take a value; the command is the first token after them.
+ROOT_VALUE_OPTIONS = frozenset({"--base-url", "--env"})
+
+
+def index_requested(raw: Sequence[str]) -> bool:
+    tokens = iter(raw)
+    for item in tokens:
+        if item in ROOT_VALUE_OPTIONS:
+            next(tokens, None)
+        elif not item.startswith("-"):
+            return item == "index"
+    return False
+
+
 def upgrade_hint(error: UpgradeRequiredError) -> str:
     minimum = "" if error.minimum_version is None else f" (minimum {error.minimum_version})"
     return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
@@ -691,7 +712,10 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     try:
         args = parser().parse_args(raw)
     except UsageError as error:
-        fail("usage_error", str(error), as_json)
+        if index_requested(raw):
+            fail("index_not_available", INDEX_NOT_AVAILABLE, as_json)
+        else:
+            fail("usage_error", str(error), as_json)
         return EXIT_CLIENT_ERROR
     try:
         if args.command in {"login", "logout"}:

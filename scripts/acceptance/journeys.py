@@ -936,11 +936,11 @@ def index(context: JourneyContext) -> StepReceipt:
             problem=comparable(problem) if isinstance(problem, dict) else None,
         )
         return expect_refusal(
-            context, step, outcome, codes=frozenset({"route_not_found"}), status=404
+            context, step, outcome, codes=frozenset({"index_not_available"}), status=404
         )
     if isinstance(context.surface, CLISurface):
         outcome = context.surface.run("index_search", ["index", "search", "syn5695"])
-        return expect_refusal(context, step, outcome, codes=frozenset({"usage_error"}))
+        return expect_refusal(context, step, outcome, codes=frozenset({"index_not_available"}))
     assert isinstance(context.surface, MCPSurface)
     listed = "index_search" in context.surface.available
     outcome = context.surface.caller.call("index_search", {"query": "syn5695"})

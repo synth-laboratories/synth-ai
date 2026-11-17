@@ -206,6 +206,10 @@ deadline; a server delay outside the remaining budget surfaces the refusal.
   Use the version published by the current catalog.
 - `launch_request_too_large`: the serialized launch exceeds the server's limit.
   Shorten the message or upload long material as files referenced by the launch.
+- `index_not_available` (404): Index requests are not served by the Swarms API in
+  this release. Core answers it for `/v1/index` routes and the CLI prints it for
+  `synth index ...` without sending a request. Launch a run with files and a
+  message instead; retrying will not help.
 - `route_not_found`: the requested API route is not served. Check the origin and
   current contract; retired products have no replacement route at that URL.
 - `billing_admin_required`: the operation requires an organization admin or owner.

@@ -178,6 +178,30 @@ def test_run_requires_a_goal(api, capsys):
     assert api.calls == []
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ("index", "search", "q"),
+        ("--json", "index"),
+        ("index",),
+        ("--env", "local", "index", "--json"),
+    ],
+)
+def test_index_is_a_typed_local_refusal(api, capsys, argv):
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == ""
+    if "--json" in argv:
+        assert json.loads(err)["code"] == "index_not_available"
+    else:
+        assert err.startswith("index_not_available: ")
+    assert api.calls == []
+
+
+def test_index_as_an_option_value_stays_a_usage_error(api, capsys):
+    code, _, err = invoke(api, capsys, "--base-url", "index")
+    assert code == cli.EXIT_CLIENT_ERROR and err.startswith("usage_error: ")
+
+
 def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, tmp_path):
     content = b"# Notes\n"
     path = tmp_path / "notes.md"
