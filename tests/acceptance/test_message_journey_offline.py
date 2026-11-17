@@ -22,6 +22,7 @@ ANSWER = "The recorded fixture selected artifact alpha."
 RUN = "run_fixture"
 MESSAGE = "message_fixture"
 RECORDING = "a" * 64
+THREAD = "customer_thread_fixture"
 
 
 class ScriptedSurface:
@@ -63,6 +64,7 @@ class ScriptedSurface:
         return {
             "message_id": MESSAGE,
             "run_id": RUN,
+            "thread_id": THREAD,
             "kind": "question",
             "sender": {"kind": "customer"},
             "body": {"kind": "available", "text": QUESTION},
@@ -94,7 +96,7 @@ class ScriptedSurface:
         if call.operation == "sendRunMessage":
             if run == "run_terminal":
                 return self.problem(call.operation, "run_not_accepting_messages", 409, run)
-            if len(str(call.body["body"]).encode()) > MESSAGE_BYTES_MAX:
+            if len(str(call.body["text"]).encode()) > MESSAGE_BYTES_MAX:
                 return self.problem(call.operation, "run_message_too_large", 422, run)
             if run == "run_rate":
                 return self.problem(
@@ -140,6 +142,7 @@ class ScriptedSurface:
                 self.message(),
                 {
                     "message_id": "reply_fixture",
+                    "thread_id": THREAD,
                     "reply_to_message_id": MESSAGE,
                     "sender": {"kind": "manager"},
                     "body": self.reply_body,
@@ -164,6 +167,7 @@ def context(tmp_path):
     value = {
         "schema": "synth.journeys.message-fixture.v1",
         "run_id": RUN,
+        "customer_thread_id": THREAD,
         "recording_sha256": RECORDING,
         "question": QUESTION,
         "question_sha256": messages.sha256(QUESTION),
@@ -273,7 +277,7 @@ def test_terminal_and_utf8_byte_limit_refusals(context):
     ctx, surface, _ = context
     assert messages.message_terminal(ctx).verdict == Verdict.PASS
     assert messages.message_oversize(ctx).verdict == Verdict.PASS
-    oversized = surface.calls[-1].body["body"]
+    oversized = surface.calls[-1].body["text"]
     assert len(oversized) < 8192 < len(oversized.encode())
 
 
@@ -323,3 +327,27 @@ def test_event_surface_adapters_keep_cursor_and_limit():
         "--cursor",
         "checkpoint",
     ]
+
+
+def test_customer_thread_actor_updates_are_allowed_but_other_threads_refuse(context):
+    ctx, surface, _ = context
+    assert messages.message_question(ctx).verdict == Verdict.PASS
+    original = surface.call
+    actor_thread = THREAD
+
+    def with_actor(call):
+        result = original(call)
+        if call.operation == "listRunMessages":
+            result.value["items"].append(
+                {
+                    "message_id": "actor_update",
+                    "thread_id": actor_thread,
+                    "sender": {"kind": "actor", "role": "worker"},
+                }
+            )
+        return result
+
+    surface.call = with_actor
+    assert messages.message_isolation(ctx).verdict == Verdict.PASS
+    actor_thread = "other_thread"
+    assert messages.message_isolation(ctx).cause == "internal_thread_message_leaked"

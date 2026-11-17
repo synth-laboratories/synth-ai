@@ -168,6 +168,7 @@ The batch owner supplies one mode0600 fixture per fresh driver run, at most64KiB
 {
   "schema": "synth.journeys.message-fixture.v1",
   "run_id": "CURRENT_RUN",
+  "customer_thread_id": "CURRENT_RUN_MANAGER_THREAD_ID",
   "recording_sha256": "<64 lowercase hex>",
   "question": "The exact recorded question",
   "question_sha256": "<SHA256 of UTF-8 question bytes>",
@@ -208,3 +209,8 @@ SDK, CLI, MCP and browser; its message_journey GateScope cannot replace a full
 T1/T2 denominator. W15 retains staging execution/adapter ownership. Retain
 independent locked-cache miss/forward counters, cohort identities and supplier
 reconciliation; step receipts alone do not establish zero cache misses or spend.
+
+The send input uses `{kind, text}` as required by SYN-5744. Isolation binds every
+history entry to `customer_thread_id`; actor updates in that customer-visible
+thread are allowed. An actor sender alone does not identify an internal thread.
+The exact published message schema remains a C4 prerequisite.

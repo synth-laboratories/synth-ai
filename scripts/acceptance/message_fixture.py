@@ -28,6 +28,7 @@ def digest(value: object) -> bool:
 @dataclass(frozen=True, slots=True)
 class MessageFixture:
     run_id: str
+    customer_thread_id: str
     recording_sha256: str
     question: str
     question_sha256: str
@@ -50,6 +51,7 @@ class MessageFixture:
         required = {
             "schema",
             "run_id",
+            "customer_thread_id",
             "recording_sha256",
             "question",
             "question_sha256",
@@ -81,7 +83,7 @@ class MessageFixture:
         position = value["delivery_decision_step"]
         if type(position) is not int or position <= 0:
             raise ValueError("message_fixture_position_invalid")
-        for name, maximum in (("run_id", 128), ("event_cursor", 2048)):
+        for name, maximum in (("run_id", 128), ("customer_thread_id", 128), ("event_cursor", 2048)):
             if not isinstance(value[name], str) or not 1 <= len(value[name]) <= maximum:
                 raise ValueError("message_fixture_identity_invalid")
         ids = value["internal_message_ids"]

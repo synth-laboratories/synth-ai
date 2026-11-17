@@ -63,7 +63,7 @@ def question_call(value: MessageFixture, run_id: str, case: str) -> Call:
     return Call(
         "sendRunMessage",
         path={"run_id": run_id},
-        body={"kind": "question", "body": value.question},
+        body={"kind": "question", "text": value.question},
         idempotency_key=key(value, case),
     )
 
@@ -203,6 +203,7 @@ def _read_answer(
         not read.accepted
         or read_message.get("message_id") != message_id
         or read_message.get("run_id") != value.run_id
+        or read_message.get("thread_id") != value.customer_thread_id
         or read_state.get("kind") != "disposed"
         or read_state.get("decision_step") != observed.decision_step
         or obj(read_state.get("disposition")).get("kind") != "answered"
@@ -295,7 +296,7 @@ def message_oversize(context: JourneyContext) -> StepReceipt:
         Call(
             "sendRunMessage",
             path={"run_id": value.run_id},
-            body={"kind": "question", "body": "🙂" * 2049},
+            body={"kind": "question", "text": "🙂" * 2049},
             idempotency_key=key(value, "oversize"),
         )
     )
@@ -393,7 +394,8 @@ def message_isolation(context: JourneyContext) -> StepReceipt:
     if any(
         item.get("message_id") in value.internal_message_ids
         or item.get("visibility") == "internal"
-        or obj(item.get("sender")).get("kind") not in {"customer", "manager"}
+        or item.get("thread_id") != value.customer_thread_id
+        or obj(item.get("sender")).get("kind") not in {"customer", "manager", "actor"}
         for item in messages
     ):
         return receipt(context, step, Verdict.FAIL, "internal_thread_message_leaked", *outcomes)
