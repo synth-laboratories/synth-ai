@@ -148,8 +148,6 @@ def parse_resources(path: str | None) -> list[OwnerResourceRequest] | None:
         raise UsageError(
             "--resources must be a JSON array of resource requests: " + where + ": " + first["msg"]
         ) from error
-    if not resources:
-        raise UsageError("--resources must name at least one resource request")
     return resources
 
 
