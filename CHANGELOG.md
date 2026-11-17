@@ -4,6 +4,10 @@
 
 Changes here describe the new Swarms product. Historical releases remain in Git history.
 
+- Contract 1.35.0: `account.redeem_promo`, `synth promo redeem` and the
+  `account_promo_redeem` MCP tool redeem a promotional code (SYN-5752). A trial
+  campaign's redemption carries `trial` (plan and fixed start/end).
+
 ## 0.41.0rc1 — source candidate
 
 This checkout does not attest publication or installed acceptance. The exact Core

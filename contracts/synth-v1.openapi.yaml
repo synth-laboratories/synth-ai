@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.34.0
+  version: 1.35.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -136,11 +136,11 @@ paths:
       tags:
       - account
       operationId: acceptTerms
-      x-synth-mcp-name: account_terms_accept
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_terms_accept
       x-synth-status: implemented
       x-synth-legacy-path: /v1/account/terms-acceptance
       summary: Record the org's acceptance of a terms version (idempotent per version).
@@ -231,11 +231,11 @@ paths:
       tags:
       - api-keys
       operationId: listApiKeys
-      x-synth-mcp-name: account_api_keys_list
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_keys_list
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: List the caller's personal and automation keys (session only).
@@ -305,11 +305,11 @@ paths:
       tags:
       - api-keys
       operationId: createApiKey
-      x-synth-mcp-name: account_api_key_create
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_api_key_create
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: Mint a key. The secret is returned once (session only).
@@ -387,11 +387,11 @@ paths:
       tags:
       - api-keys
       operationId: revokeApiKey
-      x-synth-mcp-name: account_api_key_revoke
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_key_revoke
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Revoke a key (idempotent, session only).
@@ -452,11 +452,11 @@ paths:
       tags:
       - api-keys
       operationId: updateApiKey
-      x-synth-mcp-name: account_api_key_update
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_key_update
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Replace a key's scopes (optimistic on authorization_version, session only).
@@ -557,11 +557,11 @@ paths:
       tags:
       - api-keys
       operationId: rotateApiKey
-      x-synth-mcp-name: account_api_key_rotate
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_api_key_rotate
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}/rotate
       summary: Revoke a key and mint its replacement in the same rotation family (session only).
@@ -2274,15 +2274,15 @@ paths:
       - runs
       operationId: getRunOutputContent
       x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-mcp-name: swarms_run_output_content
       # The 200 body is bytes; MCP returns McpOutputContent instead (text as UTF-8 when the media
       # type is textual and the bytes are valid UTF-8, otherwise base64). Over
       # McpOutputContent.byte_size.maximum the tool refuses with output_content_too_large_for_mcp
       # and names this operation's HTTP download.
       x-synth-mcp-result: McpOutputContent
-      x-synth-retry: "safe_read"
-      x-synth-idempotency: "safe_read"
-      x-synth-idempotency-key: false
       summary: The output's bytes at the revision and digest read from its record.
       description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox
         CSP). `422 output_revision_required` unless exactly `revision_id` and `digest_sha256` are given;
@@ -2737,11 +2737,11 @@ paths:
       tags:
       - usage
       operationId: getUsageSummary
-      x-synth-mcp-name: account_usage_summary
       x-synth-scope: "account:usage:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_usage_summary
       x-synth-status: implemented
       x-synth-source: core/internal/public/usage/http.go
       summary: Rollup of the caller's settled charge-usage rows by day, source and key.
@@ -2945,11 +2945,11 @@ paths:
       tags:
       - limits
       operationId: listLimits
-      x-synth-mcp-name: account_limits_list
       x-synth-scope: "account:limits:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_limits_list
       x-synth-status: implemented
       x-synth-source: core/internal/public/limits/http.go
       summary: The caller's plan limits with current use and reset times.
@@ -3014,16 +3014,99 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/limits
+  /v1/promotions/redeem:
+    post:
+      tags:
+      - account
+      operationId: redeemPromo
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: account_promo_redeem
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/promotions/redeem
+      summary: Redeem a promotional code for this organization.
+      description: Code is exact and case-sensitive. One redemption per campaign and org. Same-key retries
+        replay; a new key after success returns promo_already_redeemed. Unknown and expired codes share
+        promo_code_unknown. Shared org/IP rate windows fail closed. Promotional credit is non-refundable
+        and expires at the grant expiry. A plan trial runs from redemption without pausing; a paid
+        subscription outranks it, and at expiry the plan returns to the owner assignment or Free. A second
+        unexpired trial refuses with promo_trial_active; an internal org refuses with promo_trial_not_applicable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoRedeemRequest'
+      responses:
+        '201':
+          description: Promotional benefits applied atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoRedemption'
+              example:
+                redemption_id: 20000000-0000-4000-8000-000000000001
+                campaign_id: 20000000-0000-4000-8000-000000000002
+                org_id: 20000000-0000-4000-8000-000000000003
+                redeemed_at: '2026-11-17T00:00:00Z'
+                grant_ids:
+                - 20000000-0000-4000-8000-000000000004
+                override_ids: []
+                replayed: false
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/promotions/http.go
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
   /v1/plan-requests:
     post:
       tags:
       - account
       operationId: requestSpecialFree
-      x-synth-mcp-name: account_plan_request_create
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_plan_request_create
       x-synth-status: implemented
       x-synth-legacy-path: /v1/plan-requests
       summary: Ask for owner review to move this org to Special Free.
@@ -3096,11 +3179,11 @@ paths:
       tags:
       - account
       operationId: listPlanRequests
-      x-synth-mcp-name: account_plan_requests_list
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_plan_requests_list
       x-synth-status: implemented
       x-synth-legacy-path: /v1/plan-requests
       summary: List this org's plan requests, newest first (at most 100).
@@ -3164,11 +3247,11 @@ paths:
       tags:
       - account
       operationId: withdrawPlanRequest
-      x-synth-mcp-name: account_plan_request_withdraw
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_plan_request_withdraw
       x-synth-status: implemented
       x-synth-legacy-path: /v1/plan-requests/{request_id}
       summary: Withdraw this org's pending plan request.
@@ -3242,14 +3325,14 @@ paths:
       - billing
       operationId: listPlans
       x-synth-scope: ""
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
       x-synth-mcp-name: account_billing_plans_list
       # Public tool class: the operation is unauthenticated (security: [] and no scope), so the
       # tool carries no scope check. The domain names the scheme prefix a scope would have given.
       x-synth-mcp-access: public
       x-synth-mcp-domain: account
-      x-synth-retry: "safe_read"
-      x-synth-idempotency: "safe_read"
-      x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       security: []
@@ -3394,11 +3477,11 @@ paths:
       tags:
       - billing
       operationId: listBillingHistory
-      x-synth-mcp-name: account_billing_history
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_history
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Balance movements of the caller's org (ledger entries), newest first, cursor-paged.
@@ -3498,11 +3581,11 @@ paths:
       tags:
       - billing
       operationId: listStatements
-      x-synth-mcp-name: account_billing_statements_list
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_statements_list
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger,
@@ -3592,11 +3675,11 @@ paths:
       tags:
       - billing
       operationId: getCheckout
-      x-synth-mcp-name: account_billing_checkout_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_checkout_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Read one Checkout attempt of the caller's org.
@@ -3675,11 +3758,11 @@ paths:
       tags:
       - billing
       operationId: createCheckout
-      x-synth-mcp-name: account_billing_checkout_create
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_checkout_create
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Create a hosted Stripe Checkout session for a plan or a custom credit amount.
@@ -3760,11 +3843,11 @@ paths:
       tags:
       - billing
       operationId: getSubscription
-      x-synth-mcp-name: account_billing_subscription_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_subscription_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: The caller's org subscription, or null on the Free plan.
@@ -3838,11 +3921,11 @@ paths:
       tags:
       - billing
       operationId: cancelSubscription
-      x-synth-mcp-name: account_billing_subscription_cancel
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_cancel
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Cancel the org subscription at period end (now when past due).
@@ -3920,11 +4003,11 @@ paths:
       tags:
       - billing
       operationId: resumeSubscription
-      x-synth-mcp-name: account_billing_subscription_resume
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_resume
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Resume a subscription whose cancel is pending.
@@ -3999,11 +4082,11 @@ paths:
       tags:
       - billing
       operationId: previewSubscriptionChange
-      x-synth-mcp-name: account_billing_subscription_change_preview
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_subscription_change_preview
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: What switching the org subscription to another plan would charge now.
@@ -4089,11 +4172,11 @@ paths:
       tags:
       - billing
       operationId: changeSubscriptionPlan
-      x-synth-mcp-name: account_billing_subscription_change
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_change
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Switch the org subscription to another plan now.
@@ -4185,11 +4268,11 @@ paths:
       tags:
       - billing
       operationId: createPaymentMethodSession
-      x-synth-mcp-name: account_billing_payment_method_session_create
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_payment_method_session_create
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: Open Stripe's hosted page to update the org's card.
@@ -4262,11 +4345,11 @@ paths:
       tags:
       - billing
       operationId: getAutoReload
-      x-synth-mcp-name: account_billing_auto_reload_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_auto_reload_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: The org's auto-reload setting.
@@ -4365,11 +4448,11 @@ paths:
       tags:
       - billing
       operationId: setAutoReload
-      x-synth-mcp-name: account_billing_auto_reload_set
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_auto_reload_set
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: Save the org's auto-reload setting.
@@ -4476,11 +4559,11 @@ paths:
       tags:
       - billing
       operationId: getSpendAlerts
-      x-synth-mcp-name: account_billing_spend_alerts_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_spend_alerts_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/spend_alerts.go
       summary: The org's spend alert settings and its most recent alert.
@@ -4549,11 +4632,11 @@ paths:
       tags:
       - billing
       operationId: setSpendAlerts
-      x-synth-mcp-name: account_billing_spend_alerts_set
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_spend_alerts_set
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/spend_alerts.go
       summary: Replace the org's spend alert settings (org admin only).
@@ -4698,11 +4781,11 @@ paths:
       tags:
       - swarms
       operationId: createUpload
-      x-synth-mcp-name: swarms_upload_create
       x-synth-scope: "swarms:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_upload_create
       summary: Prepare an immutable file upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4741,11 +4824,11 @@ paths:
       tags:
       - swarms
       operationId: getUpload
-      x-synth-mcp-name: swarms_upload_get
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_upload_get
       summary: Read an upload.
       description: Returns the retained upload. A caller with swarms:write also receives a renewed size/digest-bound PUT grant while it is pending. Read-only callers receive no write grant.
       x-synth-status: implemented
@@ -4773,11 +4856,11 @@ paths:
       tags:
       - swarms
       operationId: finalizeUpload
-      x-synth-mcp-name: swarms_upload_finalize
       x-synth-scope: "swarms:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_upload_finalize
       summary: Scan and finalize an upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4848,11 +4931,11 @@ paths:
       tags:
       - swarms
       operationId: listFiles
-      x-synth-mcp-name: swarms_files_list
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_files_list
       summary: List the organization's finalized files.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4878,11 +4961,11 @@ paths:
       tags:
       - swarms
       operationId: getFile
-      x-synth-mcp-name: swarms_file_get
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_file_get
       summary: Read a finalized file manifest.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4908,11 +4991,11 @@ paths:
       tags:
       - usage
       operationId: createUsageExport
-      x-synth-mcp-name: account_usage_export_create
       x-synth-scope: "account:read"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_usage_export_create
       summary: Export settled usage records.
       x-synth-status: implemented
       x-synth-owner: W2-console
@@ -4944,11 +5027,11 @@ paths:
       tags:
       - usage
       operationId: getUsageExport
-      x-synth-mcp-name: account_usage_export_get
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_usage_export_get
       summary: Read an export and its download link.
       x-synth-status: implemented
       x-synth-owner: W2-console
@@ -5106,11 +5189,11 @@ paths:
       tags:
       - swarms
       operationId: getRunProgram
-      x-synth-mcp-name: swarms_run_program
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_program
       summary: Read the admitted program.
       x-synth-status: implemented
       x-synth-owner: W1-controls
@@ -5140,11 +5223,11 @@ paths:
       tags:
       - swarms
       operationId: getRunConfiguration
-      x-synth-mcp-name: swarms_run_configuration
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_configuration
       summary: Read the frozen run configuration.
       x-synth-status: implemented
       x-synth-owner: W1-controls
@@ -5729,6 +5812,101 @@ components:
           oneOf:
           - $ref: '#/components/schemas/BillingAttention'
           - type: 'null'
+        promotional_grants:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/PromotionalGrant"
+    PromoRedeemRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 200
+    PromoRedemption:
+      type: object
+      additionalProperties: false
+      required:
+      - redemption_id
+      - campaign_id
+      - org_id
+      - redeemed_at
+      - grant_ids
+      - override_ids
+      - replayed
+      properties:
+        redemption_id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        redeemed_at:
+          type: string
+          format: date-time
+        grant_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        override_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        trial:
+          $ref: '#/components/schemas/PromoTrialGrant'
+        replayed:
+          type: boolean
+    PromoTrialGrant:
+      type: object
+      additionalProperties: false
+      required:
+      - trial_id
+      - plan_id
+      - starts_at
+      - ends_at
+      properties:
+        trial_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          enum:
+          - standard.monthly
+          - max.monthly
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+    PromotionalGrant:
+      type: object
+      additionalProperties: false
+      required:
+      - grant_id
+      - amount
+      - remaining
+      - expires_at
+      properties:
+        grant_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/Money'
+        remaining:
+          $ref: '#/components/schemas/Money'
+        expires_at:
+          type: string
+          format: date-time
     AccountTerms:
       type: object
       required:

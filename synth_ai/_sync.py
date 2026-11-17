@@ -38,6 +38,7 @@ from ._generated.models import (
     PlanCatalog,
     PlanRequest,
     PlanRequestList,
+    PromoRedemption,
     RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
@@ -653,6 +654,10 @@ class AccountClient:
         self._runner = runner
         self._async = source
         self.api_keys = ApiKeysClient(runner, source.api_keys)
+
+    def redeem_promo(self, code: str, *, idempotency_key: str | None = None) -> PromoRedemption:
+        "Redeem an org-scoped promotion; retries retain the same mutation key."
+        return self._runner.call(self._async.redeem_promo(code, idempotency_key=idempotency_key))
 
     def get(self) -> Account:
         "The caller's org, principal and limits."

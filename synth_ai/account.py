@@ -17,6 +17,8 @@ from ._generated.models import (
     MintedApiKey,
     PlanRequest,
     PlanRequestList,
+    PromoRedeemRequest,
+    PromoRedemption,
     Scope,
     SpecialFreeRequestInput,
     TermsAcceptance,
@@ -103,6 +105,15 @@ class AsyncAccount:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
         self.api_keys = AsyncApiKeys(transport)
+
+    async def redeem_promo(
+        self, code: str, *, idempotency_key: str | None = None
+    ) -> PromoRedemption:
+        """Redeem an org-scoped promotion; retries retain the same mutation key."""
+        body = PromoRedeemRequest(code=code)
+        return await self._transport.request(
+            "redeemPromo", PromoRedemption, body=body, idempotency_key=idempotency_key
+        )
 
     async def get(self) -> Account:
         """The caller's org, principal and limits."""

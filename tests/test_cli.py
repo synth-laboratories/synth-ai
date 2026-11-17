@@ -48,6 +48,7 @@ EXPECTED_COMMANDS = [
     "billing",
     "limits",
     "plan",
+    "promo",
 ]
 
 

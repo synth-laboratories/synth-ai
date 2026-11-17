@@ -1364,6 +1364,42 @@
     },
     {
       "access": "scoped",
+      "description": "Redeem a promotional code for this organization.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "code"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_promo_redeem",
+      "operationId": "redeemPromo",
+      "scope": "account:billing:write"
+    },
+    {
+      "access": "scoped",
       "description": "Ask for owner review to move this org to Special Free.",
       "inputSchema": {
         "additionalProperties": false,
