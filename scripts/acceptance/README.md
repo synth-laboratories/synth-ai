@@ -33,6 +33,21 @@ permissions, and creates no launch-accepted artifact for an observation.
 T0 tests use real public OpenAPI models and local fixture HTTP only. CLI tests
 spawn the real CLI; they are not installed slot, replay or provider proof.
 
+### Mid-run live limits (SYN-5663)
+
+`live_limits.raise_live_limits` takes an authorized `SynthClient`, a running run
+ID, four explicit `LimitTargets`, an owned mutation prefix and a fresh receipt
+directory. Invoke it from the cached journey before waiting for completion. All
+targets must exceed the original caps. Each field changes in its own revision;
+the next limits read must show that revision and preserve every other cap.
+Tokens use `requested_cap` when their effective cap is intentionally null.
+
+The scenario fsyncs each intent before mutation and retains the response and
+next view. An existing directory refuses execution: reconcile an uncertain
+mutation with its saved idempotency key instead of creating a fresh retry.
+The caller retains cohort/cache-grant identity and the provider-spend gate;
+this scenario's receipt proves only the four limit updates and budget views.
+
 CLIDriver accepts an optional owned Python `entrypoint` path for operator replay
 composition. The real child invokes `synth_ai.cli.main(argv, http_client=http)`
 through the public injection seam; the child owns closing the borrowed client.
