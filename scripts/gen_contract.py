@@ -80,6 +80,104 @@ class JSONObject(dict[str, JsonValue]):
         return result
 
 
+def field_name(name: str) -> str:
+    if not name.isidentifier():
+        raise ValueError(f"unsupported schema field name: {name}")
+    return (
+        name + "_"
+        if keyword.iskeyword(name) or name in {"model_config", "schema", "json", "copy"}
+        else name
+    )
+
+
+def constraint_expression(schema: JSONObject, value: str) -> str:
+    """Compile supported refinements against already parsed, typed model fields.
+
+    Unknown constraint vocabulary fails generation instead of weakening the wire
+    contract. Ordinary field types and bounds remain Pydantic's responsibility.
+    """
+    supported = {
+        "$ref",
+        "allOf",
+        "if",
+        "then",
+        "else",
+        "properties",
+        "required",
+        "const",
+        "pattern",
+        "type",
+        "minItems",
+        "contains",
+        "description",
+    }
+    if unknown := schema.keys() - supported:
+        raise ValueError(f"unsupported schema constraint: {sorted(unknown)}")
+    terms: list[str] = []
+    if "$ref" in schema:
+        reference = schema.text("$ref").split("/")[-1]
+        if not reference.isidentifier():
+            raise ValueError("invalid constraint reference")
+        terms.append(f"isinstance({value}, {reference})")
+    for part in schema.object_array("allOf", optional=True):
+        terms.append(constraint_expression(part, value))
+    if "if" in schema:
+        condition = constraint_expression(schema.object("if"), value)
+        accepted = constraint_expression(schema.object("then", optional=True), value)
+        rejected = constraint_expression(schema.object("else", optional=True), value)
+        terms.append(f"({accepted} if {condition} else {rejected})")
+    elif "then" in schema or "else" in schema:
+        raise ValueError("conditional branch without if")
+    for name in schema.strings("required", optional=True):
+        terms.append(f"{name!r} in {value}.model_fields_set")
+    for name, child in schema.objects("properties", optional=True).items():
+        expression = constraint_expression(child, f"{value}.{field_name(name)}")
+        terms.append(f"({name!r} not in {value}.model_fields_set or {expression})")
+    if "const" in schema:
+        terms.append(f"{value} == {schema['const']!r}")
+    if "pattern" in schema:
+        terms.append(f"re.search({schema.text('pattern')!r}, {value}) is not None")
+    if "type" in schema:
+        match schema.text("type"):
+            case "null":
+                terms.append(f"{value} is None")
+            case "number":
+                terms.append(f"isinstance({value}, (int, float)) and not isinstance({value}, bool)")
+            case other:
+                raise ValueError(f"unsupported constraint type: {other}")
+    if "minItems" in schema:
+        minimum = schema["minItems"]
+        if type(minimum) is not int or minimum < 0:
+            raise ValueError("invalid minItems constraint")
+        terms.append(f"len({value}) >= {minimum}")
+    if "contains" in schema:
+        expression = constraint_expression(schema.object("contains"), "item")
+        terms.append(f"any({expression} for item in {value})")
+    return "(" + " and ".join(terms) + ")" if terms else "True"
+
+
+def model_constraints(schema: JSONObject) -> list[str]:
+    constraints = [
+        constraint_expression(part, "self") for part in schema.object_array("allOf", optional=True)
+    ]
+    for name, child in schema.objects("properties", optional=True).items():
+        value = "self." + field_name(name)
+        if "allOf" in child:
+            constraints.append(constraint_expression(child, value))
+        else:
+            for variant in child.object_array("oneOf", optional=True):
+                if "allOf" in variant:
+                    variants = child.object_array("oneOf")
+                    if len(variants) != 2 or not any(
+                        part.get("type") == "null" for part in variants
+                    ):
+                        raise ValueError("unsupported refined union")
+                    constraints.append(
+                        f"({value} is None or {constraint_expression(variant, value)})"
+                    )
+    return constraints
+
+
 def schema_references(value: JsonValue) -> set[str]:
     if isinstance(value, dict):
         found: set[str] = (
@@ -169,13 +267,28 @@ def generate() -> dict[Path, str]:
     def flatten(s: JSONObject) -> JSONObject:
         if "allOf" not in s:
             return s
-        properties: dict[str, JsonValue] = {}
-        required: list[JsonValue] = []
+        merged = JSONObject({key: value for key, value in s.items() if key != "allOf"})
+        properties = dict(s.object("properties", optional=True))
+        required = s.strings("required", optional=True)
+        conditions: list[JsonValue] = []
         for part in s.object_array("allOf"):
+            if "if" in part:
+                conditions.append(part)
+                continue
             part = flatten(resolve(part))
-            properties.update(part.object("properties", optional=True))
-            required.extend(part.array("required", optional=True))
-        return JSONObject({"type": "object", "properties": properties, "required": required})
+            for key, value in part.object("properties", optional=True).items():
+                if key in properties and properties[key] != value:
+                    raise ValueError(f"conflicting allOf property: {key}")
+                properties[key] = value
+            required.extend(part.strings("required", optional=True))
+            conditions.extend(part.array("allOf", optional=True))
+            for key, value in part.items():
+                if key not in {"properties", "required", "allOf"}:
+                    merged.setdefault(key, value)
+        merged.update(type="object", properties=properties, required=list(dict.fromkeys(required)))
+        if conditions:
+            merged["allOf"] = conditions
+        return merged
 
     ops: dict[str, JSONObject] = {}
     for path, item in doc.objects("paths").items():
@@ -418,9 +531,10 @@ def generate() -> dict[Path, str]:
     lines = [
         "# Generated by scripts/gen_contract.py; do not edit.",
         "from __future__ import annotations",
-        "from typing import Annotated, Literal, TypeAlias",
+        "from typing import Annotated, Literal, Self, TypeAlias",
+        "import re",
         "from enum import StrEnum",
-        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue",
+        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
         "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
@@ -460,6 +574,19 @@ def generate() -> dict[Path, str]:
                         + ")"
                     )
                 lines.append("    " + name + ": " + typ + default)
+            constraints = model_constraints(s)
+            if constraints:
+                lines += [
+                    "",
+                    '    @model_validator(mode="after")',
+                    "    def validate_schema_constraints(self) -> Self:",
+                ]
+                for index, expression in enumerate(constraints):
+                    lines += [
+                        f"        if not {expression}:",
+                        f"            raise ValueError({f'{n}: schema constraint {index + 1} failed'!r})",
+                    ]
+                lines += ["        return self"]
             if n == "RunSnapshot":
                 lines += [
                     "    @property",
@@ -496,7 +623,7 @@ def generate() -> dict[Path, str]:
     if aliased_requests or any("(RootModel[" in line for line in lines):
         lines[
             lines.index(
-                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue"
+                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator"
             )
         ] += ", RootModel"
     enum_lines = []
