@@ -177,3 +177,22 @@ def test_dispatch_call_under_wrong_operation_name_fails(tmp_path: Path):
         item.surface == "mcp" and item.operation == "getRun" and item.code == parity.Code.MISSING
         for item in parity.audit(tmp_path)
     )
+
+
+def test_public_mcp_access_needs_an_unauthenticated_operation():
+    domains = frozenset({"account", "swarms"})
+    public = {
+        "x-synth-scope": "",
+        "security": [],
+        "x-synth-mcp-access": "public",
+        "x-synth-mcp-domain": "account",
+    }
+    assert parity.mcp_domain(public, domains) == "account"
+    assert parity.mcp_domain({**public, "x-synth-scope": "account:read"}, domains) is None
+    assert parity.mcp_domain({**public, "security": [{"bearer": []}]}, domains) is None
+    assert parity.mcp_domain({**public, "x-synth-mcp-domain": "public"}, domains) is None
+    unmarked = {"x-synth-scope": "", "security": []}
+    assert parity.mcp_domain(unmarked, domains) is None
+    smuggled = {"x-synth-scope": "swarms:read", "x-synth-mcp-domain": "account"}
+    assert parity.mcp_domain(smuggled, domains) is None
+    assert parity.mcp_domain({"x-synth-scope": "swarms:read"}, domains) == "swarms"

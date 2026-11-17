@@ -191,6 +191,11 @@ class LimitMeterAction(StrEnum):
     NONE = "none"
 
 
+class McpOutputContentEncoding(StrEnum):
+    UTF8 = "utf8"
+    BASE64 = "base64"
+
+
 class MintApiKeyRequestPurpose(StrEnum):
     PERSONAL = "personal"
     AUTOMATION = "automation"
@@ -1002,6 +1007,19 @@ class LimitRow(WireModel):
     cap: float | None
     current: float | None
     reset_at: str | None
+
+
+class McpOutputContent(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    media_type: str
+    byte_size: Annotated[int, Field(ge=0, le=262144)]
+    sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    encoding: Annotated[
+        McpOutputContentEncoding, BeforeValidator(enum_value(McpOutputContentEncoding))
+    ]
+    content: str
 
 
 class Money(WireModel):
@@ -3291,6 +3309,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Limit": Limit,
     "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
+    "McpOutputContent": McpOutputContent,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,

@@ -22,6 +22,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_allocation | getRunAllocation | swarms:read |
 | swarms_run_outputs | listRunOutputs | swarms:read |
 | swarms_run_output_get | getRunOutput | swarms:read |
+| swarms_run_output_content | getRunOutputContent | swarms:read |
 | swarms_run_result | getRunResult | swarms:read |
 | swarms_launch_choices | getLaunchChoices | swarms:read |
 | swarms_families_list | listFamilies | swarms:read |
@@ -32,6 +33,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | account_plan_request_create | requestSpecialFree | account:write |
 | account_plan_requests_list | listPlanRequests | account:read |
 | account_plan_request_withdraw | withdrawPlanRequest | account:write |
+| account_billing_plans_list | listPlans |  |
 | account_billing_balance | getBalance | account:billing:read |
 | account_billing_history | listBillingHistory | account:billing:read |
 | account_billing_statements_list | listStatements | account:billing:read |

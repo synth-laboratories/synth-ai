@@ -38,6 +38,7 @@ from ._generated.models import (
     LaunchChoices,
     LaunchRequest,
     LimitList,
+    McpOutputContent,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
@@ -486,6 +487,16 @@ class SwarmsClient:
         "Read the pinned output revision and verify its SHA-256 digest.\n\nRaises DataIntegrityError if the received bytes differ from the reference."
         return self._runner.call(
             self._async.output_content(
+                run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
+            )
+        )
+
+    def output_inline(
+        self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
+    ) -> McpOutputContent:
+        "Read a pinned output revision as the contract's McpOutputContent.\n\nText when the media type is textual and the bytes are valid UTF-8, otherwise\nbase64. Over MCP_OUTPUT_CONTENT_MAX_BYTES raises OutputContentTooLargeError\n(output_content_too_large_for_mcp); use download_output for larger outputs."
+        return self._runner.call(
+            self._async.output_inline(
                 run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
             )
         )

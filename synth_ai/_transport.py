@@ -134,6 +134,25 @@ class Transport:
     ) -> None:
         await self._transfers().put_upload(grant, content, idempotency_key=idempotency_key)
 
+    async def download(
+        self,
+        operation_id: str,
+        *,
+        path: Mapping[str, str],
+        query: Mapping[str, str],
+        max_bytes: int,
+    ) -> tuple[bytes, str]:
+        """Read a bounded binary operation into memory with its served media type."""
+        if operation_id != "getRunOutputContent":
+            raise ValueError("bounded download supports getRunOutputContent only")
+        return await self._transfers().read_output(
+            path["run_id"],
+            path["output_id"],
+            revision_id=query["revision_id"],
+            digest_sha256=query["digest_sha256"],
+            max_bytes=max_bytes,
+        )
+
     async def download_output(
         self,
         run_id: str,

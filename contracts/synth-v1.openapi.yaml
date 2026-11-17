@@ -2272,6 +2272,12 @@ paths:
       - runs
       operationId: getRunOutputContent
       x-synth-scope: "swarms:read"
+      x-synth-mcp-name: swarms_run_output_content
+      # The 200 body is bytes; MCP returns McpOutputContent instead (text as UTF-8 when the media
+      # type is textual and the bytes are valid UTF-8, otherwise base64). Over
+      # McpOutputContent.byte_size.maximum the tool refuses with output_content_too_large_for_mcp
+      # and names this operation's HTTP download.
+      x-synth-mcp-result: McpOutputContent
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
@@ -3228,6 +3234,11 @@ paths:
       - billing
       operationId: listPlans
       x-synth-scope: ""
+      x-synth-mcp-name: account_billing_plans_list
+      # Public tool class: the operation is unauthenticated (security: [] and no scope), so the
+      # tool carries no scope check. The domain names the scheme prefix a scope would have given.
+      x-synth-mcp-access: public
+      x-synth-mcp-domain: account
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
@@ -10010,6 +10021,45 @@ components:
           description: Per-resource caps for this plan. A cap of -1 means no cap.
           items:
             $ref: '#/components/schemas/Limit'
+    McpOutputContent:
+      type: object
+      description: 'The MCP tool result for getRunOutputContent (swarms_run_output_content). `content`
+        is the bytes as UTF-8 text when `encoding` is `utf8` (the media type is textual and the bytes
+        are valid UTF-8), otherwise standard base64 with padding. `sha256` is computed over the bytes.
+        Outputs over `byte_size.maximum` (262144 bytes) are refused with the tool error code
+        `output_content_too_large_for_mcp` carrying `byte_size`, `max_bytes` and `download_operation`
+        (getRunOutputContent over HTTP).'
+      additionalProperties: false
+      required:
+      - media_type
+      - byte_size
+      - sha256
+      - encoding
+      - content
+      properties:
+        media_type:
+          type: string
+          description: The served Content-Type, parameters included.
+        byte_size:
+          type: integer
+          minimum: 0
+          maximum: 262144
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        encoding:
+          type: string
+          enum:
+          - utf8
+          - base64
+        content:
+          type: string
+      example:
+        media_type: text/plain; charset=utf-8
+        byte_size: 5
+        sha256: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        encoding: utf8
+        content: hello
     PlanCatalog:
       type: object
       required:

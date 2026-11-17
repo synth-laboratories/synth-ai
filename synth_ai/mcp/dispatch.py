@@ -101,6 +101,13 @@ async def dispatch(
                 required(arguments, "run_id", str),
                 required(arguments, "output_id", str),
             )
+        case "getRunOutputContent":
+            return await client.swarms.output_inline(
+                required(arguments, "run_id", str),
+                required(arguments, "output_id", str),
+                revision_id=required(arguments, "revision_id", str),
+                digest_sha256=required(arguments, "digest_sha256", str),
+            )
         case "getRunResult":
             return await client.swarms.result(required(arguments, "run_id", str))
         case "getLaunchChoices":

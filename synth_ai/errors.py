@@ -157,6 +157,36 @@ class UploadFormatUnsupportedError(InvalidRequestError):
     maximum_media_type_bytes: ClassVar[int] = UPLOAD_MEDIA_TYPE_MAX_BYTES
 
 
+class OutputContentTooLargeError(InvalidRequestError):
+    """413 output_content_too_large_for_mcp: the output is over the MCP inline bound.
+
+    The Problem carries `byte_size` (a lower bound when `byte_size_lower_bound`),
+    `max_bytes` and `download_operation`; read it with `download_output` instead.
+    """
+
+
+def output_content_too_large(
+    byte_size: int, max_bytes: int, *, lower_bound: bool
+) -> OutputContentTooLargeError:
+    base = local_problem(
+        "output_content_too_large_for_mcp",
+        "getRunOutputContent",
+        status=413,
+        detail=f"output is {'over ' if lower_bound else ''}{byte_size} bytes; MCP returns at most {max_bytes}. Download it over HTTP (getRunOutputContent).",
+    )
+    return OutputContentTooLargeError(
+        Problem.model_validate(
+            {
+                **base.model_dump(),
+                "byte_size": byte_size,
+                "byte_size_lower_bound": lower_bound,
+                "max_bytes": max_bytes,
+                "download_operation": "getRunOutputContent",
+            }
+        )
+    )
+
+
 class LaunchBudgetBelowActorFloorError(InvalidRequestError):
     """422 launch_budget_below_actor_floor: maximum_charge cannot fund every actor at once.
 

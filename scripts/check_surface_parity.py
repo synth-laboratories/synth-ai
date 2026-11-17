@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-__all__ = ["Finding", "audit", "main"]
+__all__ = ["Finding", "audit", "main", "mcp_domain"]
 ROOT = Path(__file__).resolve().parents[1]
 HTTP_METHODS = frozenset({"get", "post", "patch", "put", "delete", "head", "options"})
 TRANSPORT_METHODS = frozenset({"request", "invoke", "stream", "event_stream", "download"})
@@ -181,13 +181,37 @@ def surface_sources(root: Path, relative: str) -> tuple[Path, ...]:
     return tuple(sorted(visited))
 
 
+def mcp_domain(operation: dict[str, object], scope_domains: frozenset[str]) -> str | None:
+    """The tool-name prefix the contract allows, or None when the operation's MCP access is invalid.
+
+    Mirrors synth-backend public_contract.py: a public tool (x-synth-mcp-access: public) needs an
+    unauthenticated operation (security: [] and an empty scope) and declares an existing scope
+    domain in x-synth-mcp-domain; a scoped operation takes its scope's domain and claims neither key.
+    """
+    scope = str(operation.get("x-synth-scope", ""))
+    access = operation.get("x-synth-mcp-access", "scoped")
+    domain = operation.get("x-synth-mcp-domain")
+    if access == "public":
+        public = scope == "" and operation.get("security") == [] and domain in scope_domains
+        return str(domain) if public else None
+    if access != "scoped" or domain is not None or scope == "" or operation.get("security") == []:
+        return None
+    return scope.split(":")[0]
+
+
 def audit(root: Path) -> tuple[Finding, ...]:
     document = yaml.safe_load((root / "contracts/synth-v1.openapi.yaml").read_text())
+    scope_domains = frozenset(
+        str(operation["x-synth-scope"]).split(":")[0]
+        for item in document["paths"].values()
+        for method, operation in item.items()
+        if method in HTTP_METHODS and operation.get("x-synth-scope")
+    )
     operations = tuple(
         (
             operation["operationId"],
             operation.get("x-synth-mcp-name"),
-            str(operation.get("x-synth-scope", "")).split(":")[0],
+            mcp_domain(operation, scope_domains),
         )
         for path, item in document["paths"].items()
         if path.startswith("/v1/")
@@ -267,6 +291,7 @@ def audit(root: Path) -> tuple[Finding, ...]:
         # One scheme (SYN-5676): <scope domain>_<resource>[_<verb>], e.g. swarms_run_get.
         if (
             expected_name is None
+            or domain is None
             or names.get(operation) != expected_name
             or not expected_name.startswith(domain + "_")
         ):

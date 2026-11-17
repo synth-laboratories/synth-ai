@@ -17,6 +17,7 @@ from ._generated.models import (
     FilePage,
     LaunchChoices,
     LaunchRequest,
+    McpOutputContent,
     Money,
     OptimizerRequest,
     OutputPage,
@@ -48,7 +49,12 @@ from ._generated.models import (
     RunWait,
     Upload,
 )
-from ._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
+from ._generated.policy import (
+    DEFAULT_RUN_PROFILE,
+    MCP_OUTPUT_CONTENT_MAX_BYTES,
+    PROFILE_REQUIRES_RESEARCH_TASK,
+)
+from ._inline_content import inline_content
 from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
@@ -598,6 +604,22 @@ class AsyncSwarms:
         if hashlib.sha256(content).hexdigest() != digest_sha256:
             raise DataIntegrityError("output digest does not match the pinned reference")
         return content
+
+    async def output_inline(
+        self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
+    ) -> McpOutputContent:
+        """Read a pinned output revision as the contract's McpOutputContent.
+
+        Text when the media type is textual and the bytes are valid UTF-8, otherwise
+        base64. Over MCP_OUTPUT_CONTENT_MAX_BYTES raises OutputContentTooLargeError
+        (output_content_too_large_for_mcp); use download_output for larger outputs."""
+        content, media_type = await self._transport.download(
+            "getRunOutputContent",
+            path={"run_id": run_id, "output_id": output_id},
+            query={"revision_id": revision_id, "digest_sha256": digest_sha256},
+            max_bytes=MCP_OUTPUT_CONTENT_MAX_BYTES,
+        )
+        return inline_content(content, media_type)
 
     async def download_output(
         self,

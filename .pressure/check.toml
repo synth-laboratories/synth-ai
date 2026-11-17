@@ -78,6 +78,7 @@ severity = "error"
 require_paths = ["scripts/check_surface_parity.py", "tests/test_surface_parity.py", ".venv/bin/python"]
 file_contains = [
   { path = ".github/workflows/ci.yml", pattern = "scripts/check_surface_parity.py" },
+  { path = "lefthook.yml", pattern = "scripts/check_surface_parity.py" },
 ]
 command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py"
 command_timeout_seconds = 120
