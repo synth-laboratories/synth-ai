@@ -419,7 +419,7 @@ def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
         facts.answer = (await tool("swarms_run_result", run_id=RUN_ID))["answer"]
 
     async def usage():
-        facts.usage_records = len((await tool("usage_for_run", run_id=RUN_ID))["items"])
+        facts.usage_records = len((await tool("account_usage_for_run", run_id=RUN_ID))["items"])
 
     steps = dict(
         discover_profiles=discover_profiles,

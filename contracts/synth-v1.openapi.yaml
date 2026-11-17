@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.30.0
+  version: 1.31.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -136,6 +136,7 @@ paths:
       tags:
       - account
       operationId: acceptTerms
+      x-synth-mcp-name: account_terms_accept
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -230,6 +231,7 @@ paths:
       tags:
       - api-keys
       operationId: listApiKeys
+      x-synth-mcp-name: account_api_keys_list
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -303,6 +305,7 @@ paths:
       tags:
       - api-keys
       operationId: createApiKey
+      x-synth-mcp-name: account_api_key_create
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -384,6 +387,7 @@ paths:
       tags:
       - api-keys
       operationId: revokeApiKey
+      x-synth-mcp-name: account_api_key_revoke
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
@@ -448,6 +452,7 @@ paths:
       tags:
       - api-keys
       operationId: updateApiKey
+      x-synth-mcp-name: account_api_key_update
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
@@ -552,6 +557,7 @@ paths:
       tags:
       - api-keys
       operationId: rotateApiKey
+      x-synth-mcp-name: account_api_key_rotate
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -2717,6 +2723,7 @@ paths:
       tags:
       - usage
       operationId: getUsageSummary
+      x-synth-mcp-name: account_usage_summary
       x-synth-scope: "account:usage:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -2916,7 +2923,7 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/usage/records
-      x-synth-mcp-name: usage_for_run
+      x-synth-mcp-name: account_usage_for_run
       x-synth-mcp-required:
       - run_id
   /v1/limits:
@@ -2924,6 +2931,7 @@ paths:
       tags:
       - limits
       operationId: listLimits
+      x-synth-mcp-name: account_limits_list
       x-synth-scope: "account:limits:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -2997,6 +3005,7 @@ paths:
       tags:
       - account
       operationId: requestSpecialFree
+      x-synth-mcp-name: account_plan_request_create
       x-synth-scope: "account:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -3073,6 +3082,7 @@ paths:
       tags:
       - account
       operationId: listPlanRequests
+      x-synth-mcp-name: account_plan_requests_list
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -3140,6 +3150,7 @@ paths:
       tags:
       - account
       operationId: withdrawPlanRequest
+      x-synth-mcp-name: account_plan_request_withdraw
       x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
@@ -3364,6 +3375,7 @@ paths:
       tags:
       - billing
       operationId: listBillingHistory
+      x-synth-mcp-name: account_billing_history
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -3467,6 +3479,7 @@ paths:
       tags:
       - billing
       operationId: listStatements
+      x-synth-mcp-name: account_billing_statements_list
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -3560,6 +3573,7 @@ paths:
       tags:
       - billing
       operationId: getCheckout
+      x-synth-mcp-name: account_billing_checkout_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -3642,6 +3656,7 @@ paths:
       tags:
       - billing
       operationId: createCheckout
+      x-synth-mcp-name: account_billing_checkout_create
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -3726,6 +3741,7 @@ paths:
       tags:
       - billing
       operationId: getSubscription
+      x-synth-mcp-name: account_billing_subscription_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -3803,6 +3819,7 @@ paths:
       tags:
       - billing
       operationId: cancelSubscription
+      x-synth-mcp-name: account_billing_subscription_cancel
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -3884,6 +3901,7 @@ paths:
       tags:
       - billing
       operationId: resumeSubscription
+      x-synth-mcp-name: account_billing_subscription_resume
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -3962,6 +3980,7 @@ paths:
       tags:
       - billing
       operationId: previewSubscriptionChange
+      x-synth-mcp-name: account_billing_subscription_change_preview
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4051,6 +4070,7 @@ paths:
       tags:
       - billing
       operationId: changeSubscriptionPlan
+      x-synth-mcp-name: account_billing_subscription_change
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4146,6 +4166,7 @@ paths:
       tags:
       - billing
       operationId: createPaymentMethodSession
+      x-synth-mcp-name: account_billing_payment_method_session_create
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4222,6 +4243,7 @@ paths:
       tags:
       - billing
       operationId: getAutoReload
+      x-synth-mcp-name: account_billing_auto_reload_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4324,6 +4346,7 @@ paths:
       tags:
       - billing
       operationId: setAutoReload
+      x-synth-mcp-name: account_billing_auto_reload_set
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4434,6 +4457,7 @@ paths:
       tags:
       - billing
       operationId: getSpendAlerts
+      x-synth-mcp-name: account_billing_spend_alerts_get
       x-synth-scope: "account:billing:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4506,6 +4530,7 @@ paths:
       tags:
       - billing
       operationId: setSpendAlerts
+      x-synth-mcp-name: account_billing_spend_alerts_set
       x-synth-scope: "account:billing:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4654,6 +4679,7 @@ paths:
       tags:
       - swarms
       operationId: createUpload
+      x-synth-mcp-name: swarms_upload_create
       x-synth-scope: "swarms:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4696,6 +4722,7 @@ paths:
       tags:
       - swarms
       operationId: getUpload
+      x-synth-mcp-name: swarms_upload_get
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4727,6 +4754,7 @@ paths:
       tags:
       - swarms
       operationId: finalizeUpload
+      x-synth-mcp-name: swarms_upload_finalize
       x-synth-scope: "swarms:write"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4801,6 +4829,7 @@ paths:
       tags:
       - swarms
       operationId: listFiles
+      x-synth-mcp-name: swarms_files_list
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4830,6 +4859,7 @@ paths:
       tags:
       - swarms
       operationId: getFile
+      x-synth-mcp-name: swarms_file_get
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -4859,6 +4889,7 @@ paths:
       tags:
       - usage
       operationId: createUsageExport
+      x-synth-mcp-name: account_usage_export_create
       x-synth-scope: "account:read"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
@@ -4894,6 +4925,7 @@ paths:
       tags:
       - usage
       operationId: getUsageExport
+      x-synth-mcp-name: account_usage_export_get
       x-synth-scope: "account:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -5055,6 +5087,7 @@ paths:
       tags:
       - swarms
       operationId: getRunProgram
+      x-synth-mcp-name: swarms_run_program
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -5088,6 +5121,7 @@ paths:
       tags:
       - swarms
       operationId: getRunConfiguration
+      x-synth-mcp-name: swarms_run_configuration
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -5254,7 +5288,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: register_evaluation_input
+      x-synth-mcp-name: swarms_evaluation_input_register
       parameters:
       - name: kind
         in: path
@@ -5308,7 +5342,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: list_evaluation_inputs
+      x-synth-mcp-name: swarms_evaluation_inputs_list
       parameters:
       - name: kind
         in: path
@@ -5350,7 +5384,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: get_evaluation_input
+      x-synth-mcp-name: swarms_evaluation_input_get
       parameters:
       - name: kind
         in: path
@@ -5403,7 +5437,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: preflight_evaluation
+      x-synth-mcp-name: swarms_evaluation_preflight
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -5442,7 +5476,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: create_evaluation
+      x-synth-mcp-name: swarms_evaluation_create
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -5501,7 +5535,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: get_evaluation
+      x-synth-mcp-name: swarms_evaluation_get
       parameters:
       - name: evaluation_id
         in: path
@@ -5541,7 +5575,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: list_evaluation_rollouts
+      x-synth-mcp-name: swarms_evaluation_rollouts_list
       parameters:
       - name: evaluation_id
         in: path
@@ -5657,7 +5691,7 @@ paths:
       x-synth-status: implemented
       x-synth-source: core/internal/public/evaluations
       x-synth-legacy-path: none
-      x-synth-mcp-name: cancel_evaluation
+      x-synth-mcp-name: swarms_evaluation_cancel
       parameters:
       - name: evaluation_id
         in: path

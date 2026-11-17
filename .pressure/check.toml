@@ -70,3 +70,15 @@ file_contains = [
   { path = "RELEASING.md", pattern = "Full public API, hosted MCP" },
 ]
 remedy = "Restore the scoped Swarms smoke and run its budget, resume, output-integrity and lifecycle regressions; keep full API/MCP qualification separate."
+
+[[checks]]
+id = "sdk_surface_parity"
+description = "Every contract customer operation is reachable from the SDK, CLI and MCP under one MCP naming scheme (SYN-5691)"
+severity = "error"
+require_paths = ["scripts/check_surface_parity.py", "tests/test_surface_parity.py", ".venv/bin/python"]
+file_contains = [
+  { path = ".github/workflows/ci.yml", pattern = "scripts/check_surface_parity.py" },
+]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py"
+command_timeout_seconds = 120
+remedy = "Bind the operation through a public SDK method, the CLI and MCP dispatch, and give it a contract x-synth-mcp-name of the form <scope domain>_<resource>[_<verb>]."

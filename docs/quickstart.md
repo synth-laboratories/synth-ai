@@ -66,7 +66,7 @@ Then the agent calls, in order: `swarms_profiles_list`, `swarms_upload_file`
 `swarms_run_wait` (repeat while `outcome` is `timeout`), `swarms_run_pause` /
 `swarms_run_resume`, `swarms_run_result` (the answer in one call), `swarms_run_outputs`,
 `swarms_run_output_get` and
-`usage_for_run`. Mutating tools require an `idempotency_key`. The hosted `/mcp`
+`account_usage_for_run`. Mutating tools require an `idempotency_key`. The hosted `/mcp`
 endpoint lists the same tools; see [mcp.md](mcp.md) and [tools](mcp-tools.md).
 
 Errors on every surface use one set of codes: see [errors.md](errors.md).

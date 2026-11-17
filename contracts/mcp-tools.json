@@ -13,6 +13,268 @@
       "scope": "account:read"
     },
     {
+      "description": "Record the org's acceptance of a terms version (idempotent per version).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "accepted_at": {
+                "description": "When the user accepted, ISO-8601 UTC. Recorded as claimed; the server also keeps its own time.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "version": {
+                "examples": [
+                  "2026-11-04"
+                ],
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "accepted_at"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_terms_accept",
+      "operationId": "acceptTerms",
+      "scope": "account:write"
+    },
+    {
+      "description": "List the caller's personal and automation keys (session only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "purpose": {
+            "enum": [
+              "personal",
+              "automation"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_api_keys_list",
+      "operationId": "listApiKeys",
+      "scope": "account:read"
+    },
+    {
+      "description": "Mint a key. The secret is returned once (session only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "description": "Automation keys require name, scopes, expires_at (at most one year) and request_id. One active personal key per user and org.",
+            "properties": {
+              "expires_at": {
+                "format": "date-time",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "purpose": {
+                "default": "personal",
+                "enum": [
+                  "personal",
+                  "automation"
+                ],
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scopes": {
+                "items": {
+                  "enum": [
+                    "account:billing:read",
+                    "account:read",
+                    "account:usage:read",
+                    "swarms:control",
+                    "swarms:read",
+                    "swarms:run",
+                    "swarms:write",
+                    "account:write",
+                    "account:billing:write",
+                    "account:limits:read"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_api_key_create",
+      "operationId": "createApiKey",
+      "scope": "account:write"
+    },
+    {
+      "description": "Revoke a key (idempotent, session only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "key_id": {
+            "examples": [
+              "key_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^key_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_api_key_revoke",
+      "operationId": "revokeApiKey",
+      "scope": "account:write"
+    },
+    {
+      "description": "Replace a key's scopes (optimistic on authorization_version, session only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_version": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "name": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              "scopes": {
+                "items": {
+                  "enum": [
+                    "account:billing:read",
+                    "account:read",
+                    "account:usage:read",
+                    "swarms:control",
+                    "swarms:read",
+                    "swarms:run",
+                    "swarms:write",
+                    "account:write",
+                    "account:billing:write",
+                    "account:limits:read"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "scopes",
+              "expected_version"
+            ],
+            "type": "object"
+          },
+          "key_id": {
+            "examples": [
+              "key_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^key_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "name": "account_api_key_update",
+      "operationId": "updateApiKey",
+      "scope": "account:write"
+    },
+    {
+      "description": "Revoke a key and mint its replacement in the same rotation family (session only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key_id": {
+            "examples": [
+              "key_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^key_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_api_key_rotate",
+      "operationId": "rotateApiKey",
+      "scope": "account:write"
+    },
+    {
       "description": "The caller's runs, newest first.",
       "inputSchema": {
         "additionalProperties": false,
@@ -963,6 +1225,27 @@
       "scope": "swarms:read"
     },
     {
+      "description": "Rollup of the caller's settled charge-usage rows by day, source and key.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_usage_summary",
+      "operationId": "getUsageSummary",
+      "scope": "account:usage:read"
+    },
+    {
       "description": "Cursor page of the settled charge-usage rows behind the usage summary, newest first.",
       "inputSchema": {
         "additionalProperties": false,
@@ -997,9 +1280,95 @@
         ],
         "type": "object"
       },
-      "name": "usage_for_run",
+      "name": "account_usage_for_run",
       "operationId": "listUsageRecords",
       "scope": "account:usage:read"
+    },
+    {
+      "description": "The caller's plan limits with current use and reset times.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_limits_list",
+      "operationId": "listLimits",
+      "scope": "account:limits:read"
+    },
+    {
+      "description": "Ask for owner review to move this org to Special Free.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "links": {
+                "default": [],
+                "description": "At most 5 http(s) links (422 plan_request_too_large above that), each at most 2048 bytes.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "use_case": {
+                "description": "Why the org needs Special Free, at most 4096 UTF-8 bytes (422 plan_request_too_large above that). Customer content; stored for owner review, never logged, returned or emailed.",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "use_case"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_plan_request_create",
+      "operationId": "requestSpecialFree",
+      "scope": "account:write"
+    },
+    {
+      "description": "List this org's plan requests, newest first (at most 100).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_plan_requests_list",
+      "operationId": "listPlanRequests",
+      "scope": "account:read"
+    },
+    {
+      "description": "Withdraw this org's pending plan request.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_plan_request_withdraw",
+      "operationId": "withdrawPlanRequest",
+      "scope": "account:write"
     },
     {
       "description": "Wallet position of the caller's org in integer microcents (1 USD = 10^8).",
@@ -1012,6 +1381,563 @@
       "name": "account_billing_balance",
       "operationId": "getBalance",
       "scope": "account:billing:read"
+    },
+    {
+      "description": "Balance movements of the caller's org (ledger entries), newest first, cursor-paged.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "examples": [
+              "settle,refund"
+            ],
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_billing_history",
+      "operationId": "listBillingHistory",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Monthly statements of the caller's org (UTC calendar months), derived from the ledger, newest first.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "months": {
+            "default": 12,
+            "maximum": 36,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_billing_statements_list",
+      "operationId": "listStatements",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Read one Checkout attempt of the caller's org.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^chk_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_checkout_get",
+      "operationId": "getCheckout",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Create a hosted Stripe Checkout session for a plan or a custom credit amount.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "credit": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "examples": [
+                      "5.00"
+                    ],
+                    "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                    "type": "string"
+                  },
+                  "currency": {
+                    "const": "USD",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "amount",
+                  "currency"
+                ],
+                "type": "object"
+              },
+              "pack_id": {
+                "enum": [
+                  "credits.10",
+                  "credits.25",
+                  "credits.100"
+                ],
+                "type": "string"
+              },
+              "plan_id": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_checkout_create",
+      "operationId": "createCheckout",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "The caller's org subscription, or null on the Free plan.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_billing_subscription_get",
+      "operationId": "getSubscription",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Cancel the org subscription at period end (now when past due).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_subscription_cancel",
+      "operationId": "cancelSubscription",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "Resume a subscription whose cancel is pending.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_subscription_resume",
+      "operationId": "resumeSubscription",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "What switching the org subscription to another plan would charge now.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "enum": [
+              "standard.monthly",
+              "max.monthly"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_subscription_change_preview",
+      "operationId": "previewSubscriptionChange",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Switch the org subscription to another plan now.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "plan_id": {
+                "enum": [
+                  "standard.monthly",
+                  "max.monthly"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "plan_id"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_subscription_change",
+      "operationId": "changeSubscriptionPlan",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "Open Stripe's hosted page to update the org's card.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_payment_method_session_create",
+      "operationId": "createPaymentMethodSession",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "The org's auto-reload setting.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_billing_auto_reload_get",
+      "operationId": "getAutoReload",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Save the org's auto-reload setting.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "examples": [
+                          "5.00"
+                        ],
+                        "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                        "type": "string"
+                      },
+                      "currency": {
+                        "const": "USD",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "amount",
+                      "currency"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "disclosure_version": {
+                "description": "Required when `enabled` is true; the `disclosure.version` the admin was shown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "threshold": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "examples": [
+                          "5.00"
+                        ],
+                        "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                        "type": "string"
+                      },
+                      "currency": {
+                        "const": "USD",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "amount",
+                      "currency"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_auto_reload_set",
+      "operationId": "setAutoReload",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "The org's spend alert settings and its most recent alert.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_billing_spend_alerts_get",
+      "operationId": "getSpendAlerts",
+      "scope": "account:billing:read"
+    },
+    {
+      "description": "Replace the org's spend alert settings (org admin only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "default": true,
+                "type": "boolean"
+              },
+              "monthly_amount": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "examples": [
+                          "5.00"
+                        ],
+                        "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$",
+                        "type": "string"
+                      },
+                      "currency": {
+                        "const": "USD",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "amount",
+                      "currency"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "monthly_amount"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_billing_spend_alerts_set",
+      "operationId": "setSpendAlerts",
+      "scope": "account:billing:write"
+    },
+    {
+      "description": "Prepare an immutable file upload.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "digest_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "media_type": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+))*$",
+                "type": "string"
+              },
+              "size_bytes": {
+                "maximum": 16777216,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "media_type",
+              "size_bytes",
+              "digest_sha256"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_upload_create",
+      "operationId": "createUpload",
+      "scope": "swarms:write"
+    },
+    {
+      "description": "Read an upload.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "upload_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_upload_get",
+      "operationId": "getUpload",
+      "scope": "swarms:read"
+    },
+    {
+      "description": "Scan and finalize an upload.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "upload_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_upload_finalize",
+      "operationId": "finalizeUpload",
+      "scope": "swarms:write"
     },
     {
       "description": "Upload a file inline (up to 32 KiB). The name may be a relative path such as `src/main.py`.",
@@ -1059,6 +1985,108 @@
       "name": "swarms_upload_file",
       "operationId": "uploadFile",
       "scope": "swarms:write"
+    },
+    {
+      "description": "List the organization's finalized files.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "swarms_files_list",
+      "operationId": "listFiles",
+      "scope": "swarms:read"
+    },
+    {
+      "description": "Read a finalized file manifest.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_file_get",
+      "operationId": "getFile",
+      "scope": "swarms:read"
+    },
+    {
+      "description": "Export settled usage records.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "format": {
+                "const": "csv",
+                "type": "string"
+              },
+              "since": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "until": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "since",
+              "until",
+              "format"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "account_usage_export_create",
+      "operationId": "createUsageExport",
+      "scope": "account:read"
+    },
+    {
+      "description": "Read an export and its download link.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "export_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_usage_export_get",
+      "operationId": "getUsageExport",
+      "scope": "account:read"
     },
     {
       "description": "Replace run labels with a revision check.",
@@ -1158,6 +2186,50 @@
       "name": "swarms_run_resume",
       "operationId": "resumeRun",
       "scope": "swarms:control"
+    },
+    {
+      "description": "Read the admitted program.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_program",
+      "operationId": "getRunProgram",
+      "scope": "swarms:read"
+    },
+    {
+      "description": "Read the frozen run configuration.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_configuration",
+      "operationId": "getRunConfiguration",
+      "scope": "swarms:read"
     },
     {
       "description": "Read authoritative run limits and usage.",
@@ -1642,7 +2714,7 @@
         ],
         "type": "object"
       },
-      "name": "register_evaluation_input",
+      "name": "swarms_evaluation_input_register",
       "operationId": "registerEvaluationInput",
       "scope": "swarms:run"
     },
@@ -1670,7 +2742,7 @@
         ],
         "type": "object"
       },
-      "name": "list_evaluation_inputs",
+      "name": "swarms_evaluation_inputs_list",
       "operationId": "listEvaluationInputs",
       "scope": "swarms:read"
     },
@@ -1699,7 +2771,7 @@
         ],
         "type": "object"
       },
-      "name": "get_evaluation_input",
+      "name": "swarms_evaluation_input_get",
       "operationId": "getEvaluationInput",
       "scope": "swarms:read"
     },
@@ -1795,7 +2867,7 @@
         ],
         "type": "object"
       },
-      "name": "preflight_evaluation",
+      "name": "swarms_evaluation_preflight",
       "operationId": "preflightEvaluation",
       "scope": "swarms:run"
     },
@@ -1891,7 +2963,7 @@
         ],
         "type": "object"
       },
-      "name": "create_evaluation",
+      "name": "swarms_evaluation_create",
       "operationId": "createEvaluation",
       "scope": "swarms:run"
     },
@@ -1909,7 +2981,7 @@
         ],
         "type": "object"
       },
-      "name": "get_evaluation",
+      "name": "swarms_evaluation_get",
       "operationId": "getEvaluation",
       "scope": "swarms:read"
     },
@@ -1948,7 +3020,7 @@
         ],
         "type": "object"
       },
-      "name": "list_evaluation_rollouts",
+      "name": "swarms_evaluation_rollouts_list",
       "operationId": "listEvaluationRollouts",
       "scope": "swarms:read"
     },
@@ -1972,7 +3044,7 @@
         ],
         "type": "object"
       },
-      "name": "cancel_evaluation",
+      "name": "swarms_evaluation_cancel",
       "operationId": "cancelEvaluation",
       "scope": "swarms:run"
     }

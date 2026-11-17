@@ -184,7 +184,11 @@ def surface_sources(root: Path, relative: str) -> tuple[Path, ...]:
 def audit(root: Path) -> tuple[Finding, ...]:
     document = yaml.safe_load((root / "contracts/synth-v1.openapi.yaml").read_text())
     operations = tuple(
-        (operation["operationId"], operation.get("x-synth-mcp-name"))
+        (
+            operation["operationId"],
+            operation.get("x-synth-mcp-name"),
+            str(operation.get("x-synth-scope", "")).split(":")[0],
+        )
         for path, item in document["paths"].items()
         if path.startswith("/v1/")
         for method, operation in item.items()
@@ -226,7 +230,7 @@ def audit(root: Path) -> tuple[Finding, ...]:
         calls[surface] = frozenset(collected)
     tools = json.loads((root / "contracts/mcp-tools.json").read_text())["tools"]
     names = {tool["operationId"]: tool["name"] for tool in tools}
-    for operation, expected_name in operations:
+    for operation, expected_name, domain in operations:
         methods = frozenset(name for identifier, name in bindings if identifier == operation)
         reachable = frozenset(
             paths[owner] + "." + method
@@ -260,13 +264,18 @@ def audit(root: Path) -> tuple[Finding, ...]:
                         0,
                     )
                 )
-        if expected_name is None or names.get(operation) != expected_name:
+        # One scheme (SYN-5676): <scope domain>_<resource>[_<verb>], e.g. swarms_run_get.
+        if (
+            expected_name is None
+            or names.get(operation) != expected_name
+            or not expected_name.startswith(domain + "_")
+        ):
             findings.append(
                 Finding(
                     "mcp",
                     Code.NAME,
                     operation,
-                    "contract/catalog name is missing or differs",
+                    "contract/catalog name is missing, differs or breaks the scheme",
                     "contracts/mcp-tools.json",
                     0,
                 )

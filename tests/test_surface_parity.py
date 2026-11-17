@@ -59,7 +59,7 @@ def fixture(root: Path) -> None:
     (root / "contracts").mkdir()
     (root / "synth_ai/mcp").mkdir(parents=True)
     (root / "contracts/synth-v1.openapi.yaml").write_text(
-        "paths:\n  /v1/runs/{run_id}:\n    get:\n      operationId: getRun\n      x-synth-mcp-name: swarms_get\n"
+        "paths:\n  /v1/runs/{run_id}:\n    get:\n      operationId: getRun\n      x-synth-mcp-name: swarms_get\n      x-synth-scope: swarms:read\n"
     )
     (root / "contracts/mcp-tools.json").write_text(
         '{"tools":[{"operationId":"getRun","name":"swarms_get"}]}'
@@ -94,6 +94,17 @@ def test_planted_wrong_mcp_name_fails(tmp_path: Path):
     fixture(tmp_path)
     (tmp_path / "contracts/mcp-tools.json").write_text(
         '{"tools":[{"operationId":"getRun","name":"wrong_name"}]}'
+    )
+    assert any(item.code == parity.Code.NAME for item in parity.audit(tmp_path))
+
+
+def test_planted_mcp_name_outside_the_scheme_fails(tmp_path: Path):
+    """One scheme: the tool name starts with its scope domain (SYN-5676)."""
+    fixture(tmp_path)
+    contract = tmp_path / "contracts/synth-v1.openapi.yaml"
+    contract.write_text(contract.read_text().replace("swarms_get", "get_run"))
+    (tmp_path / "contracts/mcp-tools.json").write_text(
+        '{"tools":[{"operationId":"getRun","name":"get_run"}]}'
     )
     assert any(item.code == parity.Code.NAME for item in parity.audit(tmp_path))
 
