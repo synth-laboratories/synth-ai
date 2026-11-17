@@ -295,3 +295,79 @@ def test_usage_for_run_reads_one_bounded_page():
     page = MCPDriver(caller, surface="mcp_stdio").usage(RUN)
     assert page.items == []
     assert caller.calls == [(Tool.USAGE, {"run_id": RUN, "limit": 100})]
+
+
+@pytest.mark.parametrize("body", [b"# result\n", b"\x00\xff\x80", b""])
+def test_output_content_preserves_exact_bytes(body, tmp_path):
+    from base64 import b64encode
+    from hashlib import sha256
+
+    from synth_ai.models import RunOutput
+
+    digest = sha256(body).hexdigest()
+    output = RunOutput(
+        run_id=RUN,
+        output_id="out_AAAAAAAAAAAAAAAAAAAAAA",
+        state="ready",
+        filename="result.md",
+        reference={"revision_id": "rev_fixture", "digest_sha256": digest},
+    )
+    caller = FakeCaller(
+        {
+            Tool.CONTENT: {
+                "encoding": "base64",
+                "data": b64encode(body).decode(),
+                "content_type": "application/octet-stream",
+                "revision_id": "rev_fixture",
+                "digest_sha256": digest,
+            }
+        }
+    )
+    target = tmp_path / "result.md"
+    assert MCPDriver(caller, surface="mcp_stdio").download(RUN, output, target).read_bytes() == body
+    with pytest.raises(FileExistsError):
+        MCPDriver(caller, surface="mcp_stdio").download(RUN, output, target)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"data": "!!!!"}, {"data": "Yg=="}, {"revision_id": "rev_other"}, {"digest_sha256": "b" * 64}],
+)
+def test_output_mismatch_refuses_before_writing(change, tmp_path):
+    from hashlib import sha256
+
+    from synth_ai.models import RunOutput
+
+    digest = sha256(b"a").hexdigest()
+    output = RunOutput(
+        run_id=RUN,
+        output_id="out_AAAAAAAAAAAAAAAAAAAAAA",
+        state="ready",
+        filename="result.md",
+        reference={"revision_id": "rev_fixture", "digest_sha256": digest},
+    )
+    envelope = {
+        "encoding": "base64",
+        "data": "YQ==",
+        "content_type": "application/octet-stream",
+        "revision_id": "rev_fixture",
+        "digest_sha256": digest,
+    } | change
+    caller = FakeCaller({Tool.CONTENT: envelope})
+    with pytest.raises(AdapterError) as failure:
+        MCPDriver(caller, surface="mcp_hosted").download(RUN, output, tmp_path / "result.md")
+    assert failure.value.code == MCPRefusal.RESULT_INVALID
+    assert not (tmp_path / "result.md").exists()
+
+
+def test_adapter_refusal_survives_generator_context_manager():
+    from contextlib import contextmanager
+
+    @contextmanager
+    def scope():
+        yield
+
+    error = AdapterError("fixture", "wait", "refused", RUN)
+    with pytest.raises(AdapterError) as failure, scope():
+        raise error
+    assert failure.value is error

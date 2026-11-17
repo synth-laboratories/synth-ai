@@ -16,7 +16,7 @@ from typing import Optional
 
 from synth_ai import Environment, SynthClient
 
-from .j1 import CLIDriver, J1Observation, SDKDriver, observe, observe_listed
+from .j1 import CLIDriver, J1Observation, SDKDriver, observe
 from .mcp_driver import MCPDriver
 from .parity_view import ParityDriver, project
 
@@ -110,7 +110,11 @@ def observe_surface(
                 Path.cwd(),
             )
             with SessionToolCaller(stdio_session(command)) as caller:
-                return observe_listed(MCPDriver(caller, surface=driver), run_id=run_id)
+                return observe(
+                    MCPDriver(caller, surface=driver),
+                    run_id=run_id,
+                    output_directory=receipt_dir / "outputs",
+                )
         case ParityDriver.MCP_HOSTED:
             if mcp_url is None:
                 raise SystemExit("mcp_hosted requires --mcp-url")
@@ -120,7 +124,11 @@ def observe_surface(
             # type is not asserted here. The API key env stays separate.
             endpoint = HostedEndpoint(mcp_url, os.environ["SYNTH_MCP_ACCESS_TOKEN"])
             with SessionToolCaller(hosted_session(endpoint)) as caller:
-                return observe_listed(MCPDriver(caller, surface=driver), run_id=run_id)
+                return observe(
+                    MCPDriver(caller, surface=driver),
+                    run_id=run_id,
+                    output_directory=receipt_dir / "outputs",
+                )
 
 
 def main() -> int:

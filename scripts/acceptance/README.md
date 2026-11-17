@@ -45,8 +45,8 @@ with no public cache fields or operator credentials in argv. The default remains
 `MCPDriver` runs the same journey through MCP `tools/call` only (catalog names in
 `contracts/mcp-tools.json`: `swarms_upload_file`, `swarms_run_launch`,
 `swarms_run_get`, `swarms_run_wait`, `swarms_run_report`, `swarms_run_result`,
-`swarms_run_outputs`, `usage_for_run`). It never calls SDK client methods; the
-launch body is built by the pure `launch_request` helper. Two transports share
+`swarms_run_outputs`, `swarms_run_output_content`, `account_usage_for_run`).
+It never calls SDK client methods; launch bodies use public generated request models. Two transports share
 one blocking `SessionToolCaller`:
 
 - `mcp_stdio`: spawns `<venv>/bin/synth-ai-mcp --env local`. The stdio server
@@ -63,9 +63,10 @@ python -m scripts.acceptance --driver mcp_stdio --run-id RUN --receipt-dir OWNED
 python -m scripts.acceptance --driver mcp_hosted --mcp-url http://127.0.0.1:PORT/mcp --run-id RUN --receipt-dir OWNED_NEW_DIR
 ```
 
-The catalog lists pinned outputs but has no output-content tool, so MCP
-observations retain the listing and name `output_content_surface_unavailable`
-and `result_markdown_unavailable` instead of downloading. Tool-list gaps,
+The output-content tool returns the canonical base64 envelope for at most 1 MiB
+of exact bytes. The driver verifies the revision, digest and decoded bytes before
+creating an exclusive evidence file. Larger outputs require the REST download
+path and cannot qualify MCP parity through this tool. Tool-list gaps,
 isError results (stdio Problem, hosted `{"error","data":{"response"}}`),
 unstructured errors, wrong result models and transport failures are typed
 `AdapterError` refusals whose cause never includes response bodies.

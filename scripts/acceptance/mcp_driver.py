@@ -4,37 +4,47 @@ See SYN-5693. Every read is an MCP `tools/call` against the generated catalog
 (`contracts/mcp-tools.json`); this driver never calls SDK client methods. The
 transport (stdio child or hosted streamable HTTP) is injected as a `ToolCaller`.
 
-The catalog lists pinned outputs but has no tool that returns output bytes, so
-an MCP observation names `Missing.OUTPUT_CONTENT` instead of fabricating one.
+Output bytes are decoded from the canonical MCP envelope and checked against
+the immutable output reference before they are retained as evidence.
 """
 
 from __future__ import annotations
 
+import binascii
+import hashlib
+
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import json
+from base64 import b64decode
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
 from typing import Optional, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
-from synth_ai._generated.models import Problem, RunWait, RunWaitOutcome, UsageRecordPage
-from synth_ai._generated.policy import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
-from synth_ai._requests import launch_request
 from synth_ai.models import (
     File,
     InputFile,
+    LaunchBudget,
+    LaunchRequest,
+    Limits,
+    MCPOutputContent,
     OutputPage,
+    Problem,
     RunInputs,
     RunOutput,
     RunReport,
     RunResult,
     RunSnapshot,
+    RunWait,
+    RunWaitOutcome,
+    UsageRecordPage,
 )
 
-from .j1 import AdapterError, refusal
+from .j1 import AdapterError, content_pin, refusal
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import (
     MCP_UPLOAD_BYTES_MAX,
@@ -67,7 +77,8 @@ class Tool(StrEnum):
     REPORT = "swarms_run_report"
     RESULT = "swarms_run_result"
     OUTPUTS = "swarms_run_outputs"
-    USAGE = "usage_for_run"
+    CONTENT = "swarms_run_output_content"
+    USAGE = "account_usage_for_run"
 
 
 class MCPRefusal(StrEnum):
@@ -233,6 +244,44 @@ class MCPDriver:
             run_id=run_id,
         )
 
+    def download(self, run_id: str, output: RunOutput, target: Path) -> Path:
+        pin = content_pin(output)
+        envelope = self._call(
+            Tool.CONTENT,
+            {
+                "run_id": run_id,
+                "output_id": output.output_id,
+                "revision_id": pin.revision_id,
+                "digest_sha256": pin.digest_sha256,
+            },
+            MCPOutputContent,
+            run_id=run_id,
+        )
+        try:
+            body = b64decode(envelope.data, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise refusal(
+                MCPRefusal.RESULT_INVALID,
+                stage=Tool.CONTENT,
+                cause="output is not valid base64",
+                run_id=run_id,
+            ) from error
+        if (
+            len(body) > 1 << 20
+            or envelope.revision_id != pin.revision_id
+            or envelope.digest_sha256 != pin.digest_sha256
+            or hashlib.sha256(body).hexdigest() != pin.digest_sha256
+        ):
+            raise refusal(
+                MCPRefusal.RESULT_INVALID,
+                stage=Tool.CONTENT,
+                cause="output differs from immutable reference",
+                run_id=run_id,
+            )
+        with target.open("xb") as handle:
+            handle.write(body)
+        return target
+
     def usage(self, run_id: str) -> UsageRecordPage:
         """First usage page for the run; reconciliation reads `items` only."""
         return self._call(
@@ -305,11 +354,12 @@ class MCPDriver:
         journal: LaunchJournal,
     ) -> RunSnapshot:
         # Pure local request construction; the launch itself is the MCP tool.
-        request = launch_request(
-            message,
-            budget=budget_usd,
-            wall_time_seconds=None,
-            parallel_workers=None,
+        amount = Decimal(budget_usd)
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError("budget must be a positive decimal")
+        request = LaunchRequest(
+            message=message,
+            limits=Limits(maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD")),
             inputs=RunInputs(
                 files=[
                     InputFile(
@@ -320,14 +370,6 @@ class MCPDriver:
                     for file in files
                 ]
             ),
-            labels=None,
-            resources=None,
-            profile=None,
-            research_task=None,
-            routing=None,
-            guidance=None,
-            profile_requirements=PROFILE_REQUIRES_RESEARCH_TASK,
-            default_profile=DEFAULT_RUN_PROFILE,
             optimizer="auto",
         )
         body = JSON_OBJECT.validate_json(request.model_dump_json(exclude_unset=True))
