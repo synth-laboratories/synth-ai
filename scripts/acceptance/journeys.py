@@ -81,7 +81,6 @@ ID_PARAMETERS = frozenset(
         "export_id",
         "id",
         "request_id",
-        "evaluation_id",
         "revision_id",
         "key_id",
         "grant_id",
@@ -465,11 +464,7 @@ def resume(context: JourneyContext) -> StepReceipt:
     )
     outcome, seen = wait_state(context, context.limit_run_id, lambda v: v.get("state") != "paused")
     state = outcome.value.get("state") if isinstance(outcome.value, dict) else None
-    verdict = (
-        Verdict.PASS
-        if updated.accepted and state in RESUMED
-        else Verdict.FAIL
-    )
+    verdict = Verdict.PASS if updated.accepted and state in RESUMED else Verdict.FAIL
     return receipt(
         context,
         step,

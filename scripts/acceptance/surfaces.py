@@ -230,11 +230,6 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getFile": lambda c, a: c.swarms.file(a.path["file_id"]),
     "getUsageExport": lambda c, a: c.account.usage_export(a.path["export_id"]),
     "withdrawPlanRequest": lambda c, a: c.account.withdraw_plan_request(a.path["request_id"]),
-    "getEvaluation": lambda c, a: c.evaluations.get(a.path["evaluation_id"]),
-    "listEvaluationRollouts": lambda c, a: c.evaluations.rollouts(a.path["evaluation_id"]),
-    "cancelEvaluation": lambda c, a: c.evaluations.cancel(
-        a.path["evaluation_id"], idempotency_key=a.idempotency_key
-    ),
     "createApiKey": mint,
     "rotateApiKey": lambda c, a: c.account.api_keys.rotate(
         a.path["key_id"], idempotency_key=a.idempotency_key
