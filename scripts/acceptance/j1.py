@@ -22,8 +22,16 @@ from typing import Optional, Protocol
 from pydantic import TypeAdapter
 
 from synth_ai import SynthClient
-from synth_ai._generated.models import OwnerResourceRequest
-from synth_ai.models import File, InputFile, RunInputs, RunOutput, RunReport, RunResult, RunSnapshot
+from synth_ai.models import (
+    File,
+    InputFile,
+    OwnerResourceRequest,
+    RunInputs,
+    RunOutput,
+    RunReport,
+    RunResult,
+    RunSnapshot,
+)
 
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
@@ -33,8 +41,8 @@ __all__ = [
     "CLIDriver",
     "J1Observation",
     "Missing",
-    "RecordedLaunch",
     "RecordDriver",
+    "RecordedLaunch",
     "SDKDriver",
     "content_pin",
     "observe",
@@ -53,7 +61,7 @@ class Missing(StrEnum):
     OUTPUT_CONTENT = "output_content_surface_unavailable"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class AdapterError(Exception):
     code: str
     stage: str
