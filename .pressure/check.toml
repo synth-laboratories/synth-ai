@@ -83,3 +83,12 @@ file_contains = [
 command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py"
 command_timeout_seconds = 120
 remedy = "Bind the operation through a public SDK method, the CLI and MCP dispatch, and give it a contract x-synth-mcp-name of the form <scope domain>_<resource>[_<verb>]."
+
+[[checks]]
+id = "recorded_message_driver_integrity"
+description = "Message fixtures keep immutable replay identity and receipts omit body text"
+severity = "error"
+require_paths = ["scripts/acceptance/message_fixture.py", "scripts/acceptance/message_journey.py", "tests/acceptance/test_message_journey_offline.py"]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests/acceptance/test_message_journey_offline.py"
+command_timeout_seconds = 100
+remedy = "Restore frozen fixture hashes, fresh-run checks, typed refusals and body redaction. These are scripted-surface checks, not installed transport/browser/replay acceptance."

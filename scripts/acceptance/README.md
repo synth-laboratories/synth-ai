@@ -144,3 +144,67 @@ billing projections with A's unique fixture markers absent, revoked/expired
 message grants, cross-swarm IDs and archived/BodyUnavailable message cases.
 API 404s alone do not prove those boundaries. SYN-5737 stays In Review until
 all required SDK/CLI/MCP cells and the separate sandbox/staging receipts pass.
+
+
+## Recorded run messaging (SYN-5747, source preparation)
+
+`message_journey.py` plugs five steps into the existing journey dispatcher:
+`run_message_question`, `run_message_terminal_refusal`,
+`run_message_oversize_refusal`, `run_message_rate_refusal`, and
+`run_message_isolation`. It creates no run, changes no budget and never cancels
+on a local timeout. A fresh, running cached fixture must be parked before its
+recorded customer input. An existing customer message cannot substitute for a
+new mid-run send. Retained events are read with bounded cursor pages.
+
+The currently published contract lacks sendRunMessage/listRunMessages/
+getRunMessage. Those operations and their SDK/CLI/MCP mappings must be published
+by SYN-5744/5745 before live execution; capability validation currently refuses.
+Browser message interaction remains a SYN-5746 adapter gap. Offline fake-surface
+checks prove step logic only, not wire transport or installed acceptance.
+
+The batch owner supplies one mode0600 fixture per fresh driver run, at most64KiB:
+
+```json
+{
+  "schema": "synth.journeys.message-fixture.v1",
+  "run_id": "CURRENT_RUN",
+  "recording_sha256": "<64 lowercase hex>",
+  "question": "The exact recorded question",
+  "question_sha256": "<SHA256 of UTF-8 question bytes>",
+  "answer_sha256": "<SHA256 of recorded answer bytes>",
+  "delivery_decision_step": 17,
+  "event_cursor": "CURRENT_RUN_CURSOR_BEFORE_THE_MESSAGE",
+  "internal_message_ids": ["CURRENT_RUN_INTERNAL_MESSAGE_ID"],
+  "terminal_run_id": "SEPARATE_TERMINAL_FIXTURE_RUN",
+  "rate_limited_run_id": "SEPARATE_RECORDED_RATE_LIMITED_RUN",
+  "absent_run_id": "WELL_FORMED_NONEXISTENT_RUN"
+}
+```
+
+The recording identity comes from the batch's selected sealed recording. The
+current-run cursor, internal IDs and refusal targets come from that same
+cohort's fixture custody, never guessed IDs. Hash the private fixture once before
+execution and preserve it with the receipts; changing an expected delivery
+position after capture is a failure. Question/reply text stays out of step and
+gate receipts. The rate fixture must already have consumed its message-hour
+quota; this driver does not manufacture20 accepted messages during locked replay.
+It requires `rate_limit_exceeded`429 with Overload code RateLimited, limit
+`run_messages_per_hour`, retryable true and matching positive Retry-After.
+
+After the source gaps above are complete, the batch owner may invoke a single
+surface through the existing executable (not executed by this source lane):
+
+```sh
+.venv/bin/python -m scripts.acceptance.journey_main --driver sdk \
+  --steps run_message_question,run_message_terminal_refusal,run_message_oversize_refusal,run_message_rate_refusal,run_message_isolation \
+  --run-id "$RUN" --message-fixture "$PRIVATE_FIXTURE" \
+  --message-fixture-sha256 "$FIXTURE_SHA256" \
+  --message-recording-sha256 "$RECORDING_SHA256" --receipt-dir "$NEW_RECEIPT_DIR"
+```
+
+Use the existing sdk/cli/mcp_stdio/mcp_hosted factories as applicable. A single
+surface Pass is not the four-surface gate. The synth-dev jmessages spec requires
+SDK, CLI, MCP and browser; its message_journey GateScope cannot replace a full
+T1/T2 denominator. W15 retains staging execution/adapter ownership. Retain
+independent locked-cache miss/forward counters, cohort identities and supplier
+reconciliation; step receipts alone do not establish zero cache misses or spend.

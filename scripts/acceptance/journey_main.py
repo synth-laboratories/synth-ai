@@ -122,6 +122,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument("--foreign-ids", type=Path, help="org A IDs for the 404 matrix")
     parser.add_argument("--mcp-url")
+    parser.add_argument(
+        "--message-fixture",
+        type=Path,
+        help="private current-run binding to the sealed message recording",
+    )
+    parser.add_argument(
+        "--message-recording-sha256", help="recording identity selected by the batch owner"
+    )
+    parser.add_argument("--message-fixture-sha256", help="immutable private fixture digest")
     options = parser.parse_args(argv)
     if options.capabilities:
         print(json.dumps(capabilities(), sort_keys=True))
@@ -197,6 +206,9 @@ def run_all(
             foreign_ids=read_ids(options.foreign_ids),
             secrets=secrets,
             mcp_url=options.mcp_url,
+            message_fixture=getattr(options, "message_fixture", None),
+            message_recording_sha256=getattr(options, "message_recording_sha256", None),
+            message_fixture_sha256=getattr(options, "message_fixture_sha256", None),
         )
         for step in steps:
             try:

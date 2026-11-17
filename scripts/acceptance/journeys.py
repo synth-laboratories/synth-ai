@@ -122,6 +122,11 @@ class Step(StrEnum):
     OVERLOAD_RECOVERY = "overload_recovery"
     QUEUED_LAUNCH = "queued_launch"
     CROSS_ORG_404 = "cross_org_not_found_matrix"
+    MESSAGE_QUESTION = "run_message_question"
+    MESSAGE_TERMINAL = "run_message_terminal_refusal"
+    MESSAGE_OVERSIZE = "run_message_oversize_refusal"
+    MESSAGE_RATE = "run_message_rate_refusal"
+    MESSAGE_ISOLATION = "run_message_isolation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +166,9 @@ class JourneyContext:
     secrets: Mapping[str, str] = field(default_factory=dict)
     mcp_url: Optional[str] = None
     state: dict[str, str] = field(default_factory=dict)
+    message_fixture: Optional[Path] = None
+    message_recording_sha256: Optional[str] = None
+    message_fixture_sha256: Optional[str] = None
 
 
 class Secret(StrEnum):
@@ -1154,9 +1162,43 @@ def covered(surface: Surface, operation: str) -> bool:
     return operation in SDK_CALLS
 
 
+def message_step(context: JourneyContext, step: Step) -> StepReceipt:
+    # Lazy import: message steps reuse this module's receipts and context.
+    from .message_journey import MESSAGE_OPERATIONS, MESSAGE_STEPS
+
+    uncovered = [
+        operation
+        for operation in MESSAGE_OPERATIONS[step]
+        if not covered(context.surface, operation)
+    ]
+    if uncovered:
+        return missing(context, step, "message_surface_operations:" + ",".join(uncovered))
+    return MESSAGE_STEPS[step](context)
+
+
 StepFunction = Callable[[JourneyContext], StepReceipt]
 
 STEPS: Mapping[Step, tuple[StepFunction, frozenset[SurfaceName]]] = {
+    Step.MESSAGE_QUESTION: (
+        lambda context: message_step(context, Step.MESSAGE_QUESTION),
+        frozenset(SurfaceName),
+    ),
+    Step.MESSAGE_TERMINAL: (
+        lambda context: message_step(context, Step.MESSAGE_TERMINAL),
+        frozenset(SurfaceName),
+    ),
+    Step.MESSAGE_OVERSIZE: (
+        lambda context: message_step(context, Step.MESSAGE_OVERSIZE),
+        frozenset(SurfaceName),
+    ),
+    Step.MESSAGE_RATE: (
+        lambda context: message_step(context, Step.MESSAGE_RATE),
+        frozenset(SurfaceName),
+    ),
+    Step.MESSAGE_ISOLATION: (
+        lambda context: message_step(context, Step.MESSAGE_ISOLATION),
+        frozenset(SurfaceName),
+    ),
     Step.BUY_CREDITS_TEST: (buy_credits, frozenset(SurfaceName)),
     Step.RAISE_LIMIT: (raise_limit, frozenset(SurfaceName)),
     Step.SKU_REFUSAL: (sku_refusal, frozenset(SurfaceName)),

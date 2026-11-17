@@ -200,6 +200,17 @@ def mint(client: SynthClient, call: Call) -> object:
 
 SdkCall = Callable[[SynthClient, Call], object]
 
+
+def event_page(client: SynthClient, call: Call) -> object:
+    cursor = call.query.get("cursor")
+    limit = call.query.get("limit", 20)
+    if cursor is not None and not isinstance(cursor, str):
+        raise ValueError("event_cursor_invalid")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 100:
+        raise ValueError("event_limit_invalid")
+    return client.swarms.events(run_id(call), cursor=cursor, limit=limit)
+
+
 # Public SDK methods only. An operation absent here is uncovered for the SDK.
 SDK_CALLS: Mapping[str, SdkCall] = {
     "getAccount": lambda c, a: c.account.get(),
@@ -226,7 +237,7 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getRunProgram": lambda c, a: c.swarms.program(run_id(a)),
     "getRunSandboxes": lambda c, a: c.swarms.sandboxes(run_id(a)),
     "listRunTasks": lambda c, a: c.swarms.tasks(run_id(a)),
-    "listRunEvents": lambda c, a: c.swarms.events(run_id(a)),
+    "listRunEvents": event_page,
     "getFile": lambda c, a: c.swarms.file(a.path["file_id"]),
     "getUsageExport": lambda c, a: c.account.usage_export(a.path["export_id"]),
     "withdrawPlanRequest": lambda c, a: c.account.withdraw_plan_request(a.path["request_id"]),
@@ -338,6 +349,14 @@ def inspect_view(view: str) -> ArgvBuilder:
     return lambda a, d: ["inspect", run_id(a), "--view", view]
 
 
+def event_page_argv(call: Call, _directory: Path) -> Sequence[str]:
+    argv = ["logs", run_id(call), "--limit", str(call.query.get("limit", 20))]
+    cursor = call.query.get("cursor")
+    if isinstance(cursor, str):
+        argv += ["--cursor", cursor]
+    return argv
+
+
 # Real `synth` commands. An operation absent here is uncovered for the CLI.
 CLI_ARGV: Mapping[str, ArgvBuilder] = {
     "getAccount": lambda a, d: ["organization", "get"],
@@ -360,6 +379,7 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
     ],
     "createRun": launch_argv,
     "getRun": run_verb("status"),
+    "listRunEvents": event_page_argv,
     "getRunLimits": run_verb("limits"),
     "updateRunLimits": lambda a, d: [
         *limits_argv(a, d),
