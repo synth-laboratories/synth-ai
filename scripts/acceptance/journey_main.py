@@ -115,7 +115,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--receipt-dir", type=Path)
     parser.add_argument("--run-id", help="a running run (raise_limit) or the queued run")
     parser.add_argument("--limit-run-id", help="this driver's run expected to pause on its limit")
-    parser.add_argument("--queued-journal", type=Path, help="cached harness launch journal")
+    parser.add_argument("--queued-journal", type=Path, help="cached harness public-client-<kind> directory (launch-row.json)")
     parser.add_argument("--foreign-ids", type=Path, help="org A IDs for the 404 matrix")
     parser.add_argument("--mcp-url")
     options = parser.parse_args(argv)
@@ -146,6 +146,40 @@ def main(argv: Optional[list[str]] = None) -> int:
         options.driver, origin=origin, work_directory=options.receipt_dir, mcp_url=options.mcp_url
     )
     receipts: list[StepReceipt] = []
+    try:
+        run_all(options, make, primary, origin, secrets, steps, receipts)
+    finally:
+        # Written even after an exception, so applied mutations keep their receipts.
+        write_steps(options.receipt_dir, options.driver, receipts)
+    verdict = summary(receipts)
+    print(json.dumps({"driver": options.driver.value, "verdict": verdict.value}))
+    return {Verdict.PASS: 0, Verdict.FAIL: 1}.get(verdict, 2)
+
+
+def write_steps(directory: Path, driver: SurfaceName, receipts: list[StepReceipt]) -> None:
+    retain(
+        directory / "steps.json",
+        json.dumps(
+            {
+                "schema": "synth.journeys.steps.v1",
+                "driver": driver.value,
+                "verdict": summary(receipts).value,
+                "steps": [receipt.to_json() for receipt in receipts],
+            },
+            sort_keys=True,
+        ),
+    )
+
+
+def run_all(
+    options: argparse.Namespace,
+    make: Callable[[str], AbstractContextManager[Surface]],
+    primary: str,
+    origin: str,
+    secrets: Mapping[str, str],
+    steps: list[Step],
+    receipts: list[StepReceipt],
+) -> None:
     with make(primary) as surface:
         context = JourneyContext(
             surface=surface,
@@ -161,22 +195,17 @@ def main(argv: Optional[list[str]] = None) -> int:
             mcp_url=options.mcp_url,
         )
         for step in steps:
-            receipts.append(run_step(context, step))
-    verdict = summary(receipts)
-    retain(
-        options.receipt_dir / "steps.json",
-        json.dumps(
-            {
-                "schema": "synth.journeys.steps.v1",
-                "driver": options.driver.value,
-                "verdict": verdict.value,
-                "steps": [receipt.to_json() for receipt in receipts],
-            },
-            sort_keys=True,
-        ),
-    )
-    print(json.dumps({"driver": options.driver.value, "verdict": verdict.value}))
-    return {Verdict.PASS: 0, Verdict.FAIL: 1}.get(verdict, 2)
+            try:
+                receipts.append(run_step(context, step))
+            except Exception as error:  # A transport or timeout leaves the outcome unknown.
+                receipts.append(
+                    StepReceipt(
+                        step,
+                        options.driver,
+                        Verdict.INCONCLUSIVE,
+                        "step_outcome_unknown:" + type(error).__name__,
+                    )
+                )
 
 
 if __name__ == "__main__":

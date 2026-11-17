@@ -14,6 +14,8 @@ import sys
 import threading
 from collections.abc import Callable
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -56,11 +58,11 @@ def api(responder: Responder):
     class Handler(BaseHTTPRequestHandler):
         def answer(self):
             length = int(self.headers.get("Content-Length") or 0)
-            if length:
-                self.rfile.read(length)
+            raw_body = self.rfile.read(length) if length else b""
             bearer = (self.headers.get("Authorization") or "").removeprefix("Bearer ")
             requests.append((self.command, self.path, bearer))
-            status, payload, headers = responder(self.command, self.path, {"bearer": bearer})
+            request = {"bearer": bearer, "body": json.loads(raw_body) if raw_body else None}
+            status, payload, headers = responder(self.command, self.path, request)
             raw = json.dumps(payload).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -330,3 +332,261 @@ def test_entrypoint_writes_exclusive_step_receipts(tmp_path, monkeypatch, capsys
     assert "fixture-admin" not in capsys.readouterr().out
     assert os.stat(tmp_path / "receipts").st_mode & 0o777 == 0o700
     assert sys.executable
+
+
+MONEY = {"amount": "0.00", "currency": "USD"}
+
+
+def limits_view(contract, *, cap, revision, status="running"):
+    view = example(contract, "/v1/runs/{run_id}/limits")
+    view.update(revision=revision, status=status)
+    view["primary"] = [{"dimension": "spend_micros", "effective_cap": cap, "state": "capped"}]
+    return view
+
+
+def limits_api(contract, status="running"):
+    state = {"cap": 1_000_000, "revision": 0}
+
+    def responder(method, path, request):
+        if method == "POST" and path.endswith("/limits"):
+            amount = request["body"]["limits"]["maximum_charge"]["amount"]
+            state["cap"] = int(Decimal(amount) * 1_000_000)
+            state["revision"] += 1
+        return (
+            200,
+            limits_view(contract, cap=state["cap"], revision=state["revision"], status=status),
+            {},
+        )
+
+    return responder
+
+
+@pytest.mark.parametrize("surface", [SurfaceName.CLI, SurfaceName.MCP_STDIO])
+def test_raise_limit_is_seen_in_the_next_budget_view(contract, tmp_path, surface):
+    result, requests = run(
+        surface, limits_api(contract), tmp_path, Step.RAISE_LIMIT, run_id="run_" + "R" * 22
+    )
+    assert result.verdict == Verdict.PASS, result
+    assert [method for method, _, _ in requests] == ["GET", "POST", "GET"]
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_raise_limit_on_an_ended_run_is_inconclusive_not_failed(contract, tmp_path, surface):
+    result, requests = run(
+        surface,
+        limits_api(contract, status="completed"),
+        tmp_path,
+        Step.RAISE_LIMIT,
+        run_id="run_" + "R" * 22,
+    )
+    assert result.verdict == Verdict.INCONCLUSIVE
+    assert result.cause == "precondition_not_met:run_not_running"
+    assert all(method == "GET" for method, _, _ in requests)
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_current_month_statement_passes(contract, tmp_path, surface):
+    month = datetime.now(UTC).strftime("%Y-%m")
+    item = {
+        name: MONEY
+        for name in (
+            "opening_ledger purchases allowance credits conversion charges refunds "
+            "adjustments expirations closing_ledger unspent_returned usage_charge"
+        ).split()
+    }
+    item.update(
+        month=month,
+        period_start=month + "-01T00:00:00Z",
+        period_end=month + "-28T00:00:00Z",
+        entries=1,
+        usage_input_tokens=0,
+        usage_output_tokens=0,
+    )
+
+    def responder(method, path, _):
+        if path.startswith("/v1/billing/statements"):
+            return 200, {"has_more": False, "items": [item]}, {}
+        return 200, example(contract, "/v1/billing/balance"), {}
+
+    result, _ = run(surface, responder, tmp_path, Step.STATEMENT)
+    assert result.verdict == Verdict.PASS, result
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_pause_on_limit_then_resume(contract, tmp_path, surface):
+    snapshot = example(contract, "/v1/runs/{run_id}")
+    limits = limits_api(contract)
+    resumed = {"done": False}
+    pause = {
+        "cause": "limit",
+        "operation_id": "op_fixture",
+        "limit": None,
+        "requested_at_ms": 1,
+        "drained_at_ms": None,
+        "mode": "cold",
+    }
+
+    def responder(method, path, request):
+        if path.endswith("/limits"):
+            if method == "POST":
+                assert request["body"]["resume"] is True
+                resumed["done"] = True
+            return limits(method, path, request)
+        body = copy.deepcopy(snapshot)
+        if resumed["done"]:
+            body.update(state="running", pause=None)
+        else:
+            body.update(state="paused", pause=pause)
+        return 200, body, {}
+
+    run_id = "run_" + "L" * 22
+    paused, _ = run(surface, responder, tmp_path / "pause", Step.PAUSE_LIMIT, limit_run_id=run_id)
+    assert paused.verdict == Verdict.PASS, paused
+    result, _ = run(surface, responder, tmp_path / "resume", Step.RESUME, limit_run_id=run_id)
+    assert result.verdict == Verdict.PASS, result
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_key_mint_rotate_revoke_with_a_session(contract, tmp_path, surface):
+    minted = example(contract, "/v1/api-keys", method="post", status="201")
+    account = example(contract, "/v1/account")
+    live: set[str] = set()
+    counter = {"n": 0}
+
+    def issue():
+        counter["n"] += 1
+        body = copy.deepcopy(minted)
+        body["key_id"] = "key_" + str(counter["n"]) * 22
+        body["key"] = "sk_test_" + str(counter["n"]) * 48
+        live.add(body["key"])
+        return body
+
+    def responder(method, path, request):
+        bearer = request["bearer"]
+        if path == "/v1/account":
+            if bearer in live:
+                return 200, account, {}
+            return 401, problem("authentication_required", 401), {}
+        assert bearer == "fixture-session"
+        if method == "POST" and path == "/v1/api-keys":
+            return 201, issue(), {}
+        if path.endswith("/rotate"):
+            live.discard("sk_test_" + path.split("/")[3][-1] * 48)
+            return 200, issue(), {}
+        live.discard("sk_test_" + path.split("/")[3][-1] * 48)
+        return 204, None, {}
+
+    session = {Secret.SESSION.value: "fixture-session"}
+    with api(responder) as (origin, _):
+        with context_for(surface, origin, tmp_path, secrets=session) as context:
+            verdicts = [
+                run_step(context, step).verdict
+                for step in (Step.MINT_KEY, Step.ROTATE_KEY, Step.REVOKE_KEY)
+            ]
+    assert verdicts == [Verdict.PASS] * 3
+    assert live == set()
+
+
+@pytest.mark.parametrize("surface", [SurfaceName.SDK, SurfaceName.CLI])
+@pytest.mark.parametrize(
+    ("states", "expected"),
+    [
+        (["running", "completed"], (Verdict.PASS, "")),
+        (["completed"], (Verdict.INCONCLUSIVE, "precondition_not_met:run_already_terminal")),
+    ],
+)
+def test_queued_launch_follows_the_harness_launch(contract, tmp_path, surface, states, expected):
+    run_id = "run_" + "Q" * 22
+    snapshot = example(contract, "/v1/runs/{run_id}")
+    snapshot.update(run_id=run_id, state="queued")
+    snapshot["queue"] = {"position": 2, "ahead": 1, "estimated_start_at": None, "expires_at": None}
+    folder = tmp_path / "public-client-sdk"
+    folder.mkdir()
+    (folder / "launch-row.json").write_text(json.dumps({"run_id": run_id, "body": snapshot}))
+    remaining = list(states)
+
+    def responder(method, path, _):
+        body = copy.deepcopy(snapshot)
+        body.update(state=remaining.pop(0) if len(remaining) > 1 else remaining[0], queue=None)
+        return 200, body, {}
+
+    result, _ = run(surface, responder, tmp_path / "run", Step.QUEUED_LAUNCH, queued_journal=folder)
+    assert (result.verdict, result.cause) == expected, result
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_cross_org_matrix_classifies_every_surface(tmp_path, surface):
+    ids = matrix_ids()
+
+    def responder(method, path, _):
+        if path.startswith("/v1/api-keys"):
+            return 403, problem("insufficient_scope", 403), {}  # Session-only routes.
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        surface,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=ids,
+    )
+    results = {row.get("operation"): row.get("result") for row in result.evidence}
+    assert "leak" not in results.values() and "differs" not in results.values()
+    assert results["getRun"] == "pass"
+    assert result.verdict == Verdict.INCONCLUSIVE
+    if surface != SurfaceName.CLI:
+        assert results["revokeApiKey"] == "unproven:uniform_403"
+
+
+def test_cross_org_existence_signal_fails(tmp_path):
+    foreign = matrix_ids()["file_id"]
+
+    def responder(method, path, _):
+        detail = "forbidden" if path.endswith(foreign) else "absent"
+        return 404, {**problem("resource_not_found", 404), "detail": detail}, {}
+
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=matrix_ids(),
+    )
+    assert result.verdict == Verdict.FAIL
+    assert any(
+        row.get("operation") == "getFile" and row["result"] == "differs" for row in result.evidence
+    )
+
+
+def test_a_step_exception_keeps_earlier_receipts(tmp_path, monkeypatch):
+    def responder(method, path, _):
+        return 403, problem("optimizer_topology_not_allowed", 403), {}
+
+    def explode(context):
+        raise TimeoutError("fixture")
+
+    from scripts.acceptance import journeys
+
+    _function, drivers = journeys.STEPS[Step.STATEMENT]
+    monkeypatch.setitem(journeys.STEPS, Step.STATEMENT, (explode, drivers))
+    with api(responder) as (origin, _):
+        monkeypatch.setenv("SYNTH_LOCAL_API_BASE_URL", origin)
+        monkeypatch.setenv("SYNTH_API_KEY", "fixture-admin")
+        code = journey_main.main(
+            [
+                "--driver",
+                "sdk",
+                "--steps",
+                f"{Step.SKU_REFUSAL},{Step.STATEMENT}",
+                "--receipt-dir",
+                str(tmp_path / "r"),
+            ]
+        )
+    steps = json.loads((tmp_path / "r/steps.json").read_text())["steps"]
+    assert code == 2
+    assert [(s["verdict"], s["cause"]) for s in steps] == [
+        ("Pass", ""),
+        ("Inconclusive", "step_outcome_unknown:TimeoutError"),
+    ]

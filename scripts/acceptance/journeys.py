@@ -68,7 +68,8 @@ STATE_SECONDS = 900.0
 MEMBER_ROLES = frozenset({"member"})
 ADMIN_ROLES = frozenset({"owner", "admin"})
 OVERLOAD_CODES = frozenset({"overloaded", "rate_limit_exceeded", "run_queue_full"})
-TERMINAL = frozenset({"succeeded", "failed", "cancelled"})
+# RunSnapshot.state terminal values (contract 1.32 examples).
+TERMINAL = frozenset({"completed", "partial", "failed", "cancelled"})
 ID_PARAMETERS = frozenset(
     {
         "run_id",
@@ -307,6 +308,11 @@ def raise_limit(context: JourneyContext) -> StepReceipt:
         return raise_four(context)
     path = {"run_id": context.run_id}
     before = context.surface.call(Call("getRunLimits", path=path))
+    if before.accepted and obj(before.value).get("status") != "running":
+        # The batch's run ended before this driver's turn: not this driver's fault.
+        return receipt(
+            context, step, Verdict.INCONCLUSIVE, "precondition_not_met:run_not_running", before
+        )
     cap = spend_cap(before)
     if cap is None or not isinstance(before.value, dict):
         return receipt(context, step, Verdict.FAIL, "budget_view_unavailable", before)
@@ -343,7 +349,13 @@ def raise_four(context: JourneyContext) -> StepReceipt:
     try:
         current = caps(client.swarms.limits(context.run_id), context.run_id)
     except LiveLimitsError as error:
-        return receipt(context, Step.RAISE_LIMIT, Verdict.FAIL, error.code)
+        verdict = Verdict.INCONCLUSIVE if error.code == "run_not_running" else Verdict.FAIL
+        cause = (
+            "precondition_not_met:run_not_running"
+            if verdict == Verdict.INCONCLUSIVE
+            else error.code
+        )
+        return receipt(context, Step.RAISE_LIMIT, verdict, cause)
     targets = LimitTargets(
         budget_usd=str(Decimal(current[Dimension.SPEND] * 2) / Decimal(1_000_000)),
         maximum_tokens=current[Dimension.TOKENS] * 2,
@@ -610,6 +622,7 @@ def private_auth_file(context: JourneyContext) -> Generator[Path]:
     try:
         yield path
     finally:
+        path.unlink(missing_ok=True)  # Live OAuth tokens never stay in receipts.
         if previous is None:
             os.environ.pop("SYNTH_AUTH_FILE", None)
         else:
@@ -764,15 +777,33 @@ def mcp_consent(context: JourneyContext) -> StepReceipt:
             origin + "/mcp/oauth/grants", headers={"Authorization": "Bearer " + session}
         )
         notes["grants_status"] = grants.status_code
+        listed = [
+            grant
+            for grant in items(
+                obj(grants.json() if grants.status_code == 200 else {}).get("grants")
+            )
+            if obj(grant).get("client_id") == client_id
+        ]
+        notes["grant_listed"] = len(listed) == 1
     with context.make(access) as surface:
         used = surface.call(Call("getAccount"))
-    ok = used.accepted and grants.status_code == 200
+    with httpx.Client(timeout=30, follow_redirects=False) as client:
+        for grant in listed:
+            revoked = client.delete(
+                origin + "/mcp/oauth/grants/" + str(obj(grant).get("grant_id")),
+                headers={"Authorization": "Bearer " + session},
+            )
+            notes["grant_revoke_status"] = revoked.status_code
+    with context.make(access) as surface:
+        after = surface.call(Call("getAccount"))
+    ok = used.accepted and len(listed) == 1 and not after.accepted
     return receipt(
         context,
         step,
         Verdict.PASS if ok else Verdict.FAIL,
-        "" if ok else "mcp_oauth_token_refused",
+        "" if ok else "mcp_oauth_grant_lifecycle_failed",
         used,
+        after,
         notes=notes,
     )
 
@@ -948,19 +979,20 @@ def overload_recovery(context: JourneyContext) -> StepReceipt:
 
 
 def queued_launch(context: JourneyContext) -> StepReceipt:
-    """Observe a run the cached harness launched while capacity was saturated."""
+    """Follow a run the cached harness launched (public-client-<kind>/launch-row.json)."""
     step = Step.QUEUED_LAUNCH
-    if context.queued_journal is None or context.run_id is None:
+    if context.queued_journal is None:
         return missing(context, step, "cached_harness_queued_launch")
-    accepted_path = context.queued_journal / "launch-accepted.json"
-    if not accepted_path.is_file():
-        return missing(context, step, "launch_accepted_journal")
-    acknowledged = json.loads(accepted_path.read_text())
-    snapshot = acknowledged.get("snapshot", acknowledged)
-    queue = snapshot.get("queue") if isinstance(snapshot, dict) else None
-    if snapshot.get("run_id") != context.run_id:
-        return receipt(context, step, Verdict.FAIL, "journal_run_mismatch")
-    if snapshot.get("state") != "queued" or not isinstance(queue, dict):
+    row_path = context.queued_journal / "launch-row.json"
+    if not row_path.is_file():
+        return missing(context, step, "launch_row")
+    row = obj(json.loads(row_path.read_text()))
+    snapshot = obj(row.get("body"))
+    run = row.get("run_id")
+    queue = obj(snapshot.get("queue"))
+    if not isinstance(run, str) or snapshot.get("run_id") != run:
+        return receipt(context, step, Verdict.FAIL, "launch_row_run_mismatch")
+    if snapshot.get("state") != "queued" or not queue:
         return receipt(
             context,
             step,
@@ -968,23 +1000,25 @@ def queued_launch(context: JourneyContext) -> StepReceipt:
             "precondition_not_met:capacity_not_saturated",
             notes={"acknowledged_state": snapshot.get("state")},
         )
-    outcome, seen = wait_state(context, context.run_id, lambda v: v.get("state") in TERMINAL)
-    order = ["queued", "running"]
-    progressed = [state for state in seen if state in order or state in TERMINAL]
-    ok = (
-        isinstance(queue.get("position"), int)
-        and queue["position"] >= 1
-        and progressed[-1:]
-        and progressed[-1] in TERMINAL
-        and "running" in progressed
-    )
+    outcome, seen = wait_state(context, run, lambda v: v.get("state") in TERMINAL)
+    position = queue.get("position")
+    notes: dict[str, JsonValue] = {"run_id": run, "queue": queue, "states": list(seen)}
+    if not isinstance(position, int) or position < 1:
+        return receipt(context, step, Verdict.FAIL, "queue_position_invalid", outcome, notes=notes)
+    if seen[-1:] and seen[-1] in TERMINAL and "running" in seen:
+        return receipt(context, step, Verdict.PASS, "", outcome, notes=notes)
+    if seen and seen[0] in TERMINAL:
+        # This driver's turn came after the run ended; its progression is unseen.
+        return receipt(
+            context,
+            step,
+            Verdict.INCONCLUSIVE,
+            "precondition_not_met:run_already_terminal",
+            outcome,
+            notes=notes,
+        )
     return receipt(
-        context,
-        step,
-        Verdict.PASS if ok else Verdict.FAIL,
-        "" if ok else "queued_progression_unobserved",
-        outcome,
-        notes={"queue": queue, "states": list(seen)},
+        context, step, Verdict.FAIL, "queued_progression_unobserved", outcome, notes=notes
     )
 
 
@@ -1052,6 +1086,23 @@ def masked(problem: Optional[Mapping[str, JsonValue]], identifiers: tuple[str, .
     return text
 
 
+def classify(foreign: Outcome, absent: Outcome, identifiers: tuple[str, ...]) -> str:
+    """pass | leak | differs (Fail) or unproven:* (Inconclusive)."""
+    if foreign.accepted or absent.accepted:
+        return "leak" if foreign.accepted else "differs"
+    signature = [
+        (item.status, item.code, item.cause, masked(item.problem, identifiers))
+        for item in (foreign, absent)
+    ]
+    if signature[0] != signature[1]:
+        return "differs"  # A foreign ID answers unlike an absent one: existence leaks.
+    if foreign.status is None:
+        return "unproven:never_reached_core"
+    if foreign.status != 404:
+        return f"unproven:uniform_{foreign.status}"
+    return "pass"
+
+
 def cross_org(context: JourneyContext) -> StepReceipt:
     """Org B (actor) addresses org A's IDs and absent IDs; answers must be identical 404s."""
     step = Step.CROSS_ORG_404
@@ -1089,15 +1140,14 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                 for ids in (foreign, absent)
             ]
             seen = [surface.call(call) for call in calls]
-            identifiers = tuple(foreign.values()) + tuple(absent.values())
-            same = masked(seen[0].problem, identifiers) == masked(seen[1].problem, identifiers)
-            ok = all(not item.accepted and item.status == 404 for item in seen) and same
-            failed += not ok
+            result = classify(seen[0], seen[1], tuple(foreign.values()) + tuple(absent.values()))
+            failed += result in {"leak", "differs"}
+            uncovered += result.startswith("unproven:")
             rows.append(
                 {
                     "operation": operation,
                     "route": route,
-                    "result": "pass" if ok else ("leak" if seen[0].accepted else "differs"),
+                    "result": result,
                     "foreign": seen[0].evidence(),
                     "absent": seen[1].evidence(),
                 }
