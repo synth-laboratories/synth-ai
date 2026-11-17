@@ -25,12 +25,11 @@ def generate() -> str:
         "from ._generated.models import RunResult",
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
-        "from .evaluations import AsyncEvaluations, EvaluationInputKind",
         "from .swarms import AsyncSwarms",
         "",
     ]
     model_imports = set()
-    for module in ["swarms", "account", "billing", "evaluations"]:
+    for module in ["swarms", "account", "billing"]:
         tree = ast.parse((ROOT / "synth_ai" / f"{module}.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.ImportFrom) and node.module == "_generated.models":

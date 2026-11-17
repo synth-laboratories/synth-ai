@@ -11,8 +11,6 @@ from typing import Optional
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from .._generated.models import (
-    CreateEvaluation,
-    EvaluationInput,
     LaunchRequest,
     RunLabelsRequest,
     RunLimitUpdate,
@@ -21,7 +19,6 @@ from .._generated.models import (
 from .._limits import SERVER_WAIT_SECONDS_DEFAULT
 from .._requests import DomicileRequirement
 from ..aclient import AsyncSynthClient
-from ..evaluations import EvaluationInputKind
 from ._arguments import optional, page_limit, required
 from .resource_dispatch import dispatch_resource
 
@@ -157,62 +154,6 @@ async def dispatch(
                 required(arguments, "run_id", str),
                 required(arguments, "body", RunLimitUpdate),
                 idempotency_key=optional(arguments, "idempotency_key", str),
-            )
-        case "registerEvaluationInput":
-            return await client.evaluations.register(
-                TypeAdapter(EvaluationInputKind).validate_python(arguments["kind"], strict=True),
-                TypeAdapter(EvaluationInput).validate_python(arguments["body"], strict=True),
-                idempotency_key=optional(arguments, "idempotency_key", str),
-            )
-        case "listEvaluationInputs":
-            return await client.evaluations.list_inputs(
-                TypeAdapter(EvaluationInputKind).validate_python(arguments["kind"], strict=True),
-                name=optional(arguments, "name", str),
-            )
-        case "getEvaluationInput":
-            return await client.evaluations.get_input(
-                TypeAdapter(EvaluationInputKind).validate_python(arguments["kind"], strict=True),
-                required(arguments, "revision_id", str),
-            )
-        case "preflightEvaluation":
-            quote = required(arguments, "body", CreateEvaluation)
-            return await client.evaluations.preflight(
-                quote.request,
-                maximum_charge_micros=quote.maximum_charge_micros,
-                idempotency_key=optional(arguments, "idempotency_key", str),
-            )
-        case "createEvaluation":
-            evaluation = required(arguments, "body", CreateEvaluation)
-            return await client.evaluations.create(
-                evaluation.request,
-                maximum_charge_micros=evaluation.maximum_charge_micros,
-                idempotency_key=optional(arguments, "idempotency_key", str),
-            )
-        case "getEvaluation":
-            return await client.evaluations.get(required(arguments, "evaluation_id", str))
-        case "cancelEvaluation":
-            return await client.evaluations.cancel(
-                required(arguments, "evaluation_id", str),
-                idempotency_key=optional(arguments, "idempotency_key", str),
-            )
-        case "listEvaluationRollouts":
-            # Each declared view has its own typed SDK return model.
-            if arguments.get("view") == "summary":
-                return await client.evaluations.rollout_summary(
-                    required(arguments, "evaluation_id", str),
-                    cursor=optional(arguments, "cursor", str),
-                    instance_ids=TypeAdapter(Optional[list[str]]).validate_python(
-                        arguments.get("instance_ids"),
-                        strict=True,
-                    ),
-                )
-            return await client.evaluations.rollouts(
-                required(arguments, "evaluation_id", str),
-                cursor=optional(arguments, "cursor", str),
-                instance_ids=TypeAdapter(Optional[list[str]]).validate_python(
-                    arguments.get("instance_ids"),
-                    strict=True,
-                ),
             )
         case _:
             return await dispatch_resource(client, operation, arguments)

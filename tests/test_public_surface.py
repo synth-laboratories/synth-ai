@@ -16,10 +16,10 @@ async def test_swarms_only_public_surface(contract):
             for op in path.values()
             if isinstance(op, dict)
         )
-        == 82
+        == 74
     )
-    assert len(OPERATIONS) == 69
-    assert len(TOOLS) == 69
+    assert len(OPERATIONS) == 61
+    assert len(TOOLS) == 61
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
     assert all("inference" not in op["path"] for op in OPERATIONS.values())
@@ -63,3 +63,17 @@ def test_sdk_inventory_covers_every_implemented_v1_operation(contract):
         if isinstance(op, dict) and op.get("x-synth-status") == "implemented"
     }
     assert set(OPERATIONS) == expected
+
+
+def test_evaluation_surface_is_removed():
+    assert importlib.util.find_spec("synth_ai.evaluations") is None
+    assert "evaluations" not in COMMANDS
+    assert all("/evaluations" not in op["path"] for op in OPERATIONS.values())
+    assert all(not tool["name"].startswith("swarms_evaluation_") for tool in TOOLS)
+    with SynthClient("fixture", base_url="https://example.test") as client:
+        assert not hasattr(client, "evaluations")
+    result = subprocess.run(
+        [sys.executable, "-m", "synth_ai.cli", "evaluations", "list"], capture_output=True
+    )
+    assert result.returncode == 1
+    assert b"invalid choice" in result.stderr

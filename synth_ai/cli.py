@@ -19,8 +19,6 @@ from . import _cli_view as view
 from . import auth
 from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
-    CreateEvaluation,
-    EvaluationInput,
     InputFile,
     LaunchRequest,
     OptimizerPin,
@@ -45,7 +43,6 @@ from .errors import (
     UploadTransferError,
     WaitTimeoutError,
 )
-from .evaluations import AsyncEvaluations
 from .swarms import AsyncSwarms
 
 EXIT_OK = 0
@@ -67,7 +64,6 @@ COMMANDS: dict[str, str] = {
     "inspect": "Run details",
     "families": "Topology catalog",
     "runs": "List runs",
-    "evaluations": "Register inputs and evaluate policies",
     "login": "Sign in",
     "whoami": "Signed-in account",
     "logout": "Sign out",
@@ -284,33 +280,6 @@ def parser() -> argparse.ArgumentParser:
     plan_request.add_argument("--idempotency-key")
     plan.add_parser("requests", parents=[plan_common])
     plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
-    evaluation_common = Parser(add_help=False)
-    evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
-    evaluation = add("evaluations").add_subparsers(dest="evaluation_action", required=True)
-    for action in ("register", "list", "input"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("kind", choices=("task", "pool", "policy", "evaluator", "dataset"))
-        if action == "register":
-            command.add_argument("file")
-            command.add_argument("--idempotency-key")
-        elif action == "input":
-            command.add_argument("revision_id")
-        else:
-            command.add_argument("--name")
-    for action in ("preflight", "create"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("file")
-        command.add_argument("--idempotency-key")
-    for action in ("get", "cancel", "wait", "rollouts"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("evaluation_id")
-        if action == "rollouts":
-            command.add_argument("--cursor")
-            command.add_argument("--instance-id", action="append", dest="instance_ids")
-        if action == "cancel":
-            command.add_argument("--idempotency-key")
-        if action == "wait":
-            command.add_argument("--timeout", type=float, default=600)
     return root
 
 
@@ -417,9 +386,6 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             print(
                 "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
             )
-        elif command == "evaluations":
-            result = await execute_evaluation(client.evaluations, args)
-            out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
@@ -612,39 +578,6 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
     return EXIT_OK
 
 
-async def execute_evaluation(evaluations: AsyncEvaluations, args: argparse.Namespace) -> BaseModel:
-    action = args.evaluation_action
-    if action == "register":
-        payload = TypeAdapter(EvaluationInput).validate_json(Path(args.file).read_bytes())
-        return await evaluations.register(args.kind, payload, idempotency_key=args.idempotency_key)
-    if action == "list":
-        return await evaluations.list_inputs(args.kind, name=args.name)
-    if action == "input":
-        return await evaluations.get_input(args.kind, args.revision_id)
-    if action in {"preflight", "create"}:
-        payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
-        if action == "preflight":
-            return await evaluations.preflight(
-                payload.request,
-                maximum_charge_micros=payload.maximum_charge_micros,
-                idempotency_key=args.idempotency_key,
-            )
-        return await evaluations.create(
-            payload.request,
-            maximum_charge_micros=payload.maximum_charge_micros,
-            idempotency_key=args.idempotency_key,
-        )
-    if action == "rollouts":
-        return await evaluations.rollouts(
-            args.evaluation_id, cursor=args.cursor, instance_ids=args.instance_ids
-        )
-    if action == "cancel":
-        return await evaluations.cancel(args.evaluation_id, idempotency_key=args.idempotency_key)
-    if action == "wait":
-        return await evaluations.wait(args.evaluation_id, timeout=args.timeout)
-    return await evaluations.get(args.evaluation_id)
-
-
 async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
     """Stream events; the stored checkpoint advances only after a line is written."""
     checkpoint = view.load_checkpoint(run_id)
@@ -735,9 +668,6 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
         return EXIT_RUN_PAUSED
     except WaitTimeoutError as error:
         fail(error.code, str(error), as_json)
-        return EXIT_WAIT_TIMEOUT
-    except TimeoutError:
-        fail("wait_timeout", "Evaluation did not finish before the wait deadline", as_json)
         return EXIT_WAIT_TIMEOUT
     except (TransportFailureError, ResponseContractError) as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)

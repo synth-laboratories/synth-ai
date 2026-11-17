@@ -7,7 +7,7 @@ from types import TracebackType
 import httpx
 
 from ._blocking import Runner
-from ._sync import AccountClient, BillingClient, EvaluationsClient, SwarmsClient
+from ._sync import AccountClient, BillingClient, SwarmsClient
 from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
 from .diagnostics import DiagnosticHook
@@ -15,7 +15,7 @@ from .environments import Environment
 
 
 class SynthClient:
-    """Access Swarms, evaluation inputs, account and billing through the public API.
+    """Access Swarms, account and billing through the public API.
 
     Use as a context manager to close client resources. API keys and base URLs
     can be passed explicitly or resolved by the documented authentication flow.
@@ -48,7 +48,6 @@ class SynthClient:
         self.swarms = SwarmsClient(self._runner, self._async.swarms)
         self.account = AccountClient(self._runner, self._async.account)
         self.billing = BillingClient(self._runner, self._async.billing)
-        self.evaluations = EvaluationsClient(self._runner, self._async.evaluations)
 
     def close(self) -> None:
         """Close the client transport and owned network resources."""

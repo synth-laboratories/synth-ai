@@ -12,12 +12,11 @@ from .auth import credentials
 from .billing import AsyncBilling
 from .diagnostics import DiagnosticHook
 from .environments import Environment, resolve_base_url
-from .evaluations import AsyncEvaluations
 from .swarms import AsyncSwarms
 
 
 class AsyncSynthClient:
-    """Access Swarms, evaluation inputs, account and billing through the public API.
+    """Access Swarms, account and billing through the public API.
 
     Use as a context manager to close client resources. API keys and base URLs
     can be passed explicitly or resolved by the documented authentication flow.
@@ -49,7 +48,6 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarms(self._transport)
         self.account = AsyncAccount(self._transport)
         self.billing = AsyncBilling(self._transport)
-        self.evaluations = AsyncEvaluations(self._transport)
 
     async def close(self) -> None:
         """Close the client transport and owned network resources."""

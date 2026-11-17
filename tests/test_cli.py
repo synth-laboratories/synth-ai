@@ -24,7 +24,6 @@ EXPECTED_COMMANDS = [
     "inspect",
     "families",
     "runs",
-    "evaluations",
     "login",
     "whoami",
     "logout",
@@ -627,18 +626,6 @@ def test_result_without_charge_prints_no_charge_line(api, capsys, contract):
     assert json.loads(out)["charge"] is None
 
 
-def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contract):
-    _, body = example(contract, "getEvaluation")
-    body["status"] = "running"
-    api.overrides["getEvaluation"] = (200, body)
-    code, out, err = invoke(
-        api, capsys, "evaluations", "wait", body["evaluation_id"], "--timeout", "0.02", "--json"
-    )
-    assert code == cli.EXIT_WAIT_TIMEOUT, err
-    assert out == ""
-    assert json.loads(err)["code"] == "wait_timeout"
-
-
 def test_run_reuses_explicit_launch_and_per_file_keys(api, capsys, contract, tmp_path):
     path = tmp_path / "task.md"
     content = b"# Task\n"
@@ -724,24 +711,3 @@ def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path
         assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
         assert f"idempotency_key={key}" in err
     assert all(oid != "createRun" for oid, _ in api.calls)
-
-
-def test_evaluation_rollout_page_cli(api, capsys, contract):
-    status, body = example(contract, "listEvaluationRollouts")
-    api.overrides["listEvaluationRollouts"] = (status, body)
-    code, out, err = invoke(
-        api,
-        capsys,
-        "evaluations",
-        "rollouts",
-        "eval_one",
-        "--cursor",
-        "opaque",
-        "--instance-id",
-        "a",
-        "--instance-id",
-        "b",
-        "--json",
-    )
-    assert code == cli.EXIT_OK, err
-    assert json.loads(out)["evaluation_id"] == body["evaluation_id"]

@@ -65,11 +65,3 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_limits | getRunLimits | swarms:read |
 | swarms_run_limits_update | updateRunLimits | swarms:run |
 | swarms_run_tasks | listRunTasks | swarms:read |
-| swarms_evaluation_input_register | registerEvaluationInput | swarms:run |
-| swarms_evaluation_inputs_list | listEvaluationInputs | swarms:read |
-| swarms_evaluation_input_get | getEvaluationInput | swarms:read |
-| swarms_evaluation_preflight | preflightEvaluation | swarms:run |
-| swarms_evaluation_create | createEvaluation | swarms:run |
-| swarms_evaluation_get | getEvaluation | swarms:read |
-| swarms_evaluation_rollouts_list | listEvaluationRollouts | swarms:read |
-| swarms_evaluation_cancel | cancelEvaluation | swarms:run |

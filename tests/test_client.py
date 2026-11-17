@@ -204,35 +204,3 @@ def test_cli_launch_requires_a_message():
     assert parser().parse_args(["run", "Find the fault.", "--budget", "1"]).goal == (
         "Find the fault."
     )
-
-
-async def test_evaluation_report_page_repeats_instance_filter_and_preserves_cursor():
-    calls = []
-
-    def handle(request):
-        calls.append(request)
-        assert request.url.path == "/v1/evaluations/eval_one/rollouts"
-        assert request.url.params.get_list("instance_ids") == ["a", "b"]
-        assert request.url.params["cursor"] == "opaque_cursor"
-        return httpx.Response(
-            200,
-            json={
-                "evaluation_id": "eval_one",
-                "status": "completed",
-                "attestation_digest": "sha256:" + "a" * 64,
-                "rollouts": [{"instance_id": "b", "score": "0.25", "report": {"truncated": False}}],
-                "next_cursor": "next_cursor",
-                "truncated": True,
-            },
-        )
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            page = await client.evaluations.rollouts(
-                "eval_one", cursor="opaque_cursor", instance_ids=["a", "b"]
-            )
-            assert page.next_cursor == "next_cursor"
-            assert page.rollouts[0]["score"] == "0.25"
-    assert len(calls) == 1
