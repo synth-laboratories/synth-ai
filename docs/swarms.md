@@ -88,39 +88,24 @@ synth billing
 `synth run --file PATH` uploads the file and attaches its reference; Python callers
 use `upload_file` and pass the references in `inputs`; see the README.
 
-## Named run profiles
+## Optimizer selection
 
-Call `profiles()` or `profiles(research_task="TASK")` to discover published
-profiles. The result includes `default_profile` and entries with `id`, `name`,
-`description`, `revision`, `available`, optional `unavailable_reason`, and
-supported routing. Availability is a read-only check, not a funding reservation.
-It reflects caller permissions, served recipes and task approvals. Launch
-revalidates those facts and checks the requested budget and resources.
+Use `optimizer="auto"` (the default) to let Core resolve the admitted optimizer.
+The Nov 16 release admits `swarms_v2` only. The public `fork_flush` enum remains
+reserved for a later release; pinning it is refused by the environment
+whitelist. It is never selected by `auto` or advertised as a launch choice.
 
-| Profile | ID | Additional input |
-| --- | --- | --- |
-| Swarms v2 | `swarms-v2` | None |
-| Fork & Flush | `fork-flush` | `research_task` |
+`client.swarms.families()` and `synth families` read the same catalog used by
+MCP and the Console. Catalog entries carry `label` (`default` or
+`experimental`), `auto`, availability, version and a definition digest.
+Experimental means opt-in, never a default. An enum value alone is not evidence
+that a topology is served. Public marketing names and configurable parameters
+remain owner decisions in SYN-5667; this candidate does not introduce either.
 
-Omit `profile` for Core's default. An explicit profile is never silently
-replaced. The public API does not accept `program`, `method`,
-`profile_overrides`, or arbitrary actor/algorithm settings. A research profile
-uses the task's approved immutable parameters, evaluator, baseline, context and
-actor profile. Missing, revoked or foreign approvals refuse before funding.
-
-```python
-run = client.swarms.run(
-    "Improve the policy", budget="2.00",
-    profile="fork-flush", research_task="published-task",
-)
-print(run.profile.id, run.profile.revision, run.profile.digest)
-```
-
-`run.profile` retains the named revision, compiled program definition and exact
-actor profile digests. Its digest binds the resolved recipe, including approved
-research settings. Updating the catalog does not relabel historical runs;
-runs predating named profiles omit this field. `run.method` continues to expose
-retained research details as readback, not as a launch selector.
+The run's `optimizer` preserves its admitted identity, resolution reason and
+definition digest. Current catalog availability cannot relabel historical runs.
+Named run profiles remain a separate API concept; use `profiles()` to read
+availability rather than treating a profile name as topology admission.
 
 `run.selection` reports what a research run selected. Only `selected` has an incumbent
 and a downloadable `selected-snapshot.tar.gz`, a gzipped tar whose SHA-256 equals
