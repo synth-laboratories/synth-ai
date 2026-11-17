@@ -1,6 +1,6 @@
 # Public contract and retry policy
 
-Core owns the pinned public OpenAPI, scope registry and per-operation retry eligibility. `scripts/gen_contract.py` generates models, operation metadata, MCP schemas, OAuth login scopes and version metadata. Regenerate and run `--check` after changing the contract or package version. `SOURCE.toml` binds to the exact Core commit and content hash; this candidate preserves the 8192 UTF-8-byte message limit.
+Core owns the pinned public OpenAPI, scope registry and per-operation retry eligibility. `scripts/gen_contract.py` generates models, operation metadata, MCP schemas, OAuth login scopes and version metadata. Regenerate and run `--check` after changing the contract or package version. `SOURCE.toml` binds to the exact Core commit and content hash; the generated MESSAGE_MAX_BYTES constant defines the current UTF-8-byte message limit.
 
 `x-synth-max-bytes` produces a Pydantic UTF-8-byte validator. The CLI reads the same generated message limit. `x-synth-message-text` rejects Unicode-blank messages and NUL. Shared fixtures in `contracts/fixtures/message-limits.json` match Core's fixture source and cover ASCII, emoji and two-byte characters at both sides of the limit.
 
@@ -34,3 +34,15 @@ Launch contract 4 (Core contract 1.3.0) / SDK 0.32.0 makes `message` required.
 A launch without one, or with a blank one, is refused locally with `ValueError`
 and by Core with 422 `invalid_launch_request` (cause `message`) before any
 funding.
+
+
+## OAuth scope names
+
+The advertised `user:org:read`, `synth:read` and `synth:action` scopes are retained
+OAuth protocol grants, not separate products. Core's canonical scope registry
+maps them to `account:read`, `swarms:read`, and
+`swarms:run swarms:write swarms:control`, respectively. Consent requires
+`user:org:read` so a credential can identify its organization; removing it from
+discovery while still requiring it would break authorization. These names are
+not API-key mint scopes. Scope changes must update Core's consent, challenge,
+registry and generated SDK login scopes together.
