@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.32.0
+  version: 1.33.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1384,6 +1384,8 @@ paths:
               $ref: '#/components/headers/RateLimit-Reset'
             Cache-Control:
               $ref: '#/components/headers/Cache-Control'
+            X-Synth-Queue-Position:
+              $ref: '#/components/headers/X-Synth-Queue-Position'
         '500':
           $ref: '#/components/responses/Problem'
         default:
@@ -10789,9 +10791,27 @@ components:
       additionalProperties: false
       required: [resource, metric, window, cap, current, reset_at]
       properties:
+        source:
+          type: string
+          enum: [plan, override]
+          description: Authority behind the effective cap. Overrides are filtered at read time.
+        override:
+          type: object
+          additionalProperties: false
+          required: [override_id, reason, expires_at]
+          properties:
+            override_id:
+              type: string
+              format: uuid
+            reason:
+              type: string
+              enum: [design_partner, support, incident, sales_trial, internal]
+            expires_at:
+              type: string
+              format: date-time
         resource:
           type: string
-          description: container_pool, swarm_run, agent_codex, sandbox, openrouter, included_usage or public_api.
+          description: container_pool, swarm_run, agent_codex, sandbox, included_usage or public_api.
         metric:
           type: string
         window:
@@ -11951,6 +11971,14 @@ components:
     X-Synth-Output-Revision:
       schema:
         type: string
+    X-Synth-Queue-Position:
+      description: >-
+        Present only when the launched run is waiting for capacity (state queued): its 1-based
+        FIFO place, the same number as the body's queue.position. An idempotent replay repeats
+        the original answer.
+      schema:
+        type: integer
+        minimum: 1
     Content-Disposition:
       schema:
         type: string

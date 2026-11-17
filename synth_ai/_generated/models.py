@@ -193,6 +193,19 @@ class LimitMeterAction(StrEnum):
     NONE = "none"
 
 
+class LimitRowOverrideReason(StrEnum):
+    DESIGN_PARTNER = "design_partner"
+    SUPPORT = "support"
+    INCIDENT = "incident"
+    SALES_TRIAL = "sales_trial"
+    INTERNAL = "internal"
+
+
+class LimitRowSource(StrEnum):
+    PLAN = "plan"
+    OVERRIDE = "override"
+
+
 class McpOutputContentEncoding(StrEnum):
     UTF8 = "utf8"
     BASE64 = "base64"
@@ -1017,16 +1030,13 @@ class LimitMeter(WireModel):
     action: Annotated[LimitMeterAction, BeforeValidator(enum_value(LimitMeterAction))] | None = None
 
 
-class LimitRow(WireModel):
+class LimitRowOverride(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    resource: str
-    metric: str
-    window: str
-    cap: float | None
-    current: float | None
-    reset_at: str | None
+    override_id: str
+    reason: Annotated[LimitRowOverrideReason, BeforeValidator(enum_value(LimitRowOverrideReason))]
+    expires_at: str
 
 
 class McpOutputContent(WireModel):
@@ -2069,13 +2079,18 @@ class LaunchChoicesAffordability(WireModel):
     wall_time_seconds: int
 
 
-class LimitList(WireModel):
+class LimitRow(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    plan: str
-    observed_at: str
-    items: list[LimitRow]
+    source: Annotated[LimitRowSource, BeforeValidator(enum_value(LimitRowSource))] | None = None
+    override: LimitRowOverride | None = None
+    resource: str
+    metric: str
+    window: str
+    cap: float | None
+    current: float | None
+    reset_at: str | None
 
 
 class Limits(WireModel):
@@ -2943,6 +2958,15 @@ class LaunchChoiceSandbox(WireModel):
     options: list[LaunchChoiceSandboxOptionsItem]
 
 
+class LimitList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan: str
+    observed_at: str
+    items: list[LimitRow]
+
+
 class ListEvaluationRolloutsResponse(RootModel[EvaluationRolloutPage | EvaluationRolloutSummary]):
     pass
 
@@ -3654,7 +3678,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchChoiceRole": LaunchChoiceRole,
     "Limit": Limit,
     "LimitMeter": LimitMeter,
-    "LimitRow": LimitRow,
+    "LimitRowOverride": LimitRowOverride,
     "McpOutputContent": McpOutputContent,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
@@ -3736,7 +3760,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchChoiceInference": LaunchChoiceInference,
     "LaunchChoiceSandboxOptionsItem": LaunchChoiceSandboxOptionsItem,
     "LaunchChoicesAffordability": LaunchChoicesAffordability,
-    "LimitList": LimitList,
+    "LimitRow": LimitRow,
     "Limits": Limits,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
@@ -3793,6 +3817,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "EvaluationRollout": EvaluationRollout,
     "FamilyList": FamilyList,
     "LaunchChoiceSandbox": LaunchChoiceSandbox,
+    "LimitList": LimitList,
     "ListEvaluationRolloutsResponse": ListEvaluationRolloutsResponse,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
