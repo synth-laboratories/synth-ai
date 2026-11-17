@@ -2271,6 +2271,9 @@ paths:
       tags:
       - runs
       operationId: getRunOutputContent
+      x-synth-mcp-name: swarms_run_output_content
+      x-synth-mcp-output-schema:
+        $ref: '#/components/schemas/MCPOutputContent'
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
@@ -6024,6 +6027,29 @@ components:
         Cache-Control:
           $ref: '#/components/headers/Cache-Control'
   schemas:
+    MCPOutputContent:
+      type: object
+      additionalProperties: false
+      description: Exact output bytes encoded for hosted and stdio MCP; not the REST download representation.
+      required: [encoding, data, content_type, revision_id, digest_sha256]
+      properties:
+        encoding:
+          type: string
+          const: base64
+        data:
+          type: string
+          contentEncoding: base64
+          maxLength: 1398104
+        content_type:
+          type: string
+          const: application/octet-stream
+        revision_id:
+          type: string
+          minLength: 1
+          maxLength: 256
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
     EvaluationPolicy:
       additionalProperties: false
       properties:

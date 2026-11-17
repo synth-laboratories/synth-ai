@@ -1004,6 +1004,17 @@ class LimitRow(WireModel):
     reset_at: str | None
 
 
+class MCPOutputContent(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    encoding: Literal["base64"]
+    data: Annotated[str, Field(max_length=1398104)]
+    content_type: Literal["application/octet-stream"]
+    revision_id: Annotated[str, Field(min_length=1, max_length=256)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
 class Money(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3291,6 +3302,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "Limit": Limit,
     "LimitMeter": LimitMeter,
     "LimitRow": LimitRow,
+    "MCPOutputContent": MCPOutputContent,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,

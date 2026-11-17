@@ -23,6 +23,7 @@ from .._requests import DomicileRequirement
 from ..aclient import AsyncSynthClient
 from ..evaluations import EvaluationInputKind
 from ._arguments import optional, page_limit, required
+from .output_content import read_output_content
 from .resource_dispatch import dispatch_resource
 
 __all__ = ["dispatch"]
@@ -100,6 +101,17 @@ async def dispatch(
             return await client.swarms.output(
                 required(arguments, "run_id", str),
                 required(arguments, "output_id", str),
+            )
+        case "getRunOutputContent":
+            return await read_output_content(
+                client.swarms.output_content(
+                    required(arguments, "run_id", str),
+                    required(arguments, "output_id", str),
+                    revision_id=required(arguments, "revision_id", str),
+                    digest_sha256=required(arguments, "digest_sha256", str),
+                ),
+                revision=required(arguments, "revision_id", str),
+                digest=required(arguments, "digest_sha256", str),
             )
         case "getRunResult":
             return await client.swarms.result(required(arguments, "run_id", str))

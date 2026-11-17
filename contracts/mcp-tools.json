@@ -1136,6 +1136,45 @@
       "scope": "swarms:read"
     },
     {
+      "description": "The output's bytes at the revision and digest read from its record.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "digest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "output_id": {
+            "examples": [
+              "out_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^out_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          },
+          "revision_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "output_id",
+          "revision_id",
+          "digest_sha256"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_output_content",
+      "operationId": "getRunOutputContent",
+      "scope": "swarms:read"
+    },
+    {
       "description": "A finished run's answer, the output it came from, and its charge, in one read.",
       "inputSchema": {
         "additionalProperties": false,
