@@ -64,7 +64,15 @@ def record(kind):
     )
 
 
-def body(state, *, answer=None, answer_output=None, objective_answer=None, attempt_tree=None):
+def body(
+    state,
+    *,
+    answer=None,
+    answer_output=None,
+    objective_answer=None,
+    attempt_tree=None,
+    result_file=None,
+):
     return dict(
         run=state,
         state=state["state"],
@@ -73,6 +81,7 @@ def body(state, *, answer=None, answer_output=None, objective_answer=None, attem
         objective_answer=objective_answer,
         charge=state.get("charge"),
         attempt_tree=attempt_tree or unavailable_tree(state["run_id"]),
+        result_file=result_file,
     )
 
 
@@ -217,12 +226,18 @@ async def test_result_carries_the_resolved_optimizer_and_attempt_tree(contract):
         attempts=[],
         notes=[],
     )
-    result = await read(state, body(state, attempt_tree=tree), [])
+    result_md = dict(output(state["run_id"], "R", "text/markdown"), filename="result.md")
+    result = await read(state, body(state, attempt_tree=tree, result_file=result_md), [])
+    assert result.result_file is not None
+    assert result.result_file.filename == "result.md"
+    assert result.result_file.reference.media_type == "text/markdown"
+    assert result.result_file.reference.digest_sha256 == "0" * 64
     assert result.run.optimizer is not None
     assert result.run.optimizer.topology == "swarms_v2"
     assert result.attempt_tree.state == "available"
     assert result.attempt_tree.report.kind == "report"
     unavailable = await read(state, body(state), [])
+    assert unavailable.result_file is None
     assert unavailable.attempt_tree.state == "unavailable"
     assert unavailable.attempt_tree.code == "run_records_projection_unavailable"
 
@@ -233,6 +248,38 @@ async def test_result_without_an_attempt_tree_violates_the_contract(contract):
     missing.pop("attempt_tree")
     with pytest.raises(ResponseContractError):
         await read(state, missing, [])
+
+
+async def test_mcp_result_tool_carries_result_md(contract):
+    from synth_ai.mcp.dispatch import dispatch
+
+    state = snapshot(contract)
+    result_md = dict(output(state["run_id"], "R", "text/markdown"), filename="result.md")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler(state, body(state, result_file=result_md), []))
+    ) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            model = await dispatch(client, "getRunResult", {"run_id": state["run_id"]})
+    assert model is not None
+    document = model.model_dump(mode="json")
+    assert document["result_file"]["filename"] == "result.md"
+    assert document["result_file"]["output_id"] == result_md["output_id"]
+
+
+async def test_result_file_is_required_and_names_result_md(contract):
+    state = snapshot(contract)
+    missing = body(state)
+    missing.pop("result_file")
+    with pytest.raises(ResponseContractError):
+        await read(state, missing, [])
+    misnamed = body(state, result_file=output(state["run_id"], "R", "text/markdown"))
+    with pytest.raises(ResponseContractError):
+        await read(state, misnamed, [])
+    wrong_type = dict(output(state["run_id"], "R", "text/plain"), filename="result.md")
+    with pytest.raises(ResponseContractError):
+        await read(state, body(state, result_file=wrong_type), [])
 
 
 @pytest.mark.parametrize("topology", ["forgetting", "mira", "scalemas"])

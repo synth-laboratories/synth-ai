@@ -193,6 +193,7 @@ class FakeApi:
                         "stage": "run_result",
                         "cause": "Canonical research record projection is unavailable for this cohort.",
                     },
+                    "result_file": None,
                 },
             )
         if oid == "getRunOutputContent":

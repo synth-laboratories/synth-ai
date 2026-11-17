@@ -611,7 +611,12 @@ def observe(driver: ReadDriver, *, run_id: str, output_directory: Path) -> J1Obs
                 run_id=run_id,
             )
         evidence.append(OutputEvidence(output, path, digest))
-        if output.filename == "result.md":
+        result_file = records.result.result_file
+        if (
+            result_file is not None
+            and output.output_id == result_file.output_id
+            and digest == result_file.reference.digest_sha256
+        ):
             markdown = path.read_text(encoding="utf-8")
     if markdown is None:
         missing.append(Missing.RESULT_MARKDOWN)

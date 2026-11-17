@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.33.0
+  version: 1.34.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -2383,6 +2383,11 @@ paths:
         bytes is refused 409 result_answer_too_large and one that is not UTF-8 409
         result_answer_not_text; download either with getRunOutputContent. 409
         output_revision_changed when the output changed during the read; 404 run_not_found.
+        result_file is the run's result.md, rendered by Core from the available attempt tree and its
+        Report on the first such read and published once as a pinned run output; later reads serve
+        that same output and never re-render it. It is null exactly when attempt_tree is
+        unavailable, and it is never chosen as the answer. Download its bytes with
+        getRunOutputContent.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/result.go
       x-synth-legacy-path: null
@@ -2404,6 +2409,7 @@ paths:
                   code: run_records_projection_unavailable
                   stage: run_result
                   cause: Canonical research record projection is unavailable for this cohort.
+                result_file: null
                 answer: The answer.
                 answer_output:
                   run_id: run_AAAAAAAAAAAAAAAAAAAAAA
@@ -8953,9 +8959,17 @@ components:
       - objective_answer
       - charge
       - attempt_tree
+      - result_file
       properties:
         attempt_tree:
           $ref: '#/components/schemas/RunAttemptTree'
+        result_file:
+          description: The run's result.md, rendered by Core from the available attempt tree and
+            its Report and published once through output custody. Null exactly when
+            attempt_tree.state is unavailable.
+          oneOf:
+          - $ref: '#/components/schemas/RunResultFile'
+          - type: 'null'
         run:
           $ref: '#/components/schemas/RunSnapshot'
         state:
@@ -8981,6 +8995,49 @@ components:
           oneOf:
           - $ref: '#/components/schemas/RunCharge'
           - type: 'null'
+    RunResultFile:
+      type: object
+      description: The pinned run output (a RunOutput) that holds result.md. Its bytes are read
+        with getRunOutputContent at the reference's revision_id and digest_sha256.
+      required:
+      - run_id
+      - output_id
+      - state
+      - reference
+      - filename
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        output_id:
+          $ref: '#/components/schemas/OutId'
+        state:
+          type: string
+          const: available
+        reference:
+          type: object
+          additionalProperties:
+            type: string
+          required:
+          - revision_id
+          - digest_sha256
+          - byte_size
+          - media_type
+          properties:
+            revision_id:
+              type: string
+              minLength: 1
+            digest_sha256:
+              type: string
+              pattern: ^[0-9a-f]{64}$
+            byte_size:
+              type: string
+              pattern: ^(0|[1-9][0-9]{0,6})$
+            media_type:
+              type: string
+              const: text/markdown
+        filename:
+          type: string
+          const: result.md
     ObjectiveAnswer:
       type: object
       description: One objective's recorded answer (an application/json output).

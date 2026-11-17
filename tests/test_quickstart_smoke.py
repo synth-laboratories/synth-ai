@@ -445,6 +445,7 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
                             "stage": "run_result",
                             "cause": "Canonical research record projection is unavailable for this cohort.",
                         },
+                        "result_file": None,
                     },
                 )
             if suffix == "/outputs":

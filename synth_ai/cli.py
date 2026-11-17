@@ -543,6 +543,9 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             closing = view.charge_line(finished.charge)
             if closing is not None and not args.json:
                 print(closing, file=sys.stderr, flush=True)
+            markdown = view.result_file_line(finished)
+            if markdown is not None and not args.json:
+                print(markdown, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)

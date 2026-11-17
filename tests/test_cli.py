@@ -407,7 +407,9 @@ def test_download_writes_verified_outputs(api, capsys, contract, tmp_path):
     assert code == cli.EXIT_CLIENT_ERROR and "not found" in err
 
 
-def serve_result(api, contract, answer, *, media_type="text/markdown", objective=None):
+def serve_result(
+    api, contract, answer, *, media_type="text/markdown", objective=None, result_file=None
+):
     """Serve getRunResult from whatever getRun currently returns (so charge edits apply)."""
     api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
     source = {
@@ -436,10 +438,34 @@ def serve_result(api, contract, answer, *, media_type="text/markdown", objective
                     "stage": "run_result",
                     "cause": "Canonical research record projection is unavailable for this cohort.",
                 },
+                "result_file": result_file,
             },
         )
 
     api.overrides["getRunResult"] = result
+
+
+def test_result_names_result_md_on_stderr(api, capsys, contract):
+    result_md = {
+        "run_id": RUN_ID,
+        "output_id": "out_BBBBBBBBBBBBBBBBBBBBBB",
+        "state": "available",
+        "filename": "result.md",
+        "reference": {
+            "revision_id": "rev",
+            "digest_sha256": "1" * 64,
+            "byte_size": "12",
+            "media_type": "text/markdown",
+        },
+    }
+    serve_result(api, contract, "The answer is 42.", result_file=result_md)
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer is 42.\n"
+    assert "result.md  out_BBBBBBBBBBBBBBBBBBBBBB" in err
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["result_file"]["output_id"] == "out_BBBBBBBBBBBBBBBBBBBBBB"
 
 
 def serve_answer(api, contract, text):

@@ -1333,6 +1333,16 @@ class RunRecordReference(WireModel):
         return self
 
 
+class RunResultFileReference(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision_id: Annotated[str, Field(min_length=1)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+    byte_size: Annotated[str, Field(pattern="^(0|[1-9][0-9]{0,6})$")]
+    media_type: Literal["text/markdown"]
+
+
 class RunScoreMeasurement(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2337,6 +2347,17 @@ class RunResearchNote(WireModel):
         return self
 
 
+class RunResultFile(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    run_id: RunId
+    output_id: OutId
+    state: Literal["available"]
+    reference: RunResultFileReference
+    filename: Literal["result.md"]
+
+
 class RunRoleUsage(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3284,6 +3305,7 @@ class RunResult(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     attempt_tree: RunAttemptTree
+    result_file: RunResultFile | None
     run: RunSnapshot
     state: str
     answer: str | None
@@ -3349,6 +3371,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunProgramProgram": RunProgramProgram,
     "RunQueueStanding": RunQueueStanding,
     "RunRecordReference": RunRecordReference,
+    "RunResultFileReference": RunResultFileReference,
     "RunScoreMeasurement": RunScoreMeasurement,
     "RunTask": RunTask,
     "SandboxImage": SandboxImage,
@@ -3417,6 +3440,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunProgram": RunProgram,
     "RunProviderCompute": RunProviderCompute,
     "RunResearchNote": RunResearchNote,
+    "RunResultFile": RunResultFile,
     "RunRoleUsage": RunRoleUsage,
     "RunSandbox": RunSandbox,
     "RunSettlementSummary": RunSettlementSummary,

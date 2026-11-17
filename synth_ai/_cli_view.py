@@ -294,6 +294,13 @@ def result(value: RunResult) -> str:
     return summary
 
 
+def result_file_line(value: RunResult) -> str | None:
+    """The run's result.md output, read with `download RUN OUTPUT`; None when unavailable."""
+    if value.result_file is None:
+        return None
+    return "result.md  " + value.result_file.output_id
+
+
 def result_json(value: RunResult) -> str:
     """`RunResult` as Core returned it: run, state, the answer, its source and the charge."""
     return value.model_dump_json(exclude_unset=True)
