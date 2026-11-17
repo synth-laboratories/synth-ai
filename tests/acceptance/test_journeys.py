@@ -154,7 +154,7 @@ def test_accepted_probe_is_cancelled_and_fails(contract, tmp_path, surface):
 # The SDK refuses a contract-invalid launch with a raw pydantic error that has
 # no public code (reported on SYN-5695/SYN-5666). CLI and MCP refuse it typed.
 CLIENT_SIDE = {
-    SurfaceName.SDK: (Verdict.FAIL, "refusal_untyped"),
+    SurfaceName.SDK: (Verdict.PASS, ""),
     SurfaceName.CLI: (Verdict.PASS, ""),
     SurfaceName.MCP_STDIO: (Verdict.PASS, ""),
 }
@@ -169,9 +169,6 @@ def test_contract_invalid_launch_never_reaches_core(tmp_path, surface, step):
     result, requests = run(surface, responder, tmp_path, step)
     assert requests == []
     expected = CLIENT_SIDE[surface]
-    if (surface, step) == (SurfaceName.CLI, Step.OVERSIZE):
-        # `synth run` accepts the goal only as argv, so the OS refuses it first.
-        expected = (Verdict.INCONCLUSIVE, "capability_missing:cli_goal_only_argv")
     assert (result.verdict, result.cause) == expected, result
 
 

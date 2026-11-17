@@ -75,6 +75,10 @@ class InvalidRequestError(SwarmsAPIError):
     pass
 
 
+class LaunchValidationError(InvalidRequestError, ValueError):
+    """A local launch refusal; also preserves ValueError compatibility."""
+
+
 class UnauthenticatedError(SwarmsAPIError):
     pass
 

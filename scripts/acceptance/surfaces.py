@@ -280,7 +280,14 @@ ArgvBuilder = Callable[[Call, Path], Sequence[str]]
 def launch_argv(call: Call, directory: Path) -> Sequence[str]:
     body = dict(call.body or {})
     charge = obj(obj(body.get("limits")).get("maximum_charge"))
-    argv = ["run", str(body.get("message")), "--budget", str(charge.get("amount"))]
+    message = str(body.get("message"))
+    # A private file exercises the CLI boundary without the OS argv-size ceiling.
+    descriptor, name = tempfile.mkstemp(suffix=".txt", dir=directory)
+    with os.fdopen(descriptor, "w") as output:
+        output.write(message)
+    argv = ["run", "--task-file", name, "--budget", str(charge.get("amount"))]
+    if call.idempotency_key is not None:
+        argv += ["--idempotency-key", call.idempotency_key]
     optimizer = body.get("optimizer")
     if isinstance(optimizer, dict):
         argv += ["--optimizer", f"{optimizer['topology']}@{optimizer['version']}"]
@@ -429,7 +436,7 @@ class CLISurface:
             )
         except OSError as error:
             if error.errno == errno.E2BIG:
-                # `synth run` takes the goal only as argv; the OS refuses it.
+                # Other oversized arguments can still exceed the OS argv limit.
                 return Outcome(operation, False, cause=CLI_ARGV_TOO_LONG)
             raise
         if result.returncode == 0:

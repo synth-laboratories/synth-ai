@@ -5,6 +5,8 @@ from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from typing import Literal, TypeAlias
 
+from pydantic import ValidationError
+
 from ._generated.models import (
     LaunchBudget,
     LaunchRequest,
@@ -17,6 +19,7 @@ from ._generated.models import (
     RunGuidance,
     RunInputs,
 )
+from .errors import LaunchValidationError, local_problem
 
 DomicileRequirement: TypeAlias = Literal["us_only", "us_or_europe", "unrestricted"]
 
@@ -62,29 +65,48 @@ def launch_request(
             raise ValueError("budget must be positive")
     except InvalidOperation as error:
         raise ValueError("budget must be a decimal string") from error
-    request = LaunchRequest(
-        domicile_requirement=LaunchRequestDomicileRequirement(domicile_requirement)
-        if domicile_requirement is not None
-        else None,
-        limits=Limits(
-            maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
-            parallel_workers=parallel_workers,
-            wall_time_seconds=wall_time_seconds,
-            maximum_tokens=maximum_tokens,
-            pause_retention_seconds=pause_retention_seconds,
-        ),
-        message=message,
-        inputs=inputs,
-        labels=labels,
-        resources=resources,
-        profile=profile,
-        research_task=research_task,
-        routing=routing,
-        guidance=guidance,
-        role_assignments=dict(role_assignments) if role_assignments is not None else None,
-        launch_menu_revision=launch_menu_revision,
-        optimizer=optimizer,
-    )
-    # Omitted convenience options stay absent on the wire, not explicit nulls.
-    request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))
-    return request
+    try:
+        request = LaunchRequest(
+            domicile_requirement=LaunchRequestDomicileRequirement(domicile_requirement)
+            if domicile_requirement is not None
+            else None,
+            limits=Limits(
+                maximum_charge=LaunchBudget(amount=format(amount, "f"), currency="USD"),
+                parallel_workers=parallel_workers,
+                wall_time_seconds=wall_time_seconds,
+                maximum_tokens=maximum_tokens,
+                pause_retention_seconds=pause_retention_seconds,
+            ),
+            message=message,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            profile=profile,
+            research_task=research_task,
+            routing=routing,
+            guidance=guidance,
+            role_assignments=dict(role_assignments) if role_assignments is not None else None,
+            launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
+        )
+        # Omitted convenience options stay absent on the wire, not explicit nulls.
+        request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))
+        return request
+    except ValidationError as error:
+        fields = sorted(
+            {str(item["loc"][0]) for item in error.errors(include_input=False) if item["loc"]}
+        )
+        raise LaunchValidationError(
+            local_problem(
+                "invalid_launch_request",
+                "launch_validation",
+                status=422,
+                detail="Invalid launch fields: "
+                + ", ".join(fields)
+                + (
+                    "; message must be nonblank, contain no NUL and fit the UTF-8 limit"
+                    if "message" in fields
+                    else ""
+                ),
+            )
+        ) from None

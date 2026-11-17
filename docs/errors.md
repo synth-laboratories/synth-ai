@@ -211,6 +211,8 @@ deadline; a server delay outside the remaining budget surfaces the refusal.
 - `billing_admin_required`: the operation requires an organization admin or owner.
   Ask an authorized admin to perform it; retrying the same credential will not help.
 
-These entries describe server Problems. Strict request-model validation can
-reject malformed values locally with `pydantic.ValidationError` before any HTTP
-request; that validation result is not a server refusal receipt.
+These entries describe server Problems. The convenience launch method reports
+invalid generated fields as `LaunchValidationError` (`invalid_launch_request`,
+service `synth-ai`, outcome `not_accepted`) before any HTTP request. It also
+inherits `ValueError`. Direct construction of generated models can still raise
+`pydantic.ValidationError`; neither is a server refusal receipt.

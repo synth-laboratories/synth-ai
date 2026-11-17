@@ -35,6 +35,7 @@ from .aclient import AsyncSynthClient
 from .environments import Environment, resolve_base_url
 from .errors import (
     DirectoryUploadError,
+    LaunchValidationError,
     ResponseContractError,
     RunPausedError,
     SwarmsAPIError,
@@ -195,7 +196,9 @@ def parser() -> argparse.ArgumentParser:
     upload.add_argument("--directory", action="store_true")
     upload.add_argument("--idempotency-key")
     run = add("run")
-    run.add_argument("goal")
+    task = run.add_mutually_exclusive_group(required=True)
+    task.add_argument("goal", nargs="?")
+    task.add_argument("--task-file")
     run.add_argument("--budget", required=True)
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
@@ -295,7 +298,8 @@ def read_task(path: str) -> str:
         if len(found) != 1 or found[0].name not in {"task.md", "TASK.md", "task.txt"}:
             raise ValueError("task bundle must contain exactly one task text file")
         source = found[0]
-    raw = source.read_bytes()
+    with source.open("rb") as stream:
+        raw = stream.read(MESSAGE_MAX_BYTES + 1)
     if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
         raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
     return message_text(raw.decode("utf-8"))
@@ -422,8 +426,11 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
+            if (args.goal is None) == (args.task_file is None):
+                raise UsageError("provide a goal or --task-file")
+            goal = read_task(args.task_file) if args.task_file is not None else args.goal
             request = swarms.prepare_launch(
-                args.goal,
+                goal,
                 budget=args.budget,
                 profile=args.profile,
                 research_task=args.research_task,
@@ -705,7 +712,9 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
         else:
             fail(error.problem.code, error.problem.detail, False)
             print(f"retry after {error.retry_after_seconds} seconds", file=sys.stderr, flush=True)
-        return EXIT_SERVER_REFUSAL
+        return (
+            EXIT_CLIENT_ERROR if isinstance(error, LaunchValidationError) else EXIT_SERVER_REFUSAL
+        )
     except DirectoryUploadError as error:
         receipt = {
             "code": error.code,
