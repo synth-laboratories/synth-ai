@@ -13,8 +13,10 @@ unknown outcome. Read/reconcile an accepted run by its retained ID instead.
 
 An observation compares identities and exact customer charges, verifies output
 pins, reads result.md when published, and preserves unavailable finality/charge/
-attempt-tree/result.md as named missing evidence. This source does not implement
-W08's still-pending attempt-tree projection or assert supplier forwarding is zero.
+attempt-tree/result.md as named missing evidence. Available public attempt trees are checked for run identity, exact organizing
+references, parent revisions/digests, duplicate trials and cycles. Unavailable
+projections remain missing evidence. This does not prove retention at Forge
+or assert supplier forwarding is zero.
 Gate reduction requires W06 grant/counter/closure evidence separately.
 
 Read-only invocation from this checkout, using the manager-leased local replay
@@ -88,5 +90,7 @@ unstructured errors, wrong result models and transport failures are typed
 
 Every entrypoint run also writes `parity_view.json`
 (`synth.j1.parity_view.v1`): run id, state, customer charge, finality flags and
-`attempts: null` (no public attempt-tree contract yet). synth-dev
+sorted canonical trial ancestry. `attempt_id` is the public trial record ID and
+`parent_id` is its parent trial record ID; internal worker IDs are not inferred.
+`attempts: null` means unavailable; an authoritative empty tree is `[]`. synth-dev
 `local_dev/release_tests/parity.py` loads one per driver for the same-run diff.

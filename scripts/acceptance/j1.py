@@ -33,6 +33,7 @@ from synth_ai.models import (
     RunSnapshot,
 )
 
+from .attempt_tree import TreeError, project_attempts
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
 
@@ -523,7 +524,13 @@ def observe_records(driver: RecordDriver, *, run_id: str) -> Records:
             cause="surface returned another run identity",
             run_id=run_id,
         )
-    missing = [Missing.ATTEMPT_TREE]
+    try:
+        attempts = project_attempts(result.attempt_tree, run_id=run_id)
+    except TreeError as error:
+        raise refusal(
+            error.code, stage="attempt_tree", cause=error.record_id, run_id=run_id
+        ) from error
+    missing = [] if attempts is not None else [Missing.ATTEMPT_TREE]
     if not (snapshot.execution_closed and snapshot.accounting_final and snapshot.cleanup_complete):
         missing.append(Missing.FINALITY)
     if result.charge is None or report.settlement.total is None:
