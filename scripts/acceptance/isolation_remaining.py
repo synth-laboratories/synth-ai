@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
+import httpx
 import yaml
 
 import synth_ai
@@ -18,8 +19,9 @@ from synth_ai import SynthClient
 from synth_ai._generated.models import PlanRequestState, PrincipalCredentialKind, UploadState
 from synth_ai.errors import SynthError
 
+from .isolation import classify
 from .journey_main import read_ids, surface_factory, write_steps
-from .journeys import JourneyContext, Secret, Verdict, cross_org
+from .journeys import JourneyContext, Secret, Verdict, absent_like, cross_org
 from .live_limits import retain
 from .surfaces import SurfaceName
 
@@ -34,7 +36,14 @@ GUARDED_MUTATIONS = {
     "updateRunLabels": "labels",
     "withdrawPlanRequest": "plan_request",
     "finalizeUpload": "upload",
+    "sendRunMessage": "messages",
+    "revokeOAuthGrant": "grants",
 }
+# Core 1.39.0 serves DELETE /mcp/oauth/grants/{grant_id} to a Clerk session only, and
+# no SDK/CLI/MCP surface publishes it. Each driver cell is bound to that route
+# directly with the foreign session, and its row names this binding.
+OAUTH_GRANT_BINDING = "core_route_direct_clerk_session"
+OAUTH_GRANT_ROUTE = "/mcp/oauth/grants/{grant_id}"
 
 
 class FixtureBlocked(ValueError):
@@ -51,8 +60,6 @@ class Cell:
     def disposition(self) -> str:
         if self.retained_result == f"not_in_release:{RELEASE}":
             return self.retained_result
-        if self.operation == "revokeOAuthGrant":
-            return "uncovered:surface_unmapped"
         return "pending:owned_fixture"
 
 
@@ -89,10 +96,19 @@ class OwnerSnapshot:
     upload: str
     key_version: int
     labels_revision: int
+    messages: str = "absent"
+    grants: str = "absent"
 
     @classmethod
     def read(
-        cls, owner: SynthClient, session: SynthClient, ids: dict[str, str], *, require_ready: bool
+        cls,
+        owner: SynthClient,
+        session: SynthClient,
+        ids: dict[str, str],
+        *,
+        require_ready: bool,
+        origin: str = STAGING_ORIGIN,
+        session_token: str = "",
     ) -> OwnerSnapshot:
         run = owner.swarms.get(ids["run_id"])
         if run.run_id != ids["run_id"] or not run.execution_closed:
@@ -124,6 +140,16 @@ class OwnerSnapshot:
             require_ready and upload.state != UploadState.PENDING
         ):
             raise FixtureBlocked("owner_pending_disposable_upload_required")
+        messages = [
+            [message.message_id, message.sequence, message.state.model_dump(mode="json")]
+            for message in owner.swarms.iter_messages(ids["run_id"])
+        ]
+        if require_ready and ids["message_id"] not in {item[0] for item in messages}:
+            raise FixtureBlocked("owner_fixture_message_required")
+        grants = owner_grants(origin, session_token)
+        grant = next((item for item in grants if item.get("grant_id") == ids["grant_id"]), None)
+        if require_ready and (grant is None or grant.get("status") != "active"):
+            raise FixtureBlocked("owner_active_oauth_grant_required")
         return cls(
             key="absent"
             if key is None
@@ -133,7 +159,82 @@ class OwnerSnapshot:
             upload=sha256(upload.model_dump_json(exclude={"put"}).encode()),
             key_version=0 if key is None else key.authorization_version,
             labels_revision=run.labels_revision,
+            messages=sha256(json.dumps(messages, sort_keys=True).encode()),
+            grants="absent"
+            if grant is None
+            else sha256(json.dumps(grant, sort_keys=True).encode()),
         )
+
+
+def owner_grants(origin: str, session_token: str) -> list[dict[str, Any]]:
+    with httpx.Client(timeout=30, follow_redirects=False) as client:
+        response = client.get(
+            origin + "/mcp/oauth/grants",
+            params={"include_inactive": "true"},
+            headers={"X-Clerk-Session-Token": session_token},
+        )
+    if response.status_code != 200:
+        raise FixtureBlocked("owner_oauth_grants_unreadable")
+    grants = response.json().get("grants")
+    if not isinstance(grants, list):
+        raise FixtureBlocked("owner_oauth_grants_unreadable")
+    return [item for item in grants if isinstance(item, dict)]
+
+
+@dataclass(frozen=True, slots=True)
+class HttpObservation:
+    accepted: bool
+    status: int | None
+    code: str | None
+    cause: str
+    problem: dict[str, object] | None
+
+    @classmethod
+    def of(cls, response: httpx.Response) -> HttpObservation:
+        try:
+            document = response.json()
+        except ValueError:
+            document = None
+        problem = document if isinstance(document, dict) and not response.is_success else None
+        code = problem.get("code") if problem is not None else None
+        return cls(
+            response.is_success,
+            response.status_code,
+            code if isinstance(code, str) else None,
+            "",
+            problem,
+        )
+
+    def evidence(self) -> dict[str, object]:
+        return {"accepted": self.accepted, "status": self.status, "code": self.code}
+
+
+def revoke_grant_cell(origin: str, foreign_session: str, grant_id: str) -> dict[str, object]:
+    """Foreign session revokes the owner's grant and an absent one; both must be equal 404s."""
+    absent = absent_like(grant_id)
+    headers = {"X-Clerk-Session-Token": foreign_session}
+    with httpx.Client(timeout=30, follow_redirects=False) as client:
+        foreign = HttpObservation.of(
+            client.delete(origin + OAUTH_GRANT_ROUTE.format(grant_id=grant_id), headers=headers)
+        )
+        observed_absent = (
+            None
+            if foreign.accepted
+            else HttpObservation.of(
+                client.delete(origin + OAUTH_GRANT_ROUTE.format(grant_id=absent), headers=headers)
+            )
+        )
+    return {
+        "operation": "revokeOAuthGrant",
+        "route": OAUTH_GRANT_ROUTE,
+        "binding": OAUTH_GRANT_BINDING,
+        "actor_credential": "clerk_session",
+        "result": "leak"
+        if observed_absent is None
+        else classify(foreign, observed_absent, (grant_id, absent)),
+        "foreign": foreign.evidence(),
+        "absent": None if observed_absent is None else observed_absent.evidence(),
+    }
 
 
 def cell_rows(cells: tuple[Cell, ...]) -> list[dict[str, object]]:
@@ -178,18 +279,26 @@ def run_driver(
     secrets: dict[str, str],
     baseline: OwnerSnapshot,
     document: dict[str, Any],
+    *,
+    origin: str = STAGING_ORIGIN,
+    profile: str = "staging",
 ) -> Verdict:
     directory.mkdir(mode=0o700)
     make = surface_factory(
-        driver, origin=STAGING_ORIGIN, work_directory=directory, mcp_url=None, profile="staging"
+        driver, origin=origin, work_directory=directory, mcp_url=None, profile=profile
     )
-    operations = frozenset(str(row["operation"]) for row in cells)
+    operations = frozenset(str(row["operation"]) for row in cells) - {"revokeOAuthGrant"}
+    direct = [
+        revoke_grant_cell(origin, secrets[Secret.FOREIGN_SESSION], ids["grant_id"])
+        for row in cells
+        if row["operation"] == "revokeOAuthGrant"
+    ]
     with make(secrets["SYNTH_API_KEY"]) as surface:
         receipt = cross_org(
             JourneyContext(
                 surface=surface,
                 driver=driver,
-                origin=STAGING_ORIGIN,
+                origin=origin,
                 make=make,
                 receipt_dir=directory,
                 foreign_ids=ids,
@@ -209,7 +318,7 @@ def run_driver(
             )
         )
     write_steps(directory, driver, [receipt], "driver-receipt.json")
-    evidence = {str(item["operation"]): item for item in receipt.evidence}
+    evidence = {str(item["operation"]): item for item in (*receipt.evidence, *direct)}
     for row in cells:
         observed = evidence.get(str(row["operation"]))
         row["result"] = (
@@ -219,11 +328,19 @@ def run_driver(
         )
         if observed is not None:
             row["evidence"] = observed
+    if any(item["result"] in {"leak", "differs"} for item in direct):
+        return Verdict.FAIL
     return receipt.verdict
 
 
 def run(
-    rows: list[dict[str, object]], directory: Path, ids: dict[str, str], document: dict[str, Any]
+    rows: list[dict[str, object]],
+    directory: Path,
+    ids: dict[str, str],
+    document: dict[str, Any],
+    *,
+    origin: str = STAGING_ORIGIN,
+    profile: str = "staging",
 ) -> None:
     required = {
         "owner_org_id",
@@ -236,6 +353,8 @@ def run(
         "upload_id",
         "request_id",
         "fixture_key_name",
+        "message_id",
+        "grant_id",
     }
     if any(ids.get(name, "") == "" for name in required):
         raise FixtureBlocked("designated_fixture_ids_required")
@@ -244,10 +363,10 @@ def run(
         raise FixtureBlocked("owner_and_foreign_key_and_session_required")
     secrets = {str(name): os.environ[name] for name in names}
     with (
-        SynthClient(secrets["SYNTH_API_KEY"], base_url=STAGING_ORIGIN) as owner,
-        SynthClient(secrets[Secret.SESSION], base_url=STAGING_ORIGIN) as owner_session,
-        SynthClient(secrets[Secret.FOREIGN], base_url=STAGING_ORIGIN) as foreign,
-        SynthClient(secrets[Secret.FOREIGN_SESSION], base_url=STAGING_ORIGIN) as foreign_session,
+        SynthClient(secrets["SYNTH_API_KEY"], base_url=origin) as owner,
+        SynthClient(secrets[Secret.SESSION], base_url=origin) as owner_session,
+        SynthClient(secrets[Secret.FOREIGN], base_url=origin) as foreign,
+        SynthClient(secrets[Secret.FOREIGN_SESSION], base_url=origin) as foreign_session,
     ):
         owner_id = (ids["owner_org_id"], ids["owner_user_id"])
         foreign_id = (ids["foreign_org_id"], ids["foreign_user_id"])
@@ -268,7 +387,8 @@ def run(
         for row in rows:
             if row["operation"] == "getRunOutputContent":
                 row["owner_output_pin_verified"] = True
-        before = OwnerSnapshot.read(owner, owner_session, ids, require_ready=True)
+        readback = {"origin": origin, "session_token": secrets[Secret.SESSION]}
+        before = OwnerSnapshot.read(owner, owner_session, ids, require_ready=True, **readback)
         for driver in DRIVERS:
             cells = [
                 row
@@ -277,11 +397,21 @@ def run(
             ]
             try:
                 verdict = run_driver(
-                    driver, directory / driver.value, cells, ids, secrets, before, document
+                    driver,
+                    directory / driver.value,
+                    cells,
+                    ids,
+                    secrets,
+                    before,
+                    document,
+                    origin=origin,
+                    profile=profile,
                 )
             finally:
                 try:
-                    after = OwnerSnapshot.read(owner, owner_session, ids, require_ready=False)
+                    after = OwnerSnapshot.read(
+                        owner, owner_session, ids, require_ready=False, **readback
+                    )
                 except (FixtureBlocked, SynthError):
                     for row in cells:
                         if row["operation"] in GUARDED_MUTATIONS:

@@ -26,6 +26,7 @@ RESOURCE_NOT_FOUND = frozenset(
         "plan_request_not_found",
         "plan_request_unknown",
         "grant_not_found",
+        "oauth_grant_not_found",
         "message_not_found",
         "run_message_not_found",
     }
