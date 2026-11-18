@@ -50,6 +50,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | account_billing_auto_reload_set | setAutoReload | account:billing:write |
 | account_billing_spend_alerts_get | getSpendAlerts | account:billing:read |
 | account_billing_spend_alerts_set | setSpendAlerts | account:billing:write |
+| account_oauth_grant_revoke | revokeOAuthGrant | account:write |
 | swarms_upload_create | createUpload | swarms:write |
 | swarms_upload_get | getUpload | swarms:read |
 | swarms_upload_finalize | finalizeUpload | swarms:write |

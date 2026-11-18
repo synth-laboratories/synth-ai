@@ -2003,6 +2003,26 @@
     },
     {
       "access": "scoped",
+      "description": "Revoke one of the caller's own MCP OAuth grants (connected apps).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "grant_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id"
+        ],
+        "type": "object"
+      },
+      "name": "account_oauth_grant_revoke",
+      "operationId": "revokeOAuthGrant",
+      "scope": "account:write"
+    },
+    {
+      "access": "scoped",
       "description": "Prepare an immutable file upload.",
       "inputSchema": {
         "additionalProperties": false,

@@ -15,6 +15,7 @@ from ._generated.models import (
     MintApiKeyRequest,
     MintApiKeyRequestPurpose,
     MintedApiKey,
+    OAuthGrantRevoked,
     PlanRequest,
     PlanRequestList,
     PromoRedeemRequest,
@@ -219,6 +220,14 @@ class AsyncAccount:
         `plan_request_unknown` (404)."""
         return await self._transport.request(
             "withdrawPlanRequest", PlanRequest, path={"request_id": request_id}
+        )
+
+    async def revoke_oauth_grant(self, grant_id: str) -> OAuthGrantRevoked:
+        """Revoke one of your own MCP OAuth grants (connected apps); needs `account:write`.
+        Another user's, another org's or an absent grant is `oauth_grant_not_found` (404);
+        revoking an already revoked grant answers `outcome: already_revoked`."""
+        return await self._transport.request(
+            "revokeOAuthGrant", OAuthGrantRevoked, path={"grant_id": grant_id}
         )
 
     async def iter_usage_records(

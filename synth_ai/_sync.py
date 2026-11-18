@@ -34,6 +34,7 @@ from ._generated.models import (
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
+    OAuthGrantRevoked,
     OptimizerRequest,
     OutputPage,
     OwnerResourceRequest,
@@ -723,6 +724,9 @@ class AccountClient:
 
     def withdraw_plan_request(self, request_id: str) -> PlanRequest:
         return self._runner.call(self._async.withdraw_plan_request(request_id))
+
+    def revoke_oauth_grant(self, grant_id: str) -> OAuthGrantRevoked:
+        return self._runner.call(self._async.revoke_oauth_grant(grant_id))
 
     def iter_usage_records(
         self,

@@ -171,6 +171,11 @@ class MintedApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
+class OAuthGrantRevokedOutcome(StrEnum):
+    REVOKED = "revoked"
+    ALREADY_REVOKED = "already_revoked"
+
+
 class OptimizerPinTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
@@ -967,6 +972,17 @@ class Money(WireModel):
     )
     amount: Annotated[str, Field(pattern="^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$")]
     currency: Literal["USD"]
+
+
+class OAuthGrantRevoked(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    grant_id: str
+    status: Literal["revoked"]
+    outcome: Annotated[
+        OAuthGrantRevokedOutcome, BeforeValidator(enum_value(OAuthGrantRevokedOutcome))
+    ]
 
 
 class ObjectiveAnswerAnswer(WireModel):
@@ -3642,6 +3658,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MessageHistoryAvailable": MessageHistoryAvailable,
     "MessageHistoryUnavailable": MessageHistoryUnavailable,
     "Money": Money,
+    "OAuthGrantRevoked": OAuthGrantRevoked,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
     "ObjectiveMetric": ObjectiveMetric,

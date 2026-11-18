@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.39.0
+  version: 1.40.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -4927,12 +4927,18 @@ paths:
       tags:
       - mcp
       operationId: revokeOAuthGrant
-      x-synth-scope: "protocol"
+      x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
-      summary: revokeOAuthGrant
+      x-synth-mcp-name: account_oauth_grant_revoke
+      summary: Revoke one of the caller's own MCP OAuth grants (connected apps).
+      description: The signed-in session or a user-bound API key or OAuth token with account:write
+        revokes only its own user's grant in its organization. Another user's grant, another
+        organization's grant and an absent grant are the identical 404 oauth_grant_not_found.
+        An API key without account:write or without a user is 403 session_required.
       security:
+      - apiKey: []
       - clerkSession: []
       x-synth-status: implemented
       x-synth-source: core/internal/mcpoauth/grants.go

@@ -214,9 +214,8 @@ def audit(root: Path) -> tuple[Finding, ...]:
             mcp_domain(operation, scope_domains),
         )
         for path, item in document["paths"].items()
-        if path.startswith("/v1/")
         for method, operation in item.items()
-        if method in HTTP_METHODS
+        if method in HTTP_METHODS and (path.startswith("/v1/") or "x-synth-mcp-name" in operation)
     )
     bindings = frozenset(
         binding

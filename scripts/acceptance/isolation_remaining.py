@@ -1,4 +1,4 @@
-"""Prepare or run the outstanding SYN-5737 cells from W16's 1.35.1 receipt on contract 1.39.0."""
+"""Prepare or run the outstanding SYN-5737 cells from W16's 1.35.1 receipt on contract 1.40.0."""
 
 from __future__ import annotations
 
@@ -19,17 +19,16 @@ from synth_ai import SynthClient
 from synth_ai._generated.models import PlanRequestState, PrincipalCredentialKind, UploadState
 from synth_ai.errors import SynthError
 
-from .isolation import classify
 from .journey_main import read_ids, surface_factory, write_steps
-from .journeys import JourneyContext, Secret, Verdict, absent_like, cross_org
+from .journeys import JourneyContext, Secret, Verdict, cross_org
 from .live_limits import retain
 from .surfaces import SurfaceName
 
 STAGING_ORIGIN = "https://core-api-staging-staging-acef.up.railway.app"
 DRIVERS = (SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO)
-RELEASE = "1.39.0"
+RELEASE = "1.40.0"
 WHEEL_SHA256 = "406b5a3cfa2c5333c09212046352a79d2dcc0777d9957b5ab5bd7ef791b1c305"
-CONTRACT_SHA256 = "c5902df7b68e445e0be33eb5416bf827fa796f08ce148e7b630b6a71ff4597dd"
+CONTRACT_SHA256 = "ff38f7768406b46234da7a4e4944a512901eb979bbfd96303bad6f0966370738"
 RETAINED_SHA256 = "29d0e58df8b5635ed698a11a5b5ac5c2f1c3c9a1b724231fa441b86724dbd331"
 GUARDED_MUTATIONS = {
     "updateApiKey": "key",
@@ -39,11 +38,6 @@ GUARDED_MUTATIONS = {
     "sendRunMessage": "messages",
     "revokeOAuthGrant": "grants",
 }
-# Core 1.39.0 serves DELETE /mcp/oauth/grants/{grant_id} to a Clerk session only, and
-# no SDK/CLI/MCP surface publishes it. Each driver cell is bound to that route
-# directly with the foreign session, and its row names this binding.
-OAUTH_GRANT_BINDING = "core_route_direct_clerk_session"
-OAUTH_GRANT_ROUTE = "/mcp/oauth/grants/{grant_id}"
 
 
 class FixtureBlocked(ValueError):
@@ -181,62 +175,6 @@ def owner_grants(origin: str, session_token: str) -> list[dict[str, Any]]:
     return [item for item in grants if isinstance(item, dict)]
 
 
-@dataclass(frozen=True, slots=True)
-class HttpObservation:
-    accepted: bool
-    status: int | None
-    code: str | None
-    cause: str
-    problem: dict[str, object] | None
-
-    @classmethod
-    def of(cls, response: httpx.Response) -> HttpObservation:
-        try:
-            document = response.json()
-        except ValueError:
-            document = None
-        problem = document if isinstance(document, dict) and not response.is_success else None
-        code = problem.get("code") if problem is not None else None
-        return cls(
-            response.is_success,
-            response.status_code,
-            code if isinstance(code, str) else None,
-            "",
-            problem,
-        )
-
-    def evidence(self) -> dict[str, object]:
-        return {"accepted": self.accepted, "status": self.status, "code": self.code}
-
-
-def revoke_grant_cell(origin: str, foreign_session: str, grant_id: str) -> dict[str, object]:
-    """Foreign session revokes the owner's grant and an absent one; both must be equal 404s."""
-    absent = absent_like(grant_id)
-    headers = {"X-Clerk-Session-Token": foreign_session}
-    with httpx.Client(timeout=30, follow_redirects=False) as client:
-        foreign = HttpObservation.of(
-            client.delete(origin + OAUTH_GRANT_ROUTE.format(grant_id=grant_id), headers=headers)
-        )
-        observed_absent = (
-            None
-            if foreign.accepted
-            else HttpObservation.of(
-                client.delete(origin + OAUTH_GRANT_ROUTE.format(grant_id=absent), headers=headers)
-            )
-        )
-    return {
-        "operation": "revokeOAuthGrant",
-        "route": OAUTH_GRANT_ROUTE,
-        "binding": OAUTH_GRANT_BINDING,
-        "actor_credential": "clerk_session",
-        "result": "leak"
-        if observed_absent is None
-        else classify(foreign, observed_absent, (grant_id, absent)),
-        "foreign": foreign.evidence(),
-        "absent": None if observed_absent is None else observed_absent.evidence(),
-    }
-
-
 def cell_rows(cells: tuple[Cell, ...]) -> list[dict[str, object]]:
     return [
         {
@@ -287,12 +225,7 @@ def run_driver(
     make = surface_factory(
         driver, origin=origin, work_directory=directory, mcp_url=None, profile=profile
     )
-    operations = frozenset(str(row["operation"]) for row in cells) - {"revokeOAuthGrant"}
-    direct = [
-        revoke_grant_cell(origin, secrets[Secret.FOREIGN_SESSION], ids["grant_id"])
-        for row in cells
-        if row["operation"] == "revokeOAuthGrant"
-    ]
+    operations = frozenset(str(row["operation"]) for row in cells)
     with make(secrets["SYNTH_API_KEY"]) as surface:
         receipt = cross_org(
             JourneyContext(
@@ -318,7 +251,7 @@ def run_driver(
             )
         )
     write_steps(directory, driver, [receipt], "driver-receipt.json")
-    evidence = {str(item["operation"]): item for item in (*receipt.evidence, *direct)}
+    evidence = {str(item["operation"]): item for item in receipt.evidence}
     for row in cells:
         observed = evidence.get(str(row["operation"]))
         row["result"] = (
@@ -328,8 +261,6 @@ def run_driver(
         )
         if observed is not None:
             row["evidence"] = observed
-    if any(item["result"] in {"leak", "differs"} for item in direct):
-        return Verdict.FAIL
     return receipt.verdict
 
 

@@ -318,6 +318,7 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getFile": lambda c, a: c.swarms.file(a.path["file_id"]),
     "getUsageExport": lambda c, a: c.account.usage_export(a.path["export_id"]),
     "withdrawPlanRequest": lambda c, a: c.account.withdraw_plan_request(a.path["request_id"]),
+    "revokeOAuthGrant": lambda c, a: c.account.revoke_oauth_grant(a.path["grant_id"]),
     "createApiKey": mint,
     "updateApiKey": update_key,
     "rotateApiKey": lambda c, a: c.account.api_keys.rotate(
@@ -531,6 +532,7 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
         str(a.idempotency_key),
     ],
     "withdrawPlanRequest": lambda a, d: ["plan", "withdraw", a.path["request_id"]],
+    "revokeOAuthGrant": lambda a, d: ["grants", "revoke", a.path["grant_id"]],
     "updateApiKey": lambda a, d: [
         "keys",
         "update",

@@ -86,7 +86,7 @@ class LoopbackCore:
         self.document = contract()
         self.table = routes(self.document)
         self.lock = Lock()
-        self.requests: list[tuple[str, str, str]] = []  # (side, operationId, path)
+        self.requests: list[tuple[str, str, str, str]] = []  # (side, operationId, path, token)
         self.messages = [self.message(MESSAGE, 1)]
         self.grant_status = "active"
 
@@ -205,7 +205,7 @@ class LoopbackCore:
         side, kind = TOKENS.get(token, ("?", "?"))
         operation = self.operation(method, path.split("?", 1)[0])
         with self.lock:
-            self.requests.append((side, operation, path))
+            self.requests.append((side, operation, path, token))
             if operation == "getAccount":
                 return self.account(side, kind)
             return self.owner(operation, path) if side == "a" else self.foreign(operation, path)
@@ -304,14 +304,18 @@ def test_open_cells_reach_loopback_core_and_pass_on_every_driver(monkeypatch, tm
     assert {(row["driver"], row["operation"]): row["result"] for row in rows} == {
         (row["driver"], row["operation"]): "pass" for row in rows
     }
-    foreign = Counter(operation for side, operation, _ in core.requests if side == "b")
+    foreign = Counter(operation for side, operation, _, _ in core.requests if side == "b")
     # Each driver sends the foreign ID and an absent ID: the binding reached Core twice.
     assert {operation: foreign[operation] for operation in OPEN_OPERATIONS} == {
         operation: 6 for operation in OPEN_OPERATIONS
     }
-    assert "unrouted" not in {operation for _, operation, _ in core.requests}
+    assert "unrouted" not in {operation for _, operation, _, _ in core.requests}
+    # revokeOAuthGrant goes through each driver's own surface with B's API key (1.40.0).
     revoke = [row for row in rows if row["operation"] == "revokeOAuthGrant"]
-    assert {row["evidence"]["binding"] for row in revoke} == {remaining.OAUTH_GRANT_BINDING}
+    assert [row["evidence"]["actor_credential"] for row in revoke] == ["api_key"] * 3
+    assert {row["evidence"]["route"] for row in revoke} == {"/mcp/oauth/grants/{grant_id}"}
+    revoke_tokens = {token for side, op, _, token in core.requests if op == "revokeOAuthGrant"}
+    assert revoke_tokens == {"b_key"}
     for row in rows:
         if row["operation"] in {"sendRunMessage", "revokeOAuthGrant"}:
             assert row["owner_state"] == "unchanged"

@@ -49,6 +49,8 @@ async def dispatch_resource(
             )
         case "listPlanRequests":
             return await client.account.plan_requests()
+        case "revokeOAuthGrant":
+            return await client.account.revoke_oauth_grant(required(arguments, "grant_id", str))
         case "withdrawPlanRequest":
             return await client.account.withdraw_plan_request(
                 required(arguments, "request_id", str)

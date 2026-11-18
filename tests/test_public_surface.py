@@ -10,13 +10,15 @@ from synth_ai.mcp.tools import TOOLS
 
 async def test_swarms_only_public_surface(contract):
     # Counts come from the pinned contract, never a hardcoded number: every
-    # implemented /v1 operation is one SDK operation and exactly one MCP tool.
+    # implemented /v1 operation, and each operation outside /v1 the contract publishes as
+    # an MCP tool (revokeOAuthGrant, 1.40.0), is one SDK operation and exactly one MCP tool.
     v1_operations = [
         op["operationId"]
         for path, item in contract["paths"].items()
-        if path.startswith("/v1/")
         for op in item.values()
-        if isinstance(op, dict) and op.get("x-synth-status") == "implemented"
+        if isinstance(op, dict)
+        and op.get("x-synth-status") == "implemented"
+        and (path.startswith("/v1/") or "x-synth-mcp-name" in op)
     ]
     assert len(v1_operations) == len(set(v1_operations))
     assert set(OPERATIONS) == set(v1_operations)
@@ -60,9 +62,10 @@ def test_sdk_inventory_covers_every_implemented_v1_operation(contract):
     expected = {
         op["operationId"]
         for path, item in contract["paths"].items()
-        if path.startswith("/v1/")
         for op in item.values()
-        if isinstance(op, dict) and op.get("x-synth-status") == "implemented"
+        if isinstance(op, dict)
+        and op.get("x-synth-status") == "implemented"
+        and (path.startswith("/v1/") or "x-synth-mcp-name" in op)
     }
     assert set(OPERATIONS) == expected
 

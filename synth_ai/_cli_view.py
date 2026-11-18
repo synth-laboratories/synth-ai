@@ -21,6 +21,7 @@ from ._generated.models import (
     LimitList,
     LimitMeter,
     Money,
+    OAuthGrantRevoked,
     OutputPage,
     PlanRequest,
     PlanRequestList,
@@ -392,6 +393,10 @@ def plan_request(value: PlanRequest) -> str:
             ("reason", value.decision_reason),
         ]
     )
+
+
+def oauth_grant_revoked(value: OAuthGrantRevoked) -> str:
+    return facts([("grant", value.grant_id), ("status", value.status), ("outcome", value.outcome)])
 
 
 def plan_requests(value: PlanRequestList) -> str:

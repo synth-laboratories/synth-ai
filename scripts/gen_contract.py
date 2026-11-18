@@ -320,7 +320,11 @@ def generate() -> dict[Path, str | bytes]:
 
     ops: dict[str, JSONObject] = {}
     for path, item in doc.objects("paths").items():
-        if not path.startswith("/v1/"):
+        # Outside /v1, only an operation the contract publishes as a scoped MCP tool is a
+        # client operation (revokeOAuthGrant, contract 1.40.0); protocol routes stay out.
+        if not path.startswith("/v1/") and not any(
+            isinstance(op, dict) and "x-synth-mcp-name" in op for op in item.values()
+        ):
             continue
         for method, op in item.items():
             if method not in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}:

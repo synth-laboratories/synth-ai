@@ -96,6 +96,7 @@ COMMANDS: dict[str, str] = {
     "billing": "Balance",
     "limits": "Limits",
     "plan": "Special Free plan requests",
+    "grants": "MCP OAuth grants (connected apps)",
     "promo": "Promotional credit",
 }
 
@@ -349,6 +350,8 @@ def parser() -> argparse.ArgumentParser:
     plan_request.add_argument("--idempotency-key")
     plan.add_parser("requests", parents=[plan_common])
     plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
+    grants = add("grants").add_subparsers(dest="grants_action", required=True)
+    grants.add_parser("revoke", parents=[plan_common]).add_argument("grant_id", metavar="GRANT")
     return root
 
 
@@ -710,6 +713,9 @@ async def execute(
             else:
                 withdrawn = await client.account.withdraw_plan_request(args.request_id)
                 out.record(withdrawn, view.plan_request)
+        elif command == "grants":
+            revoked = await client.account.revoke_oauth_grant(args.grant_id)
+            out.record(revoked, view.oauth_grant_revoked)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK
