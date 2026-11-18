@@ -1156,13 +1156,15 @@ def admission_overload_refusal(context: JourneyContext) -> StepReceipt:
     step = Step.OVERLOAD_REFUSAL
     # A valid budget (the J1 producer default) so Core reaches admission;
     # PROBE_CHARGE is refused run_budget_below_call_bound before the queue.
-    body = {
+    body: dict[str, JsonValue] = {
         "message": "SYN-5696 hosted overload probe (refusal expected)",
         "limits": {"maximum_charge": {"amount": ADMISSION_PROBE_CHARGE, "currency": "USD"}},
     }
     saturated = context.secrets.get(Secret.OVERLOAD_API_KEY)
     with ExitStack() as stack:
-        surface = context.surface if saturated is None else stack.enter_context(context.make(saturated))
+        surface = (
+            context.surface if saturated is None else stack.enter_context(context.make(saturated))
+        )
         outcome = surface.call(Call("createRun", body=body, idempotency_key=key("overload")))
         if outcome.accepted:
             run = outcome.value.get("run_id") if isinstance(outcome.value, dict) else None

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from synth_ai.models import RunAttemptTreeAvailable, RunAttemptTreeUnavailable
+from synth_ai.models import RunAttemptTreeAvailable, RunAttemptTreeUnavailable, RunRecordReference
 
 __all__ = ["Attempt", "TreeError", "project_attempts"]
 
@@ -28,7 +28,7 @@ class TreeError(Exception):
     record_id: str
 
 
-def _scores_trial(cited, current) -> bool:
+def _scores_trial(cited: RunRecordReference, current: RunRecordReference) -> bool:
     """A score pins the trial revision it scored.
 
     The trial may be revised afterwards (the worker's outcome note lands after

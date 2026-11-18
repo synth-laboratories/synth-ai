@@ -309,7 +309,12 @@ def test_hosted_overload_uses_the_saturated_org_key(tmp_path, surface):
         assert request["bearer"] == "fixture-saturated"
         return 429, problem("run_queue_full", 429, retryable=True), {"Retry-After": "1"}
 
-    options = {"secrets": {**ADMISSION_FULL["secrets"], "SYNTH_JOURNEY_OVERLOAD_API_KEY": "fixture-saturated"}}
+    options = {
+        "secrets": {
+            **ADMISSION_FULL["secrets"],
+            "SYNTH_JOURNEY_OVERLOAD_API_KEY": "fixture-saturated",
+        }
+    }
     result, requests = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **options)
     assert result.verdict == Verdict.PASS, result
     assert requests and {bearer for _, _, bearer in requests} == {"fixture-saturated"}
@@ -340,6 +345,7 @@ def test_hosted_overload_accepted_launch_fails_and_cancels(tmp_path, surface):
     result, requests = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **ADMISSION_FULL)
     assert result.verdict == Verdict.FAIL, result
     assert result.cause == "refusal_expected_but_accepted"
+    assert any(method == "POST" and path.endswith("/cancel") for method, path, _ in requests)
 
 
 @pytest.mark.parametrize("surface", SURFACES)
