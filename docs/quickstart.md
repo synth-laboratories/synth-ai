@@ -1,13 +1,10 @@
 # Quickstart
 
-One journey, three surfaces: upload a task, launch a run with a budget, wait for
-it, read the answer and the run's usage. `tests/test_journey.py` drives this same
-journey on all three.
+Use the SDK, CLI or MCP to upload a task, launch a budgeted run and read its answer and usage. The examples target the 0.41.0 release candidate and Core contract 1.39.0.
 
-Install with `pip install synth-ai` (`pip install "synth-ai[mcp]"` for MCP) and sign
-in with `synth login`, or set `SYNTH_API_KEY`.
+Install the matching release wheel, including the `mcp` extra for the stdio server. Sign in with `synth login`, or set `SYNTH_API_KEY`.
 
-Only the latest release is supported; upgrade with `pip install -U synth-ai`.
+Create a small text file named `task.md` for the upload examples.
 
 ## Python SDK
 
@@ -59,18 +56,21 @@ reason `retention`.
 
 ## CLI
 
+Use the run ID printed by `synth run` wherever `RUN` appears. Send messages and controls while it is running.
+
 ```sh
 synth profiles
 synth upload task.md
-synth run "Follow the uploaded task" --budget 2.00 --file task.md --wait
-synth pause RUN && synth resume RUN
+synth run "Follow the uploaded task" --budget 2.00 --file task.md
+synth message RUN "Which approach did you choose?" --kind question --idempotency-key question-1
+synth messages RUN
+synth pause RUN
+synth resume RUN
 synth wait RUN
 synth result RUN            # the answer text; --json prints the RunResult
 synth outputs RUN
 synth download RUN -o results/
 synth usage RUN
-synth message RUN "Which approach did you choose?" --kind question --idempotency-key question-1
-synth messages RUN --follow
 ```
 
 `synth run --wait` prints the run ID, the final state and the answer on stdout,
@@ -89,8 +89,8 @@ Add the stdio server to your MCP client:
 Then the agent calls, in order: `swarms_profiles_list`, `swarms_upload_file`
 (`body: {name, media_type, content}`), `swarms_run_launch`
 (`body: {message, limits: {maximum_charge: {amount, currency}}, inputs}`),
-`swarms_run_wait` (repeat while `outcome` is `timeout`), `swarms_run_pause` /
-`swarms_run_resume`, `swarms_run_result` (the answer in one call), `swarms_run_outputs`,
+`swarms_run_pause` / `swarms_run_resume` while running,
+`swarms_run_wait` (repeat while `outcome` is `timeout`), `swarms_run_result` (the answer in one call), `swarms_run_outputs`,
 `swarms_run_output_get` and
 `account_usage_for_run`. Mutating tools require an `idempotency_key`. The hosted `/mcp`
 endpoint lists the same tools; see [mcp.md](mcp.md) and [tools](mcp-tools.md).

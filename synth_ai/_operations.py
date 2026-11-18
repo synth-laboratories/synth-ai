@@ -15,7 +15,13 @@ from pydantic import BaseModel, JsonValue, ValidationError
 from ._generated.models import MODELS, Problem
 from ._generated.operations import OPERATIONS
 from ._retry import RetryPolicy
-from .diagnostics import DiagnosticHook, DiagnosticPhase, OperationDiagnostic
+from .diagnostics import (
+    DiagnosticHook,
+    DiagnosticPhase,
+    OperationDiagnostic,
+    RetrySuppressionReason,
+    SuppressedRetry,
+)
 from .errors import ResponseContractError, TransportFailureError, local_problem, raise_for_response
 
 
@@ -105,7 +111,12 @@ class OperationExecutor:
         return result
 
     def _emit(
-        self, operation: str, phase: DiagnosticPhase, progress: _Progress, started: float
+        self,
+        operation: str,
+        phase: DiagnosticPhase,
+        progress: _Progress,
+        started: float,
+        suppressed_retry: SuppressedRetry | None = None,
     ) -> None:
         if self.diagnostic_hook is None:
             return
@@ -120,6 +131,7 @@ class OperationExecutor:
             max(0.0, time.monotonic() - started),
             correlation(progress.request_id),
             correlation(progress.idempotency_key),
+            suppressed_retry,
         )
         try:
             self.diagnostic_hook(event)
@@ -207,7 +219,17 @@ class OperationExecutor:
             ):
                 break
             delay = self.retry_policy.delay(response.headers.get("Retry-After"), attempt)
-            if delay is None or delay >= deadline - time.monotonic():
+            if delay is None:
+                break
+            remaining = max(0.0, deadline - time.monotonic())
+            if delay >= remaining:
+                self._emit(
+                    operation_id,
+                    DiagnosticPhase.RETRY_SUPPRESSED,
+                    progress,
+                    started,
+                    SuppressedRetry(RetrySuppressionReason.DEADLINE, delay, remaining),
+                )
                 break
             self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)
             await asyncio.sleep(delay)

@@ -249,3 +249,5 @@ invalid generated fields as `LaunchValidationError` (`invalid_launch_request`,
 service `synth-ai`, outcome `not_accepted`) before any HTTP request. It also
 inherits `ValueError`. Direct construction of generated models can still raise
 `pydantic.ValidationError`; neither is a server refusal receipt.
+
+For a manager-message send, a successful response acknowledges intake on the run’s thread. Inspect the message history for delivery. In a locked replay, Orchestra can subsequently refuse a changed or extra delivery with `customer_message_unrecorded`. Reproduce the recorded kind, body and order. Retain the original idempotency key when resolving an uncertain send.

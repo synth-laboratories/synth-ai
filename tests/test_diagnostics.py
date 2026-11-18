@@ -91,3 +91,36 @@ async def test_injected_redirect_policy_cannot_forward_credentials(operation, tm
                         digest_sha256="0" * 64,
                     )
     assert caught.value.problem.upstream_status == 307 and len(calls) == 1
+
+
+async def test_deadline_suppresses_retry_before_another_request():
+    from synth_ai.diagnostics import RetrySuppressionReason
+    from synth_ai.errors import SynthError
+
+    calls, events = [], []
+
+    def handle(request):
+        calls.append(request)
+        problem = local_problem("busy", "admission").model_copy(update={"retryable": True})
+        return httpx.Response(
+            503, headers={"Retry-After": "20"}, json=problem.model_dump(mode="json")
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "key",
+            base_url="https://example.test",
+            http_client=http,
+            retry_policy=RetryPolicy(deadline_seconds=10, jitter_seconds=0),
+            diagnostic_hook=events.append,
+        ) as api:
+            with pytest.raises(SynthError):
+                await api.swarms.get("run")
+    assert len(calls) == 1
+    assert [event.phase for event in events] == [
+        DiagnosticPhase.RETRY_SUPPRESSED,
+        DiagnosticPhase.FAILED,
+    ]
+    suppressed = events[0].suppressed_retry
+    assert events[0].attempts == 1 and suppressed.reason is RetrySuppressionReason.DEADLINE
+    assert suppressed.delay_seconds == 20 and 0 < suppressed.remaining_seconds <= 10
