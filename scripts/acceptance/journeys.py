@@ -23,7 +23,7 @@ import sys
 import time
 import uuid
 from collections.abc import Callable, Generator, Mapping
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -76,6 +76,10 @@ TERMINAL = frozenset({"completed", "partial", "failed", "cancelled"})
 RESUMED = frozenset({"running", "completed", "partial"})
 # SYN-5744 contract publication is required; missing routes remain unproven.
 REQUIRED_MESSAGE_OPERATIONS = frozenset({"sendRunMessage", "listRunMessages", "getRunMessage"})
+# Shipped contract versions that do not publish the W16 message routes (coordinator ruling,
+# run 5 T2, 2026-11-18): their absence is typed `not_in_release:<version>`, never a pass and
+# never uncovered. Any other version without them stays `uncovered:contract_operation_missing`.
+RELEASES_WITHOUT_MESSAGE_ROUTES = frozenset({"1.35.1"})
 
 ID_PARAMETERS = frozenset(
     {
@@ -180,6 +184,8 @@ class Secret(StrEnum):
     MEMBER = "SYNTH_JOURNEY_MEMBER_API_KEY"
     EXPIRED = "SYNTH_JOURNEY_EXPIRED_API_KEY"
     FOREIGN = "SYNTH_JOURNEY_FOREIGN_API_KEY"
+    # Org B's Clerk session, for contract operations that accept only `clerkSession`.
+    FOREIGN_SESSION = "SYNTH_JOURNEY_FOREIGN_SESSION_TOKEN"
 
 
 def receipt(
@@ -1137,6 +1143,24 @@ def path_parameters(document: dict[str, Any], operation: dict[str, Any]) -> list
     return names
 
 
+def session_only_operations() -> frozenset[str]:
+    """Matrix operations whose contract security admits only a Clerk session."""
+    document = contract()
+    paths = document["paths"]
+    assert isinstance(paths, dict)
+    return frozenset(
+        str(operation["operationId"])
+        for methods in paths.values()
+        for method, operation in methods.items()
+        if method in {"get", "post", "put", "patch", "delete"}
+        and operation.get("security") == [{"clerkSession": []}]
+    )
+
+
+def contract_version() -> str:
+    return str(contract()["info"]["version"])
+
+
 def matrix_operations() -> tuple[tuple[str, str, str, tuple[str, ...]], ...]:
     """Every contract operation addressed by a resource ID: (op, method, path, params)."""
     document = contract()
@@ -1196,11 +1220,20 @@ def cross_org(context: JourneyContext) -> StepReceipt:
     if not operations:
         return missing(context, step, "id_bearing_operation_matrix_empty")
     published = {operation for operation, _, _, _ in operations}
+    version = contract_version()
     for operation in sorted(REQUIRED_MESSAGE_OPERATIONS - published):
+        if version in RELEASES_WITHOUT_MESSAGE_ROUTES:
+            rows.append({"operation": operation, "result": "not_in_release:" + version})
+            continue
         uncovered += 1
         rows.append({"operation": operation, "result": "uncovered:contract_operation_missing"})
-    with context.make(actor) as surface:
+    session = context.secrets.get(Secret.FOREIGN_SESSION)
+    session_only = session_only_operations()
+    with context.make(actor) as keyed, ExitStack() as stack:
+        sessioned = stack.enter_context(context.make(session)) if session is not None else None
         for operation, method, route, names in operations:
+            by_session = operation in session_only and sessioned is not None
+            surface = sessioned if by_session and sessioned is not None else keyed
             if not covered(surface, operation):
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:surface_unmapped"})
@@ -1234,6 +1267,7 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     "operation": operation,
                     "route": route,
                     "result": result,
+                    "actor_credential": "clerk_session" if by_session else "api_key",
                     "foreign": seen[0].evidence(),
                     "absent": seen[1].evidence(),
                 }

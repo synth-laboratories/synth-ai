@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.acceptance import journey_main
+from scripts.acceptance import journey_main, journeys
 from scripts.acceptance.journeys import (
     JourneyContext,
     Secret,
@@ -653,3 +653,88 @@ def test_rate_limit_refusal_without_a_saturated_window_is_inconclusive(tmp_path)
         "precondition_not_met:launch_window_not_saturated",
     )
     assert len(requests) == 12
+
+
+def test_unshipped_message_routes_are_typed_not_in_release_for_shipped_contract(tmp_path):
+    def responder(method, path, _):
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=matrix_ids(),
+    )
+    results = {row.get("operation"): row.get("result") for row in result.evidence}
+    assert journeys.contract_version() == "1.35.1"
+    for operation in ("sendRunMessage", "listRunMessages", "getRunMessage"):
+        assert results[operation] == "not_in_release:1.35.1"
+    # A not_in_release cell is never a pass and never counted as uncovered.
+    uncovered = sum(
+        1 for value in results.values() if value.startswith(("uncovered:", "unproven:"))
+    )
+    assert result.cause == f"uncovered={uncovered}"
+
+
+def test_unlisted_contract_version_keeps_message_routes_uncovered(tmp_path, monkeypatch):
+    monkeypatch.setattr(journeys, "contract_version", lambda: "1.36.0")
+
+    def responder(method, path, _):
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=matrix_ids(),
+    )
+    results = {row.get("operation"): row.get("result") for row in result.evidence}
+    assert results["sendRunMessage"] == "uncovered:contract_operation_missing"
+
+
+def test_session_only_key_routes_are_probed_with_the_foreign_session(tmp_path):
+    def responder(method, path, headers):
+        if path.startswith("/v1/api-keys"):
+            if headers["bearer"] != "fixture-org-b-session":
+                return 403, problem("session_required", 403), {}
+            return 404, problem("key_not_found", 404), {}
+        assert headers["bearer"] == "fixture-org-b"
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={
+            Secret.FOREIGN.value: "fixture-org-b",
+            Secret.FOREIGN_SESSION.value: "fixture-org-b-session",
+        },
+        foreign_ids=matrix_ids(),
+    )
+    rows = {row.get("operation"): row for row in result.evidence}
+    assert rows["revokeApiKey"]["result"] == "pass"
+    assert rows["revokeApiKey"]["actor_credential"] == "clerk_session"
+    assert rows["getRun"]["actor_credential"] == "api_key"
+
+
+def test_session_only_key_routes_without_a_session_stay_unproven(tmp_path):
+    def responder(method, path, headers):
+        if path.startswith("/v1/api-keys"):
+            return 403, problem("session_required", 403), {}
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=matrix_ids(),
+    )
+    rows = {row.get("operation"): row for row in result.evidence}
+    assert rows["revokeApiKey"]["result"] == "unproven:uniform_403"
