@@ -19,6 +19,7 @@ RESOURCE_NOT_FOUND = frozenset(
         "run_not_found",
         "file_not_found",
         "upload_not_found",
+        "usage_export_not_found",
         "output_not_found",
         "key_not_found",
         "plan_request_not_found",

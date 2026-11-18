@@ -51,3 +51,8 @@ def test_cross_org_success_is_a_leak():
 def test_identical_wrong_statuses_are_unproven(status):
     outcome = replace(resource(), status=status)
     assert classify(outcome, outcome, ()) == f"unproven:uniform_{status}"
+
+
+def test_matching_usage_export_refusals_prove_the_resource_case():
+    denial = resource("usage_export_not_found")
+    assert classify(denial, denial, ()) == "pass"
