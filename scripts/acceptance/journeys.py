@@ -847,7 +847,9 @@ def hosted_token(
                 "code_challenge_method": "S256",
                 "state": state,
                 "resource": oauth.resource,
-                "scope": "account:read",
+                # Core refuses any authorize without the required scope
+                # (publicpolicy.RequiredScopes: user:org:read, alias of account:read).
+                "scope": "user:org:read",
             },
         )
     )

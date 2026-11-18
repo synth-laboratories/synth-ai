@@ -131,6 +131,10 @@ class Authority:
             self.request = {k: v[0] for k, v in parse_qs(url.query).items()}
             if self.request["resource"] != resource:
                 return 400, {"error": "invalid_target"}, {}
+            # Core mcpoauth.ConsentScopes: every authorize must carry the required
+            # scope (publicpolicy.RequiredScopes = user:org:read) or it is refused.
+            if "user:org:read" not in self.request.get("scope", "").split():
+                return 400, {"error": "invalid_scope"}, {}
             return 303, {}, {"Location": CONSOLE + "/mcp/authorize?request=" + "r" * 36}
         if path == "/mcp/oauth/request":
             self.events.append("request")
