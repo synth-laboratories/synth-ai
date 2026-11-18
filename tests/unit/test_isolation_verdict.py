@@ -53,6 +53,7 @@ def test_identical_wrong_statuses_are_unproven(status):
     assert classify(outcome, outcome, ()) == f"unproven:uniform_{status}"
 
 
-def test_matching_usage_export_refusals_prove_the_resource_case():
-    denial = resource("usage_export_not_found")
+@pytest.mark.parametrize("code", ["usage_export_not_found", "plan_request_unknown"])
+def test_matching_account_resource_refusals_prove_the_resource_case(code):
+    denial = resource(code)
     assert classify(denial, denial, ()) == "pass"
