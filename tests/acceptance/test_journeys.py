@@ -107,7 +107,32 @@ def context_for(surface, origin, tmp_path, **options):
         )
 
 
+def organization_accounts(responder, binding):
+    contract = journeys.contract()
+
+    def answer(method, path, request):
+        if path != "/v1/account":
+            return responder(method, path, request)
+        account = example(contract, path)
+        owner = request["bearer"] == "fixture-admin"
+        org = (
+            "00000000-0000-4000-8000-000000000001"
+            if owner or binding == "same_org"
+            else "00000000-0000-4000-8000-000000000002"
+        )
+        user = "user_owner" if owner or binding == "same_user" else "user_other"
+        if binding == "wrong_session" and request["bearer"] == "fixture-session-b":
+            user = "user_third"
+        account["org"]["id"] = org
+        account["principal"].update(org_id=org, user_id=user)
+        return 200, account, {}
+
+    return answer
+
+
 def run(surface, responder, tmp_path, step, **options):
+    if step == Step.CROSS_ORG_404:
+        responder = organization_accounts(responder, options.pop("binding", "distinct"))
     with api(responder) as (origin, requests):
         with context_for(surface, origin, tmp_path, **options) as context:
             return run_step(context, step), requests
@@ -174,14 +199,20 @@ def test_contract_invalid_launch_never_reaches_core(tmp_path, surface, step):
 
 
 @pytest.mark.parametrize("surface", SURFACES)
-def test_member_is_refused_billing_admin_change(contract, tmp_path, surface):
+@pytest.mark.parametrize("binding", ["distinct", "same_user", "other_org", "admin_credential"])
+def test_member_is_refused_billing_admin_change(contract, tmp_path, surface, binding):
     account = example(contract, "/v1/account")
 
     def responder(method, path, headers):
         if path == "/v1/account":
             body = copy.deepcopy(account)
             role = "member" if headers["bearer"] == "fixture-member" else "admin"
-            body["principal"]["org_role"] = role
+            body["principal"]["user_id"] = "user_" + (role if binding != "same_user" else "one")
+            body["principal"]["org_role"] = "admin" if binding == "admin_credential" else role
+            if role == "member" and binding == "other_org":
+                body["org"]["id"] = body["principal"]["org_id"] = (
+                    "00000000-0000-4000-8000-000000000002"
+                )
             return 200, body, {}
         assert headers["bearer"] == "fixture-member"
         return 403, problem("billing_admin_required", 403), {}
@@ -193,8 +224,12 @@ def test_member_is_refused_billing_admin_change(contract, tmp_path, surface):
         Step.MEMBER_ADMIN,
         secrets={Secret.MEMBER.value: "fixture-member"},
     )
-    assert result.verdict == Verdict.PASS, result
-    assert ("POST", "/v1/billing/subscription/cancel", "fixture-member") in requests
+    if binding == "distinct":
+        assert result.verdict == Verdict.PASS, result
+        assert ("POST", "/v1/billing/subscription/cancel", "fixture-member") in requests
+    else:
+        assert result.verdict == Verdict.FAIL
+        assert all(method == "GET" for method, _, _ in requests)
 
 
 @pytest.mark.parametrize("surface", SURFACES)
@@ -294,6 +329,24 @@ def matrix_ids():
         "key_id": "key_" + "F" * 22,
         "grant_id": "22222222-2222-4222-8222-222222222222",
     }
+
+
+@pytest.mark.parametrize("binding", ["same_org", "same_user", "wrong_session"])
+def test_cross_org_refuses_unbound_fixture_before_resource_operations(tmp_path, binding):
+    def responder(method, path, request):
+        return 404, problem("resource_not_found", 404), {}
+
+    result, requests = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        binding=binding,
+        secrets={Secret.FOREIGN: "fixture-org-b", Secret.FOREIGN_SESSION: "fixture-session-b"},
+        foreign_ids=matrix_ids(),
+    )
+    assert result.verdict == Verdict.FAIL
+    assert all(method == "GET" and path == "/v1/account" for method, path, _ in requests)
 
 
 def test_cross_org_matrix_identical_404s_are_not_a_full_pass(tmp_path):
@@ -537,25 +590,71 @@ def test_key_mint_rotate_revoke_with_a_session(
     [
         (["running", "completed"], (Verdict.PASS, "")),
         (["completed"], (Verdict.INCONCLUSIVE, "precondition_not_met:run_already_terminal")),
+        (["foreign_running", "completed"], (Verdict.FAIL, "queue_observation_run_mismatch")),
     ],
 )
 def test_queued_launch_follows_the_harness_launch(contract, tmp_path, surface, states, expected):
     run_id = "run_" + "Q" * 22
     snapshot = example(contract, "/v1/runs/{run_id}")
     snapshot.update(run_id=run_id, state="queued")
-    snapshot["queue"] = {"position": 2, "ahead": 1, "estimated_start_at": None, "expires_at": None}
-    folder = tmp_path / "public-client-sdk"
+    snapshot["queue"] = {
+        "position": 2,
+        "ahead": 1,
+        "estimated_start_at": "2026-11-18T05:00:00Z",
+        "expires_at": "2026-11-18T05:10:00Z",
+    }
+    client = "mcp" if surface == SurfaceName.MCP_STDIO else surface.value
+    folder = tmp_path / f"public-client-{client}"
     folder.mkdir()
-    (folder / "launch-row.json").write_text(json.dumps({"run_id": run_id, "body": snapshot}))
+    (folder / "launch-row.json").write_text(
+        json.dumps({"status": 202, "client": client, "run_id": run_id, "body": snapshot})
+    )
     remaining = list(states)
 
     def responder(method, path, _):
         body = copy.deepcopy(snapshot)
-        body.update(state=remaining.pop(0) if len(remaining) > 1 else remaining[0], queue=None)
+        state = remaining.pop(0) if len(remaining) > 1 else remaining[0]
+        body.update(state=state, queue=None)
+        if state == "foreign_running":
+            body.update(state="running", run_id="run_" + "X" * 22)
         return 200, body, {}
 
-    result, _ = run(surface, responder, tmp_path / "run", Step.QUEUED_LAUNCH, queued_journal=folder)
+    result, _ = run(
+        surface,
+        responder,
+        tmp_path / "run",
+        Step.QUEUED_LAUNCH,
+        run_id=run_id,
+        queued_journal=folder,
+    )
     assert (result.verdict, result.cause) == expected, result
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("status", 422), ("client", "cli"), ("selected_run", "run_other")]
+)
+def test_queue_rejects_unbound_launch_before_polling(contract, tmp_path, field, value):
+    snapshot = example(contract, "/v1/runs/{run_id}")
+    run_id = snapshot["run_id"]
+    snapshot.update(state="queued", queue={"position": 1})
+    row = {"body": snapshot, "client": "sdk", "status": 202, "run_id": run_id}
+    if field != "selected_run":
+        row[field] = value
+    (tmp_path / "launch-row.json").write_text(json.dumps(row))
+
+    def responder(method, path, request):
+        return 200, {**snapshot, "state": "completed", "queue": None}, {}
+
+    result, requests = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.QUEUED_LAUNCH,
+        run_id=value if field == "selected_run" else run_id,
+        queued_journal=tmp_path,
+    )
+    assert result.verdict == Verdict.FAIL
+    assert requests == []
 
 
 @pytest.mark.parametrize("surface", SURFACES)
@@ -749,7 +848,12 @@ def test_rate_limit_refusal_without_a_saturated_window_is_inconclusive(tmp_path)
     assert len(requests) == 12
 
 
-def test_unshipped_message_routes_are_typed_not_in_release_for_shipped_contract(tmp_path):
+def test_unshipped_message_routes_are_typed_not_in_release_for_shipped_contract(
+    tmp_path, monkeypatch
+):
+    # Exercise the 1.35.1 release decision even after the development contract advances.
+    monkeypatch.setattr(journeys, "contract_version", lambda: "1.35.1")
+
     def responder(method, path, _):
         return 404, problem("resource_not_found", 404), {}
 
@@ -762,7 +866,6 @@ def test_unshipped_message_routes_are_typed_not_in_release_for_shipped_contract(
         foreign_ids=matrix_ids(),
     )
     results = {row.get("operation"): row.get("result") for row in result.evidence}
-    assert journeys.contract_version() == "1.35.1"
     for operation in ("sendRunMessage", "listRunMessages", "getRunMessage"):
         assert results[operation] == "not_in_release:1.35.1"
     # A not_in_release cell is never a pass and never counted as uncovered.

@@ -552,12 +552,28 @@ def statement(context: JourneyContext) -> StepReceipt:
 # --- J3 access ---------------------------------------------------------------
 
 
-def account_role(outcome: Outcome) -> Optional[str]:
-    if not isinstance(outcome.value, dict):
-        return None
-    principal = outcome.value.get("principal")
-    role = principal.get("org_role") if isinstance(principal, dict) else None
-    return role if isinstance(role, str) else None
+@dataclass(frozen=True, slots=True)
+class JourneyPrincipal:
+    org_id: str
+    user_id: str
+    role: Optional[str]
+
+    @classmethod
+    def from_account(cls, outcome: Outcome) -> Optional[JourneyPrincipal]:
+        account = obj(outcome.value)
+        principal = obj(account.get("principal"))
+        organization = principal.get("org_id")
+        user = principal.get("user_id")
+        if not outcome.accepted or not isinstance(organization, str) or not organization:
+            return None
+        if (
+            obj(account.get("org")).get("id") != organization
+            or not isinstance(user, str)
+            or not user
+        ):
+            return None
+        role = principal.get("org_role")
+        return cls(organization, user, role if isinstance(role, str) else None)
 
 
 def credential_works(context: JourneyContext, secret: str) -> Outcome:
@@ -961,12 +977,34 @@ def member_admin(context: JourneyContext) -> StepReceipt:
     admin = context.surface.call(Call("getAccount"))
     with context.make(member) as surface:
         identity = surface.call(Call("getAccount"))
-        refused = surface.call(Call("cancelSubscription", idempotency_key=key("member-cancel")))
-    roles = {"admin": account_role(admin), "member": account_role(identity)}
-    if roles["admin"] not in ADMIN_ROLES or roles["member"] not in MEMBER_ROLES:
-        return receipt(
-            context, step, Verdict.FAIL, "roles_unexpected", admin, identity, notes=roles
+        administrator = JourneyPrincipal.from_account(admin)
+        participant = JourneyPrincipal.from_account(identity)
+        if administrator is None or participant is None:
+            return missing(context, step, "user_bound_role_principals")
+        roles = {"admin": administrator.role, "member": participant.role}
+        if administrator.role not in ADMIN_ROLES or participant.role not in MEMBER_ROLES:
+            return receipt(
+                context, step, Verdict.FAIL, "roles_unexpected", admin, identity, notes=roles
+            )
+        if (
+            administrator.org_id != participant.org_id
+            or administrator.user_id == participant.user_id
+        ):
+            return receipt(
+                context,
+                step,
+                Verdict.FAIL,
+                "role_principals_mismatch",
+                admin,
+                identity,
+                notes=roles,
+            )
+        roles.update(
+            admin_user_id=administrator.user_id,
+            member_user_id=participant.user_id,
+            org_id=participant.org_id,
         )
+        refused = surface.call(Call("cancelSubscription", idempotency_key=key("member-cancel")))
     result = expect_refusal(
         context, step, refused, codes=frozenset({"billing_admin_required"}), status=403
     )
@@ -1223,7 +1261,17 @@ def queued_launch(context: JourneyContext) -> StepReceipt:
     snapshot = obj(row.get("body"))
     run = row.get("run_id")
     queue = obj(snapshot.get("queue"))
-    if not isinstance(run, str) or snapshot.get("run_id") != run:
+    client = "mcp" if context.driver == SurfaceName.MCP_STDIO else context.driver.value
+    if row.get("status") != 202 or row.get("client") != client:
+        return receipt(context, step, Verdict.FAIL, "launch_row_client_or_status_mismatch")
+    if context.run_id is None:
+        return missing(context, step, "selected_queued_run")
+    if (
+        not isinstance(run, str)
+        or not run
+        or run != context.run_id
+        or snapshot.get("run_id") != run
+    ):
         return receipt(context, step, Verdict.FAIL, "launch_row_run_mismatch")
     if snapshot.get("state") != "queued" or not queue:
         return receipt(
@@ -1233,11 +1281,20 @@ def queued_launch(context: JourneyContext) -> StepReceipt:
             "precondition_not_met:capacity_not_saturated",
             notes={"acknowledged_state": snapshot.get("state")},
         )
-    outcome, seen = wait_state(context, run, lambda v: v.get("state") in TERMINAL)
+    outcome, seen = wait_state(
+        context, run, lambda view: view.get("run_id") != run or view.get("state") in TERMINAL
+    )
+    if not outcome.accepted or obj(outcome.value).get("run_id") != run:
+        return receipt(context, step, Verdict.FAIL, "queue_observation_run_mismatch", outcome)
     position = queue.get("position")
     notes: dict[str, JsonValue] = {"run_id": run, "queue": queue, "states": list(seen)}
-    if not isinstance(position, int) or position < 1:
+    if type(position) is not int or position < 1:
         return receipt(context, step, Verdict.FAIL, "queue_position_invalid", outcome, notes=notes)
+    estimate = queue.get("estimated_start_at")
+    if not isinstance(estimate, str) or not estimate:
+        return receipt(
+            context, step, Verdict.INCONCLUSIVE, "queue_estimate_unobserved", outcome, notes=notes
+        )
     if seen[-1:] and seen[-1] in TERMINAL and "running" in seen:
         return receipt(context, step, Verdict.PASS, "", outcome, notes=notes)
     if seen and seen[0] in TERMINAL:
@@ -1359,6 +1416,38 @@ def cross_org(context: JourneyContext) -> StepReceipt:
     session_only = session_only_operations()
     with context.make(actor) as keyed, ExitStack() as stack:
         sessioned = stack.enter_context(context.make(session)) if session is not None else None
+        owner_account = context.surface.call(Call("getAccount"))
+        actor_account = keyed.call(Call("getAccount"))
+        owner = JourneyPrincipal.from_account(owner_account)
+        foreign_actor = JourneyPrincipal.from_account(actor_account)
+        if owner is None or foreign_actor is None:
+            return missing(context, step, "user_bound_organization_principals")
+        if owner.org_id == foreign_actor.org_id or owner.user_id == foreign_actor.user_id:
+            return receipt(
+                context,
+                step,
+                Verdict.FAIL,
+                "foreign_principal_matches_owner",
+                owner_account,
+                actor_account,
+            )
+        if sessioned is not None:
+            session_account = sessioned.call(Call("getAccount"))
+            session_actor = JourneyPrincipal.from_account(session_account)
+            if session_actor is None:
+                return missing(context, step, "user_bound_foreign_session")
+            if (session_actor.org_id, session_actor.user_id) != (
+                foreign_actor.org_id,
+                foreign_actor.user_id,
+            ):
+                return receipt(
+                    context,
+                    step,
+                    Verdict.FAIL,
+                    "foreign_session_principal_mismatch",
+                    actor_account,
+                    session_account,
+                )
         for operation, method, route, names in operations:
             by_session = operation in session_only and sessioned is not None
             surface = sessioned if by_session else keyed
@@ -1412,6 +1501,10 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     "route": route,
                     "result": result,
                     "actor_credential": "clerk_session" if by_session else "api_key",
+                    "owner_org_id": owner.org_id,
+                    "owner_user_id": owner.user_id,
+                    "foreign_org_id": foreign_actor.org_id,
+                    "foreign_user_id": foreign_actor.user_id,
                     "foreign": seen[0].evidence(),
                     "absent": seen[1].evidence(),
                 }
