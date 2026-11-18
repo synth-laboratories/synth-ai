@@ -1440,7 +1440,7 @@ def absent_like(foreign: str) -> str:
 
 MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
     "updateRunLimits": {"expected_revision": 0, "limits": {"wall_time_seconds": 60}},
-    "sendRunMessage": {"kind": "guidance", "body": "Tenant-isolation fixture probe."},
+    "sendRunMessage": {"kind": "guidance", "text": "Tenant-isolation fixture probe."},
     "updateRunLabels": {"expected_revision": 1, "labels": {}},
     "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
 }
