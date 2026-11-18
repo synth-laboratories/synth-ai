@@ -150,6 +150,28 @@ class HostedOAuth:
     def endpoint(self, name: str) -> str:
         return auth.endpoint(self.metadata, name, self.origin)
 
+    def cleanup_token(
+        self,
+        client: httpx.Client,
+        endpoint: str,
+        client_id: str,
+        access: str,
+        notes: dict[str, JsonValue],
+    ) -> None:
+        """Revoke only the token issued to this journey, preserving its original failure."""
+        notes["fallback_revoke_verified"] = False
+        try:
+            response = client.post(
+                endpoint,
+                data={"token": access, "client_id": client_id, "resource": self.resource},
+            )
+            notes["fallback_revoke_status"] = response.status_code
+            if response.status_code == 200:
+                after = client.get(self.resource, headers={"Authorization": "Bearer " + access})
+                notes["fallback_revoke_verified"] = self.revoked(after, notes)
+        except httpx.HTTPError:
+            notes["fallback_revoke_transport_error"] = True
+
     def revoked(self, response: httpx.Response, notes: dict[str, JsonValue]) -> bool:
         notes["revoked_transport_status"] = response.status_code
         challenge = response.headers.get("www-authenticate", "")

@@ -16,9 +16,11 @@ import pytest
 from scripts.acceptance.journey_main import surface_factory
 from scripts.acceptance.journeys import JourneyContext, Secret, Step, Verdict, run_step
 from scripts.acceptance.surfaces import SurfaceName
+from synth_ai.errors import local_problem
 
 SESSION = "fixture-clerk-session"
 ACCESS = "fixture-oauth-access"
+REFRESH = "fixture-oauth-refresh"
 DISCOVERY = "/.well-known/oauth-protected-resource/mcp"
 GRANT = "00000000-0000-4000-8000-000000000001"
 CLIENT = "fixture-client"
@@ -79,6 +81,10 @@ class Authority:
             "/v1/account",
             "Bearer " + ACCESS,
         )
+        if self.revoked:
+            self.events.append("account_after_revoke")
+            code = "api_key_invalid" if self.defect == "pkce_refusal" else "oauth_token_invalid"
+            return 401, local_problem(code, "authenticate", status=401).model_dump(mode="json"), {}
         self.events.append("account")
         return 200, self.account, {}
 
@@ -111,6 +117,7 @@ class Authority:
                     "registration_endpoint": self.oauth + "/mcp/oauth/register",
                     "authorization_endpoint": self.oauth + "/mcp/oauth/authorize",
                     "token_endpoint": self.oauth + "/mcp/oauth/token",
+                    "revocation_endpoint": self.oauth + "/mcp/oauth/revoke",
                 },
                 {},
             )
@@ -160,11 +167,27 @@ class Authority:
                 .rstrip("=")
             )
             assert challenge == self.request["code_challenge"]
-            return 200, {"access_token": ACCESS, "expires_in": 600}, {}
+            return 200, {"access_token": ACCESS, "refresh_token": REFRESH, "expires_in": 600}, {}
+        if path == "/mcp/oauth/revoke":
+            self.events.append("token_revoke")
+            assert method == "POST"
+            assert headers.get("Authorization") is None
+            assert headers.get("X-Clerk-Session-Token") is None
+            form = parse_qs(raw.decode())
+            assert form["client_id"] == [CLIENT]
+            if "resource" in form:
+                assert form["resource"] == [resource]
+                assert form["token"] == [ACCESS]
+            else:
+                assert form["token"] == [REFRESH]
+            self.revoked = True
+            return 200, {}, {}
         if path == "/mcp/oauth/grants":
             self.events.append("grants")
             assert headers.get_all("X-Clerk-Session-Token") == [SESSION]
             assert headers.get("Authorization") is None
+            if self.defect == "grants":
+                return 403, {"code": "session_required"}, {}
             return (
                 200,
                 {
@@ -173,7 +196,7 @@ class Authority:
                             "client_id": CLIENT,
                             "grant_id": GRANT,
                             "status": "active",
-                            "owned_by_viewer": True,
+                            "owned_by_viewer": self.defect != "foreign_grant",
                         }
                     ],
                 },
@@ -231,10 +254,11 @@ class Authority:
 
 @pytest.mark.parametrize("surface", [SurfaceName.SDK, SurfaceName.CLI])
 @pytest.mark.parametrize("split_origin", [False, True], ids=["same-issuer", "split-issuer"])
+@pytest.mark.parametrize("defect", ["", "pkce_refusal"], ids=["exact-refusal", "wrong-refusal"])
 def test_pkce_uses_clerk_header_on_discovered_issuer(
-    contract, tmp_path, monkeypatch, surface, split_origin
+    contract, tmp_path, monkeypatch, surface, split_origin, defect
 ):
-    authority = Authority(contract)
+    authority = Authority(contract, defect)
     with serve(authority.handle) as oauth, serve(authority.core) as core:
         authority.oauth = oauth
         monkeypatch.setenv("SYNTH_OAUTH_BASE_URL", oauth)
@@ -247,7 +271,9 @@ def test_pkce_uses_clerk_header_on_discovered_issuer(
                 ),
                 Step.CLI_OAUTH,
             )
-    assert result.verdict == Verdict.PASS, result
+    assert result.verdict == (Verdict.FAIL if defect else Verdict.PASS), result
+    if defect:
+        assert result.cause == "oauth_token_revocation_unproven"
     assert authority.events == [
         "issuer",
         "register",
@@ -256,10 +282,14 @@ def test_pkce_uses_clerk_header_on_discovered_issuer(
         "consent",
         "token",
         "account",
+        "issuer",
+        "token_revoke",
+        "account_after_revoke",
     ]
     assert not (tmp_path / "oauth-credentials.json").exists()
     assert all(
-        value not in json.dumps(result.to_json()) for value in (SESSION, ACCESS, "fixture-code")
+        value not in json.dumps(result.to_json())
+        for value in (SESSION, ACCESS, REFRESH, "fixture-code")
     )
 
 
@@ -272,7 +302,9 @@ def test_pkce_uses_clerk_header_on_discovered_issuer(
         ("client", Verdict.FAIL, "request"),
         ("consent", Verdict.FAIL, "consent"),
         ("state", Verdict.FAIL, "consent"),
-        ("revoke", Verdict.FAIL, "revoke"),
+        ("grants", Verdict.FAIL, "revoked_read"),
+        ("foreign_grant", Verdict.FAIL, "revoked_read"),
+        ("revoke", Verdict.FAIL, "revoked_read"),
         ("challenge", Verdict.FAIL, "revoked_read"),
     ],
 )
@@ -307,6 +339,13 @@ def test_hosted_mcp_oauth_binds_resource_and_grant_revocation(
     if defect == "consent":
         assert result.cause == "oauth_failed:consent:access_denied"
         assert result.evidence[-1]["consent_status"] == 403
+    if defect in {"grants", "foreign_grant", "revoke"}:
+        stage = "revoke" if defect == "revoke" else "grants"
+        assert result.cause.startswith(f"oauth_failed:{stage}:")
+        assert authority.events[-2:] == ["token_revoke", "revoked_read"]
+        assert result.evidence[-1]["fallback_revoke_status"] == 200
+        assert result.evidence[-1]["fallback_revoke_verified"] is True
+        assert ("revoke" in authority.events) == (defect == "revoke")
     if verdict == Verdict.PASS:
         assert authority.events == [
             "resource",
@@ -322,5 +361,6 @@ def test_hosted_mcp_oauth_binds_resource_and_grant_revocation(
             "revoked_read",
         ]
     assert all(
-        value not in json.dumps(result.to_json()) for value in (SESSION, ACCESS, "fixture-code")
+        value not in json.dumps(result.to_json())
+        for value in (SESSION, ACCESS, REFRESH, "fixture-code")
     )

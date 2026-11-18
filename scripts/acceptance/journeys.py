@@ -676,7 +676,7 @@ def oauth_failure(
         operation = error.request.url.path.rsplit("/", 1)[-1]
         stage = (
             operation
-            if operation in {"register", "token", "oauth-authorization-server"}
+            if operation in {"register", "token", "revoke", "oauth-authorization-server"}
             else "oauth"
         )
         notes[f"{stage}_status"] = error.response.status_code
@@ -708,18 +708,40 @@ def cli_oauth(context: JourneyContext) -> StepReceipt:
             record = auth.read_tokens().get(context.origin.rstrip("/"))
             if record is None:
                 raise OAuthJourneyError("token_store", "oauth_credential_missing")
-        used = credential_works(context, record.access_token)
-    except (OAuthJourneyError, SynthError, httpx.HTTPError, ValueError, OSError) as error:
+            try:
+                used = credential_works(context, record.access_token)
+            finally:
+                auth.logout(context.origin)
+                notes["logout_acknowledged"] = True
+                after = credential_works(context, record.access_token)
+                notes["revoked_token_verified"] = (
+                    not after.accepted
+                    and after.status == 401
+                    and after.code == "oauth_token_invalid"
+                )
+    except (
+        OAuthJourneyError,
+        AdapterError,
+        SynthError,
+        httpx.HTTPError,
+        ValueError,
+        OSError,
+    ) as error:
         return oauth_failure(context, step, error, notes)
     kind = obj(obj(used.value).get("principal")).get("credential_kind")
     notes["credential_kind"] = kind
-    ok = used.accepted and kind == "oauth"
+    cause = ""
+    if not used.accepted or kind != "oauth":
+        cause = "oauth_token_refused"
+    elif notes["revoked_token_verified"] is not True:
+        cause = "oauth_token_revocation_unproven"
     return receipt(
         context,
         step,
-        Verdict.PASS if ok else Verdict.FAIL,
-        "" if ok else "oauth_token_refused",
+        Verdict.FAIL if cause else Verdict.PASS,
+        cause,
         used,
+        after,
         notes=notes,
     )
 
@@ -841,6 +863,34 @@ def hosted_token(
     return client_id, OAuthToken.model_validate(token).access_token
 
 
+def owned_grant(
+    client: httpx.Client,
+    grants_url: str,
+    clerk: dict[str, str],
+    client_id: str,
+    notes: dict[str, JsonValue],
+) -> str:
+    grants = response_object(client.get(grants_url, headers=clerk), "grants", 200, notes)
+    matches = [
+        obj(grant)
+        for grant in items(grants.get("grants"))
+        if obj(grant).get("client_id") == client_id
+    ]
+    if len(matches) != 1:
+        raise OAuthJourneyError("grants", "oauth_grant_not_unique")
+    grant = matches[0]
+    identity = grant.get("grant_id")
+    if (
+        grant.get("status") != "active"
+        or grant.get("owned_by_viewer") is not True
+        or not isinstance(identity, str)
+        or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity) is None
+    ):
+        raise OAuthJourneyError("grants", "oauth_grant_identity_invalid")
+    notes["grant_bound"] = True
+    return identity
+
+
 def mcp_consent(context: JourneyContext) -> StepReceipt:
     """Exercise the hosted MCP OAuth grant through discovery, tool use and revoke."""
     step = Step.MCP_CONSENT
@@ -853,42 +903,32 @@ def mcp_consent(context: JourneyContext) -> StepReceipt:
     try:
         with httpx.Client(timeout=30, follow_redirects=False) as client:
             oauth = HostedOAuth.discover(client, context.mcp_url, notes)
+            revocation_endpoint = oauth.endpoint("revocation_endpoint")
             client_id, access = hosted_token(client, oauth, session, notes)
             grants_url = oauth.origin + "/mcp/oauth/grants"
             clerk = {"X-Clerk-Session-Token": session}
-            grants = response_object(client.get(grants_url, headers=clerk), "grants", 200, notes)
-            matches = [
-                obj(grant)
-                for grant in items(grants.get("grants"))
-                if obj(grant).get("client_id") == client_id
-            ]
-            if len(matches) != 1:
-                raise OAuthJourneyError("grants", "oauth_grant_not_unique")
-            grant = matches[0]
-            identity = grant.get("grant_id")
-            if (
-                grant.get("status") != "active"
-                or grant.get("owned_by_viewer") is not True
-                or not isinstance(identity, str)
-                or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity) is None
-            ):
-                raise OAuthJourneyError("grants", "oauth_grant_identity_invalid")
-            notes["grant_bound"] = True
+            grant_revoked = False
             try:
-                used = credential_works(context, access)
+                identity = owned_grant(client, grants_url, clerk, client_id, notes)
+                try:
+                    used = credential_works(context, access)
+                finally:
+                    revoked = response_object(
+                        client.delete(grants_url + "/" + identity, headers=clerk),
+                        "revoke",
+                        200,
+                        notes,
+                    )
+                    grant_revoked = (
+                        revoked.get("grant_id") == identity
+                        and revoked.get("status") == "revoked"
+                        and revoked.get("outcome") == "revoked"
+                    )
+                    if not grant_revoked:
+                        raise OAuthJourneyError("revoke", "oauth_grant_revocation_unproven")
             finally:
-                revoked = response_object(
-                    client.delete(grants_url + "/" + identity, headers=clerk),
-                    "revoke",
-                    200,
-                    notes,
-                )
-                if (
-                    revoked.get("grant_id") != identity
-                    or revoked.get("status") != "revoked"
-                    or revoked.get("outcome") != "revoked"
-                ):
-                    raise OAuthJourneyError("revoke", "oauth_grant_revocation_unproven")
+                if not grant_revoked:
+                    oauth.cleanup_token(client, revocation_endpoint, client_id, access, notes)
             after = client.get(oauth.resource, headers={"Authorization": "Bearer " + access})
             refused = oauth.revoked(after, notes)
     except (
