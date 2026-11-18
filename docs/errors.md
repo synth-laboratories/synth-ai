@@ -19,25 +19,28 @@ expired; it does not cancel the run. The CLI prints one JSON refusal to stderr.
 
 ## Admission codes
 
-| Code | HTTP | Error class |
-| --- | --- | --- |
-| `provider_model_unavailable` | 422 | `ProviderPolicyError` |
-| `provider_preset_unavailable` | 422 | `ProviderPolicyError` |
-| `provider_policy_invalid` | 422 | `ProviderPolicyError` |
-| `provider_policy_mismatch` | 422 | `ProviderPolicyError` |
-| `provider_model_mismatch` | 422 | `ProviderPolicyError` |
-| `provider_preset_not_allowed` | 403 | `ProviderPresetNotAllowedError` |
-| `resource_request_invalid` | 422 | `ResourceAdmissionError` |
-| `resource_limits_required` | 422 | `ResourceAdmissionError` |
-| `grant_not_widenable` | 422 | `ResourceAdmissionError` |
-| `launch_budget_below_actor_floor` | 422 | `LaunchBudgetBelowActorFloorError` |
-| `project_not_found` | 404 | `NotFoundError` |
-| `mutation_identity_required` | 422 | `InvalidRequestError` |
-| `gateway_url_missing` | 503 | `UpstreamUnavailableError` |
-| `codex_pool_unavailable` | 503 | `UpstreamUnavailableError` |
-| `resource_authority_unavailable` | 503 | `UpstreamUnavailableError` |
-| `plugin_not_qualified` | 409 | `ConflictError` |
-| `gateway_issue_malformed` | 502 | `UpstreamUnavailableError` |
+| Code | HTTP | Error class | Next action |
+| --- | --- | --- | --- |
+| `provider_model_unavailable` | 422 | `ProviderPolicyError` | Choose a currently offered model from the run profile. |
+| `provider_preset_unavailable` | 422 | `ProviderPolicyError` | Select an available preset from the profile menu. |
+| `provider_policy_invalid` | 422 | `ProviderPolicyError` | Correct the provider policy fields named in the Problem. |
+| `provider_policy_mismatch` | 422 | `ProviderPolicyError` | Refresh the profile menu and use its current policy. |
+| `provider_model_mismatch` | 422 | `ProviderPolicyError` | Choose a model offered by the selected provider and preset. |
+| `routing_constraints_invalid` | 422 | `ProviderPolicyError` | Correct the routing constraints in the request. |
+| `routing_constraints_unsatisfiable` | 422 | `ProviderPolicyError` | Choose constraints that the current provider menu can satisfy. |
+| `provider_preset_not_allowed` | 403 | `ProviderPresetNotAllowedError` | Choose a preset admitted for your organization. |
+| `resource_request_invalid` | 422 | `ResourceAdmissionError` | Correct the invalid resource fields named in the Problem. |
+| `resource_limits_required` | 422 | `ResourceAdmissionError` | Supply the required resource limits. |
+| `resource_routing_unverified` | 422 | `ResourceAdmissionError` | Select a resource route with verified admission. |
+| `grant_not_widenable` | 422 | `ResourceAdmissionError` | Keep the request within the parent grant or ask its owner for a new grant. |
+| `launch_budget_below_actor_floor` | 422 | `LaunchBudgetBelowActorFloorError` | Raise the budget or reduce parallel workers. |
+| `project_not_found` | 404 | `NotFoundError` | Check the project ID and the credential’s organization. |
+| `mutation_identity_required` | 422 | `InvalidRequestError` | Supply an idempotency key before retrying the request. |
+| `gateway_url_missing` | 503 | `UpstreamUnavailableError` | Give support the request ID so they can check Gateway configuration. |
+| `codex_pool_unavailable` | 503 | `UpstreamUnavailableError` | Check the available profiles and select one with an available pool. |
+| `resource_authority_unavailable` | 503 | `UpstreamUnavailableError` | Use the Problem’s retry guidance, or share the request ID with support. |
+| `plugin_not_qualified` | 409 | `ConflictError` | Choose a profile with a currently qualified runtime. |
+| `gateway_issue_malformed` | 502 | `UpstreamUnavailableError` | Share the request ID with support so they can inspect Gateway’s response. |
 
 `launch_budget_below_actor_floor` (an `InvalidRequestError`): `maximum_charge`
 cannot fund the planner, the reviewer and every one of `limits.parallel_workers`
@@ -47,11 +50,11 @@ Problem `detail` states the minimum in micro-USD. Raise `budget` or lower
 
 ## Continuation codes
 
-| Code | HTTP | Error class |
-| --- | --- | --- |
-| `continue_from_not_found` | 404 | `ContinueFromNotFoundError` |
-| `continue_from_not_terminal` | 409 | `ContinueFromNotTerminalError` |
-| `continue_from_inputs_unavailable` | 409 | `ContinueFromInputsUnavailableError` |
+| Code | HTTP | Error class | Next action |
+| --- | --- | --- | --- |
+| `continue_from_not_found` | 404 | `ContinueFromNotFoundError` | Check the parent run ID and its organization. |
+| `continue_from_not_terminal` | 409 | `ContinueFromNotTerminalError` | Wait for the parent run to finish, then launch with a new key. |
+| `continue_from_inputs_unavailable` | 409 | `ContinueFromInputsUnavailableError` | Launch with fresh explicit inputs if you can reconstruct them. |
 
 These refusals leave the parent unchanged and do not create a child run. The
 current source refuses missing retained input producers explicitly; the
@@ -59,13 +62,13 @@ launch argument alone does not establish successful continuation.
 
 ## Message codes
 
-| Code | HTTP | Error class |
-| --- | --- | --- |
-| `message_too_large` | 422 | `MessageTooLargeError` |
-| `run_message_rate_limited` | 429 | `RunMessageRateLimitedError` |
-| `run_not_accepting_messages` | 409 | `RunNotAcceptingMessagesError` |
-| `run_message_queue_full` | 409 | `RunMessageQueueFullError` |
-| `messaging_unavailable` | 503 | `MessagingUnavailableError` |
+| Code | HTTP | Error class | Next action |
+| --- | --- | --- | --- |
+| `message_too_large` | 422 | `MessageTooLargeError` | Shorten the message and submit it with a new key. |
+| `run_message_rate_limited` | 429 | `RunMessageRateLimitedError` | Follow the Problem’s retry guidance and wait for the rate window to reset. |
+| `run_not_accepting_messages` | 409 | `RunNotAcceptingMessagesError` | Check the run state and use a run with an admitted manager queue. |
+| `run_message_queue_full` | 409 | `RunMessageQueueFullError` | Wait for existing messages to drain and follow the Problem’s retry guidance. |
+| `messaging_unavailable` | 503 | `MessagingUnavailableError` | Check that the run has a visible thread and consult the Problem’s retry guidance. |
 
 Message retries follow the Problem's `retryable` field. A `Retry-After` header
 does not authorize retrying a non-retryable refusal. `MessageReplyTimeoutError`
@@ -73,9 +76,9 @@ is a local observation timeout and leaves the run and message unchanged.
 
 ## Upload codes
 
-| Code | HTTP | Error class |
-| --- | --- | --- |
-| `upload_format_unsupported` | 422 | `UploadFormatUnsupportedError` |
+| Code | HTTP | Error class | Next action |
+| --- | --- | --- | --- |
+| `upload_format_unsupported` | 422 | `UploadFormatUnsupportedError` | Convert the file to an accepted media type. |
 
 `upload_format_unsupported` (an `InvalidRequestError`): the media type is not
 an accepted upload format. Accepted formats are `text/plain`, `text/markdown`
@@ -88,6 +91,16 @@ file to one of the accepted formats. Any other invalid stdio MCP tool input is
 
 All are `SwarmsAPIError` subclasses; the original Problem fields are preserved.
 The specialized admission classes also inherit their HTTP-status class.
+
+## Run control codes
+
+| Code | Error class | Next action |
+| --- | --- | --- |
+| `limits_revision_conflict` | `LimitsRevisionConflictError` | Read the current limits and resubmit the desired change with the current revision. |
+| `limit_above_ceiling` | `LimitAboveCeilingError` | Choose a value at or below the allowed ceiling. |
+| `limit_still_reached` | `LimitStillReachedError` | Raise the reached limit before resuming the run. |
+| `run_expired` | `RunExpiredError` | Collect existing outputs and launch a new run if you still need work. |
+| `spend_entitlement_exceeded` | `SpendEntitlementExceededError` | Check available spend and ask an organization admin to adjust the entitlement if needed. |
 
 ## Error guide
 
