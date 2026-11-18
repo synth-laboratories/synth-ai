@@ -4,7 +4,7 @@
 
 Changes here describe the new Swarms product. Historical releases remain in Git history.
 
-- Contract 1.36.0 (SYN-5667): a `swarms_v2` pin takes `params.max_tasks`
+- Contract 1.36.1 (SYN-5667; 1.36.1 adds the public names to the contract and MCP tool descriptions): a `swarms_v2` pin takes `params.max_tasks`
   (1..4096) and `params.max_repairs_per_task` (0..32) in the SDK
   (`OptimizerParams`), the CLI (`--max-tasks`, `--max-repairs-per-task`, with
   `--optimizer swarms_v2@VERSION`) and the MCP launch tool. Public names are

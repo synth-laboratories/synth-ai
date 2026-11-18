@@ -313,7 +313,7 @@
     },
     {
       "access": "scoped",
-      "description": "Launch a run.",
+      "description": "Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush (fork_flush) is experimental, never the default, and not served in this release.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -563,13 +563,13 @@
                         "description": "Public swarms_v2 controls. Omitted fields keep the server's defaults (max_tasks is the larger of 4 and limits.parallel_workers; max_repairs_per_task is 2). Any field on another topology is refused with optimizer_params_unsupported. Spend, time, token and concurrency limits stay authoritative.",
                         "properties": {
                           "max_repairs_per_task": {
-                            "description": "Most repair attempts per task after a rejected review.",
+                            "description": "Most repair attempts per task after a rejected review, 0 to 32. Default 2. Only on a swarms_v2 pin.",
                             "maximum": 32,
                             "minimum": 0,
                             "type": "integer"
                           },
                           "max_tasks": {
-                            "description": "Most tasks the planner's work plan may hold. Must be at least limits.parallel_workers.",
+                            "description": "Most tasks the planner's work plan may hold, 1 to 4096. Default max(4, limits.parallel_workers); must be at least limits.parallel_workers. Only on a swarms_v2 pin.",
                             "maximum": 4096,
                             "minimum": 1,
                             "type": "integer"
@@ -578,6 +578,7 @@
                         "type": "object"
                       },
                       "topology": {
+                        "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental and never the default; not served in this release.",
                         "enum": [
                           "swarms_v2",
                           "fork_flush"
@@ -1273,7 +1274,7 @@
     },
     {
       "access": "scoped",
-      "description": "The launchable program families (GA set, swarms.general@1).",
+      "description": "The launchable program families (GA set, swarms.general@1) and optimizer topologies. Swarms (swarms_v2) is the default; Fork-and-Flush (fork_flush) is experimental and never the default.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {},

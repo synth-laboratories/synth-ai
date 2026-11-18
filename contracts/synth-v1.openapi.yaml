@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.36.0
+  version: 1.36.1
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1493,7 +1493,8 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
-      summary: Launch a run.
+      summary: Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush
+        (fork_flush) is experimental, never the default, and not served in this release.
       description: 'Problem codes on 503: launch_refund_unavailable (The execution service refused the launch and the hold
         refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
         program release could not be persisted). In both cases the run is failed with accounting_final=false
@@ -2781,7 +2782,8 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
-      summary: The launchable program families (GA set, swarms.general@1).
+      summary: The launchable program families (GA set, swarms.general@1) and optimizer topologies. Swarms
+        (swarms_v2) is the default; Fork-and-Flush (fork_flush) is experimental and never the default.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       responses:
@@ -6572,6 +6574,8 @@ components:
         topology:
           type: string
           enum: [swarms_v2, fork_flush]
+          description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
+            and never the default; not served in this release.
         version:
           type: integer
           minimum: 1
@@ -6598,6 +6602,8 @@ components:
           topology:
             type: string
             enum: [swarms_v2, fork_flush]
+            description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
+              and never the default; not served in this release.
           version:
             type: integer
             minimum: 1
@@ -6616,13 +6622,15 @@ components:
           type: integer
           minimum: 1
           maximum: 4096
-          description: Most tasks the planner's work plan may hold. Must be at least
-            limits.parallel_workers.
+          description: Most tasks the planner's work plan may hold, 1 to 4096. Default
+            max(4, limits.parallel_workers); must be at least limits.parallel_workers. Only
+            on a swarms_v2 pin.
         max_repairs_per_task:
           type: integer
           minimum: 0
           maximum: 32
-          description: Most repair attempts per task after a rejected review.
+          description: Most repair attempts per task after a rejected review, 0 to 32.
+            Default 2. Only on a swarms_v2 pin.
     ResolvedOptimizer:
       type: object
       additionalProperties: false
