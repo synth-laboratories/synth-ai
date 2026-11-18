@@ -313,6 +313,13 @@ hook is synchronous and should be cheap; it is not an exporter thread or a
 billing estimator. Transfer bytes and stream metrics remain independently
 measured in qualification rather than represented as API billing facts.
 
+A `retry_suppressed` diagnostic precedes the terminal `failed` event when a
+retry-eligible response cannot be retried. Read `retry_suppression` for the
+reason, proposed delay and remaining deadline in seconds. The reasons are
+`deadline` when the delay would consume the remaining budget and
+`invalid_retry_after` when the header prevents calculating a delay. In the
+second case the proposed delay is absent. The SDK surfaces the original refusal.
+
 ## Open-data audit
 
 The remaining JSON boundaries follow Core's declared schemas rather than

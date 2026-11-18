@@ -6,8 +6,8 @@ import pytest
 
 from synth_ai import AsyncSynthClient
 from synth_ai._transport import RetryPolicy
-from synth_ai.diagnostics import DiagnosticPhase
-from synth_ai.errors import ClientClosedError, local_problem
+from synth_ai.diagnostics import DiagnosticPhase, RetrySuppressionReason
+from synth_ai.errors import ClientClosedError, SwarmsAPIError, local_problem
 
 
 async def test_diagnostics_are_safe_and_hook_failures_cannot_change_outcome(contract):
@@ -91,3 +91,49 @@ async def test_injected_redirect_policy_cannot_forward_credentials(operation, tm
                         digest_sha256="0" * 64,
                     )
     assert caught.value.problem.upstream_status == 307 and len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "reason", "delay"),
+    [
+        ("60", RetrySuppressionReason.DEADLINE, 60),
+        ("invalid", RetrySuppressionReason.INVALID_RETRY_AFTER, None),
+    ],
+)
+async def test_suppressed_retry_reports_reason_and_leaves_original_refusal(
+    retry_after, reason, delay
+):
+    events, calls = [], []
+
+    def handle(request):
+        calls.append(request)
+        problem = local_problem("overloaded", "admission").model_copy(update={"retryable": True})
+        return httpx.Response(
+            503, headers={"Retry-After": retry_after}, json=problem.model_dump(mode="json")
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture",
+            base_url="https://example.test",
+            http_client=http,
+            retry_policy=RetryPolicy(deadline_seconds=5, jitter_seconds=0),
+            diagnostic_hook=events.append,
+        ) as client:
+            with pytest.raises(SwarmsAPIError) as caught:
+                await client.swarms.launch("Task", budget="2.00")
+
+    assert len(calls) == 1
+    assert caught.value.code == "overloaded"
+    assert [event.phase for event in events] == [
+        DiagnosticPhase.RETRY_SUPPRESSED,
+        DiagnosticPhase.FAILED,
+    ]
+    suppressed = events[0]
+    assert suppressed.operation == "createRun"
+    assert suppressed.attempts == 1
+    assert suppressed.retry_suppression is not None
+    assert suppressed.retry_suppression.reason == reason
+    assert suppressed.retry_suppression.proposed_delay_seconds == delay
+    assert 0 <= suppressed.retry_suppression.remaining_deadline_seconds <= 5
+    assert events[1].retry_suppression is None
