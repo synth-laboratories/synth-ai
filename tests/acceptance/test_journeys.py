@@ -1067,3 +1067,122 @@ def test_stripe_completer_refuses_live_or_foreign_pages():
         "https://evil.example/c/pay/cs_test_abc",
     ):
         assert complete_test_checkout(url) == "stripe_checkout_not_test_mode"
+
+
+REMAINING_BINDINGS = {
+    SurfaceName.SDK: {
+        "finalizeUpload",
+        "getRunOutputContent",
+        "getUpload",
+        "updateApiKey",
+        "updateRunLabels",
+        "waitRun",
+        "withdrawPlanRequest",
+    },
+    SurfaceName.CLI: {
+        "finalizeUpload",
+        "getRunOutput",
+        "getRunOutputContent",
+        "getUpload",
+        "listRunOutputs",
+        "updateApiKey",
+        "updateRunLabels",
+        "waitRun",
+        "withdrawPlanRequest",
+    },
+    SurfaceName.MCP_STDIO: {"getRunOutputContent", "withdrawPlanRequest"},
+}
+
+
+def remaining_ids():
+    return {
+        **matrix_ids(),
+        "owner_org_id": "00000000-0000-4000-8000-000000000001",
+        "owner_user_id": "user_owner",
+        "foreign_org_id": "00000000-0000-4000-8000-000000000002",
+        "foreign_user_id": "user_other",
+        "output_revision_id": "rev_fixture",
+        "output_digest_sha256": "a" * 64,
+    }
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_remaining_isolation_dispatches_only_selected_operations(surface, tmp_path):
+    ids = remaining_ids()
+    selected = REMAINING_BINDINGS[surface]
+    calls = []
+
+    def respond(method, path, request):
+        calls.append((method, path, request))
+        if path.startswith("/v1/api-keys/"):
+            assert request["bearer"] == "fixture-session-b"
+            assert request["body"]["expected_version"] == 12
+        else:
+            assert request["bearer"] == "fixture-org-b"
+        if path.endswith("/labels"):
+            assert request["body"]["expected_revision"] == 7
+        if "/content?" in path:
+            assert parse_qs(urlsplit(path).query) == {
+                "revision_id": [ids["output_revision_id"]],
+                "digest_sha256": [ids["output_digest_sha256"]],
+            }
+        if "/wait?" in path:
+            assert parse_qs(urlsplit(path).query) == {"timeout_seconds": ["1"]}
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        surface,
+        respond,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN: "fixture-org-b", Secret.FOREIGN_SESSION: "fixture-session-b"},
+        foreign_ids=ids,
+        isolation_operations=frozenset(selected),
+        isolation_bodies={
+            "updateApiKey": {"expected_version": 12, "scopes": ["account:read"]},
+            "updateRunLabels": {"expected_revision": 7, "labels": {"test": "fixture"}},
+        },
+    )
+    assert result.verdict == Verdict.PASS, result.evidence
+    assert {row["operation"] for row in result.evidence} == selected
+    assert len(calls) == 2 * len(selected)
+
+
+def test_remaining_isolation_rejects_a_different_driver_principal(tmp_path):
+    ids = {**remaining_ids(), "foreign_user_id": "different_bound_user"}
+
+    def respond(*_):
+        pytest.fail("no resource probe may use other principals")
+
+    result, requests = run(
+        SurfaceName.SDK,
+        respond,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN: "fixture-org-b"},
+        foreign_ids=ids,
+        isolation_operations=frozenset({"getUpload"}),
+    )
+    assert result.cause == "designated_fixture_principals_mismatch"
+    assert all(path == "/v1/account" for _, path, _ in requests)
+
+
+def test_remaining_isolation_stops_after_a_foreign_acceptance(contract, tmp_path):
+    ids = remaining_ids()
+
+    def respond(method, path, _):
+        assert urlsplit(path).path == f"/v1/runs/{ids['run_id']}/outputs"
+        return 200, example(contract, "/v1/runs/{run_id}/outputs"), {}
+
+    result, requests = run(
+        SurfaceName.SDK,
+        respond,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN: "fixture-org-b"},
+        foreign_ids=ids,
+        isolation_operations=frozenset({"listRunOutputs", "getRunOutput"}),
+    )
+    assert result.verdict == Verdict.FAIL
+    assert [row["result"] for row in result.evidence] == ["leak"]
+    assert sum(path != "/v1/account" for _, path, _ in requests) == 1

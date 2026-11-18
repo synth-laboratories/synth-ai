@@ -11,6 +11,7 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import errno
+import hashlib
 import json
 import os
 import subprocess
@@ -249,6 +250,34 @@ def message_page(client: SynthClient, call: Call) -> object:
     return client.swarms.messages(run_id(call), cursor=cursor, limit=limit)
 
 
+def update_key(client: SynthClient, call: Call) -> object:
+    body = dict(call.body or {})
+    return client.account.api_keys.update_grants(
+        call.path["key_id"],
+        scopes=cast(list[Scope], body["scopes"]),
+        expected_version=cast(int, body["expected_version"]),
+    )
+
+
+def update_labels(client: SynthClient, call: Call) -> object:
+    body = dict(call.body or {})
+    return client.swarms.update_labels(
+        run_id(call),
+        labels=cast(dict[str, str], body["labels"]),
+        expected_revision=cast(int, body["expected_revision"]),
+    )
+
+
+def output_content(client: SynthClient, call: Call) -> str:
+    content = client.swarms.output_content(
+        run_id(call),
+        call.path["output_id"],
+        revision_id=cast(str, call.query["revision_id"]),
+        digest_sha256=cast(str, call.query["digest_sha256"]),
+    )
+    return hashlib.sha256(content).hexdigest()
+
+
 # Public SDK methods only. An operation absent here is uncovered for the SDK.
 SDK_CALLS: Mapping[str, SdkCall] = {
     "getAccount": lambda c, a: c.account.get(),
@@ -270,6 +299,13 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getRunResult": lambda c, a: c.swarms.result(run_id(a)),
     "listRunOutputs": lambda c, a: c.swarms.outputs(run_id(a)),
     "getRunOutput": lambda c, a: c.swarms.output(run_id(a), a.path["output_id"]),
+    "getRunOutputContent": output_content,
+    "waitRun": lambda c, a: c.swarms.wait_update(run_id(a), timeout_seconds=1),
+    "updateRunLabels": update_labels,
+    "getUpload": lambda c, a: c.swarms.upload(a.path["upload_id"]),
+    "finalizeUpload": lambda c, a: c.swarms.finalize_upload(
+        a.path["upload_id"], idempotency_key=a.idempotency_key
+    ),
     "getRunAllocation": lambda c, a: c.swarms.allocation(run_id(a)),
     "getRunConfiguration": lambda c, a: c.swarms.configuration(run_id(a)),
     "getRunProgram": lambda c, a: c.swarms.program(run_id(a)),
@@ -283,6 +319,7 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getUsageExport": lambda c, a: c.account.usage_export(a.path["export_id"]),
     "withdrawPlanRequest": lambda c, a: c.account.withdraw_plan_request(a.path["request_id"]),
     "createApiKey": mint,
+    "updateApiKey": update_key,
     "rotateApiKey": lambda c, a: c.account.api_keys.rotate(
         a.path["key_id"], idempotency_key=a.idempotency_key
     ),
@@ -466,6 +503,41 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
     "getRunAllocation": run_verb("allocation"),
     "listRunTasks": run_verb("tasks"),
     "getRunProgram": inspect_view("program"),
+    "listRunOutputs": run_verb("outputs"),
+    "getRunOutput": lambda a, d: [
+        *inspect_view("output")(a, d),
+        "--output-id",
+        a.path["output_id"],
+    ],
+    "getRunOutputContent": lambda a, d: [
+        "content",
+        run_id(a),
+        a.path["output_id"],
+        "--revision",
+        str(a.query["revision_id"]),
+        "--sha256",
+        str(a.query["digest_sha256"]),
+        "--out",
+        str(d / "isolation-content"),
+    ],
+    "waitRun": lambda a, d: [*inspect_view("wait-update")(a, d), "--timeout-seconds", "1"],
+    "updateRunLabels": lambda a, d: ["labels", run_id(a), "--body", body_file(d, a.body or {})],
+    "getUpload": lambda a, d: ["uploads", "get", a.path["upload_id"]],
+    "finalizeUpload": lambda a, d: [
+        "uploads",
+        "finalize",
+        a.path["upload_id"],
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "withdrawPlanRequest": lambda a, d: ["plan", "withdraw", a.path["request_id"]],
+    "updateApiKey": lambda a, d: [
+        "keys",
+        "update",
+        a.path["key_id"],
+        "--body",
+        body_file(d, a.body or {}),
+    ],
     "getRunConfiguration": inspect_view("configuration"),
     "getRunSandboxes": inspect_view("sandboxes"),
     "getFile": lambda a, d: ["files", "get", a.path["file_id"]],
@@ -561,6 +633,9 @@ class CLISurface:
         builder = CLI_ARGV.get(call.operation)
         if builder is None:
             return Outcome(call.operation, False, cause="surface_operation_unmapped")
+        if call.operation == "getRunOutputContent":
+            with tempfile.TemporaryDirectory(dir=self.work_directory) as directory:
+                return self.run(call.operation, builder(call, Path(directory)))
         return self.run(call.operation, builder(call, self.work_directory))
 
 

@@ -177,6 +177,9 @@ class JourneyContext:
     limit_run_id: Optional[str] = None
     queued_journal: Optional[Path] = None
     foreign_ids: Mapping[str, str] = field(default_factory=dict)
+    isolation_operations: Optional[frozenset[str]] = None
+    isolation_contract: Optional[dict[str, Any]] = None
+    isolation_bodies: Mapping[str, Mapping[str, JsonValue]] = field(default_factory=dict)
     secrets: Mapping[str, str] = field(default_factory=dict)
     mcp_url: Optional[str] = None
     state: dict[str, str] = field(default_factory=dict)
@@ -1383,9 +1386,9 @@ def path_parameters(document: dict[str, Any], operation: dict[str, Any]) -> list
     return names
 
 
-def session_only_operations() -> frozenset[str]:
+def session_only_operations(document: Optional[dict[str, Any]] = None) -> frozenset[str]:
     """Matrix operations whose contract security admits only a Clerk session."""
-    document = contract()
+    document = contract() if document is None else document
     paths = document["paths"]
     assert isinstance(paths, dict)
     return frozenset(
@@ -1401,9 +1404,11 @@ def contract_version() -> str:
     return str(contract()["info"]["version"])
 
 
-def matrix_operations() -> tuple[tuple[str, str, str, tuple[str, ...]], ...]:
+def matrix_operations(
+    document: Optional[dict[str, Any]] = None,
+) -> tuple[tuple[str, str, str, tuple[str, ...]], ...]:
     """Every contract operation addressed by a resource ID: (op, method, path, params)."""
-    document = contract()
+    document = contract() if document is None else document
     rows: list[tuple[str, str, str, tuple[str, ...]]] = []
     paths = document["paths"]
     assert isinstance(paths, dict)
@@ -1456,19 +1461,31 @@ def cross_org(context: JourneyContext) -> StepReceipt:
         return missing(context, step, "foreign_org_ids")
     rows: list[Mapping[str, JsonValue]] = []
     failed = uncovered = 0
-    operations = matrix_operations()
+    document = context.isolation_contract or contract()
+    operations = matrix_operations(document)
     if not operations:
         return missing(context, step, "id_bearing_operation_matrix_empty")
     published = {operation for operation, _, _, _ in operations}
-    version = contract_version()
+    version = (
+        contract_version()
+        if context.isolation_contract is None
+        else str(document["info"]["version"])
+    )
+    selected = context.isolation_operations
+    if selected is not None:
+        unknown = selected - published - REQUIRED_MESSAGE_OPERATIONS
+        if unknown:
+            raise ValueError("selected_isolation_operation_unknown")
     for operation in sorted(REQUIRED_MESSAGE_OPERATIONS - published):
+        if selected is not None and operation not in selected:
+            continue
         if version in RELEASES_WITHOUT_MESSAGE_ROUTES:
             rows.append({"operation": operation, "result": "not_in_release:" + version})
             continue
         uncovered += 1
         rows.append({"operation": operation, "result": "uncovered:contract_operation_missing"})
     session = context.secrets.get(Secret.FOREIGN_SESSION)
-    session_only = session_only_operations()
+    session_only = session_only_operations(document)
     with context.make(actor) as keyed, ExitStack() as stack:
         sessioned = stack.enter_context(context.make(session)) if session is not None else None
         owner_account = context.surface.call(Call("getAccount"))
@@ -1486,6 +1503,18 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                 owner_account,
                 actor_account,
             )
+        if selected is not None:
+            expected = context.foreign_ids
+            if (owner.org_id, owner.user_id) != (
+                expected.get("owner_org_id"),
+                expected.get("owner_user_id"),
+            ) or (foreign_actor.org_id, foreign_actor.user_id) != (
+                expected.get("foreign_org_id"),
+                expected.get("foreign_user_id"),
+            ):
+                return receipt(
+                    context, step, Verdict.FAIL, "designated_fixture_principals_mismatch"
+                )
         if sessioned is not None:
             session_account = sessioned.call(Call("getAccount"))
             session_actor = JourneyPrincipal.from_account(session_account)
@@ -1504,18 +1533,36 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     session_account,
                 )
         for operation, method, route, names in operations:
+            if selected is not None and operation not in selected:
+                continue
             by_session = operation in session_only and sessioned is not None
             surface = sessioned if by_session else keyed
             if not covered(surface, operation):
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:surface_unmapped"})
                 continue
+            if selected is not None and operation in session_only and sessioned is None:
+                uncovered += 1
+                rows.append({"operation": operation, "result": "uncovered:foreign_session_absent"})
+                continue
+            if selected is None and (
+                (context.driver == SurfaceName.CLI and operation == "withdrawPlanRequest")
+                or (
+                    context.driver in {SurfaceName.SDK, SurfaceName.CLI}
+                    and operation in {"updateApiKey", "updateRunLabels", "finalizeUpload"}
+                )
+            ):
+                uncovered += 1
+                rows.append(
+                    {"operation": operation, "result": "uncovered:owner_mutation_fixture_needed"}
+                )
+                continue
             needed = [name for name in names if name != "kind"]
             if any(name not in context.foreign_ids for name in needed):
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:foreign_id_absent"})
                 continue
-            query: dict[str, JsonValue] = {}
+            query: dict[str, JsonValue] = {"timeout_seconds": 1} if operation == "waitRun" else {}
             if operation == "getRunOutputContent":
                 revision = context.foreign_ids.get("output_revision_id", "")
                 digest = context.foreign_ids.get("output_digest_sha256", "")
@@ -1534,7 +1581,7 @@ def cross_org(context: JourneyContext) -> StepReceipt:
             absent = {name: absent_like(value) for name, value in foreign.items()}
             if "kind" in names:
                 foreign["kind"] = absent["kind"] = context.foreign_ids.get("kind", "task")
-            body = MATRIX_BODIES.get(operation)
+            body = context.isolation_bodies.get(operation, MATRIX_BODIES.get(operation))
             mutation = method != "get"
             calls = [
                 Call(
@@ -1546,8 +1593,21 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                 )
                 for ids in (foreign, absent)
             ]
-            seen = [surface.call(call) for call in calls]
-            result = classify(seen[0], seen[1], tuple(foreign.values()) + tuple(absent.values()))
+            observed_foreign = surface.call(calls[0])
+            observed_absent = (
+                None
+                if selected is not None and observed_foreign.accepted
+                else surface.call(calls[1])
+            )
+            result = (
+                "leak"
+                if observed_absent is None
+                else classify(
+                    observed_foreign,
+                    observed_absent,
+                    tuple(foreign.values()) + tuple(absent.values()),
+                )
+            )
             failed += result in {"leak", "differs"}
             uncovered += result.startswith("unproven:")
             rows.append(
@@ -1560,10 +1620,12 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     "owner_user_id": owner.user_id,
                     "foreign_org_id": foreign_actor.org_id,
                     "foreign_user_id": foreign_actor.user_id,
-                    "foreign": seen[0].evidence(),
-                    "absent": seen[1].evidence(),
+                    "foreign": observed_foreign.evidence(),
+                    "absent": None if observed_absent is None else observed_absent.evidence(),
                 }
             )
+            if selected is not None and result in {"leak", "differs"}:
+                break
     verdict = Verdict.FAIL if failed else (Verdict.INCONCLUSIVE if uncovered else Verdict.PASS)
     cause = (
         ""
