@@ -15,7 +15,13 @@ from pydantic import BaseModel, JsonValue, ValidationError
 from ._generated.models import MODELS, Problem
 from ._generated.operations import OPERATIONS
 from ._retry import RetryPolicy
-from .diagnostics import DiagnosticHook, DiagnosticPhase, OperationDiagnostic
+from .diagnostics import (
+    DiagnosticHook,
+    DiagnosticPhase,
+    OperationDiagnostic,
+    RetrySuppressed,
+    RetrySuppressedReason,
+)
 from .errors import ResponseContractError, TransportFailureError, local_problem, raise_for_response
 
 
@@ -105,7 +111,12 @@ class OperationExecutor:
         return result
 
     def _emit(
-        self, operation: str, phase: DiagnosticPhase, progress: _Progress, started: float
+        self,
+        operation: str,
+        phase: DiagnosticPhase,
+        progress: _Progress,
+        started: float,
+        retry_suppressed: RetrySuppressed | None = None,
     ) -> None:
         if self.diagnostic_hook is None:
             return
@@ -120,6 +131,7 @@ class OperationExecutor:
             max(0.0, time.monotonic() - started),
             correlation(progress.request_id),
             correlation(progress.idempotency_key),
+            retry_suppressed,
         )
         try:
             self.diagnostic_hook(event)
@@ -206,8 +218,26 @@ class OperationExecutor:
                 or (op["method"] not in {"GET", "HEAD"} and ambiguous_response(response))
             ):
                 break
-            delay = self.retry_policy.delay(response.headers.get("Retry-After"), attempt)
-            if delay is None or delay >= deadline - time.monotonic():
+            retry_after = response.headers.get("Retry-After")
+            delay = self.retry_policy.delay(retry_after, attempt)
+            remaining = deadline - time.monotonic()
+            if delay is None or delay >= remaining:
+                # The caller sees only the last refusal; say why no further attempt was sent.
+                self._emit(
+                    operation_id,
+                    DiagnosticPhase.RETRY_SUPPRESSED,
+                    progress,
+                    started,
+                    RetrySuppressed(
+                        RetrySuppressedReason.RETRY_AFTER_INVALID
+                        if delay is None
+                        else RetrySuppressedReason.DEADLINE_EXCEEDED,
+                        response.status_code,
+                        retry_after,
+                        delay,
+                        max(0.0, remaining),
+                    ),
+                )
                 break
             self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)
             await asyncio.sleep(delay)
