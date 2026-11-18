@@ -65,6 +65,7 @@ class ArtifactUploads:
                                 "digest_sha256": file.digest_sha256,
                             },
                             idempotency_key=key,
+                            on_replay=self._refresh_upload,
                         )
                         if upload.file.name != file.name:
                             raise UploadTransferError(
@@ -119,8 +120,21 @@ class ArtifactUploads:
                     "digest_sha256": source.digest_sha256,
                 },
                 idempotency_key=key,
+                on_replay=self._refresh_upload,
             )
             return await self._finish(upload, source, key)
+
+    async def _refresh_upload(self, receipt: Upload) -> Upload:
+        # Core replays the original creation receipt, even if finalize has since committed.
+        current = await self._transport.request(
+            "getUpload", Upload, path={"upload_id": receipt.upload_id}
+        )
+        # The creation receipt can carry more timestamp precision than the stored row.
+        if current.upload_id != receipt.upload_id or current.file.model_dump(
+            exclude={"created_at"}
+        ) != receipt.file.model_dump(exclude={"created_at"}):
+            raise DataIntegrityError("current upload identity differs from its creation receipt")
+        return current
 
     async def resume(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
         upload = await self._transport.request("getUpload", Upload, path={"upload_id": upload_id})

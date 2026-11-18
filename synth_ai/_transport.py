@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Mapping
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Mapping,
+)
 from contextlib import aclosing, asynccontextmanager
 from pathlib import Path
 from typing import TypeVar
@@ -19,7 +26,7 @@ from ._file_source import FileIO
 from ._generated.models import RunEvent, RunMilestone, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
-from ._operations import OperationExecutor
+from ._operations import OperationExecutor, OperationResult
 from ._retry import RetryPolicy as RetryPolicy
 from ._retry import retry_delay as retry_delay
 from ._retry import stream_refusal_retryable
@@ -110,6 +117,20 @@ class Transport:
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> BaseModel | bytes | None:
+        result = await self._invoke_result(
+            operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
+        )
+        return result.value
+
+    async def _invoke_result(
+        self,
+        operation_id: str,
+        *,
+        path: Mapping[str, str] | None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None,
+        body: BaseModel | Mapping[str, JsonValue] | None,
+        idempotency_key: str | None,
+    ) -> OperationResult:
         return await OperationExecutor(
             self.client,
             self.base_url,
@@ -183,15 +204,19 @@ class Transport:
         query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
+        on_replay: Callable[[T], Awaitable[T]] | None = None,
     ) -> T:
-        result = await self.invoke(
+        response = await self._invoke_result(
             operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
         )
+        result = response.value
         if isinstance(result, RootModel) and not isinstance(result, model):
             # A read that answers one of several views: the caller names its view.
             result = result.root
         if not isinstance(result, model):
             raise SynthError("Unexpected response model for " + operation_id)
+        if response.replayed and on_replay is not None:
+            return await on_replay(result)
         return result
 
     @asynccontextmanager
