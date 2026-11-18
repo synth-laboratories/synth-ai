@@ -1,6 +1,7 @@
 """Validate the built wheel, source budget and isolated installation."""
 
 import argparse
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -90,7 +91,18 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         cwd=directory,
     )
     subprocess.run(
-        ["uv", "pip", "install", "--python", str(python), "--no-cache", str(wheel) + "[mcp]"],
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(python),
+            "--no-cache",
+            str(wheel) + "[mcp]",
+            "pytest",
+            "pytest-asyncio",
+            "pyyaml",
+        ],
         check=True,
     )
     subprocess.run(
@@ -99,10 +111,46 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         cwd=directory,
     )
 
+    # Execute the published documentation against site-packages. Only fixtures,
+    # tests and customer docs are copied into the isolated runner directory.
+    for name in (
+        "docs/quickstart.md",
+        "docs/errors.md",
+        "docs/cli-migration-0.31-0.32.md",
+        "contracts/synth-v1.openapi.yaml",
+        "tests/conftest.py",
+        "tests/test_journey.py",
+        "tests/test_messages.py",
+        "tests/test_quickstart_execution.py",
+        "tests/test_error_guide.py",
+    ):
+        destination = Path(directory) / name
+        destination.parent.mkdir(exist_ok=True)
+        shutil.copyfile(ROOT / name, destination)
+    subprocess.run(
+        [
+            str(python),
+            "-I",
+            "-m",
+            "pytest",
+            "-q",
+            "--asyncio-mode=auto",
+            "--basetemp",
+            str(Path(directory) / "pytest-tmp"),
+            "tests/test_quickstart_execution.py",
+            "tests/test_error_guide.py",
+            "tests/test_journey.py",
+        ],
+        check=True,
+        cwd=directory,
+        timeout=120,
+    )
+
 print(
     {
         "wheel_bytes": wheel.stat().st_size,
         "package_source_bytes": source_bytes,
         "isolated_install": "passed",
+        "installed_quickstarts_and_error_guide": "passed",
     }
 )
