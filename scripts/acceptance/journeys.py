@@ -14,10 +14,12 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import base64
+import hashlib
 import json
 import os
 import re
 import secrets
+import select
 import subprocess
 import sys
 import time
@@ -30,13 +32,19 @@ from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import httpx
 import yaml
 from pydantic import JsonValue
 
+from synth_ai import auth
+from synth_ai._auth_models import ClientRegistration, OAuthToken
+from synth_ai.errors import SynthError
+
 from .isolation import classify
+from .j1 import AdapterError
+from .oauth_journey import HostedOAuth, OAuthJourneyError, approve, response_object
 from .surfaces import (
     CLI_ARGV,
     CLI_ARGV_TOO_LONG,
@@ -644,26 +652,6 @@ def revoke_key(context: JourneyContext) -> StepReceipt:
     )
 
 
-def approve(origin: str, session: str, authorization_url: str) -> str:
-    """Console consent through its public protocol: authorize -> request -> consent."""
-    with httpx.Client(timeout=30, follow_redirects=False) as client:
-        redirect = client.get(authorization_url)
-        if redirect.status_code != 303:
-            raise RuntimeError(f"authorize answered {redirect.status_code}, not 303")
-        request = parse_qs(urlparse(redirect.headers["location"]).query).get("request")
-        if request is None or not request:
-            raise RuntimeError("consent redirect lacks request")
-        shown = client.get(origin + "/mcp/oauth/request", params={"request": request[0]})
-        shown.raise_for_status()
-        decided = client.post(
-            origin + "/mcp/oauth/consent",
-            json={"request": request[0], "approve": True},
-            headers={"Authorization": "Bearer " + session},
-        )
-        decided.raise_for_status()
-        return str(decided.json()["redirect_uri"])
-
-
 @contextmanager
 def private_auth_file(context: JourneyContext) -> Generator[Path]:
     path = context.receipt_dir / "oauth-credentials.json"
@@ -679,33 +667,52 @@ def private_auth_file(context: JourneyContext) -> Generator[Path]:
             os.environ["SYNTH_AUTH_FILE"] = previous
 
 
+def oauth_failure(
+    context: JourneyContext, step: Step, error: Exception, notes: dict[str, JsonValue]
+) -> StepReceipt:
+    if isinstance(error, OAuthJourneyError):
+        stage, code = error.stage, error.code
+    elif isinstance(error, httpx.HTTPStatusError):
+        operation = error.request.url.path.rsplit("/", 1)[-1]
+        stage = (
+            operation
+            if operation in {"register", "token", "oauth-authorization-server"}
+            else "oauth"
+        )
+        notes[f"{stage}_status"] = error.response.status_code
+        code = "http_refused"
+    else:
+        stage, code = "oauth", type(error).__name__
+    notes["oauth_failure_stage"] = stage
+    notes["oauth_failure_code"] = code
+    return receipt(context, step, Verdict.FAIL, f"oauth_failed:{stage}:{code}", notes=notes)
+
+
 def cli_oauth(context: JourneyContext) -> StepReceipt:
     step = Step.CLI_OAUTH
     session = context.secrets.get(Secret.SESSION)
     if session is None:
         return missing(context, step, "clerk_session")
-    with private_auth_file(context) as path:
-        if context.driver == SurfaceName.SDK:
-            from synth_ai import auth
+    notes: dict[str, JsonValue] = {}
+    oauth = auth.oauth_base(context.origin.rstrip("/"))
 
-            try:
-                auth.login(
-                    context.origin,
-                    open_browser=False,
-                    redirect_source=lambda url: approve(context.origin, session, url),
-                )
-            except Exception as error:
-                return receipt(
-                    context, step, Verdict.FAIL, "pkce_login_failed:" + type(error).__name__
-                )
-        else:
-            assert isinstance(context.surface, CLISurface)
-            failure = cli_login(context, session, path)
-            if failure:
-                return receipt(context, step, Verdict.FAIL, failure)
-        token = json.loads(path.read_text())[context.origin.rstrip("/")]["access_token"]
-    used = credential_works(context, str(token))
+    def consent(url: str) -> str:
+        return approve(oauth, session, url, oauth + "/mcp", notes)
+
+    try:
+        with private_auth_file(context) as path:
+            if context.driver == SurfaceName.SDK:
+                auth.login(context.origin, open_browser=False, redirect_source=consent)
+            else:
+                cli_login(context, path, consent, notes)
+            record = auth.read_tokens().get(context.origin.rstrip("/"))
+            if record is None:
+                raise OAuthJourneyError("token_store", "oauth_credential_missing")
+        used = credential_works(context, record.access_token)
+    except (OAuthJourneyError, SynthError, httpx.HTTPError, ValueError, OSError) as error:
+        return oauth_failure(context, step, error, notes)
     kind = obj(obj(used.value).get("principal")).get("credential_kind")
+    notes["credential_kind"] = kind
     ok = used.accepted and kind == "oauth"
     return receipt(
         context,
@@ -713,18 +720,23 @@ def cli_oauth(context: JourneyContext) -> StepReceipt:
         Verdict.PASS if ok else Verdict.FAIL,
         "" if ok else "oauth_token_refused",
         used,
-        notes={"credential_kind": kind},
+        notes=notes,
     )
 
 
-def cli_login(context: JourneyContext, session: str, path: Path) -> str:
+def cli_login(
+    context: JourneyContext,
+    path: Path,
+    consent: Callable[[str], str],
+    notes: dict[str, JsonValue],
+) -> None:
     surface = context.surface
     assert isinstance(surface, CLISurface)
     environment = {
         key_: value for key_, value in surface.environment.items() if key_ != "SYNTH_API_KEY"
     }
     environment["SYNTH_AUTH_FILE"] = str(path)
-    child = subprocess.Popen(
+    with subprocess.Popen(
         [
             str(surface.python),
             "-m",
@@ -737,44 +749,37 @@ def cli_login(context: JourneyContext, session: str, path: Path) -> str:
         cwd=ROOT,
         env=environment,
         stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,
-    )
-    assert child.stdin is not None and child.stderr is not None
-    url = child.stderr.readline().strip()
-    try:
-        redirect = approve(context.origin, session, url)
-    except Exception as error:
-        child.kill()
-        return "consent_failed:" + type(error).__name__
-    child.stdin.write(redirect + "\n")
-    child.stdin.flush()
-    code = child.wait(timeout=120)
-    return "" if code == 0 else f"cli_login_exit_{code}"
+    ) as child:
+        assert child.stderr is not None
+        try:
+            readable, _, _ = select.select([child.stderr], [], [], 65)
+            if not readable:
+                raise OAuthJourneyError("cli_login", "cli_authorize_timeout")
+            authorization_url = child.stderr.readline().strip()
+            if not authorization_url:
+                raise OAuthJourneyError("cli_login", "cli_authorize_url_missing")
+            callback = consent(authorization_url)
+            child.communicate(callback + "\n", timeout=120)
+            notes["cli_login_exit"] = child.returncode
+            if child.returncode != 0:
+                raise OAuthJourneyError("cli_login", "cli_token_exchange_failed")
+        except subprocess.TimeoutExpired as error:
+            raise OAuthJourneyError("cli_login", "cli_exchange_timeout") from error
+        finally:
+            if child.poll() is None:
+                child.kill()
 
 
-def mcp_consent(context: JourneyContext) -> StepReceipt:
-    """Hosted MCP OAuth: register, authorize, consent, exchange, call, list, revoke."""
-    step = Step.MCP_CONSENT
-    session = context.secrets.get(Secret.SESSION)
-    if session is None:
-        return missing(context, step, "clerk_session")
-    if context.mcp_url is None:
-        return missing(context, step, "hosted_mcp_url")
-    import base64
-    import hashlib
-
-    origin = context.origin
-    verifier = secrets.token_urlsafe(64)
-    challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    )
+def hosted_token(
+    client: httpx.Client, oauth: HostedOAuth, session: str, notes: dict[str, JsonValue]
+) -> tuple[str, str]:
     redirect_uri = "http://127.0.0.1:9/callback"
-    notes: dict[str, JsonValue] = {}
-    with httpx.Client(timeout=30, follow_redirects=False) as client:
-        registered = client.post(
-            origin + "/mcp/oauth/register",
+    registration = response_object(
+        client.post(
+            oauth.endpoint("registration_endpoint"),
             json={
                 "client_name": "SYN-5695 journey",
                 "redirect_uris": [redirect_uri],
@@ -782,78 +787,128 @@ def mcp_consent(context: JourneyContext) -> StepReceipt:
                 "response_types": ["code"],
                 "token_endpoint_auth_method": "none",
             },
+        ),
+        "register",
+        201,
+        notes,
+    )
+    client_id = ClientRegistration.model_validate(registration).client_id
+    state = secrets.token_urlsafe(16)
+    verifier = secrets.token_urlsafe(64)
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+    )
+    authorization = str(
+        httpx.URL(
+            oauth.endpoint("authorization_endpoint"),
+            params={
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": state,
+                "resource": oauth.resource,
+                "scope": "account:read",
+            },
         )
-        if registered.status_code >= 300:
-            return receipt(context, step, Verdict.FAIL, f"register_{registered.status_code}")
-        client_id = registered.json()["client_id"]
-        state = secrets.token_urlsafe(16)
-        authorization = str(
-            httpx.URL(
-                origin + "/mcp/oauth/authorize",
-                params={
-                    "client_id": client_id,
-                    "redirect_uri": redirect_uri,
-                    "response_type": "code",
-                    "code_challenge": challenge,
-                    "code_challenge_method": "S256",
-                    "state": state,
-                    "resource": origin + "/mcp",
-                    "scope": "account:read",
-                },
-            )
-        )
-        try:
-            granted = approve(origin, session, authorization)
-        except Exception as error:
-            return receipt(context, step, Verdict.FAIL, "consent_failed:" + type(error).__name__)
-        code = parse_qs(urlparse(granted).query).get("code")
-        if code is None or not code:
-            return receipt(context, step, Verdict.FAIL, "consent_redirect_lacks_code")
-        token = client.post(
-            origin + "/mcp/oauth/token",
+    )
+    callback = approve(oauth.origin, session, authorization, oauth.resource, notes)
+    result = auth.callback_result(callback, state=state, issuer=oauth.origin)
+    if (
+        urlparse(callback)._replace(query="") != urlparse(redirect_uri)
+        or result is None
+        or "code" not in result
+        or "error" in result
+    ):
+        raise OAuthJourneyError("callback", "oauth_callback_mismatch")
+    token = response_object(
+        client.post(
+            oauth.endpoint("token_endpoint"),
             data={
                 "grant_type": "authorization_code",
                 "client_id": client_id,
-                "code": code[0],
+                "code": result["code"],
                 "code_verifier": verifier,
                 "redirect_uri": redirect_uri,
-                "resource": origin + "/mcp",
+                "resource": oauth.resource,
             },
-        )
-        if token.status_code >= 300:
-            return receipt(context, step, Verdict.FAIL, f"token_{token.status_code}")
-        access = str(token.json()["access_token"])
-        grants = client.get(
-            origin + "/mcp/oauth/grants", headers={"Authorization": "Bearer " + session}
-        )
-        notes["grants_status"] = grants.status_code
-        listed = [
-            grant
-            for grant in items(
-                obj(grants.json() if grants.status_code == 200 else {}).get("grants")
-            )
-            if obj(grant).get("client_id") == client_id
-        ]
-        notes["grant_listed"] = len(listed) == 1
-    with context.make(access) as surface:
-        used = surface.call(Call("getAccount"))
-    with httpx.Client(timeout=30, follow_redirects=False) as client:
-        for grant in listed:
-            revoked = client.delete(
-                origin + "/mcp/oauth/grants/" + str(obj(grant).get("grant_id")),
-                headers={"Authorization": "Bearer " + session},
-            )
-            notes["grant_revoke_status"] = revoked.status_code
-    with context.make(access) as surface:
-        after = surface.call(Call("getAccount"))
-    ok = used.accepted and len(listed) == 1 and not after.accepted
+        ),
+        "token",
+        200,
+        notes,
+    )
+    return client_id, OAuthToken.model_validate(token).access_token
+
+
+def mcp_consent(context: JourneyContext) -> StepReceipt:
+    """Exercise the hosted MCP OAuth grant through discovery, tool use and revoke."""
+    step = Step.MCP_CONSENT
+    session = context.secrets.get(Secret.SESSION)
+    if session is None:
+        return missing(context, step, "clerk_session")
+    if context.mcp_url is None:
+        return missing(context, step, "hosted_mcp_url")
+    notes: dict[str, JsonValue] = {}
+    try:
+        with httpx.Client(timeout=30, follow_redirects=False) as client:
+            oauth = HostedOAuth.discover(client, context.mcp_url, notes)
+            client_id, access = hosted_token(client, oauth, session, notes)
+            grants_url = oauth.origin + "/mcp/oauth/grants"
+            clerk = {"X-Clerk-Session-Token": session}
+            grants = response_object(client.get(grants_url, headers=clerk), "grants", 200, notes)
+            matches = [
+                obj(grant)
+                for grant in items(grants.get("grants"))
+                if obj(grant).get("client_id") == client_id
+            ]
+            if len(matches) != 1:
+                raise OAuthJourneyError("grants", "oauth_grant_not_unique")
+            grant = matches[0]
+            identity = grant.get("grant_id")
+            if (
+                grant.get("status") != "active"
+                or grant.get("owned_by_viewer") is not True
+                or not isinstance(identity, str)
+                or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identity) is None
+            ):
+                raise OAuthJourneyError("grants", "oauth_grant_identity_invalid")
+            notes["grant_bound"] = True
+            try:
+                used = credential_works(context, access)
+            finally:
+                revoked = response_object(
+                    client.delete(grants_url + "/" + identity, headers=clerk),
+                    "revoke",
+                    200,
+                    notes,
+                )
+                if (
+                    revoked.get("grant_id") != identity
+                    or revoked.get("status") != "revoked"
+                    or revoked.get("outcome") != "revoked"
+                ):
+                    raise OAuthJourneyError("revoke", "oauth_grant_revocation_unproven")
+            after = client.get(oauth.resource, headers={"Authorization": "Bearer " + access})
+            refused = oauth.revoked(after, notes)
+    except (
+        OAuthJourneyError,
+        AdapterError,
+        SynthError,
+        httpx.HTTPError,
+        ValueError,
+        OSError,
+    ) as error:
+        return oauth_failure(context, step, error, notes)
+    kind = obj(obj(used.value).get("principal")).get("credential_kind")
+    notes["credential_kind"] = kind
+    ok = used.accepted and kind == "oauth" and refused
     return receipt(
         context,
         step,
         Verdict.PASS if ok else Verdict.FAIL,
         "" if ok else "mcp_oauth_grant_lifecycle_failed",
         used,
-        after,
         notes=notes,
     )
 
