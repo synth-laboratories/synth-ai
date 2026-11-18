@@ -1329,7 +1329,7 @@ def absent_like(foreign: str) -> str:
 MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
     "updateRunLimits": {"expected_revision": 0, "limits": {"wall_time_seconds": 60}},
     "sendRunMessage": {"kind": "guidance", "body": "Tenant-isolation fixture probe."},
-    "updateRunLabels": {"expected_revision": 0, "labels": {}},
+    "updateRunLabels": {"expected_revision": 1, "labels": {}},
     "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
 }
 
@@ -1371,6 +1371,21 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:foreign_id_absent"})
                 continue
+            query: dict[str, JsonValue] = {}
+            if operation == "getRunOutputContent":
+                revision = context.foreign_ids.get("output_revision_id", "")
+                digest = context.foreign_ids.get("output_digest_sha256", "")
+                if not revision or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+                    uncovered += 1
+                    rows.append(
+                        {
+                            "operation": operation,
+                            "result": "uncovered:output_pin_missing_or_invalid",
+                        }
+                    )
+                    continue
+                # The owned output pin is identical for both requests so only the IDs vary.
+                query = {"revision_id": revision, "digest_sha256": digest}
             foreign = {name: context.foreign_ids[name] for name in needed}
             absent = {name: absent_like(value) for name, value in foreign.items()}
             if "kind" in names:
@@ -1382,6 +1397,7 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     operation,
                     path=ids,
                     body=body,
+                    query=query,
                     idempotency_key=key("matrix") if mutation else None,
                 )
                 for ids in (foreign, absent)

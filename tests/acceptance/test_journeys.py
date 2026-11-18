@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -580,6 +581,60 @@ def test_cross_org_matrix_classifies_every_surface(tmp_path, surface):
     assert result.verdict == Verdict.INCONCLUSIVE
     if surface != SurfaceName.CLI:
         assert results["revokeApiKey"] == "unproven:uniform_403"
+    if surface == SurfaceName.MCP_STDIO:
+        assert results["getRunOutputContent"] == "uncovered:output_pin_missing_or_invalid"
+
+
+def test_mcp_isolation_label_update_reaches_core(tmp_path):
+    calls = []
+
+    def responder(method, path, request):
+        if method == "PATCH" and path.endswith("/labels"):
+            calls.append(request["body"])
+        return 404, problem("resource_not_found", 404), {}
+
+    result, _ = run(
+        SurfaceName.MCP_STDIO,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids=matrix_ids(),
+    )
+    rows = {row["operation"]: row["result"] for row in result.evidence}
+    assert calls == [{"expected_revision": 1, "labels": {}}] * 2
+    assert rows["updateRunLabels"] == "pass"
+
+
+def test_mcp_isolation_output_content_preserves_the_output_pin(tmp_path):
+    output_pin = {"revision_id": "fixture-output-revision", "digest_sha256": "a" * 64}
+    calls = []
+
+    def responder(method, path, _):
+        url = urlsplit(path)
+        if method == "GET" and url.path.endswith("/content"):
+            calls.append((url.path, parse_qs(url.query)))
+        return 404, problem("resource_not_found", 404), {}
+
+    ids = matrix_ids()
+    result, _ = run(
+        SurfaceName.MCP_STDIO,
+        responder,
+        tmp_path,
+        Step.CROSS_ORG_404,
+        secrets={Secret.FOREIGN.value: "fixture-org-b"},
+        foreign_ids={
+            **ids,
+            "output_revision_id": output_pin["revision_id"],
+            "output_digest_sha256": output_pin["digest_sha256"],
+        },
+    )
+    rows = {row["operation"]: row["result"] for row in result.evidence}
+    assert len(calls) == 2
+    assert calls[0][0] == f"/v1/runs/{ids['run_id']}/outputs/{ids['output_id']}/content"
+    assert calls[0][0] != calls[1][0]
+    assert calls[0][1] == calls[1][1] == {name: [value] for name, value in output_pin.items()}
+    assert rows["getRunOutputContent"] == "pass"
 
 
 def test_cross_org_existence_signal_fails(tmp_path):
