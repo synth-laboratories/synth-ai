@@ -1,5 +1,6 @@
 """Validate the built wheel, source budget and isolated installation."""
 
+import argparse
 import subprocess
 import sys
 import tempfile
@@ -15,12 +16,25 @@ def require(condition: bool, message: str) -> None:
 
 ROOT = Path(__file__).resolve().parents[1]
 version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-wheel = ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
-source_bytes = sum(
-    p.stat().st_size
-    for p in (ROOT / "synth_ai").rglob("*")
-    if p.is_file() and "__pycache__" not in p.parts
-)
+parser = argparse.ArgumentParser(description=__doc__)
+# An exact candidate (scripts/qualify_release.py); the default stays the checkout's dist wheel.
+parser.add_argument("--wheel", type=Path)
+arguments = parser.parse_args()
+wheel = arguments.wheel or ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
+if arguments.wheel is None:
+    source_bytes = sum(
+        p.stat().st_size
+        for p in (ROOT / "synth_ai").rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts
+    )
+else:
+    # Measure the candidate's own package source, not whatever the checkout holds now.
+    with zipfile.ZipFile(wheel) as candidate:
+        source_bytes = sum(
+            member.file_size
+            for member in candidate.infolist()
+            if member.filename.startswith("synth_ai/") and not member.is_dir()
+        )
 require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
 # 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
 # Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
