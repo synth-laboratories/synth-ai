@@ -10,7 +10,7 @@ Changes here describe the new Swarms product. Historical releases remain in Git 
   `account_promo_redeem` MCP tool redeem a promotional code (SYN-5752). A trial
   campaign's redemption carries `trial` (plan and fixed start/end).
 
-## 0.41.0rc1 — source candidate
+## 0.41.0 — prepared release
 
 This checkout does not attest publication or installed acceptance. The exact Core
 revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
