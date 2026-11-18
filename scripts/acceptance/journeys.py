@@ -1361,7 +1361,7 @@ def cross_org(context: JourneyContext) -> StepReceipt:
         sessioned = stack.enter_context(context.make(session)) if session is not None else None
         for operation, method, route, names in operations:
             by_session = operation in session_only and sessioned is not None
-            surface = sessioned if by_session and sessioned is not None else keyed
+            surface = sessioned if by_session else keyed
             if not covered(surface, operation):
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:surface_unmapped"})
