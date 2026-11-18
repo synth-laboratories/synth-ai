@@ -198,6 +198,9 @@ class Secret(StrEnum):
     FOREIGN = "SYNTH_JOURNEY_FOREIGN_API_KEY"
     # Org B's Clerk session, for contract operations that accept only `clerkSession`.
     FOREIGN_SESSION = "SYNTH_JOURNEY_FOREIGN_SESSION_TOKEN"
+    # Hosted overload precondition: "admission_queue_full" names an org whose
+    # admission queue the harness filled (running cap 0, org depth full).
+    OVERLOAD_MODE = "SYNTH_JOURNEY_OVERLOAD_MODE"
 
 
 def receipt(
@@ -1139,7 +1142,50 @@ def expired_key(context: JourneyContext) -> StepReceipt:
     )
 
 
+ADMISSION_QUEUE_FULL = "admission_queue_full"
+ADMISSION_PROBE_CHARGE = "2.50"
+
+
+def admission_overload_refusal(context: JourneyContext) -> StepReceipt:
+    """Hosted overload: the org's admission queue is full (running cap 0 and
+    every waiting place taken), so a valid launch must be refused 429
+    run_queue_full with retry advice and no accepted effect. The org launch
+    window's 429 rate_limit_exceeded is a different refusal and does not pass."""
+    step = Step.OVERLOAD_REFUSAL
+    # A valid budget (the J1 producer default) so Core reaches admission;
+    # PROBE_CHARGE is refused run_budget_below_call_bound before the queue.
+    body = {
+        "message": "SYN-5696 hosted overload probe (refusal expected)",
+        "limits": {"maximum_charge": {"amount": ADMISSION_PROBE_CHARGE, "currency": "USD"}},
+    }
+    outcome = context.surface.call(Call("createRun", body=body, idempotency_key=key("overload")))
+    if outcome.accepted:
+        run = outcome.value.get("run_id") if isinstance(outcome.value, dict) else None
+        cancelled = (
+            context.surface.call(
+                Call("cancelRun", path={"run_id": str(run)}, idempotency_key=key("cancel"))
+            )
+            if isinstance(run, str)
+            else Outcome("cancelRun", False, cause="accepted run id absent")
+        )
+        return receipt(
+            context, step, Verdict.FAIL, "refusal_expected_but_accepted", outcome, cancelled
+        )
+    result = expect_refusal(
+        context, step, outcome, codes=frozenset({"run_queue_full"}), status=None
+    )
+    if result.verdict != Verdict.PASS:
+        return result
+    if outcome.status not in (None, 429):
+        return receipt(context, step, Verdict.FAIL, "refusal_status_unexpected", outcome)
+    if outcome.retryable is not True and outcome.retry_after is None:
+        return receipt(context, step, Verdict.FAIL, "retry_advice_absent", outcome)
+    return result
+
+
 def overload_refusal(context: JourneyContext) -> StepReceipt:
+    if context.secrets.get(Secret.OVERLOAD_MODE) == ADMISSION_QUEUE_FULL:
+        return admission_overload_refusal(context)
     # The orchestrator holds the inbound bulkhead for longer than the client's
     # retry budget, so the client must surface a typed retryable refusal.
     outcome = context.surface.call(Call("getAccount"))

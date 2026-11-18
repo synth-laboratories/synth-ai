@@ -287,6 +287,49 @@ def test_overload_surfaces_retryable_after_bounded_retries(tmp_path, surface):
     assert len(requests) >= 2  # The client retried before surfacing the refusal.
 
 
+ADMISSION_FULL = {"secrets": {"SYNTH_JOURNEY_OVERLOAD_MODE": "admission_queue_full"}}
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_hosted_overload_launch_refused_run_queue_full(tmp_path, surface):
+    def responder(method, path, request):
+        assert (method, path) == ("POST", "/v1/runs")
+        # A budget below Core's call bound is refused 422 before admission.
+        assert request["body"]["limits"]["maximum_charge"]["amount"] == "2.50"
+        return 429, problem("run_queue_full", 429, retryable=True), {"Retry-After": "1"}
+
+    result, requests = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **ADMISSION_FULL)
+    assert result.verdict == Verdict.PASS, result
+    assert all(method == "POST" for method, _, _ in requests)
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_hosted_overload_rate_window_429_does_not_pass(tmp_path, surface):
+    def responder(method, path, _):
+        return 429, problem("rate_limit_exceeded", 429, retryable=True), {"Retry-After": "1"}
+
+    result, _ = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **ADMISSION_FULL)
+    assert result.verdict == Verdict.FAIL, result
+    assert result.cause == "refusal_code_unexpected"
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_hosted_overload_accepted_launch_fails_and_cancels(tmp_path, surface):
+    contract = journeys.contract()
+    launched = example(contract, "/v1/runs", "post", "202")
+    cancel_path = next(p for p in contract["paths"] if p.endswith("/cancel") and "/runs/" in p)
+    cancelled = example(contract, cancel_path, "post", "202")
+
+    def responder(method, path, _):
+        if path.endswith("/cancel"):
+            return 202, cancelled, {}
+        return 202, launched, {}
+
+    result, requests = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **ADMISSION_FULL)
+    assert result.verdict == Verdict.FAIL, result
+    assert result.cause == "refusal_expected_but_accepted"
+
+
 @pytest.mark.parametrize("surface", SURFACES)
 def test_index_is_refused_on_every_surface(tmp_path, surface):
     def responder(method, path, _):
