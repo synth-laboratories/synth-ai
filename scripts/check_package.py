@@ -22,6 +22,7 @@ parser.add_argument(
     "--wheel", type=Path, default=ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
 )
 parser.add_argument("--sha256")
+parser.add_argument("--check", choices=["all", "budget", "install"], default="all")
 options = parser.parse_args()
 wheel = options.wheel.resolve()
 digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
@@ -31,18 +32,19 @@ source_bytes = sum(
     for p in (ROOT / "synth_ai").rglob("*")
     if p.is_file() and "__pycache__" not in p.parts
 )
-require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
-# 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
-# Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
-# it to about 414 KiB: two operations' generated models, MCP tools and CLI views.
-# 0.41 public source docstrings and their generated sync copies add 44 KiB
-# (469,361 total source bytes). Keep a 480 KiB source cap and the unchanged
-# 150 KiB wheel cap; neither permits an accidental vendored dependency tree.
-source_limit = 480 * 1024
-require(
-    source_bytes < source_limit,
-    f"SDK source size {source_bytes} exceeds budget {source_limit} bytes",
-)
+if options.check != "install":
+    require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
+    # 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
+    # Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
+    # it to about 414 KiB: two operations' generated models, MCP tools and CLI views.
+    # 0.41 public source docstrings and their generated sync copies add 44 KiB
+    # (469,361 total source bytes). Keep a 480 KiB source cap and the unchanged
+    # 150 KiB wheel cap; neither permits an accidental vendored dependency tree.
+    source_limit = 480 * 1024
+    require(
+        source_bytes < source_limit,
+        f"SDK source size {source_bytes} exceeds budget {source_limit} bytes",
+    )
 with zipfile.ZipFile(wheel) as archive:
     require("synth_ai/py.typed" in archive.namelist(), "wheel must ship PEP 561 types")
     require(
@@ -56,6 +58,10 @@ with zipfile.ZipFile(wheel) as archive:
         not any("/public/" in name or "/sdk/" in name for name in archive.namelist()),
         "package acceptance invariant failed",
     )
+if options.check == "budget":
+    print({"wheel_bytes": wheel.stat().st_size, "package_source_bytes": source_bytes})
+    raise SystemExit(0)
+
 # Under the checkout so workspace file boundaries also apply to local validation.
 with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
     environment = Path(directory) / "venv"

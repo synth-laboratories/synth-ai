@@ -37,7 +37,8 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
         "tests": [*RUN, "pytest", "-q"],
         "build": ["uv", "build", "--out-dir", str(dist)],
         "twine": [*RUN, "twine", "check"],
-        "installed_smoke_and_package_budget": script("check_package"),
+        "package_budget": script("check_package", "--check", "budget"),
+        "installed_smoke": script("check_package", "--check", "install"),
     }
     steps = {name: {"status": "skipped", "command": cmd} for name, cmd in commands.items()}
     artifacts = []
@@ -63,7 +64,7 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
             step["status"] = "failed"
             if name == "twine":
                 cmd.extend(str(path) for path in sorted(dist.iterdir()))
-            if name == "installed_smoke_and_package_budget":
+            if name in {"package_budget", "installed_smoke"}:
                 if wheel is None:
                     raise ValueError("missing built wheel")
                 cmd.extend(["--wheel", str(wheel), "--sha256", wheel_digest])
@@ -79,7 +80,17 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
                 ):
                     return False
             if result.returncode:
-                return False
+                if name in {
+                    "environment",
+                    "parity",
+                    "contract",
+                    "sync",
+                    "file_limits",
+                    "cohort",
+                    "build",
+                }:
+                    return False
+                continue
             if name == "build":
                 (wheel,) = dist.glob("*.whl")
                 for path in sorted(dist.iterdir()):
@@ -90,8 +101,9 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
                     if path == wheel:
                         wheel_digest = digest
             step["status"] = "passed"
-        report["passed"] = True
-        return True
+        passed = all(step["status"] == "passed" for step in steps.values())
+        report["passed"] = passed
+        return passed
     except (OSError, ValueError) as error:
         report["cause"] = str(error)
         return False
