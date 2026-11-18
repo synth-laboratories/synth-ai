@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel, JsonValue
 
+from .._retry import RetryPolicy
 from ..aclient import AsyncSynthClient
 from ..environments import Environment
 from ..errors import (
@@ -82,15 +83,22 @@ async def serve(
     environment: Environment | None = None,
     upload_root: str | None = None,
     http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
 ) -> None:
     """Serve the catalog on stdio.
 
     `http_client` lets a harness route the public calls through its own
     transport (for example a cached replay grant) while the stdio framing, tool
-    validation and dispatch stay this server's own.
+    validation and dispatch stay this server's own. `retry_policy` lets a harness
+    that owns retries replace the SDK's per-operation loop; `None` keeps the default.
     """
     with directory.grant_root(upload_root) as descriptor:
-        await _serve(environment=environment, upload_descriptor=descriptor, http_client=http_client)
+        await _serve(
+            environment=environment,
+            upload_descriptor=descriptor,
+            http_client=http_client,
+            retry_policy=retry_policy,
+        )
 
 
 async def _serve(
@@ -98,12 +106,15 @@ async def _serve(
     environment: Environment | None,
     upload_descriptor: int | None,
     http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
 ) -> None:
     try:
         from mcp.server.stdio import stdio_server
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
-    async with AsyncSynthClient(environment=environment, http_client=http_client) as client:
+    async with AsyncSynthClient(
+        environment=environment, http_client=http_client, retry_policy=retry_policy
+    ) as client:
         server = build_server(client, upload_descriptor=upload_descriptor)
         async with stdio_server() as (reader, writer):
             await server.run(reader, writer, server.create_initialization_options())

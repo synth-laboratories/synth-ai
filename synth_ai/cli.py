@@ -31,6 +31,7 @@ from ._generated.models import (
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
+from ._retry import RetryPolicy
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
@@ -434,10 +435,17 @@ def finished_code(snapshot: RunSnapshot) -> int:
     return EXIT_RUN_UNSUCCESSFUL if snapshot.state in UNSUCCESSFUL_STATES else EXIT_OK
 
 
-async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | None) -> int:
+async def execute(
+    args: argparse.Namespace,
+    http_client: httpx.AsyncClient | None,
+    retry_policy: RetryPolicy | None = None,
+) -> int:
     out = Output(args.json)
     async with AsyncSynthClient(
-        base_url=args.base_url, environment=args.environment, http_client=http_client
+        base_url=args.base_url,
+        environment=args.environment,
+        http_client=http_client,
+        retry_policy=retry_policy,
     ) as client:
         swarms = client.swarms
         command = str(args.command)
@@ -813,7 +821,14 @@ def upgrade_hint(error: UpgradeRequiredError) -> str:
     return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
 
 
-def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
+) -> int:
+    """Run one CLI command. `retry_policy` lets a harness that owns retries (one attempt per
+    delivery) replace the SDK's per-operation retry loop; `None` keeps the customer default."""
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
     try:
@@ -827,7 +842,7 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     try:
         if args.command in {"login", "logout"}:
             return run_auth(args)
-        return asyncio.run(execute(args, http_client))
+        return asyncio.run(execute(args, http_client, retry_policy))
     except RunPausedError as error:
         fail(error.code, str(error), as_json)
         return EXIT_RUN_PAUSED
