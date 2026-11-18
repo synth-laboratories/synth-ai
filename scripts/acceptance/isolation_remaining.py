@@ -1,4 +1,4 @@
-"""Prepare or run the outstanding SYN-5737 cells from W16's 1.35.1 receipt."""
+"""Prepare or run the outstanding SYN-5737 cells from W16's 1.35.1 receipt on contract 1.39.0."""
 
 from __future__ import annotations
 
@@ -25,9 +25,9 @@ from .surfaces import SurfaceName
 
 STAGING_ORIGIN = "https://core-api-staging-staging-acef.up.railway.app"
 DRIVERS = (SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO)
-RELEASE = "1.35.1"
-WHEEL_SHA256 = "b08890e8d5b0e84598278586d2b05d8970e478e60f14f002025753bdd9a7c50f"
-CONTRACT_SHA256 = "46a517e6b0a658343947d9afca9d3c685d4ea5173640556b6c8b5dfc2efa6aa9"
+RELEASE = "1.39.0"
+WHEEL_SHA256 = "406b5a3cfa2c5333c09212046352a79d2dcc0777d9957b5ab5bd7ef791b1c305"
+CONTRACT_SHA256 = "c5902df7b68e445e0be33eb5416bf827fa796f08ce148e7b630b6a71ff4597dd"
 RETAINED_SHA256 = "29d0e58df8b5635ed698a11a5b5ac5c2f1c3c9a1b724231fa441b86724dbd331"
 GUARDED_MUTATIONS = {
     "updateApiKey": "key",
@@ -341,7 +341,7 @@ def main() -> int:
         rows = cell_rows(outstanding(options.retained))
         contract_bytes = options.contract.read_bytes()
         if sha256(contract_bytes) != CONTRACT_SHA256:
-            raise FixtureBlocked("retained_1_35_1_contract_sha256_mismatch")
+            raise FixtureBlocked("pinned_contract_sha256_mismatch")
         document = yaml.safe_load(contract_bytes)
         if document["info"]["version"] != RELEASE:
             raise FixtureBlocked("frozen_contract_version_mismatch")
