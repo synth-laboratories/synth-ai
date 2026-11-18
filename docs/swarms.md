@@ -94,33 +94,64 @@ Call `profiles()` or `profiles(research_task="TASK")` to discover published
 profiles. The result includes `default_profile` and entries with `id`, `name`,
 `description`, `revision`, `available`, optional `unavailable_reason`, and
 supported routing. Availability is a read-only check, not a funding reservation.
-It reflects caller permissions, served recipes and task approvals. Launch
-revalidates those facts and checks the requested budget and resources.
+Omit `profile` for Core's default; an explicit profile is never silently
+replaced. `run.profile` retains the named revision, compiled program definition
+and exact actor profile digests; catalog updates never relabel historical runs.
 
-| Profile | ID | Additional input |
+## Optimizer topologies
+
+| Public name | Machine ID | Treatment |
 | --- | --- | --- |
-| Swarms v2 | `swarms-v2` | None |
-| Fork & Flush | `fork-flush` | `research_task` |
+| Swarms | `swarms_v2` | Default. The only topology served in this release. |
+| Fork-and-Flush | `fork_flush` | Experimental. Opt-in only, never the default; not served yet, so a pin is refused with `optimizer_topology_unavailable`. |
 
-Omit `profile` for Core's default. An explicit profile is never silently
-replaced. The public API does not accept `program`, `method`,
-`profile_overrides`, or arbitrary actor/algorithm settings. A research profile
-uses the task's approved immutable parameters, evaluator, baseline, context and
-actor profile. Missing, revoked or foreign approvals refuse before funding.
+`optimizer="auto"` (or omitting it) lets Core resolve the default, Swarms.
+`client.swarms.families()`, `synth families`, the MCP catalog and the Console
+read the same catalog. `synth_ai.topology_name(entry)` and `synth families`
+print the public name with its treatment, for example `Swarms (default)` and
+`Fork-and-Flush (experimental, unavailable)`. An experimental topology is never
+shown as the default, whatever the catalog's `auto` flag says.
+
+### Swarms controls
+
+A `swarms_v2` pin accepts two optional parameters (contract 1.36.0):
+
+| Parameter | Range | When omitted |
+| --- | --- | --- |
+| `max_tasks` | 1..4096, at least `limits.parallel_workers` | the larger of 4 and `parallel_workers` |
+| `max_repairs_per_task` | 0..32 | 2 |
 
 ```python
+from synth_ai import OptimizerParams, OptimizerPin
+
 run = client.swarms.run(
     "Improve the policy", budget="2.00",
-    profile="fork-flush", research_task="published-task",
+    optimizer=OptimizerPin(
+        topology="swarms_v2", version=2,
+        params=OptimizerParams(max_tasks=8, max_repairs_per_task=3),
+    ),
 )
-print(run.profile.id, run.profile.revision, run.profile.digest)
+print(run.optimizer.params)  # only the parameters you supplied
 ```
 
-`run.profile` retains the named revision, compiled program definition and exact
-actor profile digests. Its digest binds the resolved recipe, including approved
-research settings. Updating the catalog does not relabel historical runs;
-runs predating named profiles omit this field. `run.method` continues to expose
-retained research details as readback, not as a launch selector.
+```bash
+synth run "Improve the policy" --budget 2.00 \
+  --optimizer swarms_v2@2 --max-tasks 8 --max-repairs-per-task 3
+```
+
+The MCP `swarms_run_launch` tool takes the same `optimizer.params` object.
+Spend, time, token and concurrency limits stay authoritative; these controls
+never raise a grant. Omitting both leaves the launch exactly as before. Core
+refuses before funding with 422:
+
+- `optimizer_params_unsupported`: an unknown parameter, or parameters on `auto`
+  or another topology (the CLI refuses these locally);
+- `optimizer_param_invalid`: a value that is not an integer;
+- `optimizer_param_out_of_range`: outside the range above;
+- `optimizer_param_conflict`: `max_tasks` below `limits.parallel_workers`.
+
+The run's `optimizer` keeps its admitted identity, resolution reason, definition
+digest and supplied `params`. Catalog changes cannot relabel historical runs.
 
 `run.selection` reports what a research run selected. Only `selected` has an incumbent
 and a downloadable `selected-snapshot.tar.gz`, a gzipped tar whose SHA-256 equals

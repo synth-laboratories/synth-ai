@@ -65,7 +65,6 @@ with SynthClient() as client:
 synth profiles
 synth run "Solve this task" --budget 2.00 --profile swarms-v2 --wait
 synth profiles --research-task published-task
-synth run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
 synth logs RUN_ID -f
 synth download RUN_ID -o results/
 ```

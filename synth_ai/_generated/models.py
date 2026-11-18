@@ -920,10 +920,12 @@ class Only(WireModel):
     ]
 
 
-class OptimizerPinParams(WireModel):
+class OptimizerParams(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    max_tasks: Annotated[int, Field(ge=1, le=4096)] | None = None
+    max_repairs_per_task: Annotated[int, Field(ge=0, le=32)] | None = None
 
 
 class Org(WireModel):
@@ -1041,12 +1043,6 @@ class RefundDetailRunUsage1(WireModel):
     output_tokens: int | None = None
     reasoning_tokens: int | None = None
     compute: dict[str, dict[str, JsonValue]] | None = None
-
-
-class ResolvedOptimizerParams(WireModel):
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
 
 
 class RoleAssignment(WireModel):
@@ -1892,7 +1888,7 @@ class OptimizerPin(WireModel):
     )
     topology: Annotated[OptimizerPinTopology, BeforeValidator(enum_value(OptimizerPinTopology))]
     version: Annotated[int, Field(ge=1)]
-    params: OptimizerPinParams | None = None
+    params: OptimizerParams | None = None
 
 
 class OwnerResourceRequest(WireModel):
@@ -2019,7 +2015,7 @@ class ResolvedOptimizer(WireModel):
         ResolvedOptimizerTopology, BeforeValidator(enum_value(ResolvedOptimizerTopology))
     ]
     version: Annotated[int, Field(ge=1)]
-    params: ResolvedOptimizerParams
+    params: OptimizerParams
     reason: Annotated[ResolvedOptimizerReason, BeforeValidator(enum_value(ResolvedOptimizerReason))]
     definition_digest: str
 
@@ -3388,7 +3384,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ObjectiveReceipt": ObjectiveReceipt,
     "ObjectiveVerdict": ObjectiveVerdict,
     "Only": Only,
-    "OptimizerPinParams": OptimizerPinParams,
+    "OptimizerParams": OptimizerParams,
     "Org": Org,
     "Overload": Overload,
     "PaymentMethodSession": PaymentMethodSession,
@@ -3398,7 +3394,6 @@ MODELS: dict[str, type[BaseModel]] = {
     "PromoRedeemRequest": PromoRedeemRequest,
     "PromoTrialGrant": PromoTrialGrant,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
-    "ResolvedOptimizerParams": ResolvedOptimizerParams,
     "RoleAssignment": RoleAssignment,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,

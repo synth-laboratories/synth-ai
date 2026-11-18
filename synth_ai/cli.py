@@ -47,6 +47,7 @@ from .errors import (
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
+from .topologies import topology_name
 
 EXIT_OK = 0
 EXIT_CLIENT_ERROR = 1
@@ -115,16 +116,40 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
-def parse_optimizer(value: str | None) -> OptimizerRequest | None:
-    """Parse the public optimizer selector; Core owns resolution and availability."""
-    if value is None:
-        return None  # Omitted selection uses Core's declared environment default.
-    if value == "auto":
-        return "auto"
+def parse_optimizer(
+    value: str | None, *, max_tasks: int | None = None, max_repairs_per_task: int | None = None
+) -> OptimizerRequest | None:
+    """Parse the public optimizer selector; Core owns resolution and availability.
+
+    The two Swarms controls ride only on an explicit `swarms_v2@VERSION` pin, as Core
+    requires; `auto`, an omitted selector or another topology refuses them locally.
+    """
+    controls = {
+        name: number
+        for name, number in (
+            ("max_tasks", max_tasks),
+            ("max_repairs_per_task", max_repairs_per_task),
+        )
+        if number is not None
+    }
+    if value is None or value == "auto":
+        if controls:
+            raise UsageError(
+                "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
+            )
+        # Omitted selection uses Core's declared environment default.
+        return None if value is None else "auto"
     topology, separator, version = value.partition("@")
     if separator == "" or not version.isascii() or not version.isdecimal():
         raise UsageError("optimizer must be auto or TOPOLOGY@VERSION")
-    return OptimizerPin.model_validate({"topology": topology, "version": int(version)})
+    if controls and topology != "swarms_v2":
+        raise UsageError(
+            "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
+        )
+    pin: dict[str, object] = {"topology": topology, "version": int(version)}
+    if controls:
+        pin["params"] = controls
+    return OptimizerPin.model_validate(pin)
 
 
 RESOURCES = TypeAdapter(list[OwnerResourceRequest])
@@ -211,6 +236,18 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
+    run.add_argument(
+        "--max-tasks",
+        type=int,
+        metavar="N",
+        help="Swarms work-plan tasks, 1..4096, at least --parallel-workers (needs swarms_v2 pin)",
+    )
+    run.add_argument(
+        "--max-repairs-per-task",
+        type=int,
+        metavar="N",
+        help="Swarms repairs per rejected task, 0..32 (needs swarms_v2 pin)",
+    )
     run.add_argument("--research-task")
     run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -394,7 +431,6 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             "keys",
             "organization",
             "inspect",
-            "families",
             "content",
             "labels",
         } or (command == "billing" and args.resource_action is not None):
@@ -402,6 +438,17 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             print(
                 "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
             )
+        elif command == "families":
+            catalog = await swarms.families()
+            if args.json:
+                print(catalog.model_dump_json(exclude_unset=True), flush=True)
+            else:
+                for entry in catalog.topologies or []:
+                    print(
+                        f"{topology_name(entry)}\t{entry.topology}@{entry.version}"
+                        f"\t{entry.availability}",
+                        flush=True,
+                    )
         elif command == "promo":
             value = await client.account.redeem_promo(
                 args.code, idempotency_key=args.idempotency_key
@@ -459,7 +506,11 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 guidance=None,
                 role_assignments=parse_role_assignments(args.assign, args.planner_decides),
                 launch_menu_revision=args.menu_revision,
-                optimizer=parse_optimizer(args.optimizer),
+                optimizer=parse_optimizer(
+                    args.optimizer,
+                    max_tasks=args.max_tasks,
+                    max_repairs_per_task=args.max_repairs_per_task,
+                ),
             )
             uploaded = [
                 await swarms.upload_file(

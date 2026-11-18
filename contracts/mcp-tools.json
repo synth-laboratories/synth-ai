@@ -560,6 +560,21 @@
                     "properties": {
                       "params": {
                         "additionalProperties": false,
+                        "description": "Public swarms_v2 controls. Omitted fields keep the server's defaults (max_tasks is the larger of 4 and limits.parallel_workers; max_repairs_per_task is 2). Any field on another topology is refused with optimizer_params_unsupported. Spend, time, token and concurrency limits stay authoritative.",
+                        "properties": {
+                          "max_repairs_per_task": {
+                            "description": "Most repair attempts per task after a rejected review.",
+                            "maximum": 32,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "max_tasks": {
+                            "description": "Most tasks the planner's work plan may hold. Must be at least limits.parallel_workers.",
+                            "maximum": 4096,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
                         "type": "object"
                       },
                       "topology": {

@@ -21,14 +21,17 @@ from .models import (
     Exclude,
     LaunchRequest,
     Only,
+    OptimizerParams,
     OptimizerPin,
     OptimizerRequest,
     RoutingConstraints,
     RunState,
     StreamCheckpoint,
 )
+from .topologies import TOPOLOGY_NAMES, topology_name
 
 __all__ = [
+    "TOPOLOGY_NAMES",
     "AsyncSynthClient",
     "CompletionMilestone",
     "Environment",
@@ -39,6 +42,7 @@ __all__ = [
     "LimitStillReachedError",
     "LimitsRevisionConflictError",
     "Only",
+    "OptimizerParams",
     "OptimizerPin",
     "OptimizerRequest",
     "RetryPolicy",
@@ -53,4 +57,5 @@ __all__ = [
     "SynthError",
     "UpgradeRequiredError",
     "__version__",
+    "topology_name",
 ]
