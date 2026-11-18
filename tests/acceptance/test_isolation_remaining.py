@@ -25,6 +25,8 @@ def test_remaining_owner_state_change_halts_other_drivers(monkeypatch, tmp_path)
         "upload_id": "fixture_upload",
         "request_id": "fixture_request",
         "fixture_key_name": "disposable",
+        "message_id": "fixture_message",
+        "grant_id": "fixture_grant",
     }
     credentials = {
         "SYNTH_API_KEY": ("a_key", "a", PrincipalCredentialKind.API_KEY),
@@ -54,7 +56,7 @@ def test_remaining_owner_state_change_halts_other_drivers(monkeypatch, tmp_path)
     monkeypatch.setattr(remaining.OwnerSnapshot, "read", lambda *_, **__: next(snapshots))
     seen = []
 
-    def driver(surface, _directory: Path, cells, *_):
+    def driver(surface, _directory: Path, cells, *_, **__):
         seen.append(surface)
         for cell in cells:
             cell["result"] = "pass"
