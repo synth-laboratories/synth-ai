@@ -434,10 +434,15 @@ def finished_code(snapshot: RunSnapshot) -> int:
     return EXIT_RUN_UNSUCCESSFUL if snapshot.state in UNSUCCESSFUL_STATES else EXIT_OK
 
 
-async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | None) -> int:
+async def execute(
+    args: argparse.Namespace, http_client: httpx.AsyncClient | None, retries: int = 2
+) -> int:
     out = Output(args.json)
     async with AsyncSynthClient(
-        base_url=args.base_url, environment=args.environment, http_client=http_client
+        base_url=args.base_url,
+        environment=args.environment,
+        http_client=http_client,
+        retries=retries,
     ) as client:
         swarms = client.swarms
         command = str(args.command)
@@ -813,7 +818,12 @@ def upgrade_hint(error: UpgradeRequiredError) -> str:
     return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
 
 
-def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    retries: int = 2,
+) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
     try:
@@ -827,7 +837,7 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
     try:
         if args.command in {"login", "logout"}:
             return run_auth(args)
-        return asyncio.run(execute(args, http_client))
+        return asyncio.run(execute(args, http_client, retries))
     except RunPausedError as error:
         fail(error.code, str(error), as_json)
         return EXIT_RUN_PAUSED

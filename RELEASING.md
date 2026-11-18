@@ -56,3 +56,9 @@ After staging acceptance and production routes are live, change the version to
 smoke. Candidate and stable have distinct artifact bytes and hashes. Promote
 source through dev → staging → main and publish/tag the qualified stable commit
 only at the stable gate. PyPI's default stable selection excludes the candidate.
+
+For local qualification run `uv run --locked --extra mcp python scripts/qualify_release.py
+--core-checkout <checkout> --core-revision <frozen-commit> --out <new-directory>`
+as one command. The directory retains the receipt, logs and built artifacts.
+Before publishing, compare the upload file's SHA-256 with the passing receipt.
+The tag workflow currently rebuilds the package.

@@ -82,6 +82,7 @@ async def serve(
     environment: Environment | None = None,
     upload_root: str | None = None,
     http_client: httpx.AsyncClient | None = None,
+    retries: int = 2,
 ) -> None:
     """Serve the catalog on stdio.
 
@@ -90,7 +91,12 @@ async def serve(
     validation and dispatch stay this server's own.
     """
     with directory.grant_root(upload_root) as descriptor:
-        await _serve(environment=environment, upload_descriptor=descriptor, http_client=http_client)
+        await _serve(
+            environment=environment,
+            upload_descriptor=descriptor,
+            http_client=http_client,
+            retries=retries,
+        )
 
 
 async def _serve(
@@ -98,12 +104,15 @@ async def _serve(
     environment: Environment | None,
     upload_descriptor: int | None,
     http_client: httpx.AsyncClient | None = None,
+    retries: int = 2,
 ) -> None:
     try:
         from mcp.server.stdio import stdio_server
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
-    async with AsyncSynthClient(environment=environment, http_client=http_client) as client:
+    async with AsyncSynthClient(
+        environment=environment, http_client=http_client, retries=retries
+    ) as client:
         server = build_server(client, upload_descriptor=upload_descriptor)
         async with stdio_server() as (reader, writer):
             await server.run(reader, writer, server.create_initialization_options())

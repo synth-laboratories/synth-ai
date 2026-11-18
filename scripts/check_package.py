@@ -1,5 +1,7 @@
 """Validate the built wheel, source budget and isolated installation."""
 
+import argparse
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -15,7 +17,15 @@ def require(condition: bool, message: str) -> None:
 
 ROOT = Path(__file__).resolve().parents[1]
 version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-wheel = ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--wheel", type=Path, default=ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
+)
+parser.add_argument("--sha256")
+options = parser.parse_args()
+wheel = options.wheel.resolve()
+digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+require(options.sha256 in (None, digest), "wheel hash mismatch before installation")
 source_bytes = sum(
     p.stat().st_size
     for p in (ROOT / "synth_ai").rglob("*")
@@ -84,6 +94,10 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         check=True,
         cwd=directory,
     )
+
+require(
+    hashlib.sha256(wheel.read_bytes()).hexdigest() == digest, "wheel changed during installation"
+)
 
 print(
     {
