@@ -19,8 +19,8 @@ from .diagnostics import (
     DiagnosticHook,
     DiagnosticPhase,
     OperationDiagnostic,
-    RetrySuppression,
-    RetrySuppressionReason,
+    RetrySuppressed,
+    RetrySuppressedReason,
 )
 from .errors import ResponseContractError, TransportFailureError, local_problem, raise_for_response
 
@@ -116,8 +116,7 @@ class OperationExecutor:
         phase: DiagnosticPhase,
         progress: _Progress,
         started: float,
-        *,
-        retry_suppression: RetrySuppression | None = None,
+        retry_suppressed: RetrySuppressed | None = None,
     ) -> None:
         if self.diagnostic_hook is None:
             return
@@ -132,7 +131,7 @@ class OperationExecutor:
             max(0.0, time.monotonic() - started),
             correlation(progress.request_id),
             correlation(progress.idempotency_key),
-            retry_suppression,
+            retry_suppressed,
         )
         try:
             self.diagnostic_hook(event)
@@ -219,20 +218,25 @@ class OperationExecutor:
                 or (op["method"] not in {"GET", "HEAD"} and ambiguous_response(response))
             ):
                 break
-            delay = self.retry_policy.delay(response.headers.get("Retry-After"), attempt)
-            remaining = max(0.0, deadline - time.monotonic())
+            retry_after = response.headers.get("Retry-After")
+            delay = self.retry_policy.delay(retry_after, attempt)
+            remaining = deadline - time.monotonic()
             if delay is None or delay >= remaining:
-                reason = (
-                    RetrySuppressionReason.INVALID_RETRY_AFTER
-                    if delay is None
-                    else RetrySuppressionReason.DEADLINE
-                )
+                # The caller sees only the last refusal; say why no further attempt was sent.
                 self._emit(
                     operation_id,
                     DiagnosticPhase.RETRY_SUPPRESSED,
                     progress,
                     started,
-                    retry_suppression=RetrySuppression(reason, delay, remaining),
+                    RetrySuppressed(
+                        RetrySuppressedReason.RETRY_AFTER_INVALID
+                        if delay is None
+                        else RetrySuppressedReason.DEADLINE_EXCEEDED,
+                        response.status_code,
+                        retry_after,
+                        delay,
+                        max(0.0, remaining),
+                    ),
                 )
                 break
             self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)

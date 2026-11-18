@@ -308,17 +308,14 @@ Pass `diagnostic_hook` to either client to receive immutable
 attempt count and elapsed seconds describe generated API invocations; correlation
 values are SHA256 hashes of request/idempotency IDs. There are no prompts,
 response bodies, tokens, signed URLs or payment data in these records. No hook
-means no logging. A hook exception cannot change the operation's result. This
+means no logging. When a retryable 429/503 is not retried, a `retry_suppressed`
+event carries a typed `RetrySuppressed` (reason `deadline_exceeded` or
+`retry_after_invalid`, the status, the raw `Retry-After`, the computed delay and
+the remaining deadline) before the final `failed` event, so a single attempt is
+never unexplained. A hook exception cannot change the operation's result. This
 hook is synchronous and should be cheap; it is not an exporter thread or a
 billing estimator. Transfer bytes and stream metrics remain independently
 measured in qualification rather than represented as API billing facts.
-
-A `retry_suppressed` diagnostic precedes the terminal `failed` event when a
-retry-eligible response cannot be retried. Read `retry_suppression` for the
-reason, proposed delay and remaining deadline in seconds. The reasons are
-`deadline` when the delay would consume the remaining budget and
-`invalid_retry_after` when the header prevents calculating a delay. In the
-second case the proposed delay is absent. The SDK surfaces the original refusal.
 
 ## Open-data audit
 

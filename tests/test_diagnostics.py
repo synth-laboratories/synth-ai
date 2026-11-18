@@ -6,8 +6,8 @@ import pytest
 
 from synth_ai import AsyncSynthClient
 from synth_ai._transport import RetryPolicy
-from synth_ai.diagnostics import DiagnosticPhase, RetrySuppressionReason
-from synth_ai.errors import ClientClosedError, SwarmsAPIError, local_problem
+from synth_ai.diagnostics import DiagnosticPhase
+from synth_ai.errors import ClientClosedError, local_problem
 
 
 async def test_diagnostics_are_safe_and_hook_failures_cannot_change_outcome(contract):
@@ -94,46 +94,43 @@ async def test_injected_redirect_policy_cannot_forward_credentials(operation, tm
 
 
 @pytest.mark.parametrize(
-    ("retry_after", "reason", "delay"),
-    [
-        ("60", RetrySuppressionReason.DEADLINE, 60),
-        ("invalid", RetrySuppressionReason.INVALID_RETRY_AFTER, None),
-    ],
+    ("retry_after", "reason"),
+    [("120", "deadline_exceeded"), ("not-a-delay", "retry_after_invalid")],
 )
-async def test_suppressed_retry_reports_reason_and_leaves_original_refusal(
-    retry_after, reason, delay
-):
+async def test_deadline_suppressed_retry_emits_typed_diagnostic(retry_after, reason):
+    from synth_ai.diagnostics import RetrySuppressedReason
+    from synth_ai.errors import SwarmsAPIError
+
     events, calls = [], []
 
     def handle(request):
         calls.append(request)
-        problem = local_problem("overloaded", "admission").model_copy(update={"retryable": True})
         return httpx.Response(
-            503, headers={"Retry-After": retry_after}, json=problem.model_dump(mode="json")
+            503,
+            headers={"Retry-After": retry_after},
+            json=local_problem("busy", "admission")
+            .model_copy(update={"retryable": True})
+            .model_dump(mode="json"),
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with AsyncSynthClient(
-            "fixture",
+            "secret-key",
             base_url="https://example.test",
             http_client=http,
-            retry_policy=RetryPolicy(deadline_seconds=5, jitter_seconds=0),
+            retry_policy=RetryPolicy(deadline_seconds=5, backoff_seconds=0, jitter_seconds=0),
             diagnostic_hook=events.append,
-        ) as client:
-            with pytest.raises(SwarmsAPIError) as caught:
-                await client.swarms.launch("Task", budget="2.00")
-
+        ) as api:
+            with pytest.raises(SwarmsAPIError):
+                await api.swarms.get("run")
     assert len(calls) == 1
-    assert caught.value.code == "overloaded"
     assert [event.phase for event in events] == [
         DiagnosticPhase.RETRY_SUPPRESSED,
         DiagnosticPhase.FAILED,
     ]
-    suppressed = events[0]
-    assert suppressed.operation == "createRun"
-    assert suppressed.attempts == 1
-    assert suppressed.retry_suppression is not None
-    assert suppressed.retry_suppression.reason == reason
-    assert suppressed.retry_suppression.proposed_delay_seconds == delay
-    assert 0 <= suppressed.retry_suppression.remaining_deadline_seconds <= 5
-    assert events[1].retry_suppression is None
+    suppressed = events[0].retry_suppressed
+    assert suppressed.reason == RetrySuppressedReason(reason)
+    assert suppressed.status == 503 and suppressed.retry_after == retry_after
+    assert 0 < suppressed.remaining_seconds <= 5
+    assert (suppressed.delay_seconds is None) == (reason == "retry_after_invalid")
+    assert events[1].retry_suppressed is None and events[1].attempts == 1

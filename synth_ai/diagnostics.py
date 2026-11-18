@@ -12,16 +12,20 @@ class DiagnosticPhase(StrEnum):
     FAILED = "failed"
 
 
-class RetrySuppressionReason(StrEnum):
-    DEADLINE = "deadline"
-    INVALID_RETRY_AFTER = "invalid_retry_after"
+class RetrySuppressedReason(StrEnum):
+    """Why a retryable 429/503 was not retried; the error that follows is the last attempt's."""
+
+    DEADLINE_EXCEEDED = "deadline_exceeded"
+    RETRY_AFTER_INVALID = "retry_after_invalid"
 
 
 @dataclass(frozen=True)
-class RetrySuppression:
-    reason: RetrySuppressionReason
-    proposed_delay_seconds: float | None
-    remaining_deadline_seconds: float
+class RetrySuppressed:
+    reason: RetrySuppressedReason
+    status: int
+    retry_after: str | None
+    delay_seconds: float | None
+    remaining_seconds: float
 
 
 @dataclass(frozen=True)
@@ -32,7 +36,7 @@ class OperationDiagnostic:
     elapsed_seconds: float
     request_correlation: str | None
     idempotency_correlation: str | None
-    retry_suppression: RetrySuppression | None = None
+    retry_suppressed: RetrySuppressed | None = None
 
 
 DiagnosticHook = Callable[[OperationDiagnostic], None]
