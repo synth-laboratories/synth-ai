@@ -304,6 +304,18 @@ def test_hosted_overload_launch_refused_run_queue_full(tmp_path, surface):
 
 
 @pytest.mark.parametrize("surface", SURFACES)
+def test_hosted_overload_uses_the_saturated_org_key(tmp_path, surface):
+    def responder(method, path, request):
+        assert request["bearer"] == "fixture-saturated"
+        return 429, problem("run_queue_full", 429, retryable=True), {"Retry-After": "1"}
+
+    options = {"secrets": {**ADMISSION_FULL["secrets"], "SYNTH_JOURNEY_OVERLOAD_API_KEY": "fixture-saturated"}}
+    result, requests = run(surface, responder, tmp_path, Step.OVERLOAD_REFUSAL, **options)
+    assert result.verdict == Verdict.PASS, result
+    assert requests and {bearer for _, _, bearer in requests} == {"fixture-saturated"}
+
+
+@pytest.mark.parametrize("surface", SURFACES)
 def test_hosted_overload_rate_window_429_does_not_pass(tmp_path, surface):
     def responder(method, path, _):
         return 429, problem("rate_limit_exceeded", 429, retryable=True), {"Retry-After": "1"}

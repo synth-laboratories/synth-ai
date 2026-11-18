@@ -201,6 +201,8 @@ class Secret(StrEnum):
     # Hosted overload precondition: "admission_queue_full" names an org whose
     # admission queue the harness filled (running cap 0, org depth full).
     OVERLOAD_MODE = "SYNTH_JOURNEY_OVERLOAD_MODE"
+    # That org's customer key; absent, the primary key's org is the saturated one.
+    OVERLOAD_API_KEY = "SYNTH_JOURNEY_OVERLOAD_API_KEY"
 
 
 def receipt(
@@ -1158,19 +1160,22 @@ def admission_overload_refusal(context: JourneyContext) -> StepReceipt:
         "message": "SYN-5696 hosted overload probe (refusal expected)",
         "limits": {"maximum_charge": {"amount": ADMISSION_PROBE_CHARGE, "currency": "USD"}},
     }
-    outcome = context.surface.call(Call("createRun", body=body, idempotency_key=key("overload")))
-    if outcome.accepted:
-        run = outcome.value.get("run_id") if isinstance(outcome.value, dict) else None
-        cancelled = (
-            context.surface.call(
-                Call("cancelRun", path={"run_id": str(run)}, idempotency_key=key("cancel"))
+    saturated = context.secrets.get(Secret.OVERLOAD_API_KEY)
+    with ExitStack() as stack:
+        surface = context.surface if saturated is None else stack.enter_context(context.make(saturated))
+        outcome = surface.call(Call("createRun", body=body, idempotency_key=key("overload")))
+        if outcome.accepted:
+            run = outcome.value.get("run_id") if isinstance(outcome.value, dict) else None
+            cancelled = (
+                surface.call(
+                    Call("cancelRun", path={"run_id": str(run)}, idempotency_key=key("cancel"))
+                )
+                if isinstance(run, str)
+                else Outcome("cancelRun", False, cause="accepted run id absent")
             )
-            if isinstance(run, str)
-            else Outcome("cancelRun", False, cause="accepted run id absent")
-        )
-        return receipt(
-            context, step, Verdict.FAIL, "refusal_expected_but_accepted", outcome, cancelled
-        )
+            return receipt(
+                context, step, Verdict.FAIL, "refusal_expected_but_accepted", outcome, cancelled
+            )
     result = expect_refusal(
         context, step, outcome, codes=frozenset({"run_queue_full"}), status=None
     )
