@@ -180,6 +180,9 @@ class FakeApi:
             return httpx.Response(
                 200,
                 json={
+                    "run_id": run["run_id"],
+                    "status": run["state"],
+                    "accounting": None,
                     "run": run,
                     "state": run["state"],
                     "answer": ANSWER.decode(),

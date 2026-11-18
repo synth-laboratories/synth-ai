@@ -295,6 +295,8 @@ class RunBlockerKind(StrEnum):
     ROLLOUT_ACTIVE = "rollout_active"
     DEPLOYMENT_ACTIVE = "deployment_active"
     EVALUATION_POOL_CLEANUP = "evaluation_pool_cleanup"
+    OWNED_CLEANUP_PENDING = "owned_cleanup_pending"
+    OWNED_CLEANUP_BLOCKED = "owned_cleanup_blocked"
 
 
 class RunEvaluationStatus(StrEnum):
@@ -455,6 +457,13 @@ class RunResearchNoteCategory(StrEnum):
     FAILURE = "failure"
     DECISION = "decision"
     CORRECTION = "correction"
+
+
+class RunResultStatus(StrEnum):
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RunRewardStatus(StrEnum):
@@ -666,6 +675,22 @@ class BillingAttention(WireModel):
     )
     kind: str
     since: str
+
+
+class BudgetFloor(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    planner_spend_cap_micros: Annotated[int, Field(ge=0)]
+    planner_call_bound_micros: Annotated[int, Field(ge=0)]
+    worker_call_bound_micros: Annotated[int, Field(ge=0)]
+    reviewer_call_bound_micros: Annotated[int, Field(ge=0)]
+    container_call_bound_micros: Annotated[int, Field(ge=0)]
+    planner_compute_hold_micros: Annotated[int, Field(ge=0)]
+    worker_compute_hold_micros: Annotated[int, Field(ge=0)]
+    actor_floor_micros: Annotated[int, Field(ge=0)]
+    actor_count: Annotated[int, Field(ge=1)]
+    parallel_workers: Annotated[int, Field(ge=1)]
 
 
 class ChargeUsageUnits(WireModel):
@@ -1967,6 +1992,8 @@ class Problem(WireModel):
     client_version: str | None = None
     field: str | None = None
     reason: str | None = None
+    minimum_budget_micros: Annotated[int, Field(ge=1)] | None = None
+    budget_floor: BudgetFloor | None = None
 
 
 class PromoRedemption(WireModel):
@@ -3347,6 +3374,9 @@ class RunResult(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    run_id: RunId
+    status: Annotated[RunResultStatus, BeforeValidator(enum_value(RunResultStatus))]
+    accounting: RunCharge | None
     attempt_tree: RunAttemptTree
     result_file: RunResultFile | None
     run: RunSnapshot
@@ -3356,6 +3386,21 @@ class RunResult(WireModel):
     objective_answer: ObjectiveAnswer | None
     charge: RunCharge | None
 
+    @model_validator(mode="after")
+    def validate_schema_constraints(self) -> Self:
+        if not (
+            self.accounting is None
+            or (
+                (isinstance(self.accounting, RunCharge))
+                and (
+                    "final" not in self.accounting.model_fields_set
+                    or (self.accounting.final is True)
+                )
+            )
+        ):
+            raise ValueError("RunResult: schema constraint 1 failed")
+        return self
+
 
 MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
@@ -3363,6 +3408,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ActorUnparkedPayload": ActorUnparkedPayload,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
+    "BudgetFloor": BudgetFloor,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
     "Exclude": Exclude,

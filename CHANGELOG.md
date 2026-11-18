@@ -4,6 +4,14 @@
 
 Changes here describe the new Swarms product. Historical releases remain in Git history.
 
+- Contracts 1.37.0 and 1.38.0 (Core 033ca45a): `RunResult` now carries `run_id`,
+  `status` (the terminal outcome: `completed`, `partial`, `failed` or
+  `cancelled`) and `accounting` (the final ledger-backed `RunCharge`, always
+  `final`, or `None` when Core has no accounting reader) through
+  `swarms.result`, `synth result` (`--json`; human output adds `status` and
+  `accounting` lines on stderr) and the `swarms_run_result` MCP tool (SYN-5637).
+  A 422 `run_budget_below_call_bound` launch refusal's `Problem` carries
+  `minimum_budget_micros` and `budget_floor` (`BudgetFloor`).
 - Contract 1.36.1 (SYN-5667; 1.36.1 adds the public names to the contract and MCP tool descriptions): a `swarms_v2` pin takes `params.max_tasks`
   (1..4096) and `params.max_repairs_per_task` (0..32) in the SDK
   (`OptimizerParams`), the CLI (`--max-tasks`, `--max-repairs-per-task`, with

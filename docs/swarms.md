@@ -44,7 +44,9 @@ is 64 MiB; set an explicit higher bound for larger outputs.
 
 `result(run)` takes a `RunSnapshot` or a run ID and returns Core's `RunResult`
 (`synth_ai.models`) from one `getRunResult` read, the same record the MCP tool
-`swarms_run_result` returns: `run` (the snapshot), `state`, `answer` (the answer
+`swarms_run_result` returns: `run_id`, `status` (the terminal outcome),
+`accounting` (the final ledger-backed `RunCharge`, or `None` without an
+accounting reader), `run` (the snapshot), `state`, `answer` (the answer
 text), `answer_output` (the `RunOutput` it came from), `objective_answer` (the
 parsed `ObjectiveAnswer`, when that is the source) and `charge` (`RunCharge`:
 `amount` and `final`; `None` when Core omits it). Core picks the most recently

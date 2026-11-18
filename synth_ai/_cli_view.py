@@ -294,6 +294,18 @@ def result(value: RunResult) -> str:
     return summary
 
 
+def status_line(value: RunResult) -> str:
+    """The run's authoritative terminal outcome (completed, partial, failed or cancelled)."""
+    return "status  " + value.status
+
+
+def accounting_line(value: RunResult) -> str:
+    """The final ledger-backed charge, or that Core has no accounting reader for it."""
+    if value.accounting is None:
+        return "accounting  unavailable"
+    return "accounting  " + money(value.accounting.amount) + " (final)"
+
+
 def result_file_line(value: RunResult) -> str | None:
     """The run's result.md output, read with `download RUN OUTPUT`; None when unavailable."""
     if value.result_file is None:
@@ -302,7 +314,7 @@ def result_file_line(value: RunResult) -> str | None:
 
 
 def result_json(value: RunResult) -> str:
-    """`RunResult` as Core returned it: run, state, the answer, its source and the charge."""
+    """`RunResult` as Core returned it: run_id, status, accounting, the answer and the charge."""
     return value.model_dump_json(exclude_unset=True)
 
 

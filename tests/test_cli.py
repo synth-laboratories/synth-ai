@@ -6,6 +6,7 @@ import re
 import stat
 import subprocess
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
@@ -450,6 +451,9 @@ def serve_result(
         return httpx.Response(
             200,
             json={
+                "run_id": run["run_id"],
+                "status": run["state"],
+                "accounting": None,
                 "run": run,
                 "state": run["state"],
                 "answer": answer,
@@ -881,3 +885,27 @@ def test_login_device_shows_the_code_and_never_the_device_code(capsys):
 def test_login_device_and_no_browser_are_exclusive(capsys):
     assert cli.main(["login", "--device", "--no-browser"]) != cli.EXIT_OK
     assert "not allowed with argument --device" in capsys.readouterr().err
+
+
+ENVELOPE = json.loads(
+    (Path(__file__).parent / "fixtures" / "core_run_result_1_37_0.json").read_text()
+)
+
+
+def test_result_reports_the_run_status_and_final_accounting(api, capsys):
+    """Contract 1.37.0 (SYN-5637): `synth result` carries run_id, status and accounting."""
+    fixture = json.loads(json.dumps(ENVELOPE))
+    api.overrides["getRunResult"] = (200, fixture)
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out) == fixture
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer.\n"
+    assert "status  completed" in err.splitlines()
+    assert "accounting  0.10 USD (final)" in err.splitlines()
+    fixture.update(accounting=None, status="partial")
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert "status  partial" in err.splitlines()
+    assert "accounting  unavailable" in err.splitlines()

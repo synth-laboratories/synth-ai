@@ -432,6 +432,9 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
                 return self.json_reply(
                     200,
                     {
+                        "run_id": run_id,
+                        "status": "completed",
+                        "accounting": snapshot(run_id)["charge"],
                         "run": snapshot(run_id),
                         "state": "completed",
                         "answer": receipt.nonce,

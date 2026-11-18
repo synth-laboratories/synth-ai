@@ -134,7 +134,10 @@ def constraint_expression(schema: JSONObject, value: str) -> str:
         expression = constraint_expression(child, f"{value}.{field_name(name)}")
         terms.append(f"({name!r} not in {value}.model_fields_set or {expression})")
     if "const" in schema:
-        terms.append(f"{value} == {schema['const']!r}")
+        const = schema["const"]
+        # Singletons compare by identity: `x == True` also accepts 1 and fails ruff E712.
+        operator = "is" if const is None or isinstance(const, bool) else "=="
+        terms.append(f"{value} {operator} {const!r}")
     if "pattern" in schema:
         terms.append(f"re.search({schema.text('pattern')!r}, {value}) is not None")
     if "type" in schema:

@@ -24,7 +24,7 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | | `synth download RUN [OUTPUT] [-o DIR]` | array of `{output, path}` |
 | | `synth report RUN` | `RunReport` |
 | | `synth allocation RUN` | `RunAllocation` |
-| | `synth result RUN` | `RunResult` as `{run, state, answer, answer_output, objective_answer, charge}`; human output is the answer text (a text output, or an objective answer's text), then the charge line |
+| | `synth result RUN` | `RunResult` as `{run_id, status, accounting, run, state, answer, answer_output, objective_answer, charge, attempt_tree, result_file}`; human output is the answer text (a text output, or an objective answer's text), then status, accounting and charge lines on stderr |
 | Account | `synth usage` | `UsageSummary` |
 | | `synth usage RUN` | `UsageRecordPage` |
 | | `synth billing` | `Balance` |

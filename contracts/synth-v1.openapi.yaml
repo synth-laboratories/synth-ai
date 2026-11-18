@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.36.1
+  version: 1.38.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -2577,6 +2577,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/RunResult'
               example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                status: completed
+                accounting:
+                  amount:
+                    amount: '0.10'
+                    currency: USD
+                  final: true
                 state: completed
                 attempt_tree:
                   state: unavailable
@@ -6496,8 +6503,8 @@ components:
         every actor held at once (the planner and the workers, plus the reviewer with parallel workers),
         each holding at least one worst-case model call on its routed preset; a smaller maximum_charge
         is refused at launch with 422 run_budget_below_call_bound, cause limits.maximum_charge, whose
-        detail names the per-actor call bound (call_bound_micros), the actor count (actor_count) and
-        the minimum budget (minimum_budget_micros).
+        Problem states the minimum budget as the integer minimum_budget_micros and its inputs in
+        budget_floor (call bounds, compute holds, actor floor, actor count).
       properties:
         maximum_charge:
           $ref: '#/components/schemas/LaunchBudget'
@@ -6511,7 +6518,7 @@ components:
             is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget
             must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds
             an equal slice of the budget, and never less than one worst-case model call); a smaller
-            maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose detail states
+            maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose Problem states
             the minimum in micro-USD (minimum_budget_micros).
             Not accepted with research profiles.
         wall_time_seconds:
@@ -7414,6 +7421,8 @@ components:
           - rollout_active
           - deployment_active
           - evaluation_pool_cleanup
+          - owned_cleanup_pending
+          - owned_cleanup_blocked
         id:
           type: string
           maxLength: 256
@@ -9336,6 +9345,9 @@ components:
       description: A finished run's result with an explicit canonical research-record projection.
         Unavailable research records never imply an empty attempt tree or zero charge.
       required:
+      - run_id
+      - status
+      - accounting
       - run
       - state
       - answer
@@ -9345,6 +9357,21 @@ components:
       - attempt_tree
       - result_file
       properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        status:
+          type: string
+          enum: [completed, partial, failed, cancelled]
+          description: The authoritative terminal outcome of the run.
+        accounting:
+          description: Final ledger-backed charge, or null if no accounting reader is configured.
+          oneOf:
+          - allOf:
+            - $ref: '#/components/schemas/RunCharge'
+            - properties:
+                final:
+                  const: true
+          - type: 'null'
         attempt_tree:
           $ref: '#/components/schemas/RunAttemptTree'
         result_file:
@@ -10436,6 +10463,72 @@ components:
           type: string
           description: On auto_reload_invalid only, why the field was refused when more than its bounds
             (`below_threshold`).
+        minimum_budget_micros:
+          type: integer
+          minimum: 1
+          description: On 422 run_budget_below_call_bound at launch only, the least
+            limits.maximum_charge in micro-USD that funds the run's actors on its resolved routes.
+            Retrying with at least this budget passes the funding check. Absent when the same code
+            refuses an actor after the run started.
+        budget_floor:
+          $ref: '#/components/schemas/BudgetFloor'
+    BudgetFloor:
+      type: object
+      additionalProperties: false
+      description: On 422 run_budget_below_call_bound at launch only, the inputs minimum_budget_micros
+        is computed from. They are inputs, not addends; with parallel workers each worker's share
+        grows with the budget, so the parts do not sum to the minimum. Amounts are micro-USD.
+      required:
+      - planner_spend_cap_micros
+      - planner_call_bound_micros
+      - worker_call_bound_micros
+      - reviewer_call_bound_micros
+      - container_call_bound_micros
+      - planner_compute_hold_micros
+      - worker_compute_hold_micros
+      - actor_floor_micros
+      - actor_count
+      - parallel_workers
+      properties:
+        planner_spend_cap_micros:
+          type: integer
+          minimum: 0
+          description: The planner's spend cap.
+        planner_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the planner's routes.
+        worker_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the workers' routes.
+        reviewer_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the reviewer's routes.
+        container_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the container actor's routes; 0 without one.
+        planner_compute_hold_micros:
+          type: integer
+          minimum: 0
+          description: The planner's sandbox compute hold.
+        worker_compute_hold_micros:
+          type: integer
+          minimum: 0
+          description: Each worker attempt's sandbox compute hold.
+        actor_floor_micros:
+          type: integer
+          minimum: 0
+          description: The least budget any actor starts with.
+        actor_count:
+          type: integer
+          minimum: 1
+          description: Actors the budget holds at once.
+        parallel_workers:
+          type: integer
+          minimum: 1
     RunWait:
       type: object
       additionalProperties: false

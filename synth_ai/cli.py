@@ -611,6 +611,9 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "result":
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
+            if not args.json:
+                print(view.status_line(finished), file=sys.stderr, flush=True)
+                print(view.accounting_line(finished), file=sys.stderr, flush=True)
             closing = view.charge_line(finished.charge)
             if closing is not None and not args.json:
                 print(closing, file=sys.stderr, flush=True)

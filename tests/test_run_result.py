@@ -1,5 +1,8 @@
 """`swarms.result()` is one `getRunResult` read: the answer, its source and the charge."""
 
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 from pydantic import ValidationError
@@ -64,6 +67,9 @@ def record(kind):
     )
 
 
+TERMINAL = {"completed", "partial", "failed", "cancelled"}
+
+
 def body(
     state,
     *,
@@ -74,6 +80,9 @@ def body(
     result_file=None,
 ):
     return dict(
+        run_id=state["run_id"],
+        status=state["state"] if state["state"] in TERMINAL else "completed",
+        accounting=None,
         run=state,
         state=state["state"],
         answer=answer,
@@ -303,3 +312,59 @@ def test_public_run_profiles_exclude_research_topologies():
     from synth_ai._generated.policy import PROFILE_REQUIRES_RESEARCH_TASK
 
     assert set(PROFILE_REQUIRES_RESEARCH_TASK) == {"swarms-v2", "fork-flush"}
+
+
+# Contract 1.37.0 (SYN-5637): RunResult carries run_id, its terminal status and the final
+# ledger-backed accounting. The fixture is Core's published /result example at 1.37.0.
+ENVELOPE = json.loads(
+    (Path(__file__).parent / "fixtures" / "core_run_result_1_37_0.json").read_text()
+)
+
+
+def envelope(**changes):
+    value = json.loads(json.dumps(ENVELOPE))
+    value.update(changes)
+    return value
+
+
+async def test_result_envelope_round_trips_run_id_status_and_accounting():
+    fixture = envelope()
+    result = await read(fixture["run"], fixture, [])
+    assert result.run_id == fixture["run_id"] and result.status == "completed"
+    assert isinstance(result.accounting, RunCharge)
+    assert result.accounting.final is True and result.accounting.amount.amount == "0.10"
+    assert result.model_dump(mode="json", exclude_unset=True) == fixture
+
+
+async def test_result_envelope_accepts_null_accounting_and_refuses_nonfinal():
+    fixture = envelope(accounting=None, status="cancelled")
+    result = await read(fixture["run"], fixture, [])
+    assert result.accounting is None and result.status == "cancelled"
+    nonfinal = envelope(
+        accounting={"amount": {"amount": "0.10", "currency": "USD"}, "final": False}
+    )
+    with pytest.raises(ResponseContractError):
+        await read(nonfinal["run"], nonfinal, [])
+    for missing in ("run_id", "status", "accounting"):
+        absent = envelope()
+        absent.pop(missing)
+        with pytest.raises(ResponseContractError):
+            await read(absent["run"], absent, [])
+    with pytest.raises(ResponseContractError):
+        await read(ENVELOPE["run"], envelope(status="running"), [])
+
+
+async def test_mcp_result_tool_carries_the_result_envelope():
+    from synth_ai.mcp.dispatch import dispatch
+
+    fixture = envelope()
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler(fixture["run"], fixture, []))
+    ) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            model = await dispatch(client, "getRunResult", {"run_id": fixture["run_id"]})
+    assert model is not None
+    document = model.model_dump(mode="json", exclude_unset=True)
+    assert document == fixture
