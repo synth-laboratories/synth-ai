@@ -72,6 +72,7 @@ def attempt(tmp_path, *, accepted=None, budget=None):
                 40,
                 COHORT if budget else None,
                 str(budget.receipt_directory) if budget else None,
+                budget.maximum_spend_usd if budget else None,
             )
         ),
     )
@@ -223,7 +224,8 @@ def test_driver_exit_recovers_accepted_run_from_exact_label_and_never_relaunches
     assert seen.count(("POST", f"/v1/runs/{RUN}/cancel")) == 1
 
 
-def test_budget_reserves_concurrently_and_reconciles_once(tmp_path):
+@pytest.mark.parametrize(("cap", "previous"), [("0.50", "0.15"), ("2.00", "1.65")])
+def test_budget_reserves_concurrently_and_reconciles_once(tmp_path, cap, previous):
     receipt_dir = tmp_path / "t2"
     receipt_dir.mkdir()
     peer = receipt_dir / "cancel"
@@ -233,10 +235,10 @@ def test_budget_reserves_concurrently_and_reconciles_once(tmp_path):
         {
             "cohort": {"manifest_sha256": COHORT},
             "run_ids": [FOREIGN],
-            "spend_usd": "0.15",
+            "spend_usd": previous,
         },
     )
-    budget = CohortBudget(receipt_dir, COHORT)
+    budget = CohortBudget(receipt_dir, COHORT, cap)
 
     def reserve(key):
         try:
@@ -275,6 +277,42 @@ def test_budget_reserves_concurrently_and_reconciles_once(tmp_path):
         },
     )
     assert reserve("after_final") == "after_final"
+    assert _read(receipt_dir / f".j1-budget-{COHORT}.json")["maximum_spend_usd"] == cap
+
+
+def test_old_ledger_and_intent_keep_the_original_cap(contract, tmp_path):
+    path = tmp_path / f".j1-budget-{COHORT}.json"
+    _write(path, {NONCE: {"reserved_usd": "0.20"}})
+    original = path.read_bytes()
+    with pytest.raises(WatchdogError, match="watchdog_cohort_cap_changed"):
+        CohortBudget(tmp_path, COHORT, "2.00").reserve("new", "0.20")
+    assert path.read_bytes() == original
+    with pytest.raises(WatchdogError, match="watchdog_budget_headroom_insufficient"):
+        CohortBudget(tmp_path, COHORT).reserve("new", "0.31")
+
+    directory = attempt(
+        tmp_path, accepted=observation(contract), budget=CohortBudget(tmp_path, COHORT)
+    )
+    intent_path = directory / "intent.json"
+    old_intent = _read(intent_path)
+    del old_intent["cohort_cap_usd"]
+    _write(intent_path, old_intent)
+    terminal = observation(contract, state="cancelled", amount="0.12", final=True)
+    state = run_worker(directory, lambda _: httpx.Response(200, json=terminal), recover=True)
+    assert state.outcome == "accounting_final"
+    assert _read(path)["maximum_spend_usd"] == "0.50"
+    assert _read(path)["entries"][NONCE]["final_usd"] == "0.12"
+
+
+def test_current_cap_boundary_is_pinned_per_cohort(tmp_path):
+    current = CohortBudget(tmp_path, COHORT, "2.00")
+    current.reserve("live", "1.00")
+    current.reserve("hosted", "1.00")
+    with pytest.raises(WatchdogError, match="watchdog_budget_headroom_insufficient"):
+        current.reserve("extra", "0.01")
+    with pytest.raises(WatchdogError, match="watchdog_cohort_cap_changed"):
+        CohortBudget(tmp_path, COHORT, "1.99").reserve("changed", "0.01")
+    assert set(_read(tmp_path / f".j1-budget-{COHORT}.json")["entries"]) == {"live", "hosted"}
 
 
 def test_dispatched_without_run_id_keeps_budget_outstanding(tmp_path):
@@ -355,12 +393,13 @@ import os
 import sys
 from pathlib import Path
 from scripts.acceptance.launch_journal import LaunchIntent, LaunchJournal
-from scripts.acceptance.spend_watchdog import LABEL, SpendWatchdog
+from scripts.acceptance.spend_watchdog import LABEL, CohortBudget, SpendWatchdog
 from synth_ai.models import RunSnapshot
 out = Path(sys.argv[1])
 journal = LaunchJournal(out / "launch")
 watchdog = SpendWatchdog(out / "watchdog", journal=journal, origin=sys.argv[2], key="offline-fixture",
-                         stop_amount_usd="0.20", watch_seconds=30, settle_seconds=15)
+                         stop_amount_usd="0.20", watch_seconds=30, settle_seconds=15,
+                         budget=CohortBudget(out, "a" * 64, "2.00"))
 with watchdog:
     watchdog.launch_journal().begin(LaunchIntent("sdk", "fixture", "a" * 64, ()))
     snapshot = RunSnapshot.model_validate_json(sys.argv[3])
@@ -381,15 +420,21 @@ with watchdog:
                 timeout=15,
             )
             assert parent.returncode == 17, parent.stderr.decode()
+            ledger = tmp_path / f".j1-budget-{COHORT}.json"
+            intent = _read(directory / "intent.json")
+            assert intent["cohort_cap_usd"] == "2.00"
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 path = directory / "status.json"
-                if path.is_file() and _read(path)["outcome"] == "accounting_final":
+                entry = _read(ledger)["entries"][intent["label"]]
+                if path.is_file() and entry["final_usd"] is not None:
                     break
                 time.sleep(0.10)
             status = _read(directory / "status.json")
             assert status["outcome"] == "accounting_final"
             assert status["stop_reason"] == "driver_exited"
+            assert _read(ledger)["maximum_spend_usd"] == "2.00"
+            assert _read(ledger)["entries"][intent["label"]]["final_usd"] == "0.08"
             assert requests == [(f"/v1/runs/{RUN}/cancel", status["stop_key"], 0)]
         finally:
             server.shutdown()

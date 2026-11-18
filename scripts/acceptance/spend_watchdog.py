@@ -36,6 +36,7 @@ READ_FAILURES_MAX = 3
 CANCEL_ATTEMPTS_MAX = 3
 DISCOVERY_PAGES_MAX = 5
 TERMINAL = frozenset({"completed", "partial", "failed", "cancelled"})
+LEGACY_T2_CAP_USD = "0.50"
 
 
 class WatchdogError(RuntimeError):
@@ -63,6 +64,13 @@ class WatchdogIntent:
     settle_seconds: int
     cohort: str | None = None
     receipt_directory: str | None = None
+    cohort_cap_usd: str | None = None
+
+    def budget(self) -> CohortBudget | None:
+        if self.receipt_directory is None or self.cohort is None:
+            return None
+        cap = self.cohort_cap_usd if self.cohort_cap_usd is not None else LEGACY_T2_CAP_USD
+        return CohortBudget(Path(self.receipt_directory), self.cohort, cap)
 
 
 @dataclass(slots=True)
@@ -128,12 +136,16 @@ class BudgetEntry:
 class CohortBudget:
     receipt_directory: Path
     cohort: str
+    maximum_spend_usd: str = LEGACY_T2_CAP_USD
 
     def _update(self, operation: Callable[[dict[str, BudgetEntry]], None]) -> None:
         if len(self.cohort) != 64 or any(
             character not in "0123456789abcdef" for character in self.cohort
         ):
             raise WatchdogError("watchdog_cohort_invalid")
+        cap = _amount(self.maximum_spend_usd)
+        if cap <= 0:
+            raise WatchdogError("watchdog_cohort_cap_invalid")
         path = self.receipt_directory / f".j1-budget-{self.cohort}.json"
         lock_path = path.with_suffix(".lock")
         with lock_path.open("a") as lock:
@@ -145,13 +157,26 @@ class CohortBudget:
                     time.sleep(0.02)
             else:
                 raise WatchdogError("watchdog_budget_lock_busy")
-            entries = (
-                {key: BudgetEntry(**entry) for key, entry in _read(path).items()}
-                if path.exists()
-                else {}
-            )
+            entries: dict[str, BudgetEntry] = {}
+            if path.exists():
+                retained = _read(path)
+                if "entries" in retained:
+                    retained_cap = _amount(retained["maximum_spend_usd"])
+                    rows = retained["entries"]
+                else:
+                    retained_cap = _amount(LEGACY_T2_CAP_USD)
+                    rows = retained
+                if retained_cap != cap:
+                    raise WatchdogError("watchdog_cohort_cap_changed")
+                entries = {key: BudgetEntry(**entry) for key, entry in rows.items()}
             operation(entries)
-            _write(path, {key: asdict(entry) for key, entry in entries.items()})
+            _write(
+                path,
+                {
+                    "maximum_spend_usd": str(cap),
+                    "entries": {key: asdict(entry) for key, entry in entries.items()},
+                },
+            )
 
     def reserve(self, attempt: str, maximum: str) -> None:
         def reserve(entries: dict[str, BudgetEntry]) -> None:
@@ -185,7 +210,7 @@ class CohortBudget:
                 receipts[run_ids] = charge
                 total += charge
             reservation = _amount(maximum)
-            if reservation <= 0 or total + reservation > Decimal("0.50"):
+            if reservation <= 0 or total + reservation > _amount(self.maximum_spend_usd):
                 raise WatchdogError("watchdog_budget_headroom_insufficient")
             entries[attempt] = BudgetEntry(maximum)
 
@@ -293,6 +318,7 @@ def supervise(
         raise WatchdogError("watchdog_intent_invalid")
     journal = LaunchJournal(Path(intent.journal_directory))
     watch_end = intent.watch_deadline
+    budget = intent.budget()
     failures = 0
     if recover:
         # Explicit resumption grants a bounded readback window. Keep the stop
@@ -302,11 +328,9 @@ def supervise(
 
     def persist() -> None:
         _write(state_path, asdict(state))
-        if intent.cohort is not None and intent.receipt_directory is not None:
+        if budget is not None:
             try:
-                CohortBudget(Path(intent.receipt_directory), intent.cohort).reconcile(
-                    intent.label, state
-                )
+                budget.reconcile(intent.label, state)
             except (OSError, ValueError, TypeError, KeyError, WatchdogError) as error:
                 # The reservation remains outstanding. Metering persistence must
                 # never prevent an already authorized stop dispatch.
@@ -446,6 +470,7 @@ class SpendWatchdog:
             settle_seconds,
             budget.cohort if budget is not None else None,
             str(budget.receipt_directory.resolve()) if budget is not None else None,
+            budget.maximum_spend_usd if budget is not None else None,
         )
         _write(self.directory / "intent.json", asdict(self.intent))
         if budget is not None:
@@ -521,7 +546,10 @@ class SpendWatchdog:
         state = WatchdogState(**_read(path))
         if state.outcome == "watching":
             raise WatchdogError("watchdog_interrupted_resume_required")
-        if self.process.returncode and state.outcome == "accounting_final":
+        if self.process.returncode and state.outcome in (
+            "accounting_final",
+            "launch_not_dispatched",
+        ):
             raise WatchdogError("watchdog_budget_reconcile_required")
         return state
 
@@ -562,10 +590,8 @@ def main() -> int:
                 recover=args.recover,
                 parent_gone=lambda: args.recover or bool(select.select([sys.stdin], [], [], 0)[0]),
             )
-        if intent.cohort is not None and intent.receipt_directory is not None:
-            CohortBudget(Path(intent.receipt_directory), intent.cohort).reconcile(
-                intent.label, state
-            )
+        if (budget := intent.budget()) is not None:
+            budget.reconcile(intent.label, state)
     return 0 if state.outcome in ("accounting_final", "launch_not_dispatched") else 1
 
 
