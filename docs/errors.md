@@ -86,8 +86,11 @@ One line per code: what it means, then what the caller should do.
 
 ### Authentication, authorization and service errors
 
-- `authentication_required` (401): the request lacks valid credentials. Sign in
-  again or configure a valid API key for the intended organization.
+- `unauthenticated` (401): the request supplies no credential. Sign in or
+  configure an API key for the intended organization.
+- `api_key_invalid` (401): the API key was rejected. Invalid, expired, rotated-out
+  and revoked keys receive the same code. Configure a valid key.
+- `authentication_required` (401): the operation requires valid authentication.
 - `insufficient_scope` (403): the credential does not grant the operation's
   scope. Use a credential with the required grant or ask an organization admin.
 - `launch_requires_sdk_or_mcp` (403): a signed-in browser session cannot launch

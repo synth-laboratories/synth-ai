@@ -557,6 +557,13 @@ def credential_works(context: JourneyContext, secret: str) -> Outcome:
         return surface.call(Call("getAccount"))
 
 
+API_KEY_INVALID = "api_key_invalid"
+
+
+def api_key_refused(outcome: Outcome) -> bool:
+    return not outcome.accepted and outcome.status == 401 and outcome.code == API_KEY_INVALID
+
+
 def mint_key(context: JourneyContext) -> StepReceipt:
     step = Step.MINT_KEY
     session = context.secrets.get(Secret.SESSION)
@@ -604,7 +611,7 @@ def rotate_key(context: JourneyContext) -> StepReceipt:
     context.state["key_id"] = str(rotated.value["key_id"])
     context.state["secret"] = str(rotated.value["key"])
     new = credential_works(context, context.state["secret"])
-    ok = new.accepted and not old.accepted and old.code == "authentication_required"
+    ok = new.accepted and api_key_refused(old)
     return receipt(
         context,
         step,
@@ -626,7 +633,7 @@ def revoke_key(context: JourneyContext) -> StepReceipt:
     with context.make(session) as surface:
         revoked = surface.call(Call("revokeApiKey", path={"key_id": context.state["key_id"]}))
     after = credential_works(context, context.state["secret"])
-    ok = revoked.accepted and not after.accepted and after.code == "authentication_required"
+    ok = revoked.accepted and api_key_refused(after)
     return receipt(
         context,
         step,
@@ -993,7 +1000,7 @@ def expired_key(context: JourneyContext) -> StepReceipt:
         return missing(context, Step.EXPIRED_KEY, "expired_api_key")
     outcome = credential_works(context, expired)
     return expect_refusal(
-        context, Step.EXPIRED_KEY, outcome, codes=frozenset({"authentication_required"}), status=401
+        context, Step.EXPIRED_KEY, outcome, codes=frozenset({API_KEY_INVALID}), status=401
     )
 
 

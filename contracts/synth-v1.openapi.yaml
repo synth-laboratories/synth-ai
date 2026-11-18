@@ -5610,7 +5610,13 @@ components:
             stage: public
             outcome: not_accepted
     AuthenticationRequired:
-      description: authentication required
+      description: >-
+        Customer authentication failed. Core returns `unauthenticated` when the
+        request supplies no credential. An invalid, expired, rotated-out, or
+        revoked API key returns `api_key_invalid`; the response does not
+        disclose which condition invalidated the key. Other authentication
+        failures retain their operation-specific codes, including
+        `authentication_required` where required by the operation.
       content:
         application/problem+json:
           schema:

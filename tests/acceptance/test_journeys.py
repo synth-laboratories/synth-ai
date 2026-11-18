@@ -31,7 +31,7 @@ from scripts.acceptance.journeys import (
     matrix_operations,
     run_step,
 )
-from scripts.acceptance.surfaces import CLI_ARGV, SDK_CALLS, SurfaceName
+from scripts.acceptance.surfaces import CLI_ARGV, SDK_CALLS, Call, SurfaceName
 from synth_ai.errors import local_problem
 
 pytestmark = pytest.mark.acceptance
@@ -197,10 +197,19 @@ def test_member_is_refused_billing_admin_change(contract, tmp_path, surface):
 
 
 @pytest.mark.parametrize("surface", SURFACES)
-def test_expired_key_is_typed_401(tmp_path, surface):
+@pytest.mark.parametrize(
+    ("status", "code", "verdict"),
+    [
+        (401, "api_key_invalid", Verdict.PASS),
+        (401, "authentication_required", Verdict.FAIL),
+        (401, "unauthenticated", Verdict.FAIL),
+        (403, "api_key_invalid", Verdict.FAIL),
+    ],
+)
+def test_expired_key_requires_the_exact_problem(tmp_path, surface, status, code, verdict):
     def responder(method, path, headers):
         assert headers["bearer"] == "fixture-expired"
-        return 401, problem("authentication_required", 401), {}
+        return status, problem(code, status), {}
 
     result, _ = run(
         surface,
@@ -209,7 +218,27 @@ def test_expired_key_is_typed_401(tmp_path, surface):
         Step.EXPIRED_KEY,
         secrets={Secret.EXPIRED.value: "fixture-expired"},
     )
-    assert result.verdict == Verdict.PASS, result
+    assert result.verdict == verdict, result
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_missing_credential_is_distinct_from_a_rejected_api_key(tmp_path, monkeypatch, surface):
+    monkeypatch.delenv("SYNTH_API_KEY", raising=False)
+    monkeypatch.setenv("SYNTH_AUTH_FILE", str(tmp_path / "absent.json"))
+
+    def responder(method, path, request):
+        pytest.fail("a locally missing credential reached the wire")
+
+    with api(responder) as (origin, requests):
+        make = journey_main.surface_factory(
+            surface, origin=origin, work_directory=tmp_path, mcp_url=None
+        )
+        with make("") as driver:
+            response = driver.call(Call("getAccount"))
+    assert not response.accepted
+    assert requests == []
+    assert response.status is None
+    assert response.code != "api_key_invalid"
 
 
 @pytest.mark.parametrize("surface", SURFACES)
@@ -451,7 +480,17 @@ def test_pause_on_limit_then_resume(contract, tmp_path, surface):
 
 
 @pytest.mark.parametrize("surface", SURFACES)
-def test_key_mint_rotate_revoke_with_a_session(contract, tmp_path, surface):
+@pytest.mark.parametrize(
+    ("denial_status", "denial_code", "verdict"),
+    [
+        (401, "api_key_invalid", Verdict.PASS),
+        (403, "api_key_invalid", Verdict.FAIL),
+        (401, "authentication_required", Verdict.FAIL),
+    ],
+)
+def test_key_mint_rotate_revoke_with_a_session(
+    contract, tmp_path, surface, denial_status, denial_code, verdict
+):
     minted = example(contract, "/v1/api-keys", method="post", status="201")
     account = example(contract, "/v1/account")
     live: set[str] = set()
@@ -470,7 +509,7 @@ def test_key_mint_rotate_revoke_with_a_session(contract, tmp_path, surface):
         if path == "/v1/account":
             if bearer in live:
                 return 200, account, {}
-            return 401, problem("authentication_required", 401), {}
+            return denial_status, problem(denial_code, denial_status), {}
         assert bearer == "fixture-session"
         if method == "POST" and path == "/v1/api-keys":
             return 201, issue(), {}
@@ -487,7 +526,7 @@ def test_key_mint_rotate_revoke_with_a_session(contract, tmp_path, surface):
                 run_step(context, step).verdict
                 for step in (Step.MINT_KEY, Step.ROTATE_KEY, Step.REVOKE_KEY)
             ]
-    assert verdicts == [Verdict.PASS] * 3
+    assert verdicts == [Verdict.PASS, verdict, verdict]
     assert live == set()
 
 
