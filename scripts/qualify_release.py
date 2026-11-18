@@ -34,7 +34,7 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
         "types": [*RUN, "ty", "check"],
         "type_contracts": script("check_type_contracts"),
         "standards": script("lint_standards"),
-        "tests": [*RUN, "pytest", "-q"],
+        "tests": ["make", "test"],
         "build": ["uv", "build", "--out-dir", str(dist)],
         "twine": [*RUN, "twine", "check"],
         "package_budget": script("check_package", "--check", "budget"),
@@ -58,6 +58,7 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
         "steps": steps,
         "passed": False,
     }
+    packages: list[Path] = []
     wheel = None
     wheel_digest = ""
     try:
@@ -65,7 +66,7 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
             step = steps[name]
             step["status"] = "failed"
             if name == "twine":
-                cmd.extend(str(path) for path in sorted(dist.iterdir()))
+                cmd.extend(str(path) for path in packages)
             if name in {"package_budget", "installed_smoke"}:
                 if wheel is None:
                     raise ValueError("missing built wheel")
@@ -95,7 +96,9 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
                 continue
             if name == "build":
                 (wheel,) = dist.glob("*.whl")
-                for path in sorted(dist.iterdir()):
+                (sdist,) = dist.glob("*.tar.gz")
+                packages = [wheel, sdist]
+                for path in packages:
                     digest = hashlib.sha256(path.read_bytes()).hexdigest()
                     artifacts.append(
                         {"name": path.name, "bytes": path.stat().st_size, "sha256": digest}
