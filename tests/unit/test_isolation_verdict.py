@@ -57,3 +57,8 @@ def test_identical_wrong_statuses_are_unproven(status):
 def test_matching_account_resource_refusals_prove_the_resource_case(code):
     denial = resource(code)
     assert classify(denial, denial, ()) == "pass"
+
+
+def test_matching_checkout_refusals_prove_the_resource_case():
+    denial = resource("checkout_not_found")
+    assert classify(denial, denial, ()) == "pass"
