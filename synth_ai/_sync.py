@@ -4,7 +4,9 @@ from __future__ import annotations
 import builtins
 from collections.abc import Iterator, Sequence
 from decimal import Decimal
+from inspect import getdoc
 from pathlib import Path
+from types import FunctionType
 
 from ._blocking import Runner
 from ._generated.models import (
@@ -86,6 +88,12 @@ from .billing import AsyncBilling
 from .swarms import AsyncSwarms
 
 
+def _copy_method_docs(delegate: type, source: type) -> None:
+    for name, method in vars(delegate).items():
+        if not name.startswith("_") and isinstance(method, FunctionType):
+            method.__doc__ = getdoc(getattr(source, name))
+
+
 class SwarmsClient:
     def __init__(self, runner: Runner, source: AsyncSwarms) -> None:
         self._runner = runner
@@ -99,7 +107,6 @@ class SwarmsClient:
         kind: MessageKind = MessageKind.GUIDANCE,
         idempotency_key: str,
     ) -> RunMessage:
-        "Send to the admitted customer thread; see docs/protocols.md.\n\nAcceptance never implies delivery. Retain the key after an uncertain\noutcome and reconcile the message before sending another mutation."
         return self._runner.call(
             self._async.send_message(run_id, text, kind=kind, idempotency_key=idempotency_key)
         )
@@ -107,21 +114,17 @@ class SwarmsClient:
     def messages(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> RunMessagePage:
-        "Read customer-visible history, preserving typed unavailability."
         return self._runner.call(self._async.messages(run_id, cursor=cursor, limit=limit))
 
     def iter_messages(
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> Iterator[RunMessage]:
-        "Traverse message pages without prefetch; see docs/protocols.md."
         return self._runner.iterate(self._async.iter_messages(run_id, cursor=cursor, limit=limit))
 
     def message(self, run_id: str, message_id: str) -> RunMessage:
-        "Read one message; a retained body is typed BodyUnavailable."
         return self._runner.call(self._async.message(run_id, message_id))
 
     def follow_messages(self, run_id: str) -> Iterator[RunMessage]:
-        "Read history, then message changes from one feed; see docs/protocols.md.\n\nOpen the feed before reading history so a post during the initial read\nremains observable. Events contain metadata; bodies stay on message reads."
         return self._runner.iterate(self._async.follow_messages(run_id))
 
     def wait_for_reply(
@@ -131,7 +134,6 @@ class SwarmsClient:
         *,
         timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
     ) -> RunMessage:
-        "Wait for a correlated posted reply; never cancel or mutate the message.\n\nReturns the manager or actor post whose reply_to_message_id names the\noriginal message. A retained body remains BodyUnavailable(retention).\nSee docs/protocols.md."
         return self._runner.call(self._async.wait_for_reply(run_id, message_id, timeout=timeout))
 
     def prepare_launch(
@@ -156,7 +158,6 @@ class SwarmsClient:
         optimizer: OptimizerRequest | None = None,
         continue_from: str | None = None,
     ) -> LaunchRequest:
-        "Validate a launch before uploads; see docs/protocols.md."
         return self._async.prepare_launch(
             message,
             budget=budget,
@@ -201,7 +202,6 @@ class SwarmsClient:
         continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        "Launch a run with a maximum charge in USD and return its acknowledgement.\n\nThe budget must be a decimal string or Decimal. Retain an explicit\nidempotency_key for uncertain retries. An acknowledgement does not prove\nexecution, accounting or cleanup has finished; use wait and report."
         return self._runner.call(
             self._async.launch(
                 message,
@@ -229,7 +229,6 @@ class SwarmsClient:
     def launch_request(
         self, request: LaunchRequest, *, idempotency_key: str | None = None
     ) -> RunSnapshot:
-        "Submit a typed launch request and return its initial run snapshot.\n\nReuse the same idempotency key and request after an uncertain response."
         return self._runner.call(
             self._async.launch_request(request, idempotency_key=idempotency_key)
         )
@@ -261,7 +260,6 @@ class SwarmsClient:
         continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
-        "Launch a run, then wait for the selected completion milestone.\n\nBudget is a maximum charge in USD; timeout and poll_interval are seconds.\nA local wait timeout does not cancel the server run. Set raise_on_failure\nto raise on a failed finished run."
         return self._runner.call(
             self._async.run(
                 message,
@@ -293,7 +291,6 @@ class SwarmsClient:
     def upload_file(
         self, filename: str, *, media_type: str | None = None, idempotency_key: str | None = None
     ) -> File:
-        "Upload a local file and return its verified file record.\n\nUse an explicit idempotency key to retain identity across uncertain retries."
         return self._runner.call(
             self._async.upload_file(
                 filename, media_type=media_type, idempotency_key=idempotency_key
@@ -303,13 +300,11 @@ class SwarmsClient:
     def upload_directory(
         self, directory: str | int, *, idempotency_key: str
     ) -> builtins.list[File]:
-        "Upload a bounded POSIX directory snapshot, preserving relative file names.\n\nAn integer is a borrowed directory descriptor; each snapshot opens its own cursor.\nIncludes dotfiles; refuses links and special files before any API request.\nReuse the key with unchanged files to recover a partial upload. Failure\nretains committed file records in DirectoryUploadError.completed_files."
         return self._runner.call(
             self._async.upload_directory(directory, idempotency_key=idempotency_key)
         )
 
     def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
-        "Resume an existing upload using the same local file and idempotency key."
         return self._runner.call(
             self._async.resume_upload(upload_id, filename, idempotency_key=idempotency_key)
         )
@@ -322,7 +317,6 @@ class SwarmsClient:
         media_type: str = "text/markdown",
         idempotency_key: str | None = None,
     ) -> File:
-        "Upload UTF-8 content inline (up to 32 KiB)."
         return self._runner.call(
             self._async.upload_text(
                 content, name=name, media_type=media_type, idempotency_key=idempotency_key
@@ -338,7 +332,6 @@ class SwarmsClient:
         digest_sha256: str,
         idempotency_key: str | None = None,
     ) -> Upload:
-        "Prepare an immutable file upload."
         return self._runner.call(
             self._async.prepare_upload(
                 name=name,
@@ -350,37 +343,30 @@ class SwarmsClient:
         )
 
     def finalize_upload(self, upload_id: str, *, idempotency_key: str | None = None) -> Upload:
-        "Scan and finalize an upload."
         return self._runner.call(
             self._async.finalize_upload(upload_id, idempotency_key=idempotency_key)
         )
 
     def upload(self, upload_id: str) -> Upload:
-        "Returns the retained upload. A caller with swarms:write also receives a renewed size/digest-bound PUT grant while it is pending. Read-only callers receive no write grant."
         return self._runner.call(self._async.upload(upload_id))
 
     def files(self, *, cursor: str | None = None, limit: int = 20) -> FilePage:
-        "List the organization's finalized files."
         return self._runner.call(self._async.files(cursor=cursor, limit=limit))
 
     def file(self, file_id: str) -> File:
-        "Read a finalized file manifest."
         return self._runner.call(self._async.file(file_id))
 
     def update_labels(
         self, run_id: str, labels: dict[str, str], *, expected_revision: int
     ) -> RunLabels:
-        "Replace run labels with a revision check."
         return self._runner.call(
             self._async.update_labels(run_id, labels, expected_revision=expected_revision)
         )
 
     def get(self, run_id: str) -> RunSnapshot:
-        "One run snapshot."
         return self._runner.call(self._async.get(run_id))
 
     def wait_update(self, run_id: str, *, timeout_seconds: int = 30) -> RunWait:
-        "Read one bounded server wait update; see docs/protocols.md."
         return self._runner.call(self._async.wait_update(run_id, timeout_seconds=timeout_seconds))
 
     def wait(
@@ -392,7 +378,6 @@ class SwarmsClient:
         until: CompletionMilestone = CompletionMilestone.FINISHED,
         raise_on_failure: bool = False,
     ) -> RunSnapshot:
-        "Wait for an authoritative snapshot satisfying the chosen milestone.\n\nTimeout and poll_interval are seconds. FINISHED requires execution closed,\naccounting final and cleanup complete; it does not imply success. Paused\nruns and local timeouts raise typed errors without cancelling the run.\nSet raise_on_failure to raise on a failed finished run."
         return self._runner.call(
             self._async.wait(
                 run_id,
@@ -411,25 +396,20 @@ class SwarmsClient:
         state: str | None = None,
         created_after: str | None = None,
     ) -> RunPage:
-        "Each run's state is its last recorded state. Read a single run for live pause state. A project_id query parameter is refused with 422 project_id_removed."
         return self._runner.call(
             self._async.list(limit=limit, cursor=cursor, state=state, created_after=created_after)
         )
 
     def pause(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
-        "The body must be empty. Acceptance acknowledges the durable command; read the run to observe its current state. When the program refuses the control, the 409 Problem's code is limit_still_reached (the limit that paused the run is still reached; raise it first) or run_expired, otherwise program_control_refused; upstream_status and cause carry the program's status and refusal code."
         return self._runner.call(self._async.pause(run_id, idempotency_key=idempotency_key))
 
     def resume(self, run_id: str, *, idempotency_key: str | None = None) -> RunControlReceipt:
-        "The body must be empty. Acceptance acknowledges the durable command; read the run to observe its current state. When the program refuses the control, the 409 Problem's code is limit_still_reached (the limit that paused the run is still reached; raise it first) or run_expired, otherwise program_control_refused; upstream_status and cause carry the program's status and refusal code."
         return self._runner.call(self._async.resume(run_id, idempotency_key=idempotency_key))
 
     def program(self, run_id: str) -> RunProgram:
-        "Read the admitted program."
         return self._runner.call(self._async.program(run_id))
 
     def limits(self, run_id: str) -> RunLimitsProgress:
-        "Read authoritative run limits and usage."
         return self._runner.call(self._async.limits(run_id))
 
     def update_limits(
@@ -445,7 +425,6 @@ class SwarmsClient:
         reason: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunLimitsProgress:
-        "Change run limits against an expected revision.\n\nBudget is a positive USD decimal string or Decimal; time limits are\nseconds and maximum_tokens counts tokens. At least one limit is required.\nThe optional resume flag requests resume with the limit change."
         return self._runner.call(
             self._async.update_limits(
                 run_id,
@@ -463,43 +442,34 @@ class SwarmsClient:
     def update_limits_request(
         self, run_id: str, request: RunLimitUpdate, *, idempotency_key: str | None = None
     ) -> RunLimitsProgress:
-        "Apply an exact typed limit request; see docs/protocols.md."
         return self._runner.call(
             self._async.update_limits_request(run_id, request, idempotency_key=idempotency_key)
         )
 
     def configuration(self, run_id: str) -> RunConfiguration:
-        "Read the frozen run configuration."
         return self._runner.call(self._async.configuration(run_id))
 
     def sandboxes(self, run_id: str) -> RunSandboxes:
-        "Read actor role/provider, lifecycle, image, resource limits and sandbox times.\n\nTeardown is complete only after execution closes and all sandboxes are verified\ngone. Unobserved means a record could not be established, never absent.\nSee docs/protocols.md."
         return self._runner.call(self._async.sandboxes(run_id))
 
     def report(self, run_id: str) -> RunReport:
-        "Read settled charge/token breakdowns by provider/model, actor and sandbox.\n\nIncludes rollouts and timings. Parts sum to the settled total; pending means\nempty breakdowns. Missing retained attribution is not_recorded. Metered\nrollout compute is settlement.rollout within maximum_charge; not_metered\nmeans uncharged, not zero cost. See docs/protocols.md."
         return self._runner.call(self._async.report(run_id))
 
     def allocation(self, run_id: str) -> RunAllocation:
-        "Per-actor choices, placements (replacements included), usage and charge."
         return self._runner.call(self._async.allocation(run_id))
 
     def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
-        "Each page reads current tasks and states. A cursor stays valid while the run advances, but pages are not a snapshot, so a task added during paging can be missing until a fresh listing."
         return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
 
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:
-        "The body must be empty (`422 control_body_must_be_empty`)."
         return self._runner.call(self._async.cancel(run_id, idempotency_key=idempotency_key))
 
     def events(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> EventPage:
-        "Read one JSON page of retained native events.\n\nnext_cursor paginates; resume_cursor permits later reads. Use follow() for\nSSE; see docs/protocols.md for stream recovery and milestone semantics."
         return self._runner.call(self._async.events(run_id, cursor=cursor, limit=limit))
 
     def iter_events(
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> Iterator[RunEvent]:
-        "Yield retained run events across cursor pages; this is not a live subscription."
         return self._runner.iterate(self._async.iter_events(run_id, cursor=cursor, limit=limit))
 
     def follow(
@@ -510,7 +480,6 @@ class SwarmsClient:
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
     ) -> Iterator[RunEvent]:
-        "Stream run events, resuming from an event ID or mutable checkpoint.\n\nTimeout is seconds. Events do not establish run finality; use wait or get\nfor authoritative lifecycle state."
         return self._runner.iterate(
             self._async.follow(
                 run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
@@ -518,17 +487,14 @@ class SwarmsClient:
         )
 
     def outputs(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> OutputPage:
-        "Published outputs for a native run, paginated by cursor. A run whose `selection` has a stored incumbent snapshot also lists it as `selected-snapshot.tar.gz`, one gzipped tar holding the original archive bytes, with `reference.digest_sha256` equal to `selection.incumbent.artifact_digest`."
         return self._runner.call(self._async.outputs(run_id, cursor=cursor, limit=limit))
 
     def output(self, run_id: str, output_id: str) -> RunOutput:
-        "One output record."
         return self._runner.call(self._async.output(run_id, output_id))
 
     def output_content(
         self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
     ) -> bytes:
-        "Read the pinned output revision and verify its SHA-256 digest.\n\nRaises DataIntegrityError if the received bytes differ from the reference."
         return self._runner.call(
             self._async.output_content(
                 run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
@@ -538,7 +504,6 @@ class SwarmsClient:
     def output_inline(
         self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
     ) -> McpOutputContent:
-        "Read a pinned output revision as the contract's McpOutputContent.\n\nText when the media type is textual and the bytes are valid UTF-8, otherwise\nbase64. Over MCP_OUTPUT_CONTENT_MAX_BYTES raises OutputContentTooLargeError\n(output_content_too_large_for_mcp); use download_output for larger outputs."
         return self._runner.call(
             self._async.output_inline(
                 run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
@@ -556,7 +521,6 @@ class SwarmsClient:
         max_bytes: int = 64 << 20,
         expected_bytes: int | None = None,
     ) -> Path:
-        "Download a pinned output revision to a local path with integrity checks.\n\nThe default size limit is 64 MiB. max_bytes and expected_bytes are bytes.\nReturns the destination path after the transfer succeeds."
         return self._runner.call(
             self._async.download_output(
                 run_id,
@@ -570,15 +534,12 @@ class SwarmsClient:
         )
 
     def result(self, run: RunSnapshot | str) -> RunResult:
-        "Read Core's answer, source output, objective answer and charge without waiting.\n\nCore chooses the latest available text output, then the latest objective-answer\nJSON. Absent answer fields remain None. An unfinished run raises\nResultUnavailableError with a fresh snapshot. See docs/protocols.md."
         return self._runner.call(self._async.result(run))
 
     def families(self) -> FamilyList:
-        "The launchable program families (GA set, swarms.general@1)."
         return self._runner.call(self._async.families())
 
     def routing_catalog(self) -> RoutingCatalog:
-        "Return the routing catalogue exposed by the families endpoint."
         return self._runner.call(self._async.routing_catalog())
 
     def launch_choices(
@@ -590,7 +551,6 @@ class SwarmsClient:
         wall_time_seconds: int | None = None,
         budget: str | Decimal | None = None,
     ) -> LaunchChoices:
-        "The per-role menu a launch with these fields admits, and its revision.\n\nPass the returned menu_revision as launch_menu_revision with role_assignments.\nWith a budget, choices it cannot afford are listed as exclusions."
         return self._runner.call(
             self._async.launch_choices(
                 profile=profile,
@@ -602,7 +562,6 @@ class SwarmsClient:
         )
 
     def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
-        "Published run profiles and caller-specific availability."
         return self._runner.call(self._async.profiles(research_task=research_task))
 
     def iter_runs(
@@ -613,7 +572,6 @@ class SwarmsClient:
         state: str | None = None,
         created_after: str | None = None,
     ) -> Iterator[RunSnapshot]:
-        "Yield run snapshots across cursor pages, preserving the supplied filters."
         return self._runner.iterate(
             self._async.iter_runs(
                 limit=limit, cursor=cursor, state=state, created_after=created_after
@@ -623,18 +581,18 @@ class SwarmsClient:
     def iter_tasks(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> Iterator[RunTask]:
-        "Yield a run's tasks across cursor pages."
         return self._runner.iterate(self._async.iter_tasks(run_id, cursor=cursor, limit=limit))
 
     def iter_outputs(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> Iterator[RunOutput]:
-        "Yield a run's output metadata across cursor pages."
         return self._runner.iterate(self._async.iter_outputs(run_id, cursor=cursor, limit=limit))
 
     def iter_files(self, *, cursor: str | None = None, limit: int = 20) -> Iterator[File]:
-        "Yield uploaded file metadata across cursor pages."
         return self._runner.iterate(self._async.iter_files(cursor=cursor, limit=limit))
+
+
+_copy_method_docs(SwarmsClient, AsyncSwarms)
 
 
 class ApiKeysClient:
@@ -645,7 +603,6 @@ class ApiKeysClient:
     def list(
         self, *, purpose: str | None = None, cursor: str | None = None, limit: int = 20
     ) -> ApiKeyPage:
-        "List the caller's personal and automation keys (session only)."
         return self._runner.call(self._async.list(purpose=purpose, cursor=cursor, limit=limit))
 
     def mint(
@@ -658,7 +615,6 @@ class ApiKeysClient:
         request_id: str | None = None,
         idempotency_key: str | None = None,
     ) -> MintedApiKey:
-        "Mint a key. The secret is returned once (session only)."
         return self._runner.call(
             self._async.mint(
                 purpose=purpose,
@@ -678,7 +634,6 @@ class ApiKeysClient:
         expected_version: int,
         name: str | None = None,
     ) -> ApiKey:
-        "Replace a key's scopes (optimistic on authorization_version, session only)."
         return self._runner.call(
             self._async.update_grants(
                 key_id, scopes=scopes, expected_version=expected_version, name=name
@@ -686,20 +641,20 @@ class ApiKeysClient:
         )
 
     def rotate(self, key_id: str, *, idempotency_key: str | None = None) -> MintedApiKey:
-        "Revoke a key and mint its replacement in the same rotation family (session only)."
         return self._runner.call(self._async.rotate(key_id, idempotency_key=idempotency_key))
 
     def revoke(self, key_id: str) -> None:
-        "Revoke a key (idempotent, session only)."
         return self._runner.call(self._async.revoke(key_id))
 
     def iter_keys(
         self, *, purpose: str | None = None, cursor: str | None = None, limit: int = 20
     ) -> Iterator[ApiKey]:
-        "Yield API key metadata across cursor pages."
         return self._runner.iterate(
             self._async.iter_keys(purpose=purpose, cursor=cursor, limit=limit)
         )
+
+
+_copy_method_docs(ApiKeysClient, AsyncApiKeys)
 
 
 class AccountClient:
@@ -709,17 +664,14 @@ class AccountClient:
         self.api_keys = ApiKeysClient(runner, source.api_keys)
 
     def redeem_promo(self, code: str, *, idempotency_key: str | None = None) -> PromoRedemption:
-        "Redeem an org-scoped promotion; retries retain the same mutation key."
         return self._runner.call(self._async.redeem_promo(code, idempotency_key=idempotency_key))
 
     def get(self) -> Account:
-        "The caller's org, principal and limits."
         return self._runner.call(self._async.get())
 
     def accept_terms(
         self, *, version: str, accepted_at: str, idempotency_key: str | None = None
     ) -> TermsAcceptance:
-        "Record the caller's explicit acceptance of a terms version and claimed UTC time."
         return self._runner.call(
             self._async.accept_terms(
                 version=version, accepted_at=accepted_at, idempotency_key=idempotency_key
@@ -727,7 +679,6 @@ class AccountClient:
         )
 
     def usage_summary(self, *, since: str | None = None, until: str | None = None) -> UsageSummary:
-        'A projection of settled `billing.charge_usage` rows, not a separate meter: `total` equals the sum of\n`GET /v1/usage/records` over the same window. `data_through` is the newest settled row in the window\n(null when there is none) and `observed_at` is when this answer was read. `pending` is the org\'s live\nunsettled holds at `observed_at`; it is not limited to the window. `by_source.sessions` is usage from\nsessions outside a run, and `by_source.unattributed` means attribution is unknown, not "not a run".\nRefusals: `invalid_filter` (422) on an unparsable time, `usage_window_invalid` (422) when `until` is not\nafter `since` or the window exceeds 366 days.'
         return self._runner.call(self._async.usage_summary(since=since, until=until))
 
     def usage_records(
@@ -739,7 +690,6 @@ class AccountClient:
         cursor: str | None = None,
         limit: int = 20,
     ) -> UsageRecordPage:
-        "The same rows and window as `GET /v1/usage/summary`. Resend the same filters with `next_cursor`.\n`run_id` is null when the record has no run. Refusals: `invalid_filter`, `usage_window_invalid` and\n`invalid_cursor` (422)."
         return self._runner.call(
             self._async.usage_records(
                 since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
@@ -749,23 +699,19 @@ class AccountClient:
     def export_usage(
         self, *, since: str, until: str, idempotency_key: str | None = None
     ) -> UsageExport:
-        "Export settled usage records."
         return self._runner.call(
             self._async.export_usage(since=since, until=until, idempotency_key=idempotency_key)
         )
 
     def usage_export(self, export_id: str) -> UsageExport:
-        "Read an export and its download link."
         return self._runner.call(self._async.usage_export(export_id))
 
     def limits(self) -> LimitList:
-        "Plan limits, the concurrent Swarms run cap and the public API rate limit. `cap` is null when the limit is\nunbounded. `current` is null when core has no exact measure for that row. `reset_at` is null when core defines\nno reset for that row, such as concurrency."
         return self._runner.call(self._async.limits())
 
     def request_special_free(
         self, *, use_case: str, links: Sequence[str] = (), idempotency_key: str | None = None
     ) -> PlanRequest:
-        "Ask for owner review to move this org to Special Free. `use_case` (at most 4096 UTF-8 bytes) and\n`links` (at most 5) are customer content: stored for review, never returned by the API and never logged by\nthis SDK. Refusals: `plan_request_pending_exists` (409), `plan_request_not_needed` (409, already on\nSpecial Free or a paid plan), `plan_request_cooldown` (429 after a denial; never retried, the wait is\n`retry_after_seconds` on the error), `plan_request_too_large` (422)."
         return self._runner.call(
             self._async.request_special_free(
                 use_case=use_case, links=links, idempotency_key=idempotency_key
@@ -773,11 +719,9 @@ class AccountClient:
         )
 
     def plan_requests(self) -> PlanRequestList:
-        "This org's plan requests, newest first (at most 100), as status projections without the use case."
         return self._runner.call(self._async.plan_requests())
 
     def withdraw_plan_request(self, request_id: str) -> PlanRequest:
-        "Withdraw this org's pending plan request. Refusals: `plan_request_not_pending` (409),\n`plan_request_unknown` (404)."
         return self._runner.call(self._async.withdraw_plan_request(request_id))
 
     def iter_usage_records(
@@ -789,12 +733,14 @@ class AccountClient:
         cursor: str | None = None,
         limit: int = 20,
     ) -> Iterator[UsageRecord]:
-        "Yield usage records across cursor pages, preserving the supplied filters."
         return self._runner.iterate(
             self._async.iter_usage_records(
                 since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
             )
         )
+
+
+_copy_method_docs(AccountClient, AsyncAccount)
 
 
 class BillingClient:
@@ -803,11 +749,9 @@ class BillingClient:
         self._async = source
 
     def balance(self) -> Balance:
-        "Wallet position of the caller's org in integer microcents (1 USD = 10^8)."
         return self._runner.call(self._async.balance())
 
     def plans(self) -> PlanCatalog:
-        "price_state is read from Stripe by lookup key (cached 60 s; a failed lookup is not cached).\ncheckout_available is true only when POST /v1/billing/checkout can succeed for that plan:\nconsoles grey out checkout otherwise."
         return self._runner.call(self._async.plans())
 
     def history(
@@ -820,7 +764,6 @@ class BillingClient:
         since: str | None = None,
         until: str | None = None,
     ) -> BillingHistoryPage:
-        "Each item is one append-only ledger entry: grants (weekly included usage, purchases,\npromotions, operator credits), holds and releases, settlements, refunds, clawbacks and\nrestores. `delta_microcents` moves the ledger; `held_delta_microcents` moves held value.\nRefusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail names the parameter)."
         return self._runner.call(
             self._async.history(
                 cursor=cursor, limit=limit, cause=cause, run_id=run_id, since=since, until=until
@@ -830,11 +773,9 @@ class BillingClient:
     def statements(
         self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
     ) -> BillingStatementPage:
-        "One row per month that has ledger entries. Movements are sums of entry deltas by kind:\npurchases (purchased grants), allowance (included grants), credits (promotional and operator grants),\nconversion (legacy carry-over grants), charges (settlements, negative), refunds (Stripe/operator refunds\nand clawbacks), adjustments and expirations. `closing_ledger_microcents` = opening + the month's deltas;\nthe latest closing equals the balance's `ledger_microcents`. `unspent_returned_microcents` is held value\nreturned to available by cancel/failure refunds (it moves held, not the ledger). Usage columns sum the\nmonth's charged usage lines. Refusal: `invalid_limit` (422) when `months` is outside 1..36."
         return self._runner.call(self._async.statements(months=months, cursor=cursor, limit=limit))
 
     def checkout_status(self, checkout_id: str) -> CheckoutAttempt:
-        "The attempt row is recorded before Stripe is called, and its id is the Stripe idempotency key, so a checkout\nthat lost its response stays readable. `state` is `pending` until Stripe answers, then `open`, then `completed`\nor `expired` from the Stripe webhook; `failed` means Stripe refused the session. Credits appear in the balance\nonly from the webhook. Refusals: `invalid_id` (422), `checkout_not_found` (404)."
         return self._runner.call(self._async.checkout_status(checkout_id))
 
     def checkout(
@@ -845,7 +786,6 @@ class BillingClient:
         credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:
-        "Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),\n`pack_id` (a credit pack: `credits.10` $10, `credits.25` $25, `credits.100` $100; priced inline)\nor `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),\n`plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable), `stripe_price_missing` (503, names the lookup key),\n`stripe_checkout_failed` (502, `upstream_kind: stripe`)."
         return self._runner.call(
             self._async.checkout(
                 plan_id=plan_id, pack_id=pack_id, credit=credit, idempotency_key=idempotency_key
@@ -853,37 +793,30 @@ class BillingClient:
         )
 
     def subscription(self) -> Subscription | None:
-        "The org's subscription, or None when it has never had one."
         return self._runner.call(self._async.subscription())
 
     def cancel_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
-        "Requires an org admin or owner in addition to `account:billing:write` (owner decision 2026-11-10; buying\nstays open to any member). An API key or OAuth grant acts with its owning user's current role, read on every\nrequest. Ends the plan at the end of the current period, with no refund; the plan stays active until then. A\n`past_due`, `unpaid` or `paused` subscription ends now. Already ending or already ended: answers the stored state and\nwrites nothing to Stripe. The request takes no body (or `{}`). A refusal before the Stripe write (403, 404, 409)\nleaves the Idempotency-Key unused; a 5xx releases it, so the same key may retry. Refusals:\n`billing_admin_required` (403, not an org admin), `subscription_not_found` (404), `subscription_not_self_serve` (409, no Stripe subscription),\n`subscription_not_cancelable` (409, `incomplete` or `incomplete_expired`), `subscription_binding_conflict` (409),\n`idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),\n`stripe_subscription_cancel_failed` (502, `upstream_status` and Stripe's code as `cause`),\n`config_missing` (503)."
         return self._runner.call(self._async.cancel_subscription(idempotency_key=idempotency_key))
 
     def resume_subscription(self, *, idempotency_key: str | None = None) -> Subscription:
-        "Requires an org admin or owner in addition to `account:billing:write`; an API key acts with its owning user's\ncurrent role. Undoes a pending cancel; the plan renews at period end. The request takes no body (or `{}`).\nA refusal before the Stripe write (403, 404, 409) leaves the Idempotency-Key unused; a 5xx releases it.\nRefusals: `billing_admin_required` (403), `subscription_not_found` (404), `subscription_not_self_serve` (409), `subscription_not_resumable` (409, no\ncancel pending or the subscription already ended), `subscription_binding_conflict` (409),\n`idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),\n`stripe_subscription_resume_failed` (502, `upstream_status` and Stripe's code as `cause`), `config_missing` (503)."
         return self._runner.call(self._async.resume_subscription(idempotency_key=idempotency_key))
 
     def preview_subscription_change(self, plan_id: str) -> SubscriptionChangePreview:
-        "Stripe's invoice preview of the switch `changeSubscriptionPlan` would make: the new plan starts a new monthly\nperiod now and the unused part of the current plan is credited against it. `amount_due_now` is what the\nsaved card is charged now; `credit_applied` is the unused part of the current plan; a credit larger than\nthe new price stays as account credit for later invoices. Writes nothing. Any member with\n`account:billing:read` may read it. Refusals: `plan_unknown` (400), `subscription_not_found` (404),\n`subscription_cancel_pending` (409), `subscription_not_changeable` (409, `past_due`, `unpaid`, `paused` or\n`incomplete`), `subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),\n`subscription_binding_conflict` (409), `stripe_subscription_read_failed` (502),\n`stripe_invoice_preview_failed` (502), `stripe_price_missing` (503), `config_missing` (503)."
         return self._runner.call(self._async.preview_subscription_change(plan_id))
 
     def change_subscription_plan(
         self, plan_id: str, *, idempotency_key: str | None = None
     ) -> Subscription:
-        "Requires an org admin or owner in addition to `account:billing:write`; an API key acts with its owning\nuser's current role. The switch takes effect now, upgrade or downgrade: the new plan starts a new monthly\nperiod now, the unused part of the current plan is credited against the first charge (any excess stays\nas account credit, never refunded), and the saved card is charged the rest. The switch applies only if that\npayment succeeds; otherwise the plan is unchanged. The weekly allowance restarts at the new plan's amount;\nthe unused allowance of the current week is not carried over. Prepaid credit is untouched.\nA refusal before the Stripe write (400, 403, 404, 409) leaves the Idempotency-Key unused; a 5xx releases it,\nso the same key may retry. Refusals: `plan_unknown` (400), `billing_admin_required` (403),\n`subscription_change_payment_failed` (402, the payment was declined; the plan is unchanged and the\ndeclined switch is final: its open invoice is voided, so paying it later applies nothing),\n`subscription_not_found` (404), `subscription_cancel_pending` (409, resume first),\n`subscription_not_changeable` (409, `past_due`, `unpaid`, `paused` or `incomplete`; update the card first),\n`subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),\n`subscription_binding_conflict` (409), `idempotency_in_progress` (409, `Retry-After: 1`),\n`stripe_subscription_read_failed` (502), `stripe_subscription_change_failed` (502, `upstream_status` and\nStripe's code as `cause`), `stripe_price_missing` (503), `config_missing` (503)."
         return self._runner.call(
             self._async.change_subscription_plan(plan_id, idempotency_key=idempotency_key)
         )
 
     def payment_method_session(self, *, idempotency_key: str | None = None) -> PaymentMethodSession:
-        "Requires an org admin or owner in addition to `account:billing:write`. Returns a short-lived Stripe portal URL\nlimited to updating payment methods and viewing invoices (a dedicated portal configuration Core creates on first\nuse and finds again by its metadata `synth_purpose=payment_methods`; the account's default configuration is\nnever used). The portal returns to the console's Billing page. Paying a past-due or unpaid invoice with the new\ncard returns the subscription to `active` through Stripe's webhooks. The request takes no body (or `{}`).\nA refusal before the Stripe call leaves the Idempotency-Key unused; a 5xx releases it. Refusals:\n`billing_admin_required` (403), `billing_customer_not_found` (404, the org has no Stripe customer),\n`portal_configuration_unsafe` (503, Core's tagged configuration allows more than payment methods and invoices),\n`stripe_portal_configuration_read_failed`, `stripe_portal_configuration_create_failed`,\n`stripe_portal_session_failed` (502, `upstream_kind: stripe`), `config_missing` (503)."
         return self._runner.call(
             self._async.payment_method_session(idempotency_key=idempotency_key)
         )
 
     def auto_reload(self) -> AutoReload:
-        "Off by default for every org. When on, a debit that leaves the org's purchased-credit balance (promotional and\nplan credit do not count) below `threshold` charges the saved card `amount` off-session: at most one charge in\nflight, at most `disclosure.limits.daily_count` charges per UTC day and at most\n`disclosure.limits.monthly_ceiling` charged per UTC calendar month. A reload a limit blocks is skipped (one\nemail and the `auto_reload_capped` billing attention until the window ends; auto-reload stays on). Nothing is\ncharged while the org is suspended. The credits are granted when Stripe confirms the payment. Core turns\nauto-reload off and sets `disabled_reason` (open set) when: a charge is declined or the bank asks the customer\nto authenticate (Stripe's code, for example `card_declined`, `authentication_required`); Stripe refuses the\ncharge or gives no answer after its retries (`charge_failed`); a charge is disputed (`dispute`); no card is\nsaved when a reload is due or the card is detached (`card_removed`; older rows say `payment_method_missing`);\nthe org's last admin or owner is removed (`admin_removed`). The admins are emailed. `payment_method_on_file`\nreads the Stripe customer's saved card; `disclosure` is what an admin must be shown before turning it on, with\nthe card a reload would charge now (a card change does not turn it off). Any member with\n`account:billing:read` may read it. Refusals: `stripe_customer_read_failed` (502),\n`stripe_payment_method_read_failed` (502), `config_missing` (503)."
         return self._runner.call(self._async.auto_reload())
 
     def set_auto_reload(
@@ -895,7 +828,6 @@ class BillingClient:
         disclosure_version: str | None = None,
         idempotency_key: str | None = None,
     ) -> AutoReload:
-        "Save auto-reload; the caller must be an org admin or owner.\n\nTurning it off works with an API key. Turning it on, or changing it while on,\nneeds a signed-in browser session, so an API key or OAuth grant is refused\nwith `browser_session_required` (403); enable it in the console.\n`disclosure_version` is the `disclosure.version` from `auto_reload()`."
         return self._runner.call(
             self._async.set_auto_reload(
                 enabled=enabled,
@@ -907,7 +839,6 @@ class BillingClient:
         )
 
     def spend_alerts(self) -> SpendAlerts:
-        "Alerts fire when the org's settled spend in the current UTC month (the charges behind `getUsageSummary`)\nreaches 50, 75, 90 and 100 percent of `monthly_amount`, once per threshold per month. `monthly_amount` is\nnull until the org sets one, and no alert fires then. `last_notified` is the most recent recorded alert,\nor null. No email is sent; this field and the console are the notice.\nAny member with `account:billing:read` may read it."
         return self._runner.call(self._async.spend_alerts())
 
     def set_spend_alerts(
@@ -917,7 +848,6 @@ class BillingClient:
         enabled: bool | None = None,
         idempotency_key: str | None = None,
     ) -> SpendAlerts:
-        "Set the monthly alert amount; None clears it. `enabled` is left unchanged if omitted."
         return self._runner.call(
             self._async.set_spend_alerts(
                 monthly_amount=monthly_amount, enabled=enabled, idempotency_key=idempotency_key
@@ -927,7 +857,6 @@ class BillingClient:
     def set_spend_alerts_request(
         self, request: SetSpendAlertsRequest, *, idempotency_key: str | None = None
     ) -> SpendAlerts:
-        "Apply the canonical request, preserving whether enabled was supplied."
         return self._runner.call(
             self._async.set_spend_alerts_request(request, idempotency_key=idempotency_key)
         )
@@ -942,7 +871,6 @@ class BillingClient:
         since: str | None = None,
         until: str | None = None,
     ) -> Iterator[BillingHistoryEntry]:
-        "Yield billing history across cursor pages, preserving the supplied filters."
         return self._runner.iterate(
             self._async.iter_history(
                 cursor=cursor, limit=limit, cause=cause, run_id=run_id, since=since, until=until
@@ -952,7 +880,9 @@ class BillingClient:
     def iter_statements(
         self, *, months: int | None = None, cursor: str | None = None, limit: int = 20
     ) -> Iterator[BillingStatement]:
-        "Yield billing statements across cursor pages."
         return self._runner.iterate(
             self._async.iter_statements(months=months, cursor=cursor, limit=limit)
         )
+
+
+_copy_method_docs(BillingClient, AsyncBilling)
