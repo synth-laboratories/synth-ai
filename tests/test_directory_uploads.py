@@ -1,13 +1,16 @@
 import asyncio
 import hashlib
 import json
+from base64 import urlsafe_b64encode
+from collections import Counter
+from uuid import UUID
 
 import httpx
 import pytest
 
 from synth_ai import AsyncSynthClient
 from synth_ai._directory_source import DirectorySnapshot
-from synth_ai.errors import DirectoryUploadCancelledError, DirectoryUploadError
+from synth_ai.errors import DataIntegrityError, DirectoryUploadCancelledError, DirectoryUploadError
 
 
 def manifest(contract, name, content):
@@ -93,6 +96,146 @@ async def test_relative_binary_upload_snapshot_and_stable_per_file_keys(contract
     assert first == second
     assert uploaded == ["a.md", "nested/policy.bin"]
     assert len(set(keys.values())) == 2
+
+
+@pytest.mark.parametrize(
+    "fault", ["lost-finalize-reply", "missing-object", "identity-mismatch", "concurrent"]
+)
+async def test_directory_replay_refreshes_original_upload_before_put(contract, tmp_path, fault):
+    contents = {"a.bin": b"first"}
+    if fault != "concurrent":
+        contents.update({"b.bin": b"\x00\xff", "c.bin": b"last"})
+    files = {}
+    ids = {}
+    for index, (name, content) in enumerate(contents.items(), 1):
+        (tmp_path / name).write_bytes(content)
+        fragment = urlsafe_b64encode(UUID(int=index).bytes).decode().rstrip("=")
+        ids[name] = "upl_" + fragment
+        files[name] = {
+            **manifest(contract, name, content),
+            "file_id": "fil_" + fragment,
+            "revision_id": "rev_" + fragment,
+            "created_at": "2026-11-18T10:59:21.987464Z",
+        }
+    names = {upload_id: name for name, upload_id in ids.items()}
+    prepares, objects, commits = {}, set(), set()
+    put_attempts, reads = Counter(), Counter()
+    inject_fault = True
+    first_put_waiting = asyncio.Event()
+    second_put_entered = asyncio.Event()
+
+    def upload(name, *, committed, fresh_grant=False):
+        body = {
+            "upload_id": ids[name],
+            "state": "committed" if committed else "pending",
+            "file": files[name],
+        }
+        if not committed:
+            body["put"] = {
+                "url": f"https://storage.example.test/{name}?fresh={int(fresh_grant)}",
+                "headers": {"if-none-match": "*"},
+                "expires_at": "2099-01-01T00:00:00Z",
+            }
+        return body
+
+    async def handle(request):
+        nonlocal inject_fault
+        if request.method == "PUT":
+            name = request.url.path.removeprefix("/")
+            put_attempts[name] += 1
+            assert request.content == contents[name]
+            assert request.headers["If-None-Match"] == "*"
+            if name == "b.bin" and fault == "missing-object" and inject_fault:
+                inject_fault = False
+                raise httpx.ConnectError("transfer did not reach storage", request=request)
+            if name == "a.bin" and fault == "concurrent":
+                if put_attempts[name] == 1:
+                    first_put_waiting.set()
+                    await second_put_entered.wait()
+                else:
+                    second_put_entered.set()
+            if name in objects:
+                return httpx.Response(412)
+            if reads[name]:
+                assert request.url.params["fresh"] == "1"
+            objects.add(name)
+            return httpx.Response(200)
+        if request.method == "GET":
+            name = names[request.url.path.rsplit("/", 1)[1]]
+            reads[name] += 1
+            current = upload(name, committed=name in commits, fresh_grant=True)
+            if fault == "identity-mismatch":
+                current["file"] = files["c.bin"]
+            return httpx.Response(200, json=current)
+        if request.url.path == "/v1/uploads":
+            name = json.loads(request.content)["name"]
+            key = request.headers["Idempotency-Key"]
+            replay = name in prepares
+            assert prepares.setdefault(name, key) == key
+            # Core replays the original 201, including its pending state and first grant.
+            headers = {"Idempotent-Replayed": "true"} if replay else {}
+            receipt = upload(name, committed=False)
+            receipt["file"] = dict(files[name], created_at="2026-11-18T10:59:21.987464269Z")
+            return httpx.Response(201, headers=headers, json=receipt)
+        name = names[request.url.path.split("/")[-2]]
+        assert request.headers["Idempotency-Key"] == prepares[name]
+        assert name in objects
+        commits.add(name)
+        if (
+            name == "b.bin"
+            and fault in {"lost-finalize-reply", "identity-mismatch"}
+            and inject_fault
+        ):
+            inject_fault = False
+            return httpx.Response(
+                409,
+                json={
+                    "code": "fixture_lost_finalize_reply",
+                    "detail": "Owned post-commit response fault",
+                    "status": 409,
+                },
+            )
+        return httpx.Response(200, json=upload(name, committed=True))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://api.example.test", http_client=http, retries=0
+        ) as client:
+
+            async def upload_directory():
+                return await client.swarms.upload_directory(str(tmp_path), idempotency_key="batch")
+
+            if fault == "concurrent":
+                async with asyncio.timeout(3), asyncio.TaskGroup() as tasks:
+                    first = tasks.create_task(upload_directory())
+                    await first_put_waiting.wait()
+                    second = tasks.create_task(upload_directory())
+                assert first.result() == second.result()
+                assert [file.model_dump(mode="json") for file in first.result()] == list(
+                    files.values()
+                )
+                assert put_attempts == {"a.bin": 2}
+                assert commits == objects == set(contents)
+                return
+
+            with pytest.raises(DirectoryUploadError) as caught:
+                await upload_directory()
+            error = caught.value
+            assert [file.file_id for file in error.completed_files] == [files["a.bin"]["file_id"]]
+            assert error.name == "b.bin"
+            assert error.file_idempotency_key == prepares["b.bin"]
+            if fault == "identity-mismatch":
+                puts_before_replay = put_attempts.copy()
+                with pytest.raises(DirectoryUploadError) as mismatch:
+                    await upload_directory()
+                assert isinstance(mismatch.value.__cause__, DataIntegrityError)
+                assert puts_before_replay == put_attempts
+                return
+            recovered = await upload_directory()
+    assert [file.model_dump(mode="json") for file in recovered] == list(files.values())
+    assert put_attempts == {"a.bin": 1, "b.bin": 1 + (fault == "missing-object"), "c.bin": 1}
+    assert reads == {"a.bin": 1, "b.bin": 1}
+    assert commits == objects == set(contents)
 
 
 async def test_directory_failure_retains_committed_files_and_identity(contract, tmp_path):

@@ -47,6 +47,12 @@ def retryable_response(response: httpx.Response) -> bool:
     return problem.status == response.status_code and problem.retryable is True
 
 
+@dataclass(frozen=True, slots=True)
+class OperationResult:
+    value: BaseModel | bytes | None
+    replayed: bool
+
+
 @dataclass
 class _Progress:
     attempts: int = 0
@@ -79,7 +85,7 @@ class OperationExecutor:
         query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
-    ) -> BaseModel | bytes | None:
+    ) -> OperationResult:
         started = time.monotonic()
         progress = _Progress()
         try:
@@ -131,7 +137,7 @@ class OperationExecutor:
         idempotency_key: str | None = None,
         progress: _Progress,
         started: float,
-    ) -> BaseModel | bytes | None:
+    ) -> OperationResult:
         op = OPERATIONS[operation_id]
         route = op["path"]
         if set(path or {}) != set(op["path_params"]):
@@ -207,13 +213,15 @@ class OperationExecutor:
             await asyncio.sleep(delay)
         assert response is not None  # RetryPolicy guarantees at least one attempt.
         raise_for_response(response)
+        replayed = response.headers.get("Idempotent-Replayed") == "true"
         if op["binary"]:
-            return response.content
+            return OperationResult(response.content, replayed)
         if op["response_model"] is not None:
             if op["nullable_response"] and response.content.strip() == b"null":
-                return None
+                return OperationResult(None, replayed)
             try:
-                return MODELS[op["response_model"]].model_validate_json(response.content)
+                value = MODELS[op["response_model"]].model_validate_json(response.content)
+                return OperationResult(value, replayed)
             except ValidationError as error:
                 raise ResponseContractError(
                     local_problem(
@@ -224,4 +232,4 @@ class OperationExecutor:
                     request_id=response.headers.get("x-request-id") or headers["X-Request-Id"],
                     idempotency_key=headers.get("Idempotency-Key"),
                 ) from error
-        return None
+        return OperationResult(None, replayed)
