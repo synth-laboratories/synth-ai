@@ -175,6 +175,10 @@ class JourneyContext:
     message_fixture: Optional[Path] = None
     message_recording_sha256: Optional[str] = None
     message_fixture_sha256: Optional[str] = None
+    # Completes a hosted Stripe TEST checkout (URL in, None or a typed cause out).
+    # Hosted staging wires stripe_checkout.complete_test_checkout; a slot leaves it
+    # unset and buy_credits stays Inconclusive.
+    complete_checkout: Optional[Callable[[str], Optional[str]]] = None
 
 
 class Secret(StrEnum):
@@ -258,6 +262,16 @@ def launch_body(message: str, **extra: JsonValue) -> dict[str, JsonValue]:
 # --- J2 money --------------------------------------------------------------
 
 
+CHECKOUT_COMPLETION_WAIT_SECONDS = 60.0
+CHECKOUT_POLL_SECONDS = 2.0
+TERMINAL_CHECKOUT = frozenset({"completed", "failed", "expired"})
+
+
+def checkout_state(outcome: Outcome) -> Optional[str]:
+    state = outcome.value.get("state") if isinstance(outcome.value, dict) else None
+    return state if isinstance(state, str) else None
+
+
 def buy_credits(context: JourneyContext) -> StepReceipt:
     step = Step.BUY_CREDITS_TEST
     before = context.surface.call(Call("getBalance"))
@@ -266,18 +280,30 @@ def buy_credits(context: JourneyContext) -> StepReceipt:
     )
     if not created.accepted or not isinstance(created.value, dict):
         return receipt(context, step, Verdict.FAIL, "checkout_not_created", before, created)
-    status = context.surface.call(
-        Call("getCheckout", path={"id": str(created.value["checkout_id"])})
-    )
-    state = status.value.get("state") if isinstance(status.value, dict) else None
+    checkout = Call("getCheckout", path={"id": str(created.value["checkout_id"])})
+    url = created.value.get("url")
+    if context.complete_checkout is None or not isinstance(url, str):
+        status = context.surface.call(checkout)
+        state = checkout_state(status)
+        cause = "checkout_not_completed:stripe_test_completion_unavailable"
+    else:
+        failure = context.complete_checkout(url)
+        # The webhook lands after Stripe's redirect; poll a bounded window for it.
+        deadline = time.monotonic() + CHECKOUT_COMPLETION_WAIT_SECONDS
+        while True:
+            status = context.surface.call(checkout)
+            state = checkout_state(status)
+            if failure is not None or state in TERMINAL_CHECKOUT or time.monotonic() >= deadline:
+                break
+            time.sleep(CHECKOUT_POLL_SECONDS)
+        cause = "checkout_not_completed:" + (failure or "webhook_not_observed")
     if state != "completed":
-        # Completion needs Stripe test mode to deliver checkout.session.completed
-        # to this Core. The slot has no Stripe stand-in; never assume credit.
+        # Never assume credit: completion is Core's webhook-confirmed state.
         return receipt(
             context,
             step,
             Verdict.INCONCLUSIVE,
-            "checkout_not_completed:stripe_test_completion_unavailable",
+            cause,
             before,
             created,
             status,

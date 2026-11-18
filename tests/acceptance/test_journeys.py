@@ -738,3 +738,79 @@ def test_session_only_key_routes_without_a_session_stay_unproven(tmp_path):
     )
     rows = {row.get("operation"): row for row in result.evidence}
     assert rows["revokeApiKey"]["result"] == "unproven:uniform_403"
+
+
+def checkout_responder(contract, completed):
+    """Core billing fixture whose checkout completes once the hook has paid it."""
+    url = "https://checkout.stripe.com/c/pay/cs_test_fixture"
+
+    def responder(method, path, _):
+        if path.startswith("/v1/billing/balance"):
+            balance = example(contract, "/v1/billing/balance")
+            amount = "310.00" if completed else "300.00"
+            balance["ledger"] = {"amount": amount, "currency": "USD"}
+            return 200, balance, {}
+        if method == "POST" and path.startswith("/v1/billing/checkout"):
+            created = example(contract, "/v1/billing/checkout", "post", "201")
+            created.update(session_id="cs_test_fixture", url=url)
+            return 201, created, {}
+        if path.startswith("/v1/billing/checkouts/"):
+            view = example(contract, "/v1/billing/checkouts/{id}")
+            view.update(kind="credits", url=url, state="completed" if completed else "open")
+            view["amount"] = {"amount": "10.00", "currency": "USD"}
+            return 200, view, {}
+        return 404, problem("not_found", 404), {}
+
+    return responder, url
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_buy_credits_completes_stripe_test_checkout_through_hook(contract, tmp_path, surface):
+    completed: list[str] = []
+
+    def pay(url):
+        completed.append(url)
+        return None
+
+    responder, url = checkout_responder(contract, completed)
+    result, requests = run(
+        surface, responder, tmp_path, Step.BUY_CREDITS_TEST, complete_checkout=pay
+    )
+    assert completed == [url]
+    assert result.verdict == Verdict.PASS, result
+    paths = [(method, path.split("?")[0]) for method, path, _ in requests]
+    assert paths.index(("POST", "/v1/billing/checkout")) < paths.index(
+        ("GET", "/v1/billing/checkouts/chk_AAAAAAAAQACAAAAAAAAAAQ")
+    )
+
+
+def test_buy_credits_without_hook_stays_inconclusive(contract, tmp_path):
+    responder, _ = checkout_responder(contract, [])
+    result, _ = run(SurfaceName.SDK, responder, tmp_path, Step.BUY_CREDITS_TEST)
+    assert result.verdict == Verdict.INCONCLUSIVE
+    assert result.cause == "checkout_not_completed:stripe_test_completion_unavailable"
+
+
+def test_buy_credits_typed_hook_failure_is_inconclusive(contract, tmp_path):
+    responder, _ = checkout_responder(contract, [])
+    result, _ = run(
+        SurfaceName.SDK,
+        responder,
+        tmp_path,
+        Step.BUY_CREDITS_TEST,
+        complete_checkout=lambda _url: "stripe_test_checkout_not_redirected",
+    )
+    assert result.verdict == Verdict.INCONCLUSIVE
+    assert result.cause == "checkout_not_completed:stripe_test_checkout_not_redirected"
+
+
+def test_stripe_completer_refuses_live_or_foreign_pages():
+    from scripts.acceptance.stripe_checkout import complete_test_checkout, test_mode_url
+
+    assert test_mode_url("https://checkout.stripe.com/c/pay/cs_test_abc#frag")
+    for url in (
+        "https://checkout.stripe.com/c/pay/cs_live_abc",
+        "http://checkout.stripe.com/c/pay/cs_test_abc",
+        "https://evil.example/c/pay/cs_test_abc",
+    ):
+        assert complete_test_checkout(url) == "stripe_checkout_not_test_mode"

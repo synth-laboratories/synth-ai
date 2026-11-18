@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 from synth_ai.environments import Environment, EnvironmentProfile
 
 from . import journey_main
+from .stripe_checkout import complete_test_checkout
 from .surfaces import SurfaceName
 
 HOSTED = (Environment.STAGING.value, Environment.PROD.value)
@@ -54,6 +55,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.error("hosted journeys require an https origin")
     for name in ("message_fixture", "message_recording_sha256", "message_fixture_sha256"):
         setattr(options, name, None)
+    # Stripe test mode exists only on staging; prod checkouts are never completed.
+    staging = options.environment == Environment.STAGING.value
+    options.complete_checkout = complete_test_checkout if staging else None
     return journey_main.execute(
         options,
         profile.api_base_url,

@@ -255,6 +255,7 @@ def run_all(
             message_fixture=getattr(options, "message_fixture", None),
             message_recording_sha256=getattr(options, "message_recording_sha256", None),
             message_fixture_sha256=getattr(options, "message_fixture_sha256", None),
+            complete_checkout=getattr(options, "complete_checkout", None),
         )
         for step in steps:
             try:
