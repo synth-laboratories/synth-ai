@@ -12,6 +12,15 @@ Use the version in `pyproject.toml`; do not create its release tag before approv
    --core-revision <frozen-commit>`; do not promote a mismatched cohort.
 2. Run the complete CI matrix, generation checks, wheel and sdist builds,
    `twine check`, package-size checks and fresh-venv install smoke.
+   One maintained local entry point reproduces steps 1–2 for one exact artifact and
+   writes a receipt on pass or failure: `uv run --extra mcp python
+   scripts/qualify_release.py --core-checkout <core> --core-revision <frozen-commit>
+   --out <new dir> [--wheel <candidate.whl> --expect-sha256 <hex>]
+   [--sdk-checkout <source at the wheel's commit>]`. A substituted wheel, stale
+   generated code or a mismatched contract each fail at their own step. The
+   release test set's wall time is recorded against the 120 s cap (`over_cap`; the
+   0.41.0 candidate takes about 180 s). A publisher must upload bytes whose SHA-256
+   equals the receipt's `artifact.sha256`; the tag workflow rebuilds, so compare.
 3. Install the exact wheel in a fresh venv with `uv pip install --no-cache`; verify
    `RunEvent.model_fields["observed_at"].annotation == str | None`.
    With authorized credentials and spend, run `scripts/smoke.py --execute --output
