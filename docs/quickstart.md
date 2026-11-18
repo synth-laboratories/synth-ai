@@ -33,6 +33,30 @@ with SynthClient() as client:
 `launch()` returns at once; `wait(run_id)`, `pause(run_id)` and `resume(run_id)`
 steer it. `AsyncSynthClient` has the same methods with `await`.
 
+### Send a message during a run
+
+Messaging requires the run's admitted manager queue. A run without that
+interface refuses sends with `RunNotAcceptingMessagesError`; history reports
+`messaging_unavailable`. An accepted message may still be queued.
+
+```python
+from synth_ai import SynthClient
+from synth_ai.models import MessageKind
+
+with SynthClient() as client:
+    run = client.swarms.launch("Review the task", budget="2.00")
+    message = client.swarms.send_message(
+        run.run_id, "Which approach did you choose?",
+        kind=MessageKind.QUESTION, idempotency_key="question-1",
+    )
+    reply = client.swarms.wait_for_reply(run.run_id, message.message_id, timeout=60)
+    print(reply.body)
+```
+
+`wait_for_reply` reads history and then follows run events. Its local timeout
+leaves the message and run unchanged. A retained body is `BodyUnavailable` with
+reason `retention`.
+
 ## CLI
 
 ```sh
@@ -45,6 +69,8 @@ synth result RUN            # the answer text; --json prints the RunResult
 synth outputs RUN
 synth download RUN -o results/
 synth usage RUN
+synth message RUN "Which approach did you choose?" --kind question --idempotency-key question-1
+synth messages RUN --follow
 ```
 
 `synth run --wait` prints the run ID, the final state and the answer on stdout,
@@ -70,3 +96,6 @@ Then the agent calls, in order: `swarms_profiles_list`, `swarms_upload_file`
 endpoint lists the same tools; see [mcp.md](mcp.md) and [tools](mcp-tools.md).
 
 Errors on every surface use one set of codes: see [errors.md](errors.md).
+
+For messaging, call `swarms_run_message_send` with `run_id`, `body: {kind, text}`
+and `idempotency_key`, then `swarms_run_messages` for that run's visible history.

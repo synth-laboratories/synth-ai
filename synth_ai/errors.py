@@ -100,6 +100,18 @@ class ConflictError(SwarmsAPIError):
     pass
 
 
+class ContinueFromNotFoundError(NotFoundError):
+    """The parent run is absent or inaccessible in the caller's organization."""
+
+
+class ContinueFromNotTerminalError(ConflictError):
+    """The selected parent has not reached a terminal state."""
+
+
+class ContinueFromInputsUnavailableError(ConflictError):
+    """The parent's required retained input references are unavailable."""
+
+
 class LimitsRevisionConflictError(ConflictError):
     @property
     def current_revision(self) -> int | None:
@@ -129,6 +141,26 @@ class RateLimitedError(SwarmsAPIError):
 
 class UpstreamUnavailableError(SwarmsAPIError):
     pass
+
+
+class MessageTooLargeError(InvalidRequestError):
+    """The UTF-8 message body exceeds the public message limit."""
+
+
+class RunMessageRateLimitedError(RateLimitedError):
+    """The run's send allowance is exhausted; the Problem owns retryability."""
+
+
+class RunNotAcceptingMessagesError(ConflictError):
+    """The run cannot currently accept a customer message."""
+
+
+class RunMessageQueueFullError(ConflictError):
+    """The bounded customer queue has no capacity."""
+
+
+class MessagingUnavailableError(UpstreamUnavailableError):
+    """The run has no admitted customer messaging interface."""
 
 
 class ServerError(SwarmsAPIError):
@@ -295,6 +327,26 @@ class RunObservationError(SynthError):
         self.run_id = snapshot.run_id if snapshot is not None else run_id
 
 
+class MessageReplyTimeoutError(RunObservationError):
+    """A local observation deadline; the server message remains unchanged."""
+
+    code = "message_reply_timeout"
+
+    def __init__(self, *, run_id: str, message_id: str) -> None:
+        super().__init__("Message reply was not observed before the deadline", run_id=run_id)
+        self.message_id = message_id
+
+
+class MessageReplyUnavailableError(RunObservationError):
+    """The feed reached finality without a correlated reply."""
+
+    code = "message_reply_unavailable"
+
+    def __init__(self, *, run_id: str, message_id: str) -> None:
+        super().__init__("Run closed without an observed message reply", run_id=run_id)
+        self.message_id = message_id
+
+
 class RunFailedError(RunObservationError):
     code = "run_failed"
 
@@ -333,6 +385,14 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "continue_from_not_found": ContinueFromNotFoundError,
+    "continue_from_not_terminal": ContinueFromNotTerminalError,
+    "continue_from_inputs_unavailable": ContinueFromInputsUnavailableError,
+    "message_too_large": MessageTooLargeError,
+    "run_message_rate_limited": RunMessageRateLimitedError,
+    "run_not_accepting_messages": RunNotAcceptingMessagesError,
+    "run_message_queue_full": RunMessageQueueFullError,
+    "messaging_unavailable": MessagingUnavailableError,
     "limits_revision_conflict": LimitsRevisionConflictError,
     "limit_above_ceiling": LimitAboveCeilingError,
     "limit_still_reached": LimitStillReachedError,

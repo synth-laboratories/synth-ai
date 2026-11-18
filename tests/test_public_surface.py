@@ -9,17 +9,19 @@ from synth_ai.mcp.tools import TOOLS
 
 
 async def test_swarms_only_public_surface(contract):
-    assert (
-        sum(
-            "operationId" in op
-            for path in contract["paths"].values()
-            for op in path.values()
-            if isinstance(op, dict)
-        )
-        == 75
-    )
-    assert len(OPERATIONS) == 62
-    assert len(TOOLS) == 62
+    # Counts come from the pinned contract, never a hardcoded number: every
+    # implemented /v1 operation is one SDK operation and exactly one MCP tool.
+    v1_operations = [
+        op["operationId"]
+        for path, item in contract["paths"].items()
+        if path.startswith("/v1/")
+        for op in item.values()
+        if isinstance(op, dict) and op.get("x-synth-status") == "implemented"
+    ]
+    assert len(v1_operations) == len(set(v1_operations))
+    assert set(OPERATIONS) == set(v1_operations)
+    assert len(TOOLS) == len(OPERATIONS)
+    assert sorted(tool["operationId"] for tool in TOOLS) == sorted(OPERATIONS)
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
     assert all("inference" not in op["path"] for op in OPERATIONS.values())

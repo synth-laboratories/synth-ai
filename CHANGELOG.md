@@ -4,6 +4,21 @@
 
 Changes here describe the new Swarms product. Historical releases remain in Git history.
 
+- Contract 1.39.0 (Core e9dc3a36, introduced at 1dfeed39): run messages
+  (SYN-5745) and `continue_from` (SYN-5748).
+  - SDK: `swarms.send_message`, `messages`/`iter_messages`, `message`,
+    `follow_messages` and `wait_for_reply` (a local timeout never cancels the
+    message or the run). `follow()` yields typed `run.message.*` events.
+    `MessageKind`, `ManagerMessageState` and `MessageDisposition` are generated
+    StrEnums; a discarded body is `BodyUnavailable(reason)`.
+  - Typed refusals: `message_too_large`, `run_message_rate_limited` (Retry-After
+    only when retryable), `run_not_accepting_messages`, `run_message_queue_full`,
+    `messaging_unavailable`, `continue_from_not_found`,
+    `continue_from_not_terminal` and `continue_from_inputs_unavailable`.
+  - CLI: `synth message RUN TEXT [--kind ...]`, `synth messages RUN [--follow]`,
+    `synth run --continue-from RUN`. MCP: `swarms_run_message_send`,
+    `swarms_run_messages`, `swarms_run_message`, and `continue_from` on
+    `swarms_run_launch`. `RunLineage` appears on the result and report.
 - Contracts 1.37.0 and 1.38.0 (Core 033ca45a): `RunResult` now carries `run_id`,
   `status` (the terminal outcome: `completed`, `partial`, `failed` or
   `cancelled`) and `accounting` (the final ledger-backed `RunCharge`, always

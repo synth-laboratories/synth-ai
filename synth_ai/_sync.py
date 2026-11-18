@@ -28,6 +28,7 @@ from ._generated.models import (
     LaunchRequest,
     LimitList,
     McpOutputContent,
+    MessageKind,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
@@ -51,6 +52,8 @@ from ._generated.models import (
     RunLabels,
     RunLimitsProgress,
     RunLimitUpdate,
+    RunMessage,
+    RunMessagePage,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -74,6 +77,7 @@ from ._generated.models import (
     UsageRecordPage,
     UsageSummary,
 )
+from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT
 from ._protocol import CompletionMilestone
 from ._requests import DomicileRequirement
 from ._stream import StreamCheckpoint
@@ -86,6 +90,49 @@ class SwarmsClient:
     def __init__(self, runner: Runner, source: AsyncSwarms) -> None:
         self._runner = runner
         self._async = source
+
+    def send_message(
+        self,
+        run_id: str,
+        text: str,
+        *,
+        kind: MessageKind = MessageKind.GUIDANCE,
+        idempotency_key: str,
+    ) -> RunMessage:
+        "Send to the admitted customer thread; see docs/protocols.md.\n\nAcceptance never implies delivery. Retain the key after an uncertain\noutcome and reconcile the message before sending another mutation."
+        return self._runner.call(
+            self._async.send_message(run_id, text, kind=kind, idempotency_key=idempotency_key)
+        )
+
+    def messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> RunMessagePage:
+        "Read customer-visible history, preserving typed unavailability."
+        return self._runner.call(self._async.messages(run_id, cursor=cursor, limit=limit))
+
+    def iter_messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 100
+    ) -> Iterator[RunMessage]:
+        "Traverse message pages without prefetch; see docs/protocols.md."
+        return self._runner.iterate(self._async.iter_messages(run_id, cursor=cursor, limit=limit))
+
+    def message(self, run_id: str, message_id: str) -> RunMessage:
+        "Read one message; a retained body is typed BodyUnavailable."
+        return self._runner.call(self._async.message(run_id, message_id))
+
+    def follow_messages(self, run_id: str) -> Iterator[RunMessage]:
+        "Read history, then message changes from one feed; see docs/protocols.md.\n\nOpen the feed before reading history so a post during the initial read\nremains observable. Events contain metadata; bodies stay on message reads."
+        return self._runner.iterate(self._async.follow_messages(run_id))
+
+    def wait_for_reply(
+        self,
+        run_id: str,
+        message_id: str,
+        *,
+        timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
+    ) -> RunMessage:
+        "Wait for a correlated posted reply; never cancel or mutate the message.\n\nReturns the manager or actor post whose reply_to_message_id names the\noriginal message. A retained body remains BodyUnavailable(retention).\nSee docs/protocols.md."
+        return self._runner.call(self._async.wait_for_reply(run_id, message_id, timeout=timeout))
 
     def prepare_launch(
         self,
@@ -107,6 +154,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
     ) -> LaunchRequest:
         "Validate a launch before uploads; see docs/protocols.md."
         return self._async.prepare_launch(
@@ -127,6 +175,7 @@ class SwarmsClient:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
 
     def launch(
@@ -149,6 +198,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run with a maximum charge in USD and return its acknowledgement.\n\nThe budget must be a decimal string or Decimal. Retain an explicit\nidempotency_key for uncertain retries. An acknowledgement does not prove\nexecution, accounting or cleanup has finished; use wait and report."
@@ -171,6 +221,7 @@ class SwarmsClient:
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
                 optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )
@@ -207,6 +258,7 @@ class SwarmsClient:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         "Launch a run, then wait for the selected completion milestone.\n\nBudget is a maximum charge in USD; timeout and poll_interval are seconds.\nA local wait timeout does not cancel the server run. Set raise_on_failure\nto raise on a failed finished run."
@@ -233,6 +285,7 @@ class SwarmsClient:
                 role_assignments=role_assignments,
                 launch_menu_revision=launch_menu_revision,
                 optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )

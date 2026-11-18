@@ -90,6 +90,15 @@ def field_name(name: str) -> str:
     )
 
 
+def named_string_enums(schemas: Mapping[str, JSONObject]) -> dict[str, list[str]]:
+    """Preserve canonical enum names instead of reducing them to literals."""
+    return {
+        name: schema.strings("enum")
+        for name, schema in schemas.items()
+        if schema.get("type") == "string" and "enum" in schema
+    }
+
+
 def constraint_expression(schema: JSONObject, value: str) -> str:
     """Compile supported refinements against already parsed, typed model fields.
 
@@ -105,6 +114,8 @@ def constraint_expression(schema: JSONObject, value: str) -> str:
         "properties",
         "required",
         "const",
+        "enum",
+        "not",
         "pattern",
         "type",
         "minItems",
@@ -121,6 +132,8 @@ def constraint_expression(schema: JSONObject, value: str) -> str:
         terms.append(f"isinstance({value}, {reference})")
     for part in schema.object_array("allOf", optional=True):
         terms.append(constraint_expression(part, value))
+    if "not" in schema:
+        terms.append(f"not {constraint_expression(schema.object('not'), value)}")
     if "if" in schema:
         condition = constraint_expression(schema.object("if"), value)
         accepted = constraint_expression(schema.object("then", optional=True), value)
@@ -138,6 +151,8 @@ def constraint_expression(schema: JSONObject, value: str) -> str:
         # Singletons compare by identity: `x == True` also accepts 1 and fails ruff E712.
         operator = "is" if const is None or isinstance(const, bool) else "=="
         terms.append(f"{value} {operator} {const!r}")
+    if "enum" in schema:
+        terms.append(f"{value} in {tuple(schema.strings('enum'))!r}")
     if "pattern" in schema:
         terms.append(f"re.search({schema.text('pattern')!r}, {value}) is not None")
     if "type" in schema:
@@ -427,12 +442,18 @@ def generate() -> dict[Path, str]:
         schemas[name] = lift(schemas[name], name)
     schemas = select_sdk_schemas(schemas, sdk_model_roots(ops))
     enums = {
-        "RunState": schemas["RunSnapshot"].object("properties").object("state").strings("examples")
+        **named_string_enums(schemas),
+        "RunState": schemas["RunSnapshot"].object("properties").object("state").strings("examples"),
     }
 
     def annotation(s: JSONObject, name: str = "") -> str:
         if "$ref" in s:
-            return s.text("$ref").split("/")[-1]
+            reference = s.text("$ref").split("/")[-1]
+            if reference in enums:
+                return (
+                    "Annotated[" + reference + ", BeforeValidator(enum_value(" + reference + "))]"
+                )
+            return reference
         refinements = s.object_array("allOf", optional=True)
         if refinements and "$ref" in refinements[0]:
             # A referenced model narrowed by const properties keeps the model's type.
@@ -548,6 +569,8 @@ def generate() -> dict[Path, str]:
     modelnames = []
     for n in ordered:
         s = schemas[n]
+        if n in enums:
+            continue  # Named enum classes are emitted with the other StrEnums.
         if s.get("type") == "object" and "properties" in s:
             modelnames.append(n)
             lines += [
@@ -805,7 +828,7 @@ OPERATIONS: dict[str, Operation] = """
                     "ruff",
                     "check",
                     "--select",
-                    "I,RUF036",
+                    "I,RUF036,E713",
                     "--fix",
                     "--stdin-filename",
                     str(path),

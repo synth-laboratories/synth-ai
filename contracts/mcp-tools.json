@@ -320,6 +320,14 @@
           "body": {
             "additionalProperties": false,
             "properties": {
+              "continue_from": {
+                "description": "Seed a fresh run (own budget, limits, sandboxes and holds) from a terminal run in this organization. Refused before any run or hold with 404 continue_from_not_found (also for another organization's run), 409 continue_from_not_terminal or 409 continue_from_inputs_unavailable. An admitted continuation records RunLineage, shown on the result and the report; the parent is never resumed.",
+                "examples": [
+                  "run_AAAAAAAAAAAAAAAAAAAAAA"
+                ],
+                "pattern": "^run_[A-Za-z0-9_-]{22}$",
+                "type": "string"
+              },
               "domicile_requirement": {
                 "description": "Frozen sandbox domicile. Omit for the environment default; production defaults to US only.",
                 "enum": [
@@ -2541,6 +2549,121 @@
       },
       "name": "swarms_run_tasks",
       "operationId": "listRunTasks",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Send a message to the run.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "guidance",
+                  "directive",
+                  "question"
+                ],
+                "type": "string"
+              },
+              "text": {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string",
+                "x-synth-max-bytes": 8192,
+                "x-synth-no-nul": true
+              }
+            },
+            "required": [
+              "kind",
+              "text"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_message_send",
+      "operationId": "sendRunMessage",
+      "scope": "swarms:control"
+    },
+    {
+      "access": "scoped",
+      "description": "Read the customer-visible conversation.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_messages",
+      "operationId": "listRunMessages",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Read a customer-visible message.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "message_id": {
+            "pattern": "^msg_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          },
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "message_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_message",
+      "operationId": "getRunMessage",
       "scope": "swarms:read"
     }
   ]

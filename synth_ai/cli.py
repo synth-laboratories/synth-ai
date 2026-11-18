@@ -22,6 +22,7 @@ from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
     InputFile,
     LaunchRequest,
+    MessageKind,
     OptimizerPin,
     OptimizerRequest,
     OwnerResourceRequest,
@@ -78,6 +79,8 @@ COMMANDS: dict[str, str] = {
     "status": "Run state",
     "wait": "Wait for a run to finish",
     "logs": "Run events",
+    "message": "Send a run message",
+    "messages": "Run messages",
     "tasks": "Run tasks",
     "ls": "Recent runs",
     "pause": "Pause a run",
@@ -248,6 +251,7 @@ def parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Swarms repairs per rejected task, 0..32 (needs swarms_v2 pin)",
     )
+    run.add_argument("--continue-from", metavar="RUN")
     run.add_argument("--research-task")
     run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
@@ -300,6 +304,18 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--cursor")
     logs.add_argument("--limit", type=int, default=100)
     logs.add_argument("--cursor")
+    message = add("message")
+    message.add_argument("run_id", metavar="RUN")
+    message.add_argument("text", metavar="TEXT")
+    message.add_argument("--kind", choices=tuple(MessageKind), default=MessageKind.GUIDANCE)
+    message.add_argument("--idempotency-key")
+    messages = add("messages")
+    messages.add_argument("run_id", metavar="RUN")
+    messages.add_argument("--cursor")
+    messages.add_argument("--limit", type=int, default=20)
+    message_mode = messages.add_mutually_exclusive_group()
+    message_mode.add_argument("--follow", action="store_true")
+    message_mode.add_argument("--message", dest="message_id", metavar="MESSAGE")
     ls = add("ls")
     ls.add_argument("--limit", type=int, default=20)
     ls.add_argument("--cursor")
@@ -511,6 +527,7 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                     max_tasks=args.max_tasks,
                     max_repairs_per_task=args.max_repairs_per_task,
                 ),
+                continue_from=args.continue_from,
             )
             uploaded = [
                 await swarms.upload_file(
@@ -575,6 +592,27 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "tasks":
             page = await swarms.tasks(args.run_id, cursor=args.cursor, limit=args.limit)
             out.record(page, view.tasks)
+        elif command == "message":
+            out.record(
+                await swarms.send_message(
+                    args.run_id,
+                    args.text,
+                    kind=MessageKind(args.kind),
+                    idempotency_key=args.idempotency_key or mutation_key("message", args.run_id),
+                ),
+                view.message,
+            )
+        elif command == "messages":
+            if args.message_id is not None:
+                out.record(await swarms.message(args.run_id, args.message_id), view.message)
+            elif args.follow:
+                async for item in swarms.follow_messages(args.run_id):
+                    out.record(item, view.message)
+            else:
+                out.record(
+                    await swarms.messages(args.run_id, cursor=args.cursor, limit=args.limit),
+                    view.messages,
+                )
         elif command in {"ls", "runs"}:
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)

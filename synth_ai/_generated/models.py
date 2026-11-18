@@ -134,9 +134,31 @@ class LimitRowSource(StrEnum):
     OVERRIDE = "override"
 
 
+class ManagerMessageState(StrEnum):
+    ACCEPTED = "accepted"
+    QUEUED = "queued"
+    DELIVERED = "delivered"
+    DISPOSED = "disposed"
+    EXPIRED = "expired"
+    POSTED = "posted"
+
+
 class McpOutputContentEncoding(StrEnum):
     UTF8 = "utf8"
     BASE64 = "base64"
+
+
+class MessageDisposition(StrEnum):
+    ACKNOWLEDGED = "acknowledged"
+    APPLIED = "applied"
+    DECLINED = "declined"
+    ANSWERED = "answered"
+
+
+class MessageKind(StrEnum):
+    GUIDANCE = "guidance"
+    DIRECTIVE = "directive"
+    QUESTION = "question"
 
 
 class MintApiKeyRequestPurpose(StrEnum):
@@ -193,6 +215,11 @@ class PlanRequestState(StrEnum):
     APPROVED = "approved"
     DENIED = "denied"
     WITHDRAWN = "withdrawn"
+
+
+class PostedMessageKind(StrEnum):
+    REPLY = "reply"
+    UPDATE = "update"
 
 
 class PrincipalCredentialKind(StrEnum):
@@ -328,6 +355,12 @@ class RunGuidancePriority(StrEnum):
     MUST = "must"
     SHOULD = "should"
     NICE = "nice"
+
+
+class RunInheritedArtifactKind(StrEnum):
+    BEST_OUTPUT = "best_output"
+    ATTEMPT_SUMMARIES = "attempt_summaries"
+    MANAGER_QUEUE = "manager_queue"
 
 
 class RunLimitWarningPayloadScope(StrEnum):
@@ -516,6 +549,21 @@ class RunSandboxesTeardown(StrEnum):
     UNOBSERVED = "unobserved"
 
 
+class RunScoreOutcome(StrEnum):
+    MEASURED = "measured"
+    FAILED = "failed"
+    NEGATIVE = "negative"
+    NULL = "null"
+    INCONCLUSIVE = "inconclusive"
+    INTERRUPTED = "interrupted"
+    REJECTED = "rejected"
+
+
+class RunScoreVerification(StrEnum):
+    UNVERIFIED = "unverified"
+    PRODUCER_BOUND = "producer_bound"
+
+
 class RunSelectionStatus(StrEnum):
     NOT_APPLICABLE = "not_applicable"
     PENDING = "pending"
@@ -545,6 +593,15 @@ class RunState(StrEnum):
     PARTIAL = "partial"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class RunTrialState(StrEnum):
+    REGISTERED = "registered"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    INTERRUPTED = "interrupted"
+    REJECTED = "rejected"
 
 
 class RunWaitOutcome(StrEnum):
@@ -583,6 +640,19 @@ class SandboxProfileDomicile(StrEnum):
 class SandboxProfileGpuKind(StrEnum):
     T4 = "t4"
     L4 = "l4"
+
+
+class Scope(StrEnum):
+    ACCOUNT_BILLING_READ = "account:billing:read"
+    ACCOUNT_READ = "account:read"
+    ACCOUNT_USAGE_READ = "account:usage:read"
+    SWARMS_CONTROL = "swarms:control"
+    SWARMS_READ = "swarms:read"
+    SWARMS_RUN = "swarms:run"
+    SWARMS_WRITE = "swarms:write"
+    ACCOUNT_WRITE = "account:write"
+    ACCOUNT_BILLING_WRITE = "account:billing:write"
+    ACCOUNT_LIMITS_READ = "account:limits:read"
 
 
 class SelectionCandidateState(StrEnum):
@@ -675,6 +745,22 @@ class BillingAttention(WireModel):
     )
     kind: str
     since: str
+
+
+class BodyAvailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Literal["available"]
+    text: Annotated[str, Field(min_length=1, max_length=8192), AfterValidator(utf8_max_bytes(8192))]
+
+
+class BodyUnavailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Literal["unavailable"]
+    reason: Literal["retention"]
 
 
 class BudgetFloor(WireModel):
@@ -855,6 +941,24 @@ class McpOutputContent(WireModel):
         McpOutputContentEncoding, BeforeValidator(enum_value(McpOutputContentEncoding))
     ]
     content: str
+
+
+class MessageHistoryAvailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Literal["available"]
+
+
+class MessageHistoryUnavailable(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Literal["unavailable"]
+    reason: Literal["messaging_unavailable"]
+
+
+MessageId: TypeAlias = Annotated[str, Field(pattern="^msg_[A-Za-z0-9_-]{22}$")]
 
 
 class Money(WireModel):
@@ -1204,6 +1308,15 @@ class RunGuidanceMetric(WireModel):
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
 
 
+class RunInheritedArtifact(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[RunInheritedArtifactKind, BeforeValidator(enum_value(RunInheritedArtifactKind))]
+    artifact_id: str
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
 class RunLabels(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1396,24 +1509,12 @@ class RunScoreMeasurement(WireModel):
     uncertainty: Annotated[float, Field(ge=0)] | None
 
 
-RunScoreOutcome: TypeAlias = Literal[
-    "measured", "failed", "negative", "null", "inconclusive", "interrupted", "rejected"
-]
-
-RunScoreVerification: TypeAlias = Literal["unverified", "producer_bound"]
-
-
 class RunTask(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     task_id: str
     state: str
-
-
-RunTrialState: TypeAlias = Literal[
-    "registered", "running", "succeeded", "failed", "interrupted", "rejected"
-]
 
 
 class SandboxImage(WireModel):
@@ -1458,20 +1559,6 @@ class SandboxProfile(WireModel):
         Annotated[SandboxProfileGpuKind, BeforeValidator(enum_value(SandboxProfileGpuKind))] | None
     ) = None
     gpu_count: Annotated[int, Field(ge=1)] | None = None
-
-
-Scope: TypeAlias = Literal[
-    "account:billing:read",
-    "account:read",
-    "account:usage:read",
-    "swarms:control",
-    "swarms:read",
-    "swarms:run",
-    "swarms:write",
-    "account:write",
-    "account:billing:write",
-    "account:limits:read",
-]
 
 
 class SelectionFile(WireModel):
@@ -1835,6 +1922,24 @@ class Limits(WireModel):
     pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
 
 
+class MessageDispositionRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[MessageDisposition, BeforeValidator(enum_value(MessageDisposition))]
+    reason_message_id: MessageId | None = None
+
+    @model_validator(mode="after")
+    def validate_schema_constraints(self) -> Self:
+        if not (
+            ("reason_message_id" in self.model_fields_set)
+            if ("kind" not in self.model_fields_set or (self.kind == "declined"))
+            else ("reason_message_id" not in self.model_fields_set)
+        ):
+            raise ValueError("MessageDispositionRecord: schema constraint 1 failed")
+        return self
+
+
 class MintApiKeyRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1844,7 +1949,14 @@ class MintApiKeyRequest(WireModel):
         | None
     ) = None
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
-    scopes: Annotated[list[Scope], Field(max_length=32), AfterValidator(unique_items)] | None = None
+    scopes: (
+        Annotated[
+            list[Annotated[Scope, BeforeValidator(enum_value(Scope))]],
+            Field(max_length=32),
+            AfterValidator(unique_items),
+        ]
+        | None
+    ) = None
     expires_at: str | None = None
     request_id: str | None = None
 
@@ -2107,10 +2219,10 @@ class RunAttemptScore(WireModel):
     )
     record: RunRecordReference
     trial: RunRecordReference
-    outcome: RunScoreOutcome
+    outcome: Annotated[RunScoreOutcome, BeforeValidator(enum_value(RunScoreOutcome))]
     measurements: Annotated[list[RunScoreMeasurement], Field(max_length=256)]
     evaluator: RunRecordReference | None
-    verification: RunScoreVerification
+    verification: Annotated[RunScoreVerification, BeforeValidator(enum_value(RunScoreVerification))]
     scorer_receipt: RunRecordReference | None
     evidence: Annotated[list[RunRecordReference], Field(max_length=1024)]
     usage: Annotated[list[RunRecordReference], Field(max_length=1024)]
@@ -2283,6 +2395,17 @@ class RunLimitChanges(WireModel):
     maximum_tokens: Annotated[int, Field(ge=1, le=9007199254740991)] | None = None
     wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
     pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
+
+
+class RunLineage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    parent_run_id: RunId
+    inherited_artifacts: list[RunInheritedArtifact]
+
+
+RunMessageBody: TypeAlias = BodyAvailable | BodyUnavailable
 
 
 class RunModelUsage(WireModel):
@@ -2516,6 +2639,19 @@ class SelectionCandidate(WireModel):
     candidate_files: list[SelectionFile] | None
 
 
+class SendRunMessage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[MessageKind, BeforeValidator(enum_value(MessageKind))]
+    text: Annotated[
+        str,
+        Field(min_length=1, max_length=8192),
+        AfterValidator(no_nul),
+        AfterValidator(utf8_max_bytes(8192)),
+    ]
+
+
 class SetSpendAlertsRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2548,7 +2684,11 @@ class UpdateApiKeyRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    scopes: Annotated[list[Scope], Field(max_length=32), AfterValidator(unique_items)]
+    scopes: Annotated[
+        list[Annotated[Scope, BeforeValidator(enum_value(Scope))]],
+        Field(max_length=32),
+        AfterValidator(unique_items),
+    ]
     expected_version: Annotated[int, Field(ge=1)]
     name: Annotated[str, Field(min_length=1, max_length=128)] | None = None
 
@@ -2787,7 +2927,7 @@ class RunAttemptNode(WireModel):
     protocol: RunRecordReference
     experiment: RunRecordReference
     arm: str | None
-    state: RunTrialState
+    state: Annotated[RunTrialState, BeforeValidator(enum_value(RunTrialState))]
     scores: Annotated[list[RunAttemptScore], Field(max_length=4096)]
     reviews: Annotated[list[RunAttemptReview], Field(max_length=4096)]
     notes: Annotated[list[RunResearchNote], Field(max_length=4096)]
@@ -2895,6 +3035,31 @@ class RunLimitsProgress(WireModel):
     freshness: dict[str, JsonValue] | None = None
     funding: RunLimitsProgressFunding
     charge: dict[str, JsonValue] | None = None
+
+
+class RunMessageState(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: Annotated[ManagerMessageState, BeforeValidator(enum_value(ManagerMessageState))]
+    decision_step: Annotated[int, Field(ge=1, le=9223372036854775807)] | None = None
+    disposition: MessageDispositionRecord | None = None
+
+    @model_validator(mode="after")
+    def validate_schema_constraints(self) -> Self:
+        if not (
+            ("decision_step" in self.model_fields_set)
+            if ("kind" not in self.model_fields_set or (self.kind in ("delivered", "disposed")))
+            else ("decision_step" not in self.model_fields_set)
+        ):
+            raise ValueError("RunMessageState: schema constraint 1 failed")
+        if not (
+            ("disposition" in self.model_fields_set)
+            if ("kind" not in self.model_fields_set or (self.kind == "disposed"))
+            else ("disposition" not in self.model_fields_set)
+        ):
+            raise ValueError("RunMessageState: schema constraint 2 failed")
+        return self
 
 
 class RunObjective(WireModel):
@@ -3066,6 +3231,7 @@ class LaunchRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    continue_from: RunId | None = None
     optimizer: OptimizerRequest | None = None
     domicile_requirement: (
         Annotated[
@@ -3170,45 +3336,34 @@ class RunAttemptTreeAvailable(WireModel):
         return self
 
 
-class RunEvent(WireModel):
+class RunMessage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    event_id: EvtId
+    message_id: MessageId
     run_id: RunId
-    sequence: Annotated[int, Field(ge=0)]
-    kind: str
-    original_kind: str
-    usage: JsonValue
-    observed_at: str | None
-    approval_id: str | None
-    payload: (
-        Annotated[
-            ObjectiveProgressPayload
-            | ObjectiveClaimedPayload
-            | RunLimitStatePayload
-            | RunLimitWarningPayload
-            | ActorParkedPayload
-            | ActorUnparkedPayload
-            | None,
-            BeforeValidator(
-                event_payload(
-                    {
-                        "objective.progress": ObjectiveProgressPayload,
-                        "objective.claimed": ObjectiveClaimedPayload,
-                        "limits.revised": RunLimitStatePayload,
-                        "limit.reached": RunLimitStatePayload,
-                        "run.paused": RunLimitStatePayload,
-                        "run.resumed": RunLimitStatePayload,
-                        "limit.warning": RunLimitWarningPayload,
-                        "actor.parked": ActorParkedPayload,
-                        "actor.unparked": ActorUnparkedPayload,
-                    }
-                )
-            ),
-        ]
-        | None
-    ) = None
+    thread_id: Annotated[str, Field(pattern="^thr_[A-Za-z0-9_-]{22}$")]
+    author: Annotated[str, Field(pattern="^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$")]
+    kind: (
+        Annotated[MessageKind, BeforeValidator(enum_value(MessageKind))]
+        | Annotated[PostedMessageKind, BeforeValidator(enum_value(PostedMessageKind))]
+    )
+    sequence: Annotated[int, Field(ge=1)]
+    body: RunMessageBody
+    state: RunMessageState
+    reply_to_message_id: MessageId | None = None
+    created_at: str
+    updated_at: str
+
+
+class RunMessageEventPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    message_id: MessageId
+    state: RunMessageState
+    author: Annotated[str, Field(pattern="^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$")]
+    reply_to_message_id: MessageId | None = None
 
 
 class RunProfileCatalog(WireModel):
@@ -3232,6 +3387,7 @@ class RunSnapshot(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    lineage: RunLineage | None = None
     optimizer: ResolvedOptimizer | None = None
     pause: RunPause | None = None
     limits_revision: Annotated[int, Field(ge=0)] | None = None
@@ -3312,17 +3468,64 @@ class UsageSummary(WireModel):
     by_key: list[UsageKeyBucket]
 
 
-class EventPage(WireModel):
+RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
+
+
+class RunEvent(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    event_id: EvtId
+    run_id: RunId
+    sequence: Annotated[int, Field(ge=0)]
+    kind: str
+    original_kind: str
+    usage: JsonValue
+    observed_at: str | None
+    approval_id: str | None
+    payload: (
+        Annotated[
+            ObjectiveProgressPayload
+            | ObjectiveClaimedPayload
+            | RunLimitStatePayload
+            | RunLimitWarningPayload
+            | ActorParkedPayload
+            | ActorUnparkedPayload
+            | RunMessageEventPayload
+            | None,
+            BeforeValidator(
+                event_payload(
+                    {
+                        "objective.progress": ObjectiveProgressPayload,
+                        "objective.claimed": ObjectiveClaimedPayload,
+                        "limits.revised": RunLimitStatePayload,
+                        "limit.reached": RunLimitStatePayload,
+                        "run.paused": RunLimitStatePayload,
+                        "run.resumed": RunLimitStatePayload,
+                        "limit.warning": RunLimitWarningPayload,
+                        "actor.parked": ActorParkedPayload,
+                        "actor.unparked": ActorUnparkedPayload,
+                        "run.message.accepted": RunMessageEventPayload,
+                        "run.message.delivered": RunMessageEventPayload,
+                        "run.message.disposed": RunMessageEventPayload,
+                        "run.message.expired": RunMessageEventPayload,
+                        "run.message.posted": RunMessageEventPayload,
+                    }
+                )
+            ),
+        ]
+        | None
+    ) = None
+
+
+class RunMessagePage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: Annotated[list[RunMessage], Field(max_length=100)]
+    next_cursor: str | None
     has_more: bool
-    next_cursor: Annotated[str, Field(min_length=1)] | None = None
-    items: list[RunEvent]
-    resume_cursor: str | None
-
-
-RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
+    availability: MessageHistoryAvailable | MessageHistoryUnavailable
 
 
 class RunPage(WireModel):
@@ -3338,6 +3541,7 @@ class RunReport(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
+    lineage: RunLineage | None = None
     sandbox_performance: list[SandboxPerformance] | None = None
     evaluations: Annotated[list[RunEvaluation], Field(max_length=1024)] | None = None
     run_id: RunId
@@ -3370,6 +3574,16 @@ class RunWait(WireModel):
     run: RunSnapshot
 
 
+class EventPage(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    has_more: bool
+    next_cursor: Annotated[str, Field(min_length=1)] | None = None
+    items: list[RunEvent]
+    resume_cursor: str | None
+
+
 class RunResult(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3377,6 +3591,7 @@ class RunResult(WireModel):
     run_id: RunId
     status: Annotated[RunResultStatus, BeforeValidator(enum_value(RunResultStatus))]
     accounting: RunCharge | None
+    lineage: RunLineage | None = None
     attempt_tree: RunAttemptTree
     result_file: RunResultFile | None
     run: RunSnapshot
@@ -3408,6 +3623,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "ActorUnparkedPayload": ActorUnparkedPayload,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
+    "BodyAvailable": BodyAvailable,
+    "BodyUnavailable": BodyUnavailable,
     "BudgetFloor": BudgetFloor,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
@@ -3422,6 +3639,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "LimitMeter": LimitMeter,
     "LimitRowOverride": LimitRowOverride,
     "McpOutputContent": McpOutputContent,
+    "MessageHistoryAvailable": MessageHistoryAvailable,
+    "MessageHistoryUnavailable": MessageHistoryUnavailable,
     "Money": Money,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
@@ -3450,6 +3669,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunControlReceipt": RunControlReceipt,
     "RunEvaluation": RunEvaluation,
     "RunGuidanceMetric": RunGuidanceMetric,
+    "RunInheritedArtifact": RunInheritedArtifact,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
     "RunLimitWarningPayload": RunLimitWarningPayload,
@@ -3499,6 +3719,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchChoicesAffordability": LaunchChoicesAffordability,
     "LimitRow": LimitRow,
     "Limits": Limits,
+    "MessageDispositionRecord": MessageDispositionRecord,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
     "ObjectiveAnswer": ObjectiveAnswer,
@@ -3525,6 +3746,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidance": RunGuidance,
     "RunInputs": RunInputs,
     "RunLimitChanges": RunLimitChanges,
+    "RunLineage": RunLineage,
     "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
     "RunPause": RunPause,
@@ -3539,6 +3761,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunTimings": RunTimings,
     "RunUsage": RunUsage,
     "SelectionCandidate": SelectionCandidate,
+    "SendRunMessage": SendRunMessage,
     "SetSpendAlertsRequest": SetSpendAlertsRequest,
     "SpendAlerts": SpendAlerts,
     "SubscriptionChangePreview": SubscriptionChangePreview,
@@ -3566,6 +3789,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLimitStatePayload": RunLimitStatePayload,
     "RunLimitUpdate": RunLimitUpdate,
     "RunLimitsProgress": RunLimitsProgress,
+    "RunMessageState": RunMessageState,
     "RunObjective": RunObjective,
     "RunProfile": RunProfile,
     "RunReportRollout": RunReportRollout,
@@ -3580,14 +3804,17 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchRequest": LaunchRequest,
     "RunAllocation": RunAllocation,
     "RunAttemptTreeAvailable": RunAttemptTreeAvailable,
-    "RunEvent": RunEvent,
+    "RunMessage": RunMessage,
+    "RunMessageEventPayload": RunMessageEventPayload,
     "RunProfileCatalog": RunProfileCatalog,
     "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
-    "EventPage": EventPage,
+    "RunEvent": RunEvent,
+    "RunMessagePage": RunMessagePage,
     "RunPage": RunPage,
     "RunReport": RunReport,
     "RunWait": RunWait,
+    "EventPage": EventPage,
     "RunResult": RunResult,
 }

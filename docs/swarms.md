@@ -23,6 +23,14 @@ sending). Research profiles do not accept it. Core owns task counts.
 guidance, routing and response types are available from `synth_ai.models`.
 Guidance validates UTF-8 byte limits and text rules before sending.
 
+`launch(..., continue_from=parent_run_id)` forwards an opaque parent run ID.
+The CLI accepts `synth run --continue-from RUN`; MCP accepts the same field in
+the `swarms_run_launch` body. Current Core source refuses continuation until
+the required retained input and planner producers are available. A missing or
+foreign parent returns `ContinueFromNotFoundError`, a live parent returns
+`ContinueFromNotTerminalError`, and unavailable inherited inputs return
+`ContinueFromInputsUnavailableError`. A refusal creates no continuation run.
+
 `RunSnapshot.api_version` is the semantic version of the responding Swarms API.
 `RunSnapshot.variant` identifies the selected variant and its semantic version
 pinned when the run was admitted. Both are optional for compatibility with

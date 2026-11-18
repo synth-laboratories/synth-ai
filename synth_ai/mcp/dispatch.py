@@ -15,6 +15,7 @@ from .._generated.models import (
     PromoRedeemRequest,
     RunLabelsRequest,
     RunLimitUpdate,
+    SendRunMessage,
     UploadFileRequest,
 )
 from .._limits import SERVER_WAIT_SECONDS_DEFAULT
@@ -53,6 +54,25 @@ async def dispatch(
             )
         case "getRun":
             return await client.swarms.get(required(arguments, "run_id", str))
+        case "sendRunMessage":
+            body = required(arguments, "body", SendRunMessage)
+            return await client.swarms.send_message(
+                required(arguments, "run_id", str),
+                body.text,
+                kind=body.kind,
+                idempotency_key=required(arguments, "idempotency_key", str),
+            )
+        case "listRunMessages":
+            return await client.swarms.messages(
+                required(arguments, "run_id", str),
+                cursor=optional(arguments, "cursor", str),
+                limit=page_limit(arguments),
+            )
+        case "getRunMessage":
+            return await client.swarms.message(
+                required(arguments, "run_id", str),
+                required(arguments, "message_id", str),
+            )
         case "waitRun":
             return await client.swarms.wait_update(
                 required(arguments, "run_id", str),

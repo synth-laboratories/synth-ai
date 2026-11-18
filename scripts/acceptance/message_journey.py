@@ -90,7 +90,7 @@ def message_question(context: JourneyContext) -> StepReceipt:
         return missing(context, step, "running_recorded_message_run")
     initial = customer_messages(context.surface, value.run_id)
     if isinstance(initial, str):
-        return receipt(context, step, Verdict.FAIL, initial)
+        return history_refusal(context, step, initial)
     if any(item.get("author") == "customer" for item in initial):
         return missing(context, step, "fresh_run_before_recorded_customer_input")
     sent = _send_question(context, value)
@@ -218,7 +218,7 @@ def _read_answer(
         return receipt(context, step, Verdict.FAIL, "message_read_does_not_match_disposition", read)
     page = customer_messages(context.surface, value.run_id)
     if isinstance(page, str):
-        return receipt(context, step, Verdict.FAIL, page)
+        return history_refusal(context, step, page)
     replies = [item for item in page if item.get("reply_to_message_id") == message_id]
     if (
         len(replies) != 1
@@ -258,6 +258,13 @@ def _read_answer(
     )
 
 
+def history_refusal(
+    context: JourneyContext, step: Step, cause: str, *outcomes: Outcome
+) -> StepReceipt:
+    verdict = Verdict.INCONCLUSIVE if cause == "message_history_unavailable" else Verdict.FAIL
+    return receipt(context, step, verdict, cause, *outcomes)
+
+
 def customer_messages(surface: Surface, run_id: str) -> list[dict[str, JsonValue]] | str:
     items: list[dict[str, JsonValue]] = []
     cursor: Optional[str] = None
@@ -274,6 +281,11 @@ def customer_messages(surface: Surface, run_id: str) -> list[dict[str, JsonValue
             or type(page.get("has_more")) is not bool
         ):
             return "message_list_unreadable"
+        availability = obj(page.get("availability"))
+        if availability == {"kind": "unavailable", "reason": "messaging_unavailable"}:
+            return "message_history_unavailable"
+        if availability != {"kind": "available"}:
+            return "message_history_availability_invalid"
         items.extend(obj(item) for item in rows)
         if page.get("has_more") is False:
             return items
@@ -415,7 +427,7 @@ def message_isolation(context: JourneyContext) -> StepReceipt:
                 )
     messages = customer_messages(context.surface, value.run_id)
     if isinstance(messages, str):
-        return receipt(context, step, Verdict.FAIL, messages, *outcomes)
+        return history_refusal(context, step, messages, *outcomes)
     if any(
         item.get("message_id") in value.internal_message_ids
         or item.get("visibility") == "internal"

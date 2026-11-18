@@ -27,7 +27,7 @@ from pydantic import BaseModel, JsonValue, ValidationError
 from synth_ai import SynthClient
 from synth_ai._generated.models import CheckoutRequestPackId, MintApiKeyRequestPurpose, Scope
 from synth_ai.errors import SwarmsAPIError, SynthError
-from synth_ai.models import Money, OptimizerRequest, RunLimitUpdate
+from synth_ai.models import MessageKind, Money, OptimizerRequest, RunLimitUpdate
 
 from .mcp_driver import HostedFailure, ToolCaller
 
@@ -119,6 +119,10 @@ def obj(value: JsonValue) -> dict[str, JsonValue]:
 
 def accepted(operation: str, value: object) -> Outcome:
     if isinstance(value, BaseModel):
+        # Match CLI and MCP for message wire shapes where inapplicable fields
+        # must be absent, including decision_step and disposition on posted replies.
+        if operation in {"sendRunMessage", "listRunMessages", "getRunMessage"}:
+            return Outcome(operation, True, value.model_dump(mode="json", exclude_unset=True))
         return Outcome(operation, True, value.model_dump(mode="json"))
     return Outcome(operation, True, None if value is None else str(value))
 
@@ -150,6 +154,15 @@ def run_id(call: Call) -> str:
     return call.path["run_id"]
 
 
+def continuation_parent(call: Call) -> Optional[str]:
+    if call.body is None or "continue_from" not in call.body:
+        return None
+    parent = call.body["continue_from"]
+    if not isinstance(parent, str):
+        raise ValueError("continue_from_invalid")
+    return parent
+
+
 def launch(client: SynthClient, call: Call) -> object:
     # The public keyword launch, as a customer writes it. Contract-invalid input
     # reaches the SDK's own validation exactly as a customer's would.
@@ -164,6 +177,7 @@ def launch(client: SynthClient, call: Call) -> object:
         wall_time_seconds=integer(limits, "wall_time_seconds"),
         optimizer=optimizer,
         profile=text(body, "profile"),
+        continue_from=continuation_parent(call),
         idempotency_key=call.idempotency_key,
     )
 
@@ -211,6 +225,30 @@ def event_page(client: SynthClient, call: Call) -> object:
     return client.swarms.events(run_id(call), cursor=cursor, limit=limit)
 
 
+def send_message(client: SynthClient, call: Call) -> object:
+    body = call.body
+    kind = text(body, "kind") if body is not None else None
+    message_text = text(body, "text") if body is not None else None
+    if kind is None or message_text is None or call.idempotency_key is None:
+        raise ValueError("message_request_invalid")
+    return client.swarms.send_message(
+        run_id(call),
+        message_text,
+        kind=MessageKind(kind),
+        idempotency_key=call.idempotency_key,
+    )
+
+
+def message_page(client: SynthClient, call: Call) -> object:
+    cursor = call.query.get("cursor")
+    limit = call.query.get("limit", 20)
+    if cursor is not None and not isinstance(cursor, str):
+        raise ValueError("message_cursor_invalid")
+    if type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError("message_limit_invalid")
+    return client.swarms.messages(run_id(call), cursor=cursor, limit=limit)
+
+
 # Public SDK methods only. An operation absent here is uncovered for the SDK.
 SDK_CALLS: Mapping[str, SdkCall] = {
     "getAccount": lambda c, a: c.account.get(),
@@ -238,6 +276,9 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getRunSandboxes": lambda c, a: c.swarms.sandboxes(run_id(a)),
     "listRunTasks": lambda c, a: c.swarms.tasks(run_id(a)),
     "listRunEvents": event_page,
+    "sendRunMessage": send_message,
+    "listRunMessages": message_page,
+    "getRunMessage": lambda c, a: c.swarms.message(run_id(a), a.path["message_id"]),
     "getFile": lambda c, a: c.swarms.file(a.path["file_id"]),
     "getUsageExport": lambda c, a: c.account.usage_export(a.path["export_id"]),
     "withdrawPlanRequest": lambda c, a: c.account.withdraw_plan_request(a.path["request_id"]),
@@ -306,6 +347,9 @@ def launch_argv(call: Call, directory: Path) -> Sequence[str]:
         argv += ["--optimizer", str(optimizer)]
     if body.get("profile") is not None:
         argv += ["--profile", str(body["profile"])]
+    parent = continuation_parent(call)
+    if parent is not None:
+        argv += ["--continue-from", parent]
     return argv
 
 
@@ -357,6 +401,31 @@ def event_page_argv(call: Call, _directory: Path) -> Sequence[str]:
     return argv
 
 
+def message_argv(call: Call, _directory: Path) -> Sequence[str]:
+    body = call.body
+    kind = text(body, "kind") if body is not None else None
+    message_text = text(body, "text") if body is not None else None
+    if kind is None or message_text is None or call.idempotency_key is None:
+        raise ValueError("message_request_invalid")
+    return [
+        "message",
+        run_id(call),
+        message_text,
+        "--kind",
+        kind,
+        "--idempotency-key",
+        call.idempotency_key,
+    ]
+
+
+def message_page_argv(call: Call, _directory: Path) -> Sequence[str]:
+    argv = ["messages", run_id(call), "--limit", str(call.query.get("limit", 20))]
+    cursor = call.query.get("cursor")
+    if isinstance(cursor, str):
+        argv += ["--cursor", cursor]
+    return argv
+
+
 # Real `synth` commands. An operation absent here is uncovered for the CLI.
 CLI_ARGV: Mapping[str, ArgvBuilder] = {
     "getAccount": lambda a, d: ["organization", "get"],
@@ -380,6 +449,9 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
     "createRun": launch_argv,
     "getRun": run_verb("status"),
     "listRunEvents": event_page_argv,
+    "sendRunMessage": message_argv,
+    "listRunMessages": message_page_argv,
+    "getRunMessage": lambda a, d: ["messages", run_id(a), "--message", a.path["message_id"]],
     "getRunLimits": run_verb("limits"),
     "updateRunLimits": lambda a, d: [
         *limits_argv(a, d),

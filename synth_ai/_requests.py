@@ -45,6 +45,7 @@ def launch_request(
     role_assignments: Mapping[str, RoleAssignment] | None = None,
     launch_menu_revision: str | None = None,
     optimizer: OptimizerRequest | None = None,
+    continue_from: str | None = None,
 ) -> LaunchRequest:
     # Core contract 1.3.0 requires a message; refuse locally before any request.
     if not isinstance(message, str):
@@ -88,6 +89,7 @@ def launch_request(
             role_assignments=dict(role_assignments) if role_assignments is not None else None,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
         # Omitted convenience options stay absent on the wire, not explicit nulls.
         request = LaunchRequest.model_validate(request.model_dump(exclude_none=True))

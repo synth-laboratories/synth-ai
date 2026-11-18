@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import builtins
 import hashlib
+import math
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from decimal import Decimal
@@ -17,11 +19,14 @@ from ._generated.models import (
     FilePage,
     LaunchChoices,
     LaunchRequest,
+    ManagerMessageState,
     McpOutputContent,
+    MessageKind,
     Money,
     OptimizerRequest,
     OutputPage,
     OwnerResourceRequest,
+    PostedMessageKind,
     RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
@@ -36,6 +41,10 @@ from ._generated.models import (
     RunLimitChanges,
     RunLimitsProgress,
     RunLimitUpdate,
+    RunMessage,
+    RunMessageEventPayload,
+    RunMessagePage,
+    RunMilestone,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -47,6 +56,7 @@ from ._generated.models import (
     RunTask,
     RunTaskPage,
     RunWait,
+    SendRunMessage,
     Upload,
 )
 from ._generated.policy import (
@@ -55,6 +65,7 @@ from ._generated.policy import (
     PROFILE_REQUIRES_RESEARCH_TASK,
 )
 from ._inline_content import inline_content
+from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT
 from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
@@ -65,8 +76,13 @@ from ._uploads import ArtifactUploads
 from .errors import (
     ConflictError,
     DataIntegrityError,
+    MessageReplyTimeoutError,
+    MessageReplyUnavailableError,
+    MessagingUnavailableError,
+    ResponseContractError,
     ResultUnavailableError,
     check_upload_format,
+    local_problem,
 )
 
 
@@ -75,6 +91,122 @@ class AsyncSwarms:
         self._transport = transport
         self._profile_requirements = dict(PROFILE_REQUIRES_RESEARCH_TASK)
         self._default_profile = DEFAULT_RUN_PROFILE
+
+    async def send_message(
+        self,
+        run_id: str,
+        text: str,
+        *,
+        kind: MessageKind = MessageKind.GUIDANCE,
+        idempotency_key: str,
+    ) -> RunMessage:
+        """Send to the admitted customer thread; see docs/protocols.md.
+
+        Acceptance never implies delivery. Retain the key after an uncertain
+        outcome and reconcile the message before sending another mutation.
+        """
+        return await self._transport.request(
+            "sendRunMessage",
+            RunMessage,
+            path={"run_id": run_id},
+            body=SendRunMessage(kind=kind, text=text),
+            idempotency_key=idempotency_key,
+        )
+
+    async def messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> RunMessagePage:
+        """Read customer-visible history, preserving typed unavailability."""
+        return await self._transport.request(
+            "listRunMessages",
+            RunMessagePage,
+            path={"run_id": run_id},
+            query={"cursor": cursor, "limit": limit},
+        )
+
+    async def iter_messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 100
+    ) -> AsyncGenerator[RunMessage, None]:
+        """Traverse message pages without prefetch; see docs/protocols.md."""
+
+        async def fetch(position: str | None) -> RunMessagePage:
+            page = await self.messages(run_id, cursor=position, limit=limit)
+            if page.availability.kind == "unavailable":
+                raise MessagingUnavailableError(
+                    local_problem("messaging_unavailable", "listRunMessages", status=503)
+                )
+            return page
+
+        async for item in paginate(fetch, cursor=cursor):
+            yield item
+
+    async def message(self, run_id: str, message_id: str) -> RunMessage:
+        """Read one message; a retained body is typed BodyUnavailable."""
+        return await self._transport.request(
+            "getRunMessage",
+            RunMessage,
+            path={"run_id": run_id, "message_id": message_id},
+        )
+
+    async def follow_messages(self, run_id: str) -> AsyncGenerator[RunMessage, None]:
+        """Read history, then message changes from one feed; see docs/protocols.md.
+
+        Open the feed before reading history so a post during the initial read
+        remains observable. Events contain metadata; bodies stay on message reads.
+        """
+        checkpoint = StreamCheckpoint(run_id=run_id)
+        async with self._transport.subscribe_events(run_id, checkpoint) as events:
+            async for item in self.iter_messages(run_id):
+                yield item
+            async for event in events:
+                if isinstance(event, RunMilestone):
+                    if event.final:
+                        return
+                    continue
+                if event.kind not in {
+                    "run.message.accepted",
+                    "run.message.delivered",
+                    "run.message.disposed",
+                    "run.message.expired",
+                    "run.message.posted",
+                }:
+                    continue
+                if event.payload is None:
+                    raise ResponseContractError(
+                        local_problem("run_message_event_invalid", "listRunEvents", status=502)
+                    )
+                payload = cast(RunMessageEventPayload, event.payload)
+                yield await self.message(run_id, payload.message_id)
+
+    async def wait_for_reply(
+        self,
+        run_id: str,
+        message_id: str,
+        *,
+        timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
+    ) -> RunMessage:
+        """Wait for a correlated posted reply; never cancel or mutate the message.
+
+        Returns the manager or actor post whose reply_to_message_id names the
+        original message. A retained body remains BodyUnavailable(retention).
+        See docs/protocols.md.
+        """
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        try:
+            async with asyncio.timeout(timeout):
+                async with aclosing(self.follow_messages(run_id)) as messages:
+                    async for message in messages:
+                        if (
+                            message.reply_to_message_id == message_id
+                            and message.kind == PostedMessageKind.REPLY
+                            and message.state.kind == ManagerMessageState.POSTED
+                            and message.author != "customer"
+                        ):
+                            return message
+        except TimeoutError:
+            raise MessageReplyTimeoutError(run_id=run_id, message_id=message_id) from None
+        raise MessageReplyUnavailableError(run_id=run_id, message_id=message_id)
 
     def prepare_launch(
         self,
@@ -96,6 +228,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
     ) -> LaunchRequest:
         """Validate a launch before uploads; see docs/protocols.md."""
         return launch_request(
@@ -118,6 +251,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
 
     async def launch(
@@ -140,6 +274,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run with a maximum charge in USD and return its acknowledgement.
@@ -165,6 +300,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
         )
         return await self.launch_request(request, idempotency_key=idempotency_key)
 
@@ -202,6 +338,7 @@ class AsyncSwarms:
         role_assignments: dict[str, RoleAssignment] | None = None,
         launch_menu_revision: str | None = None,
         optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         """Launch a run, then wait for the selected completion milestone.
@@ -228,6 +365,7 @@ class AsyncSwarms:
             role_assignments=role_assignments,
             launch_menu_revision=launch_menu_revision,
             optimizer=optimizer,
+            continue_from=continue_from,
             idempotency_key=idempotency_key,
         )
         return await self.wait(

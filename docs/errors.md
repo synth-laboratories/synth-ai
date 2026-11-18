@@ -45,6 +45,32 @@ workers at once (each parallel worker holds an equal slice of the budget). The
 Problem `detail` states the minimum in micro-USD. Raise `budget` or lower
 `parallel_workers` (`--parallel-workers`).
 
+## Continuation codes
+
+| Code | HTTP | Error class |
+| --- | --- | --- |
+| `continue_from_not_found` | 404 | `ContinueFromNotFoundError` |
+| `continue_from_not_terminal` | 409 | `ContinueFromNotTerminalError` |
+| `continue_from_inputs_unavailable` | 409 | `ContinueFromInputsUnavailableError` |
+
+These refusals leave the parent unchanged and do not create a child run. The
+current source refuses missing retained input producers explicitly; the
+launch argument alone does not establish successful continuation.
+
+## Message codes
+
+| Code | HTTP | Error class |
+| --- | --- | --- |
+| `message_too_large` | 422 | `MessageTooLargeError` |
+| `run_message_rate_limited` | 429 | `RunMessageRateLimitedError` |
+| `run_not_accepting_messages` | 409 | `RunNotAcceptingMessagesError` |
+| `run_message_queue_full` | 409 | `RunMessageQueueFullError` |
+| `messaging_unavailable` | 503 | `MessagingUnavailableError` |
+
+Message retries follow the Problem's `retryable` field. A `Retry-After` header
+does not authorize retrying a non-retryable refusal. `MessageReplyTimeoutError`
+is a local observation timeout and leaves the run and message unchanged.
+
 ## Upload codes
 
 | Code | HTTP | Error class |
