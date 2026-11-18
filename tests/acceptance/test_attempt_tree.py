@@ -170,6 +170,46 @@ def test_score_cannot_be_attributed_to_another_trial():
         project(payload)
 
 
+def score_citing(trial):
+    return {
+        "record": reference("result", "result-1"),
+        "trial": trial,
+        "outcome": "inconclusive",
+        "measurements": [],
+        "evaluator": None,
+        "verification": "unverified",
+        "scorer_receipt": None,
+        "evidence": [],
+        "usage": [],
+        "missing_evidence": [],
+        "limitations": [],
+    }
+
+
+def test_score_may_cite_the_earlier_trial_revision_it_scored():
+    # Live slot1 run_orNiBJarRrmjmV3YpAhbmg: the Result cites trial rev 1; the
+    # worker's outcome note then revised the trial to rev 2.
+    payload = tree_payload()
+    root = payload["attempts"][0]
+    scored = deepcopy(root["trial"])
+    root["trial"] = dict(root["trial"], revision="2", digest_sha256="b" * 64)
+    payload["attempts"][1]["parent_trial"] = root["trial"]
+    root["scores"] = [score_citing(scored)]
+    assert [a.attempt_id for a in project(payload)] == ["trial-child", "trial-root"]
+
+
+@pytest.mark.parametrize(
+    "revision, digest", [("3", "c" * 64), ("1", "c" * 64)], ids=["newer", "same-rev-other-digest"]
+)
+def test_score_cannot_cite_a_newer_or_divergent_trial_revision(revision, digest):
+    payload = tree_payload()
+    root = payload["attempts"][0]
+    cited = dict(root["trial"], revision=revision, digest_sha256=digest)
+    root["scores"] = [score_citing(cited)]
+    with pytest.raises(TreeError, match="attempt_tree_score_reference_mismatch"):
+        project(payload)
+
+
 @pytest.mark.parametrize("at_root", [True, False])
 def test_note_must_reference_this_research_log(at_root):
     payload = tree_payload()
