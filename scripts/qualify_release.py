@@ -40,7 +40,9 @@ def qualify(core: Path, revision: str, out: Path) -> bool:
         "package_budget": script("check_package", "--check", "budget"),
         "installed_smoke": script("check_package", "--check", "install"),
     }
-    steps = {name: {"status": "skipped", "command": cmd} for name, cmd in commands.items()}
+    steps: dict[str, dict[str, object]] = {
+        name: {"status": "skipped", "command": cmd} for name, cmd in commands.items()
+    }
     artifacts = []
     report = {
         "sdk_commit": subprocess.check_output(
