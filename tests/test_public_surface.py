@@ -1,25 +1,21 @@
 import importlib.util
+import inspect
+import re
 import subprocess
 import sys
 
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai._generated.operations import OPERATIONS
+from synth_ai._sync import AccountClient, SwarmsClient
+from synth_ai.account import AsyncAccount
 from synth_ai.cli import COMMANDS
 from synth_ai.mcp.tools import TOOLS
+from synth_ai.swarms import AsyncSwarms
 
 
-async def test_swarms_only_public_surface(contract):
-    assert (
-        sum(
-            "operationId" in op
-            for path in contract["paths"].values()
-            for op in path.values()
-            if isinstance(op, dict)
-        )
-        == 75
-    )
-    assert len(OPERATIONS) == 62
-    assert len(TOOLS) == 62
+async def test_swarms_only_public_surface():
+    assert len(TOOLS) == len(OPERATIONS)
+    assert sorted(tool["operationId"] for tool in TOOLS) == sorted(OPERATIONS)
     assert "inference" not in COMMANDS
     assert importlib.util.find_spec("synth_ai.inference") is None
     assert all("inference" not in op["path"] for op in OPERATIONS.values())
@@ -68,8 +64,10 @@ def test_sdk_inventory_covers_every_implemented_v1_operation(contract):
 def test_evaluation_surface_is_removed():
     assert importlib.util.find_spec("synth_ai.evaluations") is None
     assert "evaluations" not in COMMANDS
-    assert all("/evaluations" not in op["path"] for op in OPERATIONS.values())
-    assert all(not tool["name"].startswith("swarms_evaluation_") for tool in TOOLS)
+    retired_paths = re.compile(r"^/v1/(evaluations?|evaluation-inputs|index)(?:/|$)")
+    retired_tools = re.compile(r"(^|_)(evaluations?|index)(_|$)")
+    assert all(not retired_paths.search(op["path"]) for op in OPERATIONS.values())
+    assert all(not retired_tools.search(tool["name"]) for tool in TOOLS)
     with SynthClient("fixture", base_url="https://example.test") as client:
         assert not hasattr(client, "evaluations")
     result = subprocess.run(
@@ -77,3 +75,12 @@ def test_evaluation_surface_is_removed():
     )
     assert result.returncode == 1
     assert b"invalid choice" in result.stderr
+
+
+def test_sync_public_methods_retain_async_documentation():
+    assert inspect.getdoc(AsyncSwarms.launch)
+    assert inspect.getdoc(AsyncAccount.get)
+    for sync, async_ in ((SwarmsClient, AsyncSwarms), (AccountClient, AsyncAccount)):
+        for name, method in vars(sync).items():
+            if not name.startswith("_") and inspect.isfunction(method):
+                assert inspect.getdoc(method) == inspect.getdoc(getattr(async_, name))

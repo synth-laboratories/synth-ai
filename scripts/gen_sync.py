@@ -16,6 +16,8 @@ def generate() -> str:
         "from decimal import Decimal",
         "from pathlib import Path",
         "import builtins",
+        "from inspect import getdoc",
+        "from types import FunctionType",
         "from collections.abc import Iterator, Mapping, Sequence",
         "from pydantic import JsonValue",
         "from ._blocking import Runner",
@@ -26,6 +28,11 @@ def generate() -> str:
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
         "from .swarms import AsyncSwarms",
+        "",
+        "def _copy_method_docs(delegate: type, source: type) -> None:",
+        "    for name, method in vars(delegate).items():",
+        "        if not name.startswith('_') and isinstance(method, FunctionType):",
+        "            method.__doc__ = getdoc(getattr(source, name))",
         "",
     ]
     model_imports = set()
@@ -74,11 +81,8 @@ def generate() -> str:
                     else call
                 )
                 lines.append(f"    def {fn.name}({args}) -> {returns}:")
-                documentation = ast.get_docstring(fn)
-                if documentation is not None:
-                    lines.append("        " + repr(documentation))
                 lines.append(f"        return {delegated}")
-            lines += [""]
+            lines += ["", f"_copy_method_docs({name}, {cls.name})", ""]
     lines.insert(1, "from ._generated.models import (" + ", ".join(sorted(model_imports)) + ")")
     source = "\n".join(lines) + "\n"
     source = subprocess.run(
