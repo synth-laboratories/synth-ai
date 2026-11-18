@@ -7,8 +7,9 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
-from scripts.acceptance.surfaces import Call, CLISurface, SDKSurface
+from scripts.acceptance.surfaces import Call, CLISurface, SDKSurface, accepted
 from synth_ai import SynthClient
+from synth_ai._generated.models import RunMessagePage
 
 RUN = "run_AAAAAAAAAAAAAAAAAAAAAA"
 MESSAGE = "msg_AAAAAAAAAAAAAAAAAAAAAA"
@@ -138,6 +139,25 @@ def continuation():
 def test_sdk_message_bindings_reach_real_sdk_http_methods():
     with fake_http() as (origin, requests), SynthClient("fixture", base_url=origin) as client:
         verify_messages(SDKSurface(client), requests)
+
+
+def test_sdk_message_page_preserves_missing_posted_state_fields():
+    reply = {
+        **message(),
+        "author": "manager",
+        "kind": "reply",
+        "state": {"kind": "posted"},
+    }
+    page = RunMessagePage.model_validate(
+        {
+            "items": [reply],
+            "has_more": False,
+            "next_cursor": None,
+            "availability": {"kind": "available"},
+        }
+    )
+    outcome = accepted("listRunMessages", page)
+    assert outcome.value["items"][0]["state"] == {"kind": "posted"}
 
 
 def test_cli_message_bindings_reach_real_child_http_methods(tmp_path):

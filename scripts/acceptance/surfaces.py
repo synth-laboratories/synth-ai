@@ -119,6 +119,10 @@ def obj(value: JsonValue) -> dict[str, JsonValue]:
 
 def accepted(operation: str, value: object) -> Outcome:
     if isinstance(value, BaseModel):
+        # Match CLI and MCP for message wire shapes where inapplicable fields
+        # must be absent, including decision_step and disposition on posted replies.
+        if operation in {"sendRunMessage", "listRunMessages", "getRunMessage"}:
+            return Outcome(operation, True, value.model_dump(mode="json", exclude_unset=True))
         return Outcome(operation, True, value.model_dump(mode="json"))
     return Outcome(operation, True, None if value is None else str(value))
 
