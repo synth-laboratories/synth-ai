@@ -387,6 +387,7 @@ class MCPDriver:
         files: Sequence[File],
         idempotency_key: str,
         journal: LaunchJournal,
+        labels: dict[str, str] | None = None,
     ) -> RunSnapshot:
         # Pure local request construction; the launch itself is the MCP tool.
         amount = Decimal(budget_usd)
@@ -407,6 +408,8 @@ class MCPDriver:
             ),
             optimizer="auto",
         )
+        if labels is not None:
+            request = request.model_copy(update={"labels": labels})
         body = JSON_OBJECT.validate_json(request.model_dump_json(exclude_unset=True))
         journal.begin(
             LaunchIntent(

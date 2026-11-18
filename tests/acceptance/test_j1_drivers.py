@@ -173,11 +173,13 @@ def test_sdk_launch_auto_preserves_wire_selection_and_mutation_identity(contract
             files=(),
             idempotency_key="j1-sdk-once",
             journal=LaunchJournal(tmp_path / "launch"),
+            labels={"acceptance_watchdog": "sdk-fixture"},
         )
     assert snapshot.optimizer.topology == "swarms_v2"
     assert len(requests) == 1
     assert requests[0][0] == "/v1/runs"
     assert requests[0][1]["optimizer"] == "auto"
+    assert requests[0][1]["labels"] == {"acceptance_watchdog": "sdk-fixture"}
     assert requests[0][2] == "j1-sdk-once"
 
 
@@ -200,10 +202,12 @@ def test_cli_launch_auto_uses_real_subprocess_and_same_wire_selection(contract, 
             files=(),
             idempotency_key="j1-cli-once",
             journal=LaunchJournal(tmp_path / "launch"),
+            labels={"acceptance_watchdog": "cli-fixture"},
         )
     assert snapshot.optimizer.topology == "swarms_v2"
     assert len(requests) == 1
     assert requests[0][1]["optimizer"] == "auto"
+    assert requests[0][1]["labels"] == {"acceptance_watchdog": "cli-fixture"}
     assert requests[0][2] == "j1-cli-once"
 
 

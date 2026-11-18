@@ -186,6 +186,7 @@ class SDKDriver:
         files: Sequence[File],
         idempotency_key: str,
         journal: LaunchJournal,
+        labels: dict[str, str] | None = None,
     ) -> RunSnapshot:
         inputs = RunInputs(
             files=[
@@ -198,7 +199,7 @@ class SDKDriver:
             ]
         )
         request = self.client.swarms.prepare_launch(
-            message, budget=budget_usd, inputs=inputs, optimizer="auto"
+            message, budget=budget_usd, inputs=inputs, optimizer="auto", labels=labels
         )
         journal.begin(
             LaunchIntent(
@@ -370,6 +371,7 @@ class CLIDriver:
         files: Sequence[Path],
         idempotency_key: str,
         journal: LaunchJournal,
+        labels: dict[str, str] | None = None,
     ) -> RunSnapshot:
         arguments = [
             "run",
@@ -384,6 +386,9 @@ class CLIDriver:
         ]
         for path in files:
             arguments.extend(["--file", str(path)])
+        if labels is not None:
+            for name, value in sorted(labels.items()):
+                arguments.extend(["--label", f"{name}={value}"])
         journal.begin(
             LaunchIntent(
                 "cli",

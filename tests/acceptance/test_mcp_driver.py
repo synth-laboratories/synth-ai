@@ -271,6 +271,7 @@ def test_launch_auto_is_one_journaled_tool_call(contract, tmp_path):
         files=(),
         idempotency_key="j1-mcp-once",
         journal=LaunchJournal(tmp_path / "launch"),
+        labels={"acceptance_watchdog": "mcp-fixture"},
     )
     assert accepted.run_id == RUN
     [(name, arguments)] = caller.calls
@@ -278,6 +279,7 @@ def test_launch_auto_is_one_journaled_tool_call(contract, tmp_path):
     assert arguments["idempotency_key"] == "j1-mcp-once"
     assert arguments["body"]["optimizer"] == "auto"
     assert arguments["body"]["message"] == "task"
+    assert arguments["body"]["labels"] == {"acceptance_watchdog": "mcp-fixture"}
 
 
 def test_upload_refuses_formats_the_catalog_cannot_carry(tmp_path):
