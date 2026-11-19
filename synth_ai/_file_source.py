@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import BinaryIO, TypeVar
 
 from ._limits import UPLOAD_MAX_BYTES
-from .errors import DataIntegrityError
+from .errors import DataIntegrityError, upload_size_exceeded
 
 T = TypeVar("T")
 CHUNK_BYTES = 64 << 10
@@ -92,13 +92,13 @@ class FileSource:
         try:
             identity = FileIdentity.read(info)
             if identity.size > UPLOAD_MAX_BYTES:
-                raise ValueError(f"File exceeds the {UPLOAD_MAX_BYTES}-byte limit")
+                raise upload_size_exceeded(UPLOAD_MAX_BYTES)
             digest = hashlib.sha256()
             size = 0
             while chunk := stream.read(CHUNK_BYTES):
                 size += len(chunk)
                 if size > UPLOAD_MAX_BYTES:
-                    raise ValueError(f"File exceeds the {UPLOAD_MAX_BYTES}-byte limit")
+                    raise upload_size_exceeded(UPLOAD_MAX_BYTES)
                 digest.update(chunk)
             source = cls(path, stream, identity, digest.hexdigest())
             source.verify()

@@ -196,6 +196,14 @@ class UploadFormatUnsupportedError(InvalidRequestError):
     maximum_media_type_bytes: ClassVar[int] = UPLOAD_MEDIA_TYPE_MAX_BYTES
 
 
+class UploadSizeExceededError(InvalidRequestError):
+    """422 upload_size_exceeded: the file is larger than Core accepts for one upload.
+
+    Raised before transfer for a file over `maximum_size_bytes` (16 MiB), and
+    mapped from Core's own 422. The Problem carries `maximum_size_bytes`.
+    """
+
+
 class OutputContentTooLargeError(InvalidRequestError):
     """413 output_content_too_large_for_mcp: the output is over the MCP inline bound.
 
@@ -402,6 +410,7 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "spend_entitlement_exceeded": SpendEntitlementExceededError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
+    "upload_size_exceeded": UploadSizeExceededError,
     "launch_budget_below_actor_floor": LaunchBudgetBelowActorFloorError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
@@ -534,6 +543,19 @@ def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupported
             status=422,
             detail=f"Media type must be ASCII type/subtype without whitespace, at most {UPLOAD_MEDIA_TYPE_MAX_BYTES} bytes.",
         )
+    )
+
+
+def upload_size_exceeded(maximum_bytes: int) -> UploadSizeExceededError:
+    """The typed local refusal for a file over Core's per-upload byte limit."""
+    base = local_problem(
+        "upload_size_exceeded",
+        "upload",
+        status=422,
+        detail=f"File exceeds the {maximum_bytes}-byte upload limit.",
+    )
+    return UploadSizeExceededError(
+        Problem.model_validate({**base.model_dump(), "maximum_size_bytes": str(maximum_bytes)})
     )
 
 

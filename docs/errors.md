@@ -79,6 +79,7 @@ is a local observation timeout and leaves the run and message unchanged.
 | Code | HTTP | Error class | Next action |
 | --- | --- | --- | --- |
 | `upload_format_unsupported` | 422 | `UploadFormatUnsupportedError` | Convert the file to an accepted media type. |
+| `upload_size_exceeded` | 422 | `UploadSizeExceededError` | Split or shrink the file to at most 16 MiB. |
 
 `upload_format_unsupported` (an `InvalidRequestError`): the media type is not
 an accepted upload format. Accepted formats are `text/plain`, `text/markdown`
@@ -88,6 +89,12 @@ stdio MCP upload tool (as an `isError` Problem), and maps the server's own 422
 to the same class. The CLI prints it like any refusal and exits 4. Convert the
 file to one of the accepted formats. Any other invalid stdio MCP tool input is
 `tool_arguments_invalid` (422, `InvalidRequestError`).
+
+`upload_size_exceeded` (an `InvalidRequestError`): the file is larger than one
+upload accepts, 16,777,216 bytes (`maximum_size_bytes` on the error). The SDK
+raises it before any transfer from `upload_file` and `run --file`, and maps
+Core's own 422 to the same class. The CLI prints it like any refusal and exits
+4. Split the file or shrink it below the limit.
 
 All are `SwarmsAPIError` subclasses; the original Problem fields are preserved.
 The specialized admission classes also inherit their HTTP-status class.
@@ -138,6 +145,11 @@ One line per code: what it means, then what the caller should do.
   Inspect the problem's detail and correct the request before trying again.
 - `resource_not_found` (404): the requested resource is unavailable to this
   caller. Check the identifier and the credential's organization.
+- `oauth_grant_not_found` (404): `revoke_oauth_grant` named no grant of the
+  caller's own user in this organization. Another user's grant, another
+  organization's grant and an absent grant get the same code. List your own
+  grants and revoke one of those; an already revoked grant answers
+  `outcome: already_revoked` instead.
 - `terms_version_unknown` (400): the requested terms version is not recognized.
   Refresh the Console and use the currently presented terms.
 - `service_unavailable` (503): a required service cannot handle the request.

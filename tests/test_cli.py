@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from synth_ai import cli
+from synth_ai._generated.file_limits import FILE_MAX_BYTES
 from synth_ai._generated.operations import OPERATIONS
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
@@ -919,3 +920,31 @@ def test_result_reports_the_run_status_and_final_accounting(api, capsys):
     assert code == cli.EXIT_OK, err
     assert "status  partial" in err.splitlines()
     assert "accounting  unavailable" in err.splitlines()
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_oversize_upload_surfaces_the_typed_upload_size_exceeded_refusal(
+    api, capsys, tmp_path, as_json
+):
+    """SYN-5666: an oversize file is Core's typed 422, not a generic client_error."""
+    path = tmp_path / "big.txt"
+    with path.open("wb") as stream:
+        stream.truncate(FILE_MAX_BYTES + 1)
+    argv = [
+        "run",
+        "Goal",
+        "--budget",
+        "1.00",
+        "--file",
+        str(path),
+        *(["--json"] if as_json else []),
+    ]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_SERVER_REFUSAL and out == "", err
+    if as_json:
+        problem = json.loads(err)
+        assert (problem["code"], problem["status"]) == ("upload_size_exceeded", 422)
+        assert problem["maximum_size_bytes"] == str(FILE_MAX_BYTES)
+    else:
+        assert err.startswith("upload_size_exceeded: "), err
+    assert api.calls == []
