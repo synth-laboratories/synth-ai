@@ -266,3 +266,28 @@ def test_rate_limit_refusal_without_a_saturated_window_is_inconclusive(tmp_path)
         "precondition_not_met:launch_window_not_saturated",
     )
     assert len(requests) == 12
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_refusal_cells_keep_the_problem_detail_and_guide_link(tmp_path, surface):
+    """SYN-5666: the J-refusals reducer compares each kept refusal body with its guide entry."""
+    guide = "https://docs.usesynth.ai/errors/optimizer_topology_not_allowed"
+    detail = "The swarms_v2 topology is not allowed for this organization."
+
+    def responder(method, path, _):
+        body = problem("optimizer_topology_not_allowed", 403, type=guide, detail=detail)
+        return 403, body, {}
+
+    result, _ = run(surface, responder, tmp_path, Step.SKU_REFUSAL)
+    assert result.verdict == Verdict.PASS, result
+    refusals = [item for item in result.evidence if item.get("accepted") is False]
+    assert refusals, result
+    assert all((item["detail"], item["guide"]) == (detail, guide) for item in refusals), refusals
+
+
+def test_local_refusal_cell_keeps_its_detail_without_a_guide_link():
+    from scripts.acceptance.surfaces import Outcome
+
+    cell = Outcome("createRun", False, code="client_error", detail="unreadable file").evidence()
+    assert (cell["detail"], cell["guide"]) == ("unreadable file", None)
+    assert "detail" not in Outcome("getRun", True, {}).evidence()

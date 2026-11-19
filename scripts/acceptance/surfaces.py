@@ -81,6 +81,8 @@ class Outcome:
     retryable: Optional[bool] = None
     problem: Optional[Mapping[str, JsonValue]] = None
     cause: str = ""
+    # A local refusal's one-line message; a server refusal carries it in `problem`.
+    detail: Optional[str] = None
 
     @property
     def typed(self) -> bool:
@@ -88,7 +90,7 @@ class Outcome:
 
     def evidence(self) -> dict[str, JsonValue]:
         # Response bodies stay out of receipts except a refusal's own Problem.
-        return {
+        cell: dict[str, JsonValue] = {
             "operation": self.operation,
             "accepted": self.accepted,
             "status": self.status,
@@ -98,6 +100,13 @@ class Outcome:
             "typed": self.typed,
             "cause": self.cause,
         }
+        if not self.accepted:
+            # The J-refusals reducer compares these with the error guide (SYN-5666).
+            problem = self.problem or {}
+            cell["detail"] = self.detail if self.detail is not None else text(problem, "detail")
+            link = text(problem, "type")
+            cell["guide"] = link if link is not None and link != "about:blank" else None
+        return cell
 
 
 def comparable(problem: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
@@ -354,7 +363,9 @@ class SDKSurface:
             )
         except SynthError as error:
             # Local SDK refusals carry a documented code but no HTTP status.
-            return Outcome(call.operation, False, code=error.code, cause="local_sdk_error")
+            return Outcome(
+                call.operation, False, code=error.code, cause="local_sdk_error", detail=str(error)
+            )
         except ValidationError as error:
             return Outcome(
                 call.operation,
@@ -645,6 +656,7 @@ class CLISurface:
             False,
             code=code if isinstance(code, str) else None,
             cause=f"CLI exit {result.returncode}",
+            detail=text(problem, "detail"),
         )
 
     def call(self, call: Call) -> Outcome:
