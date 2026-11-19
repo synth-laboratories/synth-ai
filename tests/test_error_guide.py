@@ -46,6 +46,16 @@ def test_public_problem_examples_are_in_error_guide():
         "launch_request_too_large",
         "route_not_found",
         "billing_admin_required",
+        # J-refusals cross-org not-found matrix codes (SYN-5666, P9 staging T2 19:31Z run).
+        "credential_version_changed",
+        "file_not_found",
+        "key_not_found",
+        "labels_revision_conflict",
+        "plan_request_not_pending",
+        "plan_request_unknown",
+        "upload_bytes_missing",
+        "upload_not_found",
+        "usage_export_not_found",
     ],
 )
 def test_journey_refusal_has_a_guide_entry(code):

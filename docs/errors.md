@@ -129,6 +129,26 @@ One line per code: what it means, then what the caller should do.
   mutations are refused. Contact support; retrying will not help.
 - `run_not_found` (404) and other `NotFoundError` codes: the ID is wrong or
   belongs to another organization. Check the ID and the key's organization.
+- `file_not_found` (404): the file does not exist in this organization. Check
+  the file ID and the credential's organization.
+- `upload_not_found` (404): the upload is not available to this organization.
+  Check the upload ID and the credential's organization.
+- `upload_bytes_missing` (409): the upload was finalized before its bytes
+  reached storage. PUT the file to the upload's grant (`resume_upload` renews
+  it), then finalize again with the same idempotency key.
+- `key_not_found` (404): no active API key with that ID belongs to you. Check
+  the key ID and list your keys.
+- `credential_version_changed` (409): the API key changed since you read it.
+  Read the key again and repeat the change.
+- `labels_revision_conflict` (409): the expected revision is not the run's
+  current labels revision. Read the run's labels, then resend with the current
+  revision.
+- `plan_request_unknown` (404): the plan request does not exist for this
+  organization. List this organization's plan requests and use a returned ID.
+- `plan_request_not_pending` (409): the plan request is no longer pending. Read
+  its current status; only a pending request can be withdrawn.
+- `usage_export_not_found` (404): the usage export does not exist in this
+  organization. Check the export ID and the credential's organization.
 
 ### Authentication, authorization and service errors
 
