@@ -202,3 +202,63 @@ def test_pay_records_the_step_it_failed_on():
     with pytest.raises(Error):
         sc._pay(page, URL, progress)
     assert progress.stage == "card_number"
+
+
+class DetachedFrame(Frame):
+    """A frame Stripe replaced after page.frames was enumerated."""
+
+    def locator(self, selector):
+        from playwright.sync_api import Error
+
+        raise Error("Frame was detached")
+
+    def get_by_role(self, role, name):
+        from playwright.sync_api import Error
+
+        raise Error("Target page, context or browser has been closed")
+
+
+class ReloadingPage(Page):
+    """First enumeration returns a frame that detaches; later ones the live frame."""
+
+    def __init__(self, **options):
+        super().__init__(**options)
+        self.enumerations = 0
+        self.stale = DetachedFrame(self)
+        self.live = Frame(self)
+
+    @property
+    def frames(self):
+        self.enumerations += 1
+        return [self.stale] if self.enumerations == 1 else [self.stale, self.live]
+
+    @frames.setter
+    def frames(self, value):
+        pass
+
+
+def test_card_method_is_found_after_frames_reload_mid_walk():
+    page = ReloadingPage()
+    assert sc._pay(page, URL) is None
+    assert page.enumerations >= 2
+    assert ("click", "card") in page.log
+
+
+def test_detached_frames_with_no_card_method_still_fail_typed():
+    page = ReloadingPage()
+    page.dom["role:card"] = []
+    assert sc._pay(page, URL) == "stripe_test_checkout_field_absent:card_method"
+
+
+def test_a_non_detach_browser_error_still_propagates():
+    from playwright.sync_api import Error
+
+    page = Page()
+
+    class Broken(Frame):
+        def get_by_role(self, role, name):
+            raise Error("Protocol error: something else")
+
+    page.frames = [Broken(page)]
+    with pytest.raises(Error):
+        sc._card_method(page)

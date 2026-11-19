@@ -14,14 +14,23 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:  # Playwright is an acceptance-host install, not an SDK dependency.
-    from playwright.sync_api import Locator, Page
+    from playwright.sync_api import Frame, Locator, Page
 
-__all__ = ["CHECKOUT_PAGE_TIMEOUT_MS", "complete_test_checkout", "test_mode_url"]
+__all__ = [
+    "CHECKOUT_PAGE_TIMEOUT_MS",
+    "QUALIFIED_PLAYWRIGHT",
+    "complete_test_checkout",
+    "test_mode_url",
+]
 
+# Browser automation is qualified on this Playwright (and its Chromium headless
+# shell); see scripts/acceptance/README.md. Declared, not enforced.
+QUALIFIED_PLAYWRIGHT = "1.65.2"
 CHECKOUT_PAGE_TIMEOUT_MS = 60_000
 FIELD_WAIT_MS = 20_000
 POLL_MS = 500
@@ -153,31 +162,65 @@ def _visible(locator: Locator) -> Optional[Locator]:
     return None
 
 
+def _detached(error: BaseException) -> bool:
+    """Stripe reloads its frames while the page settles; a frame can detach mid-walk."""
+    return failure_kind(error) == "target_closed"
+
+
+def _in_frames(page: Page, probe: Callable[[Frame], Optional[Locator]]) -> Optional[Locator]:
+    """One walk over a fresh snapshot of the page's frames.
+
+    A frame that detaches while it is probed is skipped; the caller's next poll
+    re-enumerates the frames, so the walk never outlives the caller's timeout.
+    Any other browser error still propagates.
+    """
+    from playwright.sync_api import Error as PlaywrightError
+
+    for frame in list(page.frames):
+        try:
+            found = probe(frame)
+        except PlaywrightError as error:
+            if not _detached(error):
+                raise
+            continue
+        if found is not None:
+            return found
+    return None
+
+
 def _find(
     page: Page, selectors: tuple[str, ...], wait_ms: int = FIELD_WAIT_MS
 ) -> Optional[Locator]:
     """First visible match in any frame; a hidden first match never masks a later one."""
+
+    def probe(frame: Frame) -> Optional[Locator]:
+        for selector in selectors:
+            found = _visible(frame.locator(selector))
+            if found is not None:
+                return found
+        return None
+
     for _ in range(max(1, wait_ms // POLL_MS)):
-        for frame in page.frames:
-            for selector in selectors:
-                found = _visible(frame.locator(selector))
-                if found is not None:
-                    return found
+        found = _in_frames(page, probe)
+        if found is not None:
+            return found
         page.wait_for_timeout(POLL_MS)
     return None
 
 
 def _card_method(page: Page) -> Optional[Locator]:
-    for _ in range(FIELD_WAIT_MS // POLL_MS):
-        for frame in page.frames:
-            found = _visible(frame.get_by_role("button", name=CARD_ROLE_NAME))
-            if found is None:
-                for selector in CARD_METHOD:
-                    found = _visible(frame.locator(selector))
-                    if found is not None:
-                        break
+    def probe(frame: Frame) -> Optional[Locator]:
+        found = _visible(frame.get_by_role("button", name=CARD_ROLE_NAME))
+        for selector in CARD_METHOD:
             if found is not None:
-                return found
+                break
+            found = _visible(frame.locator(selector))
+        return found
+
+    for _ in range(FIELD_WAIT_MS // POLL_MS):
+        found = _in_frames(page, probe)
+        if found is not None:
+            return found
         page.wait_for_timeout(POLL_MS)
     return None
 

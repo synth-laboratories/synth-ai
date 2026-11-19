@@ -146,6 +146,17 @@ API 404s alone do not prove those boundaries. SYN-5737 stays In Review until
 all required SDK/CLI/MCP cells and the separate sandbox/staging receipts pass.
 
 
+### Stripe TEST completer: qualified browser automation (SYN-5737)
+
+`stripe_checkout.py` drives Stripe's hosted TEST Checkout with Playwright. It is
+qualified on Playwright `1.65.2` (the version `uv.lock` resolves for the dev
+group) with its bundled Chromium headless shell. Older stacks (seen: 1.48 /
+Chromium 130) hit frame-detach races while Stripe reloads its frames. A hosted
+run must use an interpreter with `playwright==1.65.2` installed and
+`python -m playwright install chromium` run by that same interpreter. The
+version is declared in `stripe_checkout.QUALIFIED_PLAYWRIGHT`. The completer
+does not refuse other versions.
+
 ## Recorded run messaging (SYN-5747, source preparation)
 
 `message_journey.py` plugs five steps into the existing journey dispatcher:
