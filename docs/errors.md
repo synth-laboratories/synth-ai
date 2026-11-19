@@ -269,7 +269,8 @@ Request and lookup:
   longer than 366 days. Narrow the window.
 - `invalid_cursor` (422): the page cursor is not one this listing issued. Start
   again from the first page.
-- `invalid_limit` (422): the page size is out of range. Use a smaller `limit`.
+- `invalid_limit` (422): the page size is out of range. Use a `limit` within the
+  documented range.
 - `invalid_history_filter` (422): a billing history parameter is invalid;
   `detail` names it.
 - `invalid_id` (422): the checkout ID is malformed. Use the ID the checkout
@@ -294,8 +295,8 @@ Permission and setup:
 - `browser_session_required` (403): an API key or OAuth grant tried to turn
   auto-reload on. Turn it on from a signed-in browser session.
 - `payment_method_required` (409): no card is saved. Add one, then retry.
-- `billing_customer_not_found` (404): the org has no Stripe customer yet. Buy
-  credits or a plan first.
+- `billing_customer_not_found` (404): the org has no Stripe customer, so there is
+  no payment method to manage.
 - `config_missing` (503): the service is missing billing configuration; `detail`
   names it. Retrying will not help until the operator fixes it.
 - `stripe_price_missing` (503): a Stripe price is not configured; `detail` names
@@ -308,8 +309,8 @@ Subscription state:
 - `subscription_already_active` (409): the org already holds a subscription
   that Stripe has not ended. Change the plan instead of buying a second one.
 - `subscription_not_found` (404): the org has no subscription.
-- `subscription_not_self_serve` (409): the subscription is not managed through
-  Stripe self-serve. Contact support to change it.
+- `subscription_not_self_serve` (409): Stripe does not hold the org's plan, so it
+  cannot be changed, cancelled or resumed through these operations.
 - `subscription_not_cancelable` (409): the subscription is `incomplete` or
   `incomplete_expired`. There is nothing to cancel.
 - `subscription_not_resumable` (409): no cancellation is pending, or the
@@ -319,8 +320,9 @@ Subscription state:
 - `subscription_not_changeable` (409): the subscription is `past_due`,
   `unpaid`, `paused` or `incomplete`. Update the card first.
 - `subscription_plan_unchanged` (409): the requested plan is the current plan.
-- `subscription_binding_conflict` (409): the org's stored subscription does not
-  match Stripe's. Do not retry; report it with the `request_id`.
+- `subscription_binding_conflict` (409): the org's stored subscription binding
+  does not match the Stripe subscription. Retrying will not help; report it with
+  the `request_id`.
 - `subscription_change_payment_failed` (402): the payment for the switch was
   declined. The plan is unchanged and the switch is final; paying its voided
   invoice later applies nothing. Fix the card and request the change again.
@@ -333,8 +335,7 @@ Stripe failures (502, `upstream_kind: stripe`):
   `stripe_payment_method_read_failed` (502),
   `stripe_invoice_preview_failed` (502),
   `stripe_subscription_read_failed` (502) and
-  `stripe_portal_session_failed` (502): Stripe did not answer. Retry later;
-  nothing changed.
+  `stripe_portal_session_failed` (502): the Stripe call failed. Retry later.
 - `stripe_portal_configuration_read_failed` (502) and
   `stripe_portal_configuration_create_failed` (502): Stripe could not read or
   create the payment-method portal configuration. Retry later.
