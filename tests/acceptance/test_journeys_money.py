@@ -14,9 +14,11 @@ from decimal import Decimal
 import pytest
 from journey_loopback import (
     MONEY,
+    PURCHASE_GRANT,
     SURFACES,
     checkout_responder,
     example,
+    ledger_entry,
     limits_api,
     limits_view,
     run,
@@ -276,6 +278,96 @@ def test_buy_credits_completes_stripe_test_checkout_through_hook(contract, tmp_p
     assert paths.index(("POST", "/v1/billing/checkout")) < paths.index(
         ("GET", "/v1/billing/checkouts/chk_AAAAAAAAQACAAAAAAAAAAQ")
     )
+
+
+def buy(contract, tmp_path, surface=SurfaceName.SDK, **fixture):
+    completed: list[str] = []
+
+    def pay(url):
+        completed.append(url)
+        return None
+
+    responder, _ = checkout_responder(contract, completed, **fixture)
+    result, _ = run(surface, responder, tmp_path, Step.BUY_CREDITS_TEST, complete_checkout=pay)
+    return result, responder.state
+
+
+def notes_of(result):
+    return result.evidence[-1]
+
+
+# 08:06Z staging shape: a live run settled 0.06426823 during the mcp_stdio buy.
+SETTLEMENT = ledger_entry("led_settle", "settle", "-0.06426823", "2026-11-19T08:06:01Z")
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_buy_credits_reconciles_a_concurrent_settlement_exactly(contract, tmp_path, surface):
+    result, state = buy(
+        contract, tmp_path, surface, gain="9.93573177", entries=[PURCHASE_GRANT, SETTLEMENT]
+    )
+    assert result.verdict == Verdict.PASS, result
+    notes = notes_of(result)
+    assert [row["entry_id"] for row in notes["entries"]] == ["led_purchase", "led_settle"]
+    assert notes["purchase_grant_entry_ids"] == ["led_purchase"]
+    assert notes["interval_reads"][-1]["interval_sum"] == "9.93573177"
+    # Every page was read on this driver's own surface, with the interval bounds.
+    assert len(state["history"]) == 2 and state["history"][1]["cursor"] == "1"
+    assert all({"since", "until"} <= set(query) for query in state["history"])
+
+
+def test_same_gain_without_the_debit_entry_fails(contract, tmp_path):
+    result, _ = buy(contract, tmp_path, gain="9.93573177")
+    assert result.verdict == Verdict.FAIL
+    assert result.cause == "ledger_interval_unreconciled"
+    assert len(notes_of(result)["interval_reads"]) == 2  # One consistent re-read, then Fail.
+
+
+def test_purchase_grant_of_9_99_fails(contract, tmp_path):
+    grant = ledger_entry(
+        "led_short", "grant", "9.99", "2026-11-19T08:06:09Z", funding_class="purchased"
+    )
+    result, _ = buy(contract, tmp_path, gain="9.99", entries=[grant])
+    assert result.verdict == Verdict.FAIL
+    assert result.cause == "balance_not_credited"
+
+
+def test_two_purchase_grants_in_the_window_fail(contract, tmp_path):
+    second = dict(PURCHASE_GRANT, entry_id="led_purchase_2", created_at="2026-11-19T08:06:10Z")
+    result, _ = buy(contract, tmp_path, gain="20", entries=[PURCHASE_GRANT, second])
+    assert result.verdict == Verdict.FAIL
+    assert result.cause == "purchase_grant_ambiguous"
+
+
+def test_purchase_grant_outside_the_checkout_window_fails(contract, tmp_path):
+    early = dict(PURCHASE_GRANT, created_at="2026-11-19T08:04:59Z")
+    result, _ = buy(contract, tmp_path, entries=[early])
+    assert result.verdict == Verdict.FAIL
+    assert result.cause == "balance_not_credited"
+
+
+def test_unattributed_grant_class_fails(contract, tmp_path):
+    operator = dict(PURCHASE_GRANT, funding_class="operator")
+    result, _ = buy(contract, tmp_path, entries=[operator])
+    assert result.cause == "balance_not_credited"
+
+
+def test_no_concurrent_debits_and_gain_10_passes(contract, tmp_path):
+    result, _ = buy(contract, tmp_path)
+    assert result.verdict == Verdict.PASS, result
+    assert notes_of(result)["ledger_gain_usd"] == "10"
+    assert len(notes_of(result)["interval_reads"]) == 1
+
+
+def test_closing_edge_race_is_resolved_by_one_consistent_reread(contract, tmp_path):
+    late = ledger_entry("led_late", "settle", "-0.5", "2026-11-19T08:06:20Z")
+    reads = [("10", [PURCHASE_GRANT, late]), ("9.5", [PURCHASE_GRANT, late])]
+    result, _ = buy(contract, tmp_path, reads=reads)
+    assert result.verdict == Verdict.PASS, result
+    assert [read["interval_sum"] for read in notes_of(result)["interval_reads"]] == ["9.5", "9.5"]
+    assert [read["ledger_after"] for read in notes_of(result)["interval_reads"]] == [
+        "310",
+        "309.5",
+    ]
 
 
 def test_buy_credits_without_hook_stays_inconclusive(contract, tmp_path):

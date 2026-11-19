@@ -290,8 +290,79 @@ def checkout_state(outcome: Outcome) -> Optional[str]:
     return state if isinstance(state, str) else None
 
 
+# The credits.10 pack. The ledger proof (coordinator ruling 2026-11-19, option B):
+# Core exposes no checkout id on ledger entries, so the purchase is the one
+# purchased grant of exactly this amount inside the checkout's own window, and
+# the whole interval must reconcile entry by entry.
+PURCHASE_USD = Decimal("10")
+HISTORY_PAGE_LIMIT = 100
+HISTORY_MAX_PAGES = 50
+
+
+def utc_stamp() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def instant(value: JsonValue) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def usd(value: JsonValue) -> Optional[Decimal]:
+    """Exact USD amount of a Money object, or None (never a float, never another currency)."""
+    if not isinstance(value, dict) or value.get("currency") != "USD":
+        return None
+    try:
+        amount = Decimal(str(value.get("amount")))
+    except ArithmeticError:
+        return None
+    return amount if amount.is_finite() else None
+
+
+def history_interval(
+    context: JourneyContext, since: str, until: str
+) -> tuple[Optional[list[dict[str, JsonValue]]], Optional[Outcome]]:
+    """Every ledger entry with since <= created_at < until, all pages, on this driver's surface."""
+    entries: list[dict[str, JsonValue]] = []
+    cursor: Optional[str] = None
+    page: Optional[Outcome] = None
+    for _ in range(HISTORY_MAX_PAGES):
+        query: dict[str, JsonValue] = {"since": since, "until": until, "limit": HISTORY_PAGE_LIMIT}
+        if cursor is not None:
+            query["cursor"] = cursor
+        page = context.surface.call(Call("listBillingHistory", query=query))
+        value = page.value
+        if not page.accepted or not isinstance(value, dict):
+            return None, page
+        entries += [entry for entry in items(value.get("items")) if isinstance(entry, dict)]
+        if value.get("has_more") is not True:
+            return entries, page
+        next_cursor = value.get("next_cursor")
+        if not isinstance(next_cursor, str) or not next_cursor:
+            return None, page
+        cursor = next_cursor
+    return None, page
+
+
+def entry_row(entry: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
+    return {
+        "entry_id": entry.get("entry_id"),
+        "cause": entry.get("cause"),
+        "funding_class": entry.get("funding_class"),
+        "delta": entry.get("delta"),
+        "created_at": entry.get("created_at"),
+    }
+
+
 def buy_credits(context: JourneyContext) -> StepReceipt:
     step = Step.BUY_CREDITS_TEST
+    # The interval opens before the first balance read and before the checkout exists.
+    since = utc_stamp()
     before = context.surface.call(Call("getBalance"))
     created = context.surface.call(
         Call("createCheckout", body={"pack_id": "credits.10"}, idempotency_key=key("checkout"))
@@ -327,32 +398,108 @@ def buy_credits(context: JourneyContext) -> StepReceipt:
             status,
             notes={"checkout_state": state},
         )
-    after = context.surface.call(Call("getBalance"))
-    gained = ledger(after) - ledger(before)
-    verdict = Verdict.PASS if gained == Decimal("10") else Verdict.FAIL
+    return reconcile_purchase(context, step, since, before, created, status)
+
+
+def reconcile_purchase(
+    context: JourneyContext,
+    step: Step,
+    since: str,
+    before: Outcome,
+    created: Outcome,
+    status: Outcome,
+) -> StepReceipt:
+    """Pass only if the interval reconciles exactly and holds exactly one purchase grant.
+
+    `ledger` (Balance) moves only by entry `delta`; `held_delta` moves held value
+    and is not summed. An entry landing between the closing balance read and the
+    `until` stamp is a read race, not a discrepancy: on a mismatch the closing
+    edge is re-read ONCE (fresh balance, then a later `until`) and the same exact
+    equality must hold. The opening edge (since stamped, then balance read) has
+    no re-read: a mismatch there Fails.
+    """
+    view = status.value if isinstance(status.value, dict) else {}
+    opened, closed = instant(view.get("created_at")), instant(view.get("completed_at"))
+    window = {
+        "checkout_created_at": view.get("created_at"),
+        "completed_at": view.get("completed_at"),
+    }
+    if opened is None or closed is None:
+        return receipt(
+            context, step, Verdict.FAIL, "checkout_window_unavailable", before, created, status
+        )
+    ledger_before = usd(obj(before.value).get("ledger")) if before.accepted else None
+    reads: list[Mapping[str, JsonValue]] = []
+    entries: list[dict[str, JsonValue]] = []
+    after: Optional[Outcome] = None
+    gain = interval = None
+    for _ in range(2):
+        after = context.surface.call(Call("getBalance"))
+        until = utc_stamp()
+        listed, page = history_interval(context, since, until)
+        ledger_after = usd(obj(after.value).get("ledger")) if after.accepted else None
+        if listed is None or ledger_before is None or ledger_after is None:
+            outcomes = (before, created, status, after) + ((page,) if page is not None else ())
+            return receipt(context, step, Verdict.FAIL, "ledger_interval_unreadable", *outcomes)
+        deltas = [usd(entry.get("delta")) for entry in listed]
+        if any(delta is None for delta in deltas):
+            return receipt(context, step, Verdict.FAIL, "ledger_entry_unreadable", before, after)
+        entries = listed
+        gain = ledger_after - ledger_before
+        interval = sum((delta for delta in deltas if delta is not None), Decimal(0))
+        reads.append(
+            {
+                "until": until,
+                "ledger_after": str(ledger_after),
+                "entries": len(listed),
+                "interval_sum": str(interval),
+            }
+        )
+        if gain == interval:
+            break
+    grants = [
+        entry
+        for entry in entries
+        if entry.get("cause") == "grant"
+        and entry.get("funding_class") == "purchased"
+        and usd(entry.get("delta")) == PURCHASE_USD
+        and (stamp := instant(entry.get("created_at"))) is not None
+        and opened <= stamp <= closed
+    ]
+    if gain != interval:
+        verdict, cause = Verdict.FAIL, "ledger_interval_unreconciled"
+    elif not grants:
+        verdict, cause = Verdict.FAIL, "balance_not_credited"
+    elif len(grants) > 1:
+        verdict, cause = Verdict.FAIL, "purchase_grant_ambiguous"
+    else:
+        verdict, cause = Verdict.PASS, ""
+    assert after is not None
     return receipt(
         context,
         step,
         verdict,
-        "" if verdict == Verdict.PASS else "balance_not_credited",
+        cause,
         before,
         created,
         status,
         after,
-        notes={"ledger_gain_usd": str(gained)},
+        notes={
+            "ledger_field": "Balance.ledger vs BillingHistoryEntry.delta (held_delta excluded)",
+            "since": since,
+            "ledger_before": str(ledger_before),
+            "ledger_gain_usd": str(gain),
+            "interval_reads": list(reads),
+            "entries": [entry_row(entry) for entry in entries],
+            "purchase_grant_entry_ids": [str(entry.get("entry_id")) for entry in grants],
+            "checkout_window": window,
+            "purchase_usd": str(PURCHASE_USD),
+        },
     )
 
 
 def items(value: JsonValue) -> list[JsonValue]:
     return value if isinstance(value, list) else []
-
-
-def ledger(outcome: Outcome) -> Decimal:
-    value = outcome.value
-    if not outcome.accepted or not isinstance(value, dict):
-        return Decimal("NaN")
-    money = value.get("ledger")
-    return Decimal(str(money["amount"])) if isinstance(money, dict) else Decimal("NaN")
 
 
 def spend_cap(view: Outcome) -> Optional[int]:

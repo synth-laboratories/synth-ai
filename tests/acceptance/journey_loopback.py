@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from scripts.acceptance import journey_main, journeys
 from scripts.acceptance.journeys import (
@@ -203,14 +204,56 @@ def launch_window(cap, retry_after, *, then):
     return responder, state
 
 
-def checkout_responder(contract, completed):
-    """Core billing fixture whose checkout completes once the hook has paid it."""
+CHECKOUT_OPENED = "2026-11-19T08:05:00Z"
+CHECKOUT_COMPLETED = "2026-11-19T08:06:10Z"
+
+
+def ledger_entry(entry_id, cause, delta, created_at, funding_class=None):
+    """One BillingHistoryEntry; deltas are exact decimal strings."""
+    return {
+        "entry_id": entry_id,
+        "cause": cause,
+        "funding_class": funding_class,
+        "hold_kind": None,
+        "expires_at": None,
+        "created_at": created_at,
+        "refund": None,
+        "usage": None,
+        "delta": {"amount": delta, "currency": "USD"},
+        "held_delta": {"amount": "0", "currency": "USD"},
+    }
+
+
+PURCHASE_GRANT = ledger_entry(
+    "led_purchase", "grant", "10", "2026-11-19T08:06:09Z", funding_class="purchased"
+)
+
+
+def checkout_responder(contract, completed, *, gain="10", entries=None, reads=None, page_size=1):
+    """Core billing fixture whose checkout completes once the hook has paid it.
+
+    `gain` is the closing ledger minus the opening one; `entries` the interval's
+    ledger entries (default: the one purchase grant); `reads` optional per-read
+    (gain, entries) pairs to model a closing-edge race. History pages hold
+    `page_size` items so pagination is always exercised.
+    """
     url = "https://checkout.stripe.com/c/pay/cs_test_fixture"
+    entries = [PURCHASE_GRANT] if entries is None else entries
+    state = {"closing_reads": 0, "history": []}
+
+    def current():
+        if reads is None:
+            return gain, entries
+        return reads[min(state["closing_reads"], len(reads)) - 1]
 
     def responder(method, path, _):
         if path.startswith("/v1/billing/balance"):
             balance = example(contract, "/v1/billing/balance")
-            amount = "310.00" if completed else "300.00"
+            if completed:
+                state["closing_reads"] += 1
+                amount = str(Decimal("300") + Decimal(current()[0]))
+            else:
+                amount = "300"
             balance["ledger"] = {"amount": amount, "currency": "USD"}
             return 200, balance, {}
         if method == "POST" and path.startswith("/v1/billing/checkout"):
@@ -221,7 +264,20 @@ def checkout_responder(contract, completed):
             view = example(contract, "/v1/billing/checkouts/{id}")
             view.update(kind="credits", url=url, state="completed" if completed else "open")
             view["amount"] = {"amount": "10.00", "currency": "USD"}
+            view["created_at"] = CHECKOUT_OPENED
+            view["completed_at"] = CHECKOUT_COMPLETED if completed else None
             return 200, view, {}
+        if path.startswith("/v1/billing/history"):
+            query = parse_qs(urlsplit(path).query)
+            state["history"].append({name: values[0] for name, values in query.items()})
+            listed = current()[1]
+            start = int(query.get("cursor", ["0"])[0])
+            more = start + page_size < len(listed)
+            page = {"items": listed[start : start + page_size], "has_more": more}
+            if more:
+                page["next_cursor"] = str(start + page_size)
+            return 200, page, {}
         return 404, problem("not_found", 404), {}
 
+    responder.state = state
     return responder, url

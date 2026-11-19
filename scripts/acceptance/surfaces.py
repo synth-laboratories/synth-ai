@@ -283,6 +283,12 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getAccount": lambda c, a: c.account.get(),
     "getBalance": lambda c, a: c.billing.balance(),
     "listStatements": lambda c, a: c.billing.statements(),
+    "listBillingHistory": lambda c, a: c.billing.history(
+        cursor=cast(Optional[str], a.query.get("cursor")),
+        limit=cast(int, a.query.get("limit", 20)),
+        since=cast(Optional[str], a.query.get("since")),
+        until=cast(Optional[str], a.query.get("until")),
+    ),
     "createCheckout": checkout,
     "getCheckout": lambda c, a: c.billing.checkout_status(a.path["id"]),
     "cancelSubscription": lambda c, a: c.billing.cancel_subscription(
@@ -456,6 +462,15 @@ def message_argv(call: Call, _directory: Path) -> Sequence[str]:
     ]
 
 
+def history_page_argv(call: Call, _directory: Path) -> Sequence[str]:
+    argv = ["billing", "history", "--limit", str(call.query.get("limit", 20))]
+    for name in ("since", "until", "cursor"):
+        value = call.query.get(name)
+        if isinstance(value, str):
+            argv += ["--" + name, value]
+    return argv
+
+
 def message_page_argv(call: Call, _directory: Path) -> Sequence[str]:
     argv = ["messages", run_id(call), "--limit", str(call.query.get("limit", 20))]
     cursor = call.query.get("cursor")
@@ -469,6 +484,7 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
     "getAccount": lambda a, d: ["organization", "get"],
     "getBalance": lambda a, d: ["billing", "balance"],
     "listStatements": lambda a, d: ["billing", "statements"],
+    "listBillingHistory": history_page_argv,
     "createCheckout": lambda a, d: [
         "billing",
         "checkout",
