@@ -24,25 +24,49 @@ __all__ = ["CHECKOUT_PAGE_TIMEOUT_MS", "complete_test_checkout", "test_mode_url"
 
 CHECKOUT_PAGE_TIMEOUT_MS = 60_000
 FIELD_WAIT_MS = 20_000
+POLL_MS = 500
 TEST_CARD = "4242424242424242"
 TEST_EMAIL = "j2-acceptance@example.com"
+# Stripe hosted Checkout, 2026-11 (observed on staging TEST sessions, SYN-5696):
+# the Payment Element lives in a js.stripe.com `elements-inner-*` frame; card
+# inputs render only after the "Card" accordion row (a DIV with role=button,
+# not a <button>) is chosen; Link's opt-in is a checkbox in the same frame.
+# The legacy page (#cardNumber, no accordion) stays accepted.
+CARD_ROLE_NAME = re.compile(r"^Card\b")
 EMAIL = ("#linkAuthentication-emailInput", "#email", "input[name='email']")
 CARD_METHOD = (
     "[data-testid='card-accordion-item-button']",
     "#payment-method-accordion-item-title-card",
     "input[value='card']",
 )
-NUMBER = ("#cardNumber", "input[name='cardNumber']", "input[name='number']")
-EXPIRY = ("#cardExpiry", "input[name='cardExpiry']", "input[name='expiry']")
-CVC = ("#cardCvc", "input[name='cardCvc']", "input[name='cvc']")
-NAME = ("#billingName", "input[name='billingName']", "input[autocomplete='cc-name']")
+NUMBER = ("#payment-numberInput", "#cardNumber", "input[name='cardNumber']", "input[name='number']")
+EXPIRY = ("#payment-expiryInput", "#cardExpiry", "input[name='cardExpiry']", "input[name='expiry']")
+CVC = ("#payment-cvcInput", "#cardCvc", "input[name='cardCvc']", "input[name='cvc']")
+NAME = (
+    "#payment-nameInput",
+    "#billingName",
+    "input[name='billingName']",
+    "input[autocomplete='cc-name']",
+)
 POSTAL = (
+    "#payment-postalCodeInput",
     "#billingPostalCode",
     "input[name='billingPostalCode']",
     "input[autocomplete='postal-code']",
+    "input[autocomplete='billing postal-code']",
 )
-SUBMIT = ("[data-testid='hosted-payment-submit-button']", ".SubmitButton", "button[type='submit']")
+LINK_OPT_IN = ("#payment-linkOptInInput", "#enableStripePass")
+SUBMIT = (
+    "[data-testid='payment-form-submit-button']",
+    "[data-testid='hosted-payment-submit-button']",
+    ".SubmitButton",
+    "button[type='submit']",
+)
 SAVE_INFO = "Save my information for faster checkout"
+# A challenge is a visible, sizeable hCaptcha iframe in the top page. The
+# invisible hCaptcha frames Stripe always loads are not a challenge.
+CAPTCHA_FRAME = "iframe[src*='hcaptcha']"
+CAPTCHA_MIN_PX = 100
 
 
 def test_mode_url(url: str) -> bool:
@@ -75,19 +99,45 @@ def complete_test_checkout(url: str) -> Optional[str]:
         return "stripe_test_checkout_browser_error:" + type(error).__name__
 
 
-def _find(page: Page, selectors: tuple[str, ...]) -> Optional[Locator]:
-    for _ in range(FIELD_WAIT_MS // 500):
+def _visible(locator: Locator) -> Optional[Locator]:
+    for index in range(locator.count()):
+        candidate = locator.nth(index)
+        if candidate.is_visible():
+            return candidate
+    return None
+
+
+def _find(
+    page: Page, selectors: tuple[str, ...], wait_ms: int = FIELD_WAIT_MS
+) -> Optional[Locator]:
+    """First visible match in any frame; a hidden first match never masks a later one."""
+    for _ in range(max(1, wait_ms // POLL_MS)):
         for frame in page.frames:
             for selector in selectors:
-                locator = frame.locator(selector)
-                if locator.count() and locator.first.is_visible():
-                    return locator.first
-        page.wait_for_timeout(500)
+                found = _visible(frame.locator(selector))
+                if found is not None:
+                    return found
+        page.wait_for_timeout(POLL_MS)
+    return None
+
+
+def _card_method(page: Page) -> Optional[Locator]:
+    for _ in range(FIELD_WAIT_MS // POLL_MS):
+        for frame in page.frames:
+            found = _visible(frame.get_by_role("button", name=CARD_ROLE_NAME))
+            if found is None:
+                for selector in CARD_METHOD:
+                    found = _visible(frame.locator(selector))
+                    if found is not None:
+                        break
+            if found is not None:
+                return found
+        page.wait_for_timeout(POLL_MS)
     return None
 
 
 def _fill(page: Page, selectors: tuple[str, ...], value: str, required: bool = True) -> bool:
-    field = _find(page, selectors)
+    field = _find(page, selectors, FIELD_WAIT_MS if required else 3 * POLL_MS)
     if field is None:
         return not required
     field.click()
@@ -95,16 +145,54 @@ def _fill(page: Page, selectors: tuple[str, ...], value: str, required: bool = T
     return True
 
 
+def _choose_card(page: Page) -> bool:
+    """Open the Card accordion unless card inputs already show (legacy page)."""
+    if _find(page, NUMBER, 3 * POLL_MS) is not None:
+        return True
+    method = _card_method(page)
+    if method is None:
+        return False
+    if method.get_attribute("aria-expanded") != "true":
+        method.click()
+    return True
+
+
+def _decline_link(page: Page) -> None:
+    """Link's opt-in, when ticked, demands a phone number before submit."""
+    box = _find(page, LINK_OPT_IN, 3 * POLL_MS)
+    if box is not None:
+        if box.is_checked():
+            box.uncheck()
+        return
+    for frame in page.frames:  # Older pages: only the label is clickable.
+        if frame.locator("input[type='checkbox']:checked").count():
+            label = frame.get_by_text(SAVE_INFO)
+            if label.count():
+                label.first.click()
+                return
+
+
+def _captcha_challenge(page: Page) -> bool:
+    for frame in page.locator(CAPTCHA_FRAME).all():
+        if frame.is_visible():
+            box = frame.bounding_box()
+            if box and box["width"] >= CAPTCHA_MIN_PX and box["height"] >= CAPTCHA_MIN_PX:
+                return True
+    return False
+
+
 def _pay(page: Page, url: str) -> Optional[str]:
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
     page.goto(url, wait_until="load", timeout=CHECKOUT_PAGE_TIMEOUT_MS)
-    if not _fill(page, EMAIL, TEST_EMAIL):
+    if not _choose_card(page):
+        return "stripe_test_checkout_field_absent:card_method"
+    email = _find(page, EMAIL)
+    if email is None:
         return "stripe_test_checkout_field_absent:email"
-    page.keyboard.press("Tab")
-    method = _find(page, CARD_METHOD)
-    if method is not None:
-        method.click(force=True)
+    if not email.input_value():
+        email.click()
+        email.fill(TEST_EMAIL)
     for name, selectors, value in (
         ("card_number", NUMBER, TEST_CARD),
         ("card_expiry", EXPIRY, "12 / 34"),
@@ -114,13 +202,7 @@ def _pay(page: Page, url: str) -> Optional[str]:
             return "stripe_test_checkout_field_absent:" + name
     _fill(page, NAME, "J2 Acceptance", required=False)
     _fill(page, POSTAL, "94103", required=False)
-    # Link's "Save my information" is ticked by default and then demands a phone.
-    for frame in page.frames:
-        if frame.locator("input[type='checkbox']:checked").count():
-            label = frame.get_by_text(SAVE_INFO)
-            if label.count():
-                label.first.click()
-                break
+    _decline_link(page)
     submit = _find(page, SUBMIT)
     if submit is None:
         return "stripe_test_checkout_field_absent:submit"
@@ -128,5 +210,8 @@ def _pay(page: Page, url: str) -> Optional[str]:
     try:
         page.wait_for_url(re.compile(r"checkout=success"), timeout=CHECKOUT_PAGE_TIMEOUT_MS)
     except PlaywrightTimeoutError:
+        # Never solved or bypassed: a visible challenge is reported as such.
+        if _captcha_challenge(page):
+            return "stripe_test_checkout_captcha_challenge"
         return "stripe_test_checkout_not_redirected"
     return None
