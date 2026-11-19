@@ -22,6 +22,8 @@ from typing import Optional, Protocol
 from pydantic import TypeAdapter
 
 from synth_ai import SynthClient
+from synth_ai.cli import EXIT_RUN_UNSUCCESSFUL as CLI_EXIT_RUN_UNSUCCESSFUL
+from synth_ai.cli import UNSUCCESSFUL_STATES as CLI_UNSUCCESSFUL_STATES
 from synth_ai.models import (
     File,
     InputFile,
@@ -332,7 +334,13 @@ class CLIDriver:
         self.entrypoint = entrypoint
 
     def _command(
-        self, arguments: Sequence[str], *, run_id: str, seconds: int = COMMAND_SECONDS
+        self,
+        arguments: Sequence[str],
+        *,
+        run_id: str,
+        seconds: int = COMMAND_SECONDS,
+        terminal_exit: Optional[int] = None,
+        exit_sink: Optional[list[int]] = None,
     ) -> str:
         # The caller supplies the manager-selected origin via the named local
         # profile. Credentials remain in the child environment, never argv/logs.
@@ -346,7 +354,7 @@ class CLIDriver:
             timeout=seconds,
             check=False,
         )
-        if result.returncode:
+        if result.returncode and result.returncode != terminal_exit:
             # Retain the classified exit without printing server bodies or keys.
             raise refusal(
                 "cli_command_failed",
@@ -354,6 +362,8 @@ class CLIDriver:
                 cause="CLI exit " + str(result.returncode),
                 run_id=run_id,
             )
+        if exit_sink is not None:
+            exit_sink.append(result.returncode)
         return result.stdout
 
     def upload(self, paths: Sequence[Path]) -> tuple[File, ...]:
@@ -448,13 +458,28 @@ class CLIDriver:
         return snapshot
 
     def wait(self, run_id: str) -> RunSnapshot:
-        return RunSnapshot.model_validate_json(
+        # `synth wait` exits 3 (EXIT_RUN_UNSUCCESSFUL) after printing the final snapshot of a
+        # failed or cancelled run: a terminal answer, not a command failure (P7 staging p7-cli-1).
+        # The exit and the printed state must agree; any other non-zero exit stays a refusal.
+        result: list[int] = []
+        snapshot = RunSnapshot.model_validate_json(
             self._command(
                 ["wait", run_id, "--timeout", str(WAIT_SECONDS), "--json"],
                 run_id=run_id,
                 seconds=WAIT_SECONDS + COMMAND_SECONDS,
+                terminal_exit=CLI_EXIT_RUN_UNSUCCESSFUL,
+                exit_sink=result,
             )
         )
+        unsuccessful = str(snapshot.state) in CLI_UNSUCCESSFUL_STATES
+        if (result[0] == CLI_EXIT_RUN_UNSUCCESSFUL) != unsuccessful or snapshot.run_id != run_id:
+            raise refusal(
+                "cli_wait_exit_state_mismatch",
+                stage="wait",
+                cause="CLI exit " + str(result[0]) + " with state " + str(snapshot.state),
+                run_id=run_id,
+            )
+        return snapshot
 
     def snapshot(self, run_id: str) -> RunSnapshot:
         return RunSnapshot.model_validate_json(

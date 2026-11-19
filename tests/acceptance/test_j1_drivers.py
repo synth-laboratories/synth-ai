@@ -420,3 +420,57 @@ def test_recorded_launch_refuses_shapes_it_cannot_send_unchanged(body):
 
     with pytest.raises(AdapterError, match="recorded_launch_shape_unsupported"):
         RecordedLaunch.from_body(body)
+
+
+@pytest.mark.parametrize("state", ["failed", "cancelled"])
+def test_cli_wait_exit_three_is_the_terminal_unsuccessful_snapshot(contract, tmp_path, state):
+    # P7 staging 2026-11-19 (p7-cli-1): `synth wait` exits 3 (EXIT_RUN_UNSUCCESSFUL) after printing
+    # the final snapshot of a failed run; the driver raised cli_command_failed and the follower
+    # retried it as a transport error for 40 minutes.
+    import sys
+
+    snapshot = json.loads(
+        json.dumps(
+            contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
+                "application/json"
+            ]["example"]
+        )
+    )
+    snapshot["run_id"], snapshot["state"] = RUN, state
+    entrypoint = tmp_path / "cli_wait_unsuccessful.py"
+    entrypoint.write_text(
+        "import sys\nassert sys.argv[3] == 'wait', sys.argv\n"
+        f"print({json.dumps(json.dumps(snapshot))})\nraise SystemExit(3)\n"
+    )
+    driver = CLIDriver(
+        python=Path(sys.executable),
+        environment=dict(os.environ),
+        working_directory=tmp_path,
+        entrypoint=entrypoint,
+    )
+    final = driver.wait(RUN)
+    assert (final.run_id, str(final.state)) == (RUN, state)
+
+
+@pytest.mark.parametrize(("state", "code"), [("running", 3), ("failed", 1), ("completed", 3)])
+def test_cli_wait_refuses_an_exit_that_disagrees_with_the_snapshot(contract, tmp_path, state, code):
+    import sys
+
+    snapshot = json.loads(
+        json.dumps(
+            contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
+                "application/json"
+            ]["example"]
+        )
+    )
+    snapshot["run_id"], snapshot["state"] = RUN, state
+    entrypoint = tmp_path / "cli_wait_mismatch.py"
+    entrypoint.write_text(f"print({json.dumps(json.dumps(snapshot))})\nraise SystemExit({code})\n")
+    driver = CLIDriver(
+        python=Path(sys.executable),
+        environment=dict(os.environ),
+        working_directory=tmp_path,
+        entrypoint=entrypoint,
+    )
+    with pytest.raises(AdapterError):
+        driver.wait(RUN)
