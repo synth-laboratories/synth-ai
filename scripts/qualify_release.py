@@ -46,7 +46,10 @@ RELEASE_TESTS = (
     "tests/test_contract.py",
     "tests/test_public_surface.py",
     "tests/test_mcp_stdio.py",
-    "tests/acceptance/test_journeys.py",
+    "tests/acceptance/test_journeys_access.py",
+    "tests/acceptance/test_journeys_isolation.py",
+    "tests/acceptance/test_journeys_money.py",
+    "tests/acceptance/test_journeys_refusals.py",
 )
 GENERATION_CHECKS = (
     ("surface_parity", ["scripts/check_surface_parity.py"]),

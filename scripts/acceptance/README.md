@@ -128,7 +128,7 @@ Known client findings, retained as failing/Inconclusive steps rather than stubs:
 the SDK refuses a contract-invalid launch (oversize message, unknown topology)
 with a raw `pydantic.ValidationError` that has no public code, and `synth run`
 accepts the goal only as argv, so a message over the 1 MiB contract limit cannot
-be sent from the CLI (E2BIG). `tests/acceptance/test_journeys.py` pins both.
+be sent from the CLI (E2BIG). `tests/acceptance/test_journeys_refusals.py` pins both.
 
 SYN-5737 strengthens the cross-org comparison: only equal, typed resource-404
 Problems pass. Untyped 404s and `route_not_found` stay unproven, and an empty
