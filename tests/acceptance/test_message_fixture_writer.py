@@ -233,3 +233,67 @@ def test_a_sealed_fixture_is_never_replaced_and_bad_identities_leave_no_file(tmp
         seal_default(RecordingSurface(), other, customer_thread_id="")
     assert refused.value.code == "message_fixture_identity_invalid"
     assert not other.exists()
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_writer_and_question_journey_bind_the_parked_recorded_guidance(tmp_path, changed):
+    from scripts.acceptance.message_fixture_writer import read_question_park
+
+    guidance = "Use the existing artifact."
+    prefix = {"message_id": "guidance_replay", "kind": "guidance", "body_sha256": hashlib.sha256(guidance.encode()).hexdigest(),
+              "decision_step": 7}
+    receipt = tmp_path / "manager-question-park.json"
+    receipt.write_text(json.dumps({"schema": "synth.journeys.replay-question-park.v1", "run_id": RUN,
+                                  "customer_thread_id": THREAD, "recording_sha256": RECORDING, "prior_guidance": prefix,
+                                  "question_sha256": hashlib.sha256(QUESTION.encode()).hexdigest(), "question_decision_step": 17}))
+    receipt.chmod(0o600)
+    parked = read_question_park(receipt)
+    prior = {"run_id": RUN, "thread_id": THREAD, "message_id": "guidance_replay", "kind": "guidance",
+             "author": "customer", "state": {"kind": "disposed", "decision_step": 7},
+             "body": {"kind": "available", "text": guidance}}
+
+    class ParkedRecordingSurface(RecordingSurface):
+        def history(self):
+            recorded = {**prior, "run_id": RECORD_RUN, "thread_id": RECORD_THREAD, "message_id": "guidance_record"}
+            return [recorded, *super().history()]
+
+        def call(self, call):
+            run = call.path.get("run_id")
+            if call.operation == "listRunMessages" and run == RUN:
+                return Outcome(call.operation, True, {"items": [prior], "has_more": False, "availability": {"kind": "available"}})
+            if call.operation == "listRunEvents" and run == RUN:
+                return Outcome(call.operation, True, {"has_more": False, "resume_cursor": "replay-head-cursor",
+                               "items": [{"kind": "run.message.disposed", "payload": {"message_id": "guidance_replay"}}]})
+            return super().call(call)
+
+    sealed_path = tmp_path / "fixture.json"
+    sealed, _ = seal_default(ParkedRecordingSurface(), sealed_path, parked=parked)
+    value = MessageFixture.read(sealed_path, sealed)
+    assert value.prior_guidance.message_id == "guidance_replay"
+    assert value.accepts_customer_prefix([prior])
+    assert not value.accepts_customer_prefix([prior, {**prior, "kind": "question"}])
+    assert not value.accepts_customer_prefix([{**prior, "state": {"kind": "queued"}}])
+
+    class ParkedJourneySurface(ScriptedSurface):
+        def call(self, call):
+            result = super().call(call)
+            if call.operation == "listRunMessages":
+                row = prior if not changed else {**prior, "message_id": "another-guidance"}
+                return Outcome(call.operation, True, {**result.value, "items": [row, *result.value["items"]]})
+            return result
+
+    replay = ParkedJourneySurface()
+
+    @contextmanager
+    def make(_credential):
+        yield replay
+
+    context = JourneyContext(replay, SurfaceName.SDK, "http://127.0.0.1:1", make, tmp_path, run_id=RUN,
+                             message_fixture=sealed_path, message_recording_sha256=RECORDING,
+                             message_fixture_sha256=sealed)
+    result = messages.message_question(context)
+    if changed:
+        assert result.cause == "precondition_missing:fresh_run_before_recorded_customer_input" and replay.sends == 0
+    else:
+        assert result.verdict == Verdict.PASS, result.cause
+        assert replay.sends == 2  # the real send and its same-key idempotency check

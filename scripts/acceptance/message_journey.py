@@ -91,7 +91,7 @@ def message_question(context: JourneyContext) -> StepReceipt:
     initial = customer_messages(context.surface, value.run_id)
     if isinstance(initial, str):
         return history_refusal(context, step, initial)
-    if any(item.get("author") == "customer" for item in initial):
+    if not value.accepts_customer_prefix(initial):
         return missing(context, step, "fresh_run_before_recorded_customer_input")
     sent = _send_question(context, value)
     if isinstance(sent, StepReceipt):

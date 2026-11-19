@@ -25,16 +25,25 @@ import hashlib
 import json
 import os
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
 from pydantic import JsonValue
 
-from .message_fixture import FIXTURE_BYTES_MAX, MESSAGE_BYTES_MAX, MessageFixture, digest, sha256
+from .message_fixture import (
+    FIXTURE_BYTES_MAX,
+    MESSAGE_BYTES_MAX,
+    MessageFixture,
+    PriorGuidance,
+    accepts_customer_prefix,
+    digest,
+    sha256,
+)
 from .surfaces import Call, Surface, SurfaceName, obj
 
 SCHEMA = "synth.journeys.message-fixture.v1"
+PARK_SCHEMA = "synth.journeys.replay-question-park.v1"
 PAGES_MAX = 256
 PAGE_ITEMS = 100
 LOOPBACK = ("http://127.0.0.1:", "http://localhost:")
@@ -55,6 +64,37 @@ class RecordedExchange:
     question: str
     answer_sha256: str
     delivery_decision_step: int
+
+
+@dataclass(frozen=True, slots=True)
+class QuestionPark:
+    run_id: str
+    customer_thread_id: str
+    recording_sha256: str
+    prior_guidance: PriorGuidance
+    question_sha256: str
+    question_decision_step: int
+
+
+def read_question_park(path: Path) -> QuestionPark:
+    """Read the parked replay's single, private custody receipt."""
+    try:
+        if path.stat().st_mode & 0o077 or path.stat().st_size > FIXTURE_BYTES_MAX:
+            raise ValueError("park receipt must be private and bounded")
+        value = json.loads(path.read_bytes())
+        if not isinstance(value, dict) or value.pop("schema", None) != PARK_SCHEMA:
+            raise ValueError("park schema changed")
+        value["prior_guidance"] = PriorGuidance.read(value["prior_guidance"])
+        parked = QuestionPark(**value)
+        if (not digest(parked.recording_sha256) or not digest(parked.question_sha256)
+                or type(parked.question_decision_step) is not int
+                or parked.prior_guidance.decision_step >= parked.question_decision_step
+                or any(not isinstance(item, str) or not 1 <= len(item) <= 128
+                       for item in (parked.run_id, parked.customer_thread_id))):
+            raise ValueError("park facts invalid")
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        raise FixtureRefused("message_fixture_question_park_invalid") from error
+    return parked
 
 
 def _messages(surface: Surface, run_id: str) -> list[dict[str, JsonValue]]:
@@ -85,7 +125,8 @@ def _messages(surface: Surface, run_id: str) -> list[dict[str, JsonValue]]:
     raise FixtureRefused("message_recording_history_unbounded")
 
 
-def recorded_exchange(surface: Surface, record_run_id: str, question: str) -> RecordedExchange:
+def recorded_exchange(surface: Surface, record_run_id: str, question: str, *,
+                      prior_guidance: Optional[PriorGuidance] = None) -> RecordedExchange:
     """Read the one answered exchange for `question` from the record run.
 
     Refuses unless exactly one customer question carries that text, the manager
@@ -113,6 +154,13 @@ def recorded_exchange(surface: Surface, record_run_id: str, question: str) -> Re
     step = state.get("decision_step")
     if type(step) is not int or step <= 0:
         raise FixtureRefused("message_recording_position_invalid")
+    if prior_guidance is not None:
+        thread_id = asked[0].get("thread_id")
+        if not isinstance(thread_id, str) or sum(
+            prior_guidance.matches(row, run_id=record_run_id, thread_id=thread_id, match_message_id=False)
+            for row in history
+        ) != 1:
+            raise FixtureRefused("message_recording_guidance_changed")
     replies = [item for item in history if item.get("reply_to_message_id") == message_id]
     if (
         len(replies) != 1
@@ -128,7 +176,7 @@ def recorded_exchange(surface: Surface, record_run_id: str, question: str) -> Re
     return RecordedExchange(question, sha256(text), step)
 
 
-def current_event_cursor(surface: Surface, run_id: str) -> str:
+def current_event_cursor(surface: Surface, run_id: str, *, known_messages: frozenset[str] = frozenset()) -> str:
     """The replay run's event cursor at its present head, before any message."""
     cursor: Optional[str] = None
     for _ in range(PAGES_MAX):
@@ -144,8 +192,13 @@ def current_event_cursor(surface: Surface, run_id: str) -> str:
             or type(page.get("has_more")) is not bool
         ):
             raise FixtureRefused("message_fixture_events_unreadable")
-        if any(str(obj(item).get("kind", "")).startswith("run.message.") for item in items):
-            raise FixtureRefused("message_fixture_run_already_has_messages")
+        for item in items:
+            event = obj(item)
+            if not str(event.get("kind", "")).startswith("run.message."):
+                continue
+            message_id = obj(event.get("payload")).get("message_id")
+            if not isinstance(message_id, str) or message_id not in known_messages:
+                raise FixtureRefused("message_fixture_run_already_has_messages")
         more = page.get("has_more") is True
         following = page.get("next_cursor") if more else page.get("resume_cursor")
         if not isinstance(following, str) or not following or (more and following == cursor):
@@ -165,6 +218,7 @@ def seal(
     exchange: RecordedExchange,
     event_cursor: str,
     internal_message_ids: Sequence[str],
+    prior_guidance: Optional[PriorGuidance] = None,
     terminal_run_id: Optional[str] = None,
     rate_limited_run_id: Optional[str] = None,
     absent_run_id: Optional[str] = None,
@@ -189,6 +243,8 @@ def seal(
         "event_cursor": event_cursor,
         "internal_message_ids": list(internal_message_ids),
     }
+    if prior_guidance is not None:
+        value["prior_guidance"] = asdict(prior_guidance)
     for name, target in (
         ("terminal_run_id", terminal_run_id),
         ("rate_limited_run_id", rate_limited_run_id),
@@ -225,6 +281,7 @@ def write_fixture(
     customer_thread_id: str,
     recording_sha256: str,
     internal_message_ids: Sequence[str],
+    parked: Optional[QuestionPark] = None,
     terminal_run_id: Optional[str] = None,
     rate_limited_run_id: Optional[str] = None,
     absent_run_id: Optional[str] = None,
@@ -232,8 +289,21 @@ def write_fixture(
     """Read the recording and the replay run's cursor, then seal the fixture."""
     if record_run_id == run_id:
         raise FixtureRefused("message_fixture_replay_run_is_the_recording")
-    exchange = recorded_exchange(surface, record_run_id, question)
-    cursor = current_event_cursor(surface, run_id)
+    guidance = None if parked is None else parked.prior_guidance
+    exchange = recorded_exchange(surface, record_run_id, question, prior_guidance=guidance)
+    known_messages = frozenset()
+    if parked is not None:
+        if (parked.run_id != run_id or parked.customer_thread_id != customer_thread_id
+                or parked.recording_sha256 != recording_sha256 or parked.question_sha256 != sha256(question)
+                or parked.question_decision_step != exchange.delivery_decision_step):
+            raise FixtureRefused("message_fixture_question_park_changed")
+        history = _messages(surface, run_id)
+        if not accepts_customer_prefix(history, run_id=run_id, thread_id=customer_thread_id, guidance=guidance):
+            raise FixtureRefused("message_fixture_replay_guidance_changed")
+        known_messages = frozenset(row["message_id"] for row in history if row.get("run_id") == run_id
+                                   and row.get("thread_id") == customer_thread_id
+                                   and isinstance(row.get("message_id"), str))
+    cursor = current_event_cursor(surface, run_id, known_messages=known_messages)
     sealed = seal(
         path,
         run_id=run_id,
@@ -242,6 +312,7 @@ def write_fixture(
         exchange=exchange,
         event_cursor=cursor,
         internal_message_ids=internal_message_ids,
+        prior_guidance=guidance,
         terminal_run_id=terminal_run_id,
         rate_limited_run_id=rate_limited_run_id,
         absent_run_id=absent_run_id,
@@ -265,6 +336,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--run-id", required=True, help="the fresh replay run to bind")
     parser.add_argument("--customer-thread-id", required=True)
     parser.add_argument("--recording-sha256", required=True)
+    parser.add_argument("--replay-question-park", type=Path, help="private manager-question-park.json from the replay batch")
     parser.add_argument("--internal-message-id", action="append", default=[])
     parser.add_argument("--terminal-run-id")
     parser.add_argument("--rate-limited-run-id")
@@ -284,6 +356,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     try:
         question = _private_text(options.question_file)
+        parked = None if options.replay_question_park is None else read_question_park(options.replay_question_park)
         with make(os.environ["SYNTH_API_KEY"]) as surface:
             sealed, exchange = write_fixture(
                 surface,
@@ -294,6 +367,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 customer_thread_id=options.customer_thread_id,
                 recording_sha256=options.recording_sha256,
                 internal_message_ids=options.internal_message_id,
+                parked=parked,
                 terminal_run_id=options.terminal_run_id,
                 rate_limited_run_id=options.rate_limited_run_id,
                 absent_run_id=options.absent_run_id,
