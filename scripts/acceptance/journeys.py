@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
@@ -1451,6 +1452,76 @@ MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
 }
 
 
+# Mutations whose cell also needs org A's own call as the positive control: org B's 404
+# only proves isolation when the same request from the owner reaches the resource.
+OWNER_CONTROLLED_MUTATIONS = frozenset(
+    {"updateApiKey", "updateRunLabels", "finalizeUpload", "withdrawPlanRequest"}
+)
+# Optional --foreign-ids entries carrying the owner fixture's optimistic-concurrency value.
+MATRIX_BODY_PINS: Mapping[str, tuple[str, str]] = {
+    "updateApiKey": ("expected_version", "key_version"),
+    "updateRunLabels": ("expected_revision", "labels_revision"),
+}
+
+
+# Coordinator ruling 2026-11-19T06:43:58Z (SYN-5737): a foreign API key refused before
+# the grant is resolved is re-probed with the Clerk session this operation also admits.
+# Explicit on purpose: no other row may turn green through a second credential.
+SESSION_REPROBED_OPERATIONS = frozenset({"revokeOAuthGrant"})
+
+
+def operation_scopes(document: dict[str, Any]) -> dict[str, str]:
+    paths = document["paths"]
+    assert isinstance(paths, dict)
+    return {
+        str(operation["operationId"]): str(operation.get("x-synth-scope", ""))
+        for methods in paths.values()
+        for method, operation in methods.items()
+        if method in {"get", "post", "put", "patch", "delete"}
+    }
+
+
+def matrix_body(context: JourneyContext, operation: str) -> Optional[Mapping[str, JsonValue]]:
+    body = context.isolation_bodies.get(operation, MATRIX_BODIES.get(operation))
+    pin = MATRIX_BODY_PINS.get(operation)
+    if body is None or pin is None or context.isolation_operations is not None:
+        return body
+    field_name, id_name = pin
+    pinned = context.foreign_ids.get(id_name, "")
+    return {**body, field_name: int(pinned)} if pinned.isdigit() else body
+
+
+def matrix_call(
+    operation: str,
+    body: Optional[Mapping[str, JsonValue]],
+    query: Mapping[str, JsonValue],
+    mutation: bool,
+    ids: Mapping[str, str],
+) -> Call:
+    return Call(
+        operation,
+        path=ids,
+        body=body,
+        query=query,
+        idempotency_key=key("matrix") if mutation else None,
+    )
+
+
+def principal_scopes(account: Outcome) -> frozenset[str]:
+    scopes = obj(obj(account.value).get("principal")).get("scopes")
+    return frozenset(str(scope) for scope in scopes) if isinstance(scopes, list) else frozenset()
+
+
+def owner_control(observed: Outcome) -> Optional[str]:
+    """How org A's own request reached its resource, or None when it did not."""
+    if observed.accepted:
+        return "accepted"
+    if observed.typed and observed.status == 409:
+        # A consumed one-shot fixture or a moved version: Core resolved the owner's resource.
+        return f"resolved_conflict:{observed.code}"
+    return None
+
+
 def cross_org(context: JourneyContext) -> StepReceipt:
     """Org B (actor) addresses org A's IDs and absent IDs; answers must be identical 404s."""
     step = Step.CROSS_ORG_404
@@ -1486,8 +1557,15 @@ def cross_org(context: JourneyContext) -> StepReceipt:
         rows.append({"operation": operation, "result": "uncovered:contract_operation_missing"})
     session = context.secrets.get(Secret.FOREIGN_SESSION)
     session_only = session_only_operations(document)
+    scopes = operation_scopes(document)
+    owner_session = context.secrets.get(Secret.SESSION)
     with context.make(actor) as keyed, ExitStack() as stack:
         sessioned = stack.enter_context(context.make(session)) if session is not None else None
+        owner_sessioned = (
+            stack.enter_context(context.make(owner_session))
+            if owner_session is not None and selected is None
+            else None
+        )
         owner_account = context.surface.call(Call("getAccount"))
         actor_account = keyed.call(Call("getAccount"))
         owner = JourneyPrincipal.from_account(owner_account)
@@ -1532,6 +1610,21 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     actor_account,
                     session_account,
                 )
+        if owner_sessioned is not None:
+            owner_session_account = owner_sessioned.call(Call("getAccount"))
+            session_owner = JourneyPrincipal.from_account(owner_session_account)
+            if session_owner is None or (session_owner.org_id, session_owner.user_id) != (
+                owner.org_id,
+                owner.user_id,
+            ):
+                return receipt(
+                    context,
+                    step,
+                    Verdict.FAIL,
+                    "owner_session_principal_mismatch",
+                    owner_account,
+                    owner_session_account,
+                )
         for operation, method, route, names in operations:
             if selected is not None and operation not in selected:
                 continue
@@ -1544,18 +1637,6 @@ def cross_org(context: JourneyContext) -> StepReceipt:
             if selected is not None and operation in session_only and sessioned is None:
                 uncovered += 1
                 rows.append({"operation": operation, "result": "uncovered:foreign_session_absent"})
-                continue
-            if selected is None and (
-                (context.driver == SurfaceName.CLI and operation == "withdrawPlanRequest")
-                or (
-                    context.driver in {SurfaceName.SDK, SurfaceName.CLI}
-                    and operation in {"updateApiKey", "updateRunLabels", "finalizeUpload"}
-                )
-            ):
-                uncovered += 1
-                rows.append(
-                    {"operation": operation, "result": "uncovered:owner_mutation_fixture_needed"}
-                )
                 continue
             needed = [name for name in names if name != "kind"]
             if any(name not in context.foreign_ids for name in needed):
@@ -1581,33 +1662,69 @@ def cross_org(context: JourneyContext) -> StepReceipt:
             absent = {name: absent_like(value) for name, value in foreign.items()}
             if "kind" in names:
                 foreign["kind"] = absent["kind"] = context.foreign_ids.get("kind", "task")
-            body = context.isolation_bodies.get(operation, MATRIX_BODIES.get(operation))
+            body = matrix_body(context, operation)
             mutation = method != "get"
-            calls = [
-                Call(
-                    operation,
-                    path=ids,
-                    body=body,
-                    query=query,
-                    idempotency_key=key("matrix") if mutation else None,
-                )
-                for ids in (foreign, absent)
-            ]
-            observed_foreign = surface.call(calls[0])
+            identifiers = tuple(foreign.values()) + tuple(absent.values())
+            request = partial(matrix_call, operation, body, query, mutation)
+
+            observed_foreign = surface.call(request(foreign))
             observed_absent = (
                 None
                 if selected is not None and observed_foreign.accepted
-                else surface.call(calls[1])
+                else surface.call(request(absent))
             )
             result = (
                 "leak"
                 if observed_absent is None
-                else classify(
-                    observed_foreign,
-                    observed_absent,
-                    tuple(foreign.values()) + tuple(absent.values()),
-                )
+                else classify(observed_foreign, observed_absent, identifiers)
             )
+            extra: dict[str, JsonValue] = {}
+            if (
+                selected is None
+                and result == "unproven:uniform_403"
+                and not by_session
+                and sessioned is not None
+                and operation in SESSION_REPROBED_OPERATIONS
+            ):
+                # The API key was refused before the resource was resolved, so it proves
+                # nothing about isolation. The cell is proven with the session credential
+                # the operation also admits; the key's refusal is kept as an observation
+                # and is never itself a pass of the contract's apiKey scheme.
+                scope = scopes.get(operation, "")
+                held = scope in principal_scopes(actor_account)
+                extra["api_key_observation"] = {
+                    "status": observed_foreign.status,
+                    "code": observed_foreign.code,
+                    "required_scope": scope,
+                    "key_holds_required_scope": held,
+                    "finding": (
+                        "contract_deviation:scoped_user_bound_api_key_refused"
+                        if held
+                        else "key_lacks_required_scope"
+                    ),
+                    "api_key_scheme": "not_proven",
+                }
+                by_session, surface = True, sessioned
+                observed_foreign = surface.call(request(foreign))
+                observed_absent = surface.call(request(absent))
+                result = classify(observed_foreign, observed_absent, identifiers)
+            if selected is None and result == "pass" and operation in OWNER_CONTROLLED_MUTATIONS:
+                # Positive control, after org B's probes: org A's own identical request.
+                controller = owner_sessioned if by_session else context.surface
+                if controller is None:
+                    result = "unproven:owner_session_absent"
+                else:
+                    observed_owner = controller.call(request(foreign))
+                    control = owner_control(observed_owner)
+                    extra["owner_control"] = {
+                        "result": control or "refused",
+                        "credential": "clerk_session" if by_session else "api_key",
+                        **observed_owner.evidence(),
+                    }
+                    if control is None:
+                        result = "unproven:owner_control_" + str(
+                            observed_owner.code or observed_owner.status or "untyped"
+                        )
             failed += result in {"leak", "differs"}
             uncovered += result.startswith("unproven:")
             rows.append(
@@ -1622,6 +1739,7 @@ def cross_org(context: JourneyContext) -> StepReceipt:
                     "foreign_user_id": foreign_actor.user_id,
                     "foreign": observed_foreign.evidence(),
                     "absent": None if observed_absent is None else observed_absent.evidence(),
+                    **extra,
                 }
             )
             if selected is not None and result in {"leak", "differs"}:

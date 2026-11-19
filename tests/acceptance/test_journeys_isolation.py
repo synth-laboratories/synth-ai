@@ -154,6 +154,8 @@ def test_mcp_isolation_label_update_reaches_core(tmp_path):
 
     def responder(method, path, request):
         if method == "PATCH" and path.endswith("/labels"):
+            if request["bearer"] == "fixture-admin":  # Org A's positive control.
+                return 200, example(journeys.contract(), "/v1/runs/{run_id}/labels", "patch"), {}
             calls.append(request["body"])
         return 404, problem("resource_not_found", 404), {}
 

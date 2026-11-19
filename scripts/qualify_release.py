@@ -49,6 +49,7 @@ RELEASE_TESTS = (
     "tests/test_mcp_stdio.py",
     "tests/acceptance/test_journeys_access.py",
     "tests/acceptance/test_journeys_isolation.py",
+    "tests/acceptance/test_journeys_isolation_owner.py",
     "tests/acceptance/test_journeys_money.py",
     "tests/acceptance/test_journeys_refusals.py",
 )

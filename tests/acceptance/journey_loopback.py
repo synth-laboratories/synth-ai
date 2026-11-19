@@ -96,14 +96,17 @@ def context_for(surface, origin, tmp_path, **options):
         )
 
 
-def organization_accounts(responder, binding):
+OWNER_BEARERS = frozenset({"fixture-admin", "fixture-session-a"})
+
+
+def organization_accounts(responder, binding, foreign_scopes=()):
     contract = journeys.contract()
 
     def answer(method, path, request):
         if path != "/v1/account":
             return responder(method, path, request)
         account = example(contract, path)
-        owner = request["bearer"] == "fixture-admin"
+        owner = request["bearer"] in OWNER_BEARERS
         org = (
             "00000000-0000-4000-8000-000000000001"
             if owner or binding == "same_org"
@@ -114,6 +117,8 @@ def organization_accounts(responder, binding):
             user = "user_third"
         account["org"]["id"] = org
         account["principal"].update(org_id=org, user_id=user)
+        if not owner:
+            account["principal"]["scopes"] = list(foreign_scopes)
         return 200, account, {}
 
     return answer
@@ -121,7 +126,9 @@ def organization_accounts(responder, binding):
 
 def run(surface, responder, tmp_path, step, **options):
     if step == Step.CROSS_ORG_404:
-        responder = organization_accounts(responder, options.pop("binding", "distinct"))
+        responder = organization_accounts(
+            responder, options.pop("binding", "distinct"), options.pop("foreign_scopes", ())
+        )
     with api(responder) as (origin, requests):
         with context_for(surface, origin, tmp_path, **options) as context:
             return run_step(context, step), requests
