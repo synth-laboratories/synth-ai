@@ -154,7 +154,12 @@ def parse_optimizer(
     pin: dict[str, object] = {"topology": topology, "version": int(version)}
     if controls:
         pin["params"] = controls
-    return OptimizerPin.model_validate(pin)
+    try:
+        return OptimizerPin.model_validate(pin)
+    except ValidationError as error:
+        first = error.errors()[0]
+        where = ".".join(str(part) for part in first["loc"])
+        raise UsageError("--optimizer " + value + ": " + where + ": " + first["msg"]) from error
 
 
 RESOURCES = TypeAdapter(list[OwnerResourceRequest])
@@ -790,6 +795,7 @@ def run_auth(args: argparse.Namespace) -> int:
 
 
 def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None) -> None:
+    detail = " ".join(detail.split())  # A refusal detail is one line (SYN-5666).
     if as_json:
         body = (
             problem.model_dump_json()
