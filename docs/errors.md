@@ -241,8 +241,95 @@ deadline; a server delay outside the remaining budget surfaces the refusal.
   message instead; retrying will not help.
 - `route_not_found`: the requested API route is not served. Check the origin and
   current contract; retired products have no replacement route at that URL.
-- `billing_admin_required`: the operation requires an organization admin or owner.
+- `billing_admin_required` (403): the operation requires an organization admin or owner.
   Ask an authorized admin to perform it; retrying the same credential will not help.
+
+### Usage and billing
+
+Each billing and usage operation in the public contract lists its refusals.
+
+Request and lookup:
+
+- `invalid_filter` (422): a usage filter, such as a time, cannot be parsed. Fix
+  the query parameter named in `detail`.
+- `usage_window_invalid` (422): `until` is not after `since`, or the window is
+  longer than 366 days. Narrow the window.
+- `invalid_cursor` (422): the page cursor is not one this listing issued. Start
+  again from the first page.
+- `invalid_limit` (422): the page size is out of range. Use a smaller `limit`.
+- `invalid_history_filter` (422): a billing history parameter is invalid;
+  `detail` names it.
+- `invalid_id` (422): the checkout ID is malformed. Use the ID the checkout
+  returned.
+- `checkout_not_found` (404): no checkout with that ID belongs to this org.
+- `checkout_request_invalid` (422) and `malformed_request` (422): the checkout
+  body is invalid. Send either a plan or a credit amount within the stated bounds.
+- `credit_pack_unknown` (422): the credit pack does not exist. Pick one from
+  the current price list.
+- `plan_not_purchasable` (422): the plan cannot be bought by checkout.
+- `plan_unknown` (400): the plan ID does not exist. Use a listed plan.
+- `spend_alerts_invalid` (400): a spend alert threshold is invalid. Fix it and
+  save again.
+- `auto_reload_invalid` (400): an auto-reload field is out of bounds; `field`
+  names it and `reason` `below_threshold` means the amount is below the
+  threshold.
+- `auto_reload_disclosure_required` (422): `disclosure_version` is missing or
+  unknown. Show the current disclosure and send its version.
+
+Permission and setup:
+
+- `browser_session_required` (403): an API key or OAuth grant tried to turn
+  auto-reload on. Turn it on from a signed-in browser session.
+- `payment_method_required` (409): no card is saved. Add one, then retry.
+- `billing_customer_not_found` (404): the org has no Stripe customer yet. Buy
+  credits or a plan first.
+- `config_missing` (503): the service is missing billing configuration; `detail`
+  names it. Retrying will not help until the operator fixes it.
+- `stripe_price_missing` (503): a Stripe price is not configured; `detail` names
+  the lookup key. Same as `config_missing`.
+- `portal_configuration_unsafe` (503): the payment-method portal would allow
+  more than payment methods and invoices, so the session is refused. Report it.
+
+Subscription state:
+
+- `subscription_already_active` (409): the org already holds a subscription
+  that Stripe has not ended. Change the plan instead of buying a second one.
+- `subscription_not_found` (404): the org has no subscription.
+- `subscription_not_self_serve` (409): the subscription is not managed through
+  Stripe self-serve. Contact support to change it.
+- `subscription_not_cancelable` (409): the subscription is `incomplete` or
+  `incomplete_expired`. There is nothing to cancel.
+- `subscription_not_resumable` (409): no cancellation is pending, or the
+  subscription already ended.
+- `subscription_cancel_pending` (409): a cancellation is pending. Resume the
+  subscription before changing the plan.
+- `subscription_not_changeable` (409): the subscription is `past_due`,
+  `unpaid`, `paused` or `incomplete`. Update the card first.
+- `subscription_plan_unchanged` (409): the requested plan is the current plan.
+- `subscription_binding_conflict` (409): the org's stored subscription does not
+  match Stripe's. Do not retry; report it with the `request_id`.
+- `subscription_change_payment_failed` (402): the payment for the switch was
+  declined. The plan is unchanged and the switch is final; paying its voided
+  invoice later applies nothing. Fix the card and request the change again.
+- `idempotency_in_progress` (409): the same Idempotency-Key is still being
+  processed. Retry after `Retry-After` with the same key.
+
+Stripe failures (502, `upstream_kind: stripe`):
+
+- `stripe_checkout_failed` (502), `stripe_customer_read_failed` (502),
+  `stripe_payment_method_read_failed` (502),
+  `stripe_invoice_preview_failed` (502),
+  `stripe_subscription_read_failed` (502) and
+  `stripe_portal_session_failed` (502): Stripe did not answer. Retry later;
+  nothing changed.
+- `stripe_portal_configuration_read_failed` (502) and
+  `stripe_portal_configuration_create_failed` (502): Stripe could not read or
+  create the payment-method portal configuration. Retry later.
+- `stripe_subscription_cancel_failed` (502),
+  `stripe_subscription_resume_failed` (502) and
+  `stripe_subscription_change_failed` (502): Stripe refused the
+  change. `upstream_status` and `cause` carry Stripe's status and code. Retry
+  with the same Idempotency-Key.
 
 These entries describe server Problems. The convenience launch method reports
 invalid generated fields as `LaunchValidationError` (`invalid_launch_request`,
