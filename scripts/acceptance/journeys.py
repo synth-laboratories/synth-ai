@@ -406,7 +406,14 @@ def raise_limit(context: JourneyContext) -> StepReceipt:
 
 def raise_four(context: JourneyContext) -> StepReceipt:
     """SDK: the merged SYN-5663 helper, four raises each seen in the next view."""
-    from .live_limits import Dimension, LimitTargets, LiveLimitsError, caps, raise_live_limits
+    from .live_limits import (
+        Dimension,
+        LimitTargets,
+        LiveLimitsError,
+        caps,
+        contract_maximum,
+        raise_live_limits,
+    )
 
     assert isinstance(context.surface, SDKSurface) and context.run_id is not None
     client = context.surface.client
@@ -420,11 +427,19 @@ def raise_four(context: JourneyContext) -> StepReceipt:
             else error.code
         )
         return receipt(context, Step.RAISE_LIMIT, verdict, cause)
+
+    def seconds_target(dimension: Dimension, field: str) -> Optional[int]:
+        # Double, but never past the contract maximum; None (held, asserted
+        # unchanged) only when the cap already sits at that maximum.
+        maximum = contract_maximum(field)
+        current_seconds = current[dimension] // 1000
+        return None if current_seconds >= maximum else min(current_seconds * 2, maximum)
+
     targets = LimitTargets(
         budget_usd=str(Decimal(current[Dimension.SPEND] * 2) / Decimal(1_000_000)),
         maximum_tokens=current[Dimension.TOKENS] * 2,
-        wall_time_seconds=current[Dimension.EXECUTION] * 2 // 1000,
-        pause_retention_seconds=current[Dimension.RETENTION] * 2 // 1000,
+        wall_time_seconds=seconds_target(Dimension.EXECUTION, "wall_time_seconds"),
+        pause_retention_seconds=seconds_target(Dimension.RETENTION, "pause_retention_seconds"),
     )
     directory = context.receipt_dir / "live-limits"
     try:
@@ -446,6 +461,7 @@ def raise_four(context: JourneyContext) -> StepReceipt:
             "helper": "scripts/acceptance/live_limits.py",
             "receipt_directory": str(directory),
             "revisions": [view.revision for view in views],
+            "held_at_contract_maximum": [dimension.value for dimension in targets.held()],
         },
     )
 

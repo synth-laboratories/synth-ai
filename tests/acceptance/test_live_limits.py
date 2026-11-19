@@ -161,3 +161,38 @@ def test_uncertain_response_keeps_original_intent_and_refuses_rerun(contract, tm
     with pytest.raises(FileExistsError):
         execute(authority, path)
     assert len(authority.requests) == 2
+
+
+AT_MAXIMUM = 86_400_000  # pause_retention_seconds le=86400 in the public contract.
+
+
+def test_retention_at_contract_maximum_is_held_and_asserted_unchanged(contract, tmp_path):
+    authority = Authority(contract)
+    authority.view["primary"][3]["effective_cap"] = AT_MAXIMUM
+    path = tmp_path / "limits"
+    views = execute(authority, path, LimitTargets("2.00", 2000, 120, None))
+    assert [view.revision for view in views] == [2, 3, 4]
+    posts = [json.loads(r.content) for r in authority.requests if r.method == "POST"]
+    assert [next(iter(body["limits"])) for body in posts] == [
+        "maximum_charge",
+        "maximum_tokens",
+        "wall_time_seconds",
+    ]
+    assert all(view.primary[3].effective_cap == AT_MAXIMUM for view in views)
+    verdict = json.loads((path / "verdict.json").read_text())
+    assert verdict["held_at_contract_maximum"] == ["pause_retention_ms"]
+
+
+def test_held_dimension_below_contract_maximum_refuses_before_mutation(contract, tmp_path):
+    authority = Authority(contract)  # retention 60 s: a raise is possible, so it is owed.
+    with pytest.raises(LiveLimitsError, match="limit_target_not_increased"):
+        execute(authority, tmp_path / "limits", LimitTargets("2.00", 2000, 120, None))
+    assert len(authority.requests) == 1
+
+
+def test_held_dimension_that_moves_is_not_observed(contract, tmp_path):
+    authority = Authority(contract, "other_cap")  # every POST rewrites retention to 1.
+    authority.view["primary"][3]["effective_cap"] = AT_MAXIMUM
+    with pytest.raises(LiveLimitsError) as raised:
+        execute(authority, tmp_path / "limits", LimitTargets("2.00", 2000, 120, None))
+    assert raised.value.code == "limit_update_not_observed"

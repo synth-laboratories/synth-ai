@@ -18,7 +18,7 @@ from pathlib import Path
 from synth_ai import SynthClient
 from synth_ai.models import RunLimitChanges, RunLimitsProgress, RunLimitUpdate
 
-__all__ = ["LimitTargets", "LiveLimitsError", "raise_live_limits"]
+__all__ = ["LimitTargets", "LiveLimitsError", "contract_maximum", "raise_live_limits"]
 
 
 class Dimension(StrEnum):
@@ -28,12 +28,35 @@ class Dimension(StrEnum):
     RETENTION = "pause_retention_ms"
 
 
+def contract_maximum(field: str) -> int:
+    """The public contract's inclusive maximum for one RunLimitChanges integer field."""
+    schema = RunLimitChanges.model_json_schema()["properties"][field]
+    bounds = [branch["maximum"] for branch in schema.get("anyOf", [schema]) if "maximum" in branch]
+    if len(bounds) != 1:
+        raise ValueError(f"contract maximum unavailable: {field}")
+    return int(bounds[0])
+
+
 @dataclass(frozen=True, slots=True)
 class LimitTargets:
+    """Raise targets. A ``None`` seconds target means the cap already sits at the
+    contract maximum: that dimension is not mutated, and every following budget
+    view must still show it unchanged."""
+
     budget_usd: str
     maximum_tokens: int
-    wall_time_seconds: int
-    pause_retention_seconds: int
+    wall_time_seconds: int | None
+    pause_retention_seconds: int | None
+
+    def held(self) -> tuple[Dimension, ...]:
+        return tuple(
+            dimension
+            for dimension, value in (
+                (Dimension.EXECUTION, self.wall_time_seconds),
+                (Dimension.RETENTION, self.pause_retention_seconds),
+            )
+            if value is None
+        )
 
     def changes(self) -> tuple[tuple[Dimension, int, RunLimitChanges], ...]:
         charge = Decimal(self.budget_usd)
@@ -42,7 +65,7 @@ class LimitTargets:
             raise ValueError("budget must be a positive whole number of microdollars")
         from synth_ai.models import Money
 
-        return (
+        rows = (
             (
                 Dimension.SPEND,
                 int(micros),
@@ -53,17 +76,24 @@ class LimitTargets:
                 self.maximum_tokens,
                 RunLimitChanges(maximum_tokens=self.maximum_tokens),
             ),
-            (
-                Dimension.EXECUTION,
-                self.wall_time_seconds * 1000,
-                RunLimitChanges(wall_time_seconds=self.wall_time_seconds),
-            ),
-            (
-                Dimension.RETENTION,
-                self.pause_retention_seconds * 1000,
-                RunLimitChanges(pause_retention_seconds=self.pause_retention_seconds),
-            ),
         )
+        if self.wall_time_seconds is not None:
+            rows += (
+                (
+                    Dimension.EXECUTION,
+                    self.wall_time_seconds * 1000,
+                    RunLimitChanges(wall_time_seconds=self.wall_time_seconds),
+                ),
+            )
+        if self.pause_retention_seconds is not None:
+            rows += (
+                (
+                    Dimension.RETENTION,
+                    self.pause_retention_seconds * 1000,
+                    RunLimitChanges(pause_retention_seconds=self.pause_retention_seconds),
+                ),
+            )
+        return rows
 
 
 class LiveLimitsError(RuntimeError):
@@ -135,6 +165,14 @@ def raise_live_limits(
     for dimension, target, _ in changes:
         if target <= expected_caps[dimension]:
             raise LiveLimitsError("limit_target_not_increased", run_id=run_id, stage=dimension)
+    maxima = {
+        Dimension.EXECUTION: contract_maximum("wall_time_seconds") * 1000,
+        Dimension.RETENTION: contract_maximum("pause_retention_seconds") * 1000,
+    }
+    for dimension in targets.held():
+        # Holding is only legal when the contract forbids any raise.
+        if expected_caps[dimension] < maxima[dimension]:
+            raise LiveLimitsError("limit_target_not_increased", run_id=run_id, stage=dimension)
     observed: list[RunLimitsProgress] = []
     for index, (dimension, target, change) in enumerate(changes):
         key = f"{mutation_prefix}:{dimension}"
@@ -178,6 +216,8 @@ def raise_live_limits(
                 "run_id": run_id,
                 "verdict": "Pass",
                 "scope": "four public limit raises and next budget views",
+                "raised": [dimension.value for dimension, _, _ in changes],
+                "held_at_contract_maximum": [dimension.value for dimension in targets.held()],
                 "revisions": [view.revision for view in observed],
             },
             sort_keys=True,

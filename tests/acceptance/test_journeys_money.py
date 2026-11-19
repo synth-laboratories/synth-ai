@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import json
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 from journey_loopback import (
@@ -17,6 +18,7 @@ from journey_loopback import (
     checkout_responder,
     example,
     limits_api,
+    limits_view,
     run,
 )
 
@@ -36,6 +38,75 @@ def test_raise_limit_is_seen_in_the_next_budget_view(contract, tmp_path, surface
     )
     assert result.verdict == Verdict.PASS, result
     assert [method for method, _, _ in requests] == ["GET", "POST", "GET"]
+
+
+def four_limits_api(contract, retention_ms):
+    """Staging P2 shape: retention already at the contract maximum (86400 s)."""
+    state = {
+        "revision": 0,
+        "posts": [],
+        "caps": {
+            "spend_micros": 1_000_000,
+            "tokens": 1000,
+            "execution_ms": 3_600_000,
+            "pause_retention_ms": retention_ms,
+        },
+    }
+    fields = {
+        "maximum_charge": "spend_micros",
+        "maximum_tokens": "tokens",
+        "wall_time_seconds": "execution_ms",
+        "pause_retention_seconds": "pause_retention_ms",
+    }
+
+    def responder(method, path, request):
+        if method == "POST" and path.endswith("/limits"):
+            field, value = next(iter(request["body"]["limits"].items()))
+            state["posts"].append(field)
+            state["caps"][fields[field]] = (
+                int(Decimal(value["amount"]) * 1_000_000)
+                if field == "maximum_charge"
+                else value
+                if field == "maximum_tokens"
+                else value * 1000
+            )
+            state["revision"] += 1
+        view = limits_view(contract, cap=0, revision=state["revision"])
+        view["run_id"] = path.split("/")[3]
+        view["primary"] = [
+            {"dimension": dimension, "effective_cap": cap, "state": "capped"}
+            for dimension, cap in state["caps"].items()
+        ]
+        return 200, view, {}
+
+    return responder, state
+
+
+def test_sdk_raise_holds_retention_at_contract_maximum_and_passes(contract, tmp_path):
+    responder, state = four_limits_api(contract, 86_400_000)
+    result, _ = run(
+        SurfaceName.SDK, responder, tmp_path, Step.RAISE_LIMIT, run_id="run_" + "R" * 22
+    )
+    assert result.verdict == Verdict.PASS, result
+    assert state["posts"] == ["maximum_charge", "maximum_tokens", "wall_time_seconds"]
+    assert state["caps"] == {
+        "spend_micros": 2_000_000,
+        "tokens": 2000,
+        "execution_ms": 7_200_000,
+        "pause_retention_ms": 86_400_000,
+    }
+    assert result.evidence[-1]["held_at_contract_maximum"] == ["pause_retention_ms"]
+
+
+def test_sdk_raise_caps_retention_at_contract_maximum(contract, tmp_path):
+    responder, state = four_limits_api(contract, 50_000_000)  # 2x would be 100000 s > 86400.
+    result, _ = run(
+        SurfaceName.SDK, responder, tmp_path, Step.RAISE_LIMIT, run_id="run_" + "R" * 22
+    )
+    assert result.verdict == Verdict.PASS, result
+    assert state["posts"][-1] == "pause_retention_seconds"
+    assert state["caps"]["pause_retention_ms"] == 86_400_000
+    assert result.evidence[-1]["held_at_contract_maximum"] == []
 
 
 @pytest.mark.parametrize("surface", SURFACES)
