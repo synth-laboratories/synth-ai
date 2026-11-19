@@ -27,7 +27,7 @@ from .surfaces import SurfaceName
 STAGING_ORIGIN = "https://core-api-staging-staging-acef.up.railway.app"
 DRIVERS = (SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO)
 RELEASE = "1.40.0"
-WHEEL_SHA256 = "5d29bdc91eace5865fe4a50ff28dce2546c3eb353cff6fddb8d59fb9751be18f"
+WHEEL_SHA256 = "ca1e6202e0343a89e9f37fc9b7e2782a6e229705503981ed0237f10a195fe655"
 CONTRACT_SHA256 = "ff38f7768406b46234da7a4e4944a512901eb979bbfd96303bad6f0966370738"
 RETAINED_SHA256 = "29d0e58df8b5635ed698a11a5b5ac5c2f1c3c9a1b724231fa441b86724dbd331"
 GUARDED_MUTATIONS = {
