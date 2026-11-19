@@ -7,6 +7,10 @@ Changes here describe the new Swarms product. Historical releases remain in Git 
 - Contract 1.40.0 (Core c17b5fd6): revoke your own MCP OAuth grant with an API key
   (SYN-5737): SDK `client.account.revoke_oauth_grant(grant_id)`, CLI
   `synth grants revoke GRANT`, MCP tool `account_oauth_grant_revoke` (`account:write`).
+- Message sends retry Core's 503 `run_message_admission_pending` (SYN-5744): the
+  SDK, CLI and MCP resend under the same Idempotency-Key, waiting Retry-After
+  (1 s when absent, capped at 60 s) within a 120 s budget. Exhaustion raises
+  `UpstreamUnavailableError` with `attempts` and `elapsed_seconds`.
 - Diagnostics: `retry_suppressed` events with a typed `RetrySuppressed` when the
   deadline or an invalid `Retry-After` stops a retry (SYN-5724).
 - Contract 1.39.0 (Core e9dc3a36, introduced at 1dfeed39): run messages

@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from urllib.parse import quote
 from uuid import uuid4
@@ -14,7 +14,12 @@ from pydantic import BaseModel, JsonValue, ValidationError
 
 from ._generated.models import MODELS, Problem
 from ._generated.operations import OPERATIONS
-from ._retry import RetryPolicy
+from ._retry import (
+    ADMISSION_RETRY_BUDGET_SECONDS,
+    RetryPolicy,
+    admission_pending,
+    admission_wait,
+)
 from .diagnostics import (
     DiagnosticHook,
     DiagnosticPhase,
@@ -22,7 +27,13 @@ from .diagnostics import (
     RetrySuppressed,
     RetrySuppressedReason,
 )
-from .errors import ResponseContractError, TransportFailureError, local_problem, raise_for_response
+from .errors import (
+    ResponseContractError,
+    TransportFailureError,
+    UpstreamUnavailableError,
+    local_problem,
+    raise_for_response,
+)
 
 
 def ambiguous_response(response: httpx.Response) -> bool:
@@ -41,6 +52,13 @@ def ambiguous_response(response: httpx.Response) -> bool:
         or problem.outcome != "not_accepted"
         or legacy_unknown
     )
+
+
+def response_problem(response: httpx.Response) -> Problem | None:
+    try:
+        return Problem.model_validate_json(response.content)
+    except (ValueError, ValidationError):
+        return None
 
 
 def retryable_response(response: httpx.Response) -> bool:
@@ -75,6 +93,9 @@ class OperationExecutor:
         retry_policy: RetryPolicy,
         headers: Callable[[bool], dict[str, str]],
         diagnostic_hook: DiagnosticHook | None = None,
+        *,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.client = client
         self.base_url = base_url
@@ -82,6 +103,8 @@ class OperationExecutor:
         self.retry_policy = retry_policy
         self.headers = headers
         self.diagnostic_hook = diagnostic_hook
+        self.sleep = sleep
+        self.clock = clock
 
     async def invoke(
         self,
@@ -182,8 +205,11 @@ class OperationExecutor:
         progress.idempotency_key = headers.get("Idempotency-Key")
         deadline = time.monotonic() + self.retry_policy.deadline_seconds
         response: httpx.Response | None = None
-        for attempt in range(self.retry_policy.attempts):
-            progress.attempts = attempt + 1
+        admission_started = self.clock()
+        admission_retries = 0
+        attempt = 0
+        while attempt < self.retry_policy.attempts:
+            progress.attempts = attempt + admission_retries + 1
             try:
                 remaining = deadline - time.monotonic()
                 async with asyncio.timeout(max(0, remaining)):
@@ -210,6 +236,19 @@ class OperationExecutor:
                     request_id=headers["X-Request-Id"],
                     idempotency_key=headers.get("Idempotency-Key"),
                 ) from error
+            if "Idempotency-Key" in headers and admission_pending(
+                response_problem(response), response.status_code
+            ):
+                # Core refused before admission and holds no body: resend the same key.
+                # These waits use their own budget, not the policy's attempts or deadline.
+                wait = admission_wait(response.headers.get("Retry-After"))
+                if self.clock() - admission_started + wait > ADMISSION_RETRY_BUDGET_SECONDS:
+                    break
+                self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)
+                await self.sleep(wait)
+                admission_retries += 1
+                deadline = time.monotonic() + self.retry_policy.deadline_seconds
+                continue
             if (
                 response.status_code not in {429, 503}
                 or attempt + 1 == self.retry_policy.attempts
@@ -241,8 +280,15 @@ class OperationExecutor:
                 break
             self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)
             await asyncio.sleep(delay)
+            attempt += 1
         assert response is not None  # RetryPolicy guarantees at least one attempt.
-        raise_for_response(response)
+        try:
+            raise_for_response(response)
+        except UpstreamUnavailableError as error:
+            if admission_pending(error.problem, response.status_code):
+                error.attempts = progress.attempts
+                error.elapsed_seconds = max(0.0, self.clock() - admission_started)
+            raise
         replayed = response.headers.get("Idempotent-Replayed") == "true"
         if op["binary"]:
             return OperationResult(response.content, replayed)

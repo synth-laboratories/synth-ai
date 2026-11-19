@@ -142,7 +142,15 @@ class RateLimitedError(SwarmsAPIError):
 
 
 class UpstreamUnavailableError(SwarmsAPIError):
-    pass
+    """A 502/503/504 refusal.
+
+    For `run_message_admission_pending`, raised only after the SDK's bounded
+    same-key retry ran out: `attempts` counts requests sent and `elapsed_seconds`
+    the time spent; both are None for every other refusal.
+    """
+
+    attempts: int | None = None
+    elapsed_seconds: float | None = None
 
 
 class MessageTooLargeError(InvalidRequestError):

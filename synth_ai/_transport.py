@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import time
 from collections.abc import (
     AsyncGenerator,
     AsyncIterable,
@@ -58,6 +59,8 @@ class Transport:
         retries: int = 2,
         retry_policy: RetryPolicy | None = None,
         diagnostic_hook: DiagnosticHook | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         url = httpx.URL(self.base_url)
@@ -77,6 +80,9 @@ class Transport:
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be finite and positive")
         self.diagnostic_hook = diagnostic_hook
+        # The admission-pending send retry waits through these; tests inject fakes.
+        self.sleep = sleep
+        self.clock = clock
         self.timeout = timeout
         self.retry_policy = retry_policy or RetryPolicy(
             attempts=retries + 1, deadline_seconds=timeout * (retries + 1)
@@ -138,6 +144,8 @@ class Transport:
             self.retry_policy,
             self.headers,
             self.diagnostic_hook,
+            sleep=self.sleep,
+            clock=self.clock,
         ).invoke(operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key)
 
     def _transfers(self) -> ArtifactTransfer:

@@ -69,9 +69,25 @@ launch argument alone does not establish successful continuation.
 | `run_not_accepting_messages` | 409 | `RunNotAcceptingMessagesError` | Check the run state and use a run with an admitted manager queue. |
 | `run_message_queue_full` | 409 | `RunMessageQueueFullError` | Wait for existing messages to drain and follow the Problem’s retry guidance. |
 | `messaging_unavailable` | 503 | `MessagingUnavailableError` | Check that the run has a visible thread and consult the Problem’s retry guidance. |
+| `run_message_admission_pending` | 503 | `UpstreamUnavailableError` | None: the SDK, CLI and MCP retry it automatically under the same key; if raised, the run stayed unadmitted for the whole budget. |
 
 Message retries follow the Problem's `retryable` field. A `Retry-After` header
-does not authorize retrying a non-retryable refusal. `MessageReplyTimeoutError`
+does not authorize retrying a non-retryable refusal.
+
+`run_message_admission_pending` (503, retryable, with `Retry-After`): the send
+reached a run whose admission is not committed yet, either in the launch-to-dispatch
+gap or while the run waits for capacity. Core refuses before it holds the body, so
+the SDK resends automatically: `swarms.send_message` (async and sync), `synth
+message` and the MCP tool `swarms_run_message_send`. All three share one transport
+path. Every attempt carries the same Idempotency-Key; when the caller supplies none,
+the transport generates one before the first attempt. Each wait is the
+`Retry-After` seconds, 1 s when the header is missing or invalid, and at most 60 s.
+These retries are bounded by a fixed 120 s total budget, not by `RetryPolicy`
+attempts or deadline. A wait that would cross the budget stops the retry. The SDK
+then raises `UpstreamUnavailableError` with `code`, the full `problem`,
+`idempotency_key`, `retry_after_seconds`, `attempts` (requests sent) and
+`elapsed_seconds`. Send again later with the same key. No other code is retried
+this way. `MessageReplyTimeoutError`
 is a local observation timeout and leaves the run and message unchanged.
 
 ## Upload codes
