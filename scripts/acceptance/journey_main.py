@@ -26,7 +26,11 @@ from synth_ai import SynthClient
 
 from .journeys import JourneyContext, Secret, Step, StepReceipt, Verdict, capabilities, run_step
 from .live_limits import retain
+from .session_files import load_secrets
 from .surfaces import CLISurface, MCPSurface, SDKSurface, Surface, SurfaceName
+
+# Clerk sessions (about 60 s) may be named by `<NAME>_FILE` instead of a value.
+SESSION_FILE_SECRETS = (Secret.SESSION.value, Secret.FOREIGN_SESSION.value)
 
 __all__ = ["main", "surface_factory"]
 
@@ -185,13 +189,14 @@ def execute(options: argparse.Namespace, origin: str, *, profile: str, receipt_n
         if options.driver == SurfaceName.MCP_HOSTED
         else os.environ["SYNTH_API_KEY"]
     )
+    # A session may come from a 0600 file re-read at each use (session_files.py);
+    # a bad file or a name set both ways refuses before the receipt directory exists.
+    secrets = load_secrets(
+        {**os.environ, "SYNTH_API_KEY": os.environ["SYNTH_API_KEY"]},
+        ("SYNTH_API_KEY", *(name.value for name in Secret)),
+        SESSION_FILE_SECRETS,
+    )
     options.receipt_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
-    secrets = {
-        name.value: os.environ[name.value]
-        for name in Secret
-        if os.environ.get(name.value, "") != ""
-    }
-    secrets["SYNTH_API_KEY"] = os.environ["SYNTH_API_KEY"]
     make = surface_factory(
         options.driver,
         origin=origin,
