@@ -163,3 +163,42 @@ def test_visible_challenge_is_reported_never_solved():
 def test_invisible_hcaptcha_frame_is_not_a_challenge():
     page = Page(redirect=False, captcha_box={"x": 0, "y": 0, "width": 0, "height": 0})
     assert sc._pay(page, URL) == "stripe_test_checkout_not_redirected"
+
+
+SECRET_URL = "https://checkout.stripe.com/c/pay/cs_test_a1B2c3D4e5?x=q#fragmentsecret"
+
+
+def test_browser_error_cause_names_kind_stage_and_redacted_location():
+    from playwright.sync_api import Error, TimeoutError
+
+    page = Page()
+    page.url = SECRET_URL
+    progress = sc.Progress()
+    progress.page = page
+    progress.at("card_number")
+    cause = sc.browser_error_cause(TimeoutError("Timeout 20000ms " + SECRET_URL), progress)
+    assert cause == (
+        "stripe_test_checkout_browser_error:timeout:card_number:"
+        "checkout.stripe.com/c/pay/cs_test_<redacted>"
+    )
+    assert "a1B2c3D4e5" not in cause and "fragmentsecret" not in cause and "x=q" not in cause
+    navigation = sc.browser_error_cause(Error("net::ERR_ABORTED at " + SECRET_URL), progress)
+    assert navigation.split(":")[1] == "navigation"
+    other = sc.browser_error_cause(Error("boom"), sc.Progress())
+    assert other == "stripe_test_checkout_browser_error:error:launch:none"
+
+
+def test_pay_records_the_step_it_failed_on():
+    from playwright.sync_api import Error
+
+    page = Page()
+
+    def broken(_value):
+        raise Error("element is not attached")
+
+    page.reveal_card()
+    page.dom["#payment-numberInput"][0].fill = broken
+    progress = sc.Progress()
+    with pytest.raises(Error):
+        sc._pay(page, URL, progress)
+    assert progress.stage == "card_number"

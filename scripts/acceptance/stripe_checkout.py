@@ -79,6 +79,50 @@ def test_mode_url(url: str) -> bool:
     )
 
 
+class Progress:
+    """The step _pay is on and the page it is on, for a secret-free failure cause."""
+
+    def __init__(self) -> None:
+        self.stage = "launch"
+        self.page: Optional[Page] = None
+
+    def at(self, stage: str) -> None:
+        self.stage = stage
+
+
+def page_location(url: str) -> str:
+    """Host + path only; the session id is redacted (the URL is a bearer link)."""
+    parts = urlsplit(url)
+    path = re.sub(r"/cs_(test|live)_[A-Za-z0-9]+", r"/cs_\1_<redacted>", parts.path)
+    return (parts.hostname or "none") + (path or "/")
+
+
+def failure_kind(error: BaseException) -> str:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    if isinstance(error, PlaywrightTimeoutError):
+        return "timeout"
+    message = str(error)  # Classified only, never retained: it can quote the URL.
+    if "net::" in message or "navigat" in message.lower():
+        return "navigation"
+    if "closed" in message.lower() or "detached" in message.lower():
+        return "target_closed"
+    return "error"
+
+
+def browser_error_cause(error: BaseException, progress: Progress) -> str:
+    """stripe_test_checkout_browser_error:<kind>:<stage>:<host/path> -- no query, no message."""
+    location = "none"
+    if progress.page is not None:
+        try:
+            location = page_location(progress.page.url)
+        except Exception:  # A dead page has no readable URL.
+            location = "unreadable"
+    return ":".join(
+        ("stripe_test_checkout_browser_error", failure_kind(error), progress.stage, location)
+    )
+
+
 def complete_test_checkout(url: str) -> Optional[str]:
     if not test_mode_url(url):
         return "stripe_checkout_not_test_mode"
@@ -87,16 +131,18 @@ def complete_test_checkout(url: str) -> Optional[str]:
         from playwright.sync_api import sync_playwright
     except ImportError:
         return "stripe_test_completer_unavailable:playwright_absent"
+    progress = Progress()
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             try:
-                return _pay(browser.new_page(viewport={"width": 1280, "height": 1400}), url)
+                page = browser.new_page(viewport={"width": 1280, "height": 1400})
+                progress.page = page
+                return _pay(page, url, progress)
             finally:
                 browser.close()
     except PlaywrightError as error:
-        # Playwright messages can quote the session URL; record the type only.
-        return "stripe_test_checkout_browser_error:" + type(error).__name__
+        return browser_error_cause(error, progress)
 
 
 def _visible(locator: Locator) -> Optional[Locator]:
@@ -181,12 +227,16 @@ def _captcha_challenge(page: Page) -> bool:
     return False
 
 
-def _pay(page: Page, url: str) -> Optional[str]:
+def _pay(page: Page, url: str, progress: Optional[Progress] = None) -> Optional[str]:
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+    at = (progress or Progress()).at
+    at("goto")
     page.goto(url, wait_until="load", timeout=CHECKOUT_PAGE_TIMEOUT_MS)
+    at("card_method")
     if not _choose_card(page):
         return "stripe_test_checkout_field_absent:card_method"
+    at("email")
     email = _find(page, EMAIL)
     if email is None:
         return "stripe_test_checkout_field_absent:email"
@@ -198,15 +248,20 @@ def _pay(page: Page, url: str) -> Optional[str]:
         ("card_expiry", EXPIRY, "12 / 34"),
         ("card_cvc", CVC, "123"),
     ):
+        at(name)
         if not _fill(page, selectors, value):
             return "stripe_test_checkout_field_absent:" + name
+    at("billing_details")
     _fill(page, NAME, "J2 Acceptance", required=False)
     _fill(page, POSTAL, "94103", required=False)
+    at("link_opt_in")
     _decline_link(page)
+    at("submit")
     submit = _find(page, SUBMIT)
     if submit is None:
         return "stripe_test_checkout_field_absent:submit"
     submit.click()
+    at("success_redirect")
     try:
         page.wait_for_url(re.compile(r"checkout=success"), timeout=CHECKOUT_PAGE_TIMEOUT_MS)
     except PlaywrightTimeoutError:
