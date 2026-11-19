@@ -29,6 +29,7 @@ current tag workflow rebuilds. This command never tags, uploads or publishes.
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import platform
@@ -51,6 +52,9 @@ RELEASE_TESTS = (
     "tests/acceptance/test_journeys_money.py",
     "tests/acceptance/test_journeys_refusals.py",
 )
+# One pytest step per test file, each under its own TEST_CAP_SECONDS: a step
+# that ran several files would let their sum pass one cap unnoticed.
+RELEASE_TEST_STEPS = tuple((f"release_tests:{Path(path).stem}", (path,)) for path in RELEASE_TESTS)
 GENERATION_CHECKS = (
     ("surface_parity", ["scripts/check_surface_parity.py"]),
     ("gen_contract", ["scripts/gen_contract.py", "--check"]),
@@ -83,6 +87,9 @@ def git(*arguments: str, cwd: Path = ROOT) -> str:
 
 
 class Qualification:
+    # The release-test wall clock; tests substitute a scripted clock.
+    clock: Callable[[], float] = staticmethod(time.monotonic)
+
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.out: Path = args.out
@@ -141,17 +148,20 @@ class Qualification:
         if report.get("aligned") is not True or report.get("provenance_verified") is not True:
             raise StepFailed("cohort: aligned and provenance_verified must both be true")
 
-    def tests(self, step: Step) -> None:
-        started = time.monotonic()
-        output = self.run(step, [sys.executable, "-m", "pytest", "-q", *RELEASE_TESTS])
-        elapsed = round(time.monotonic() - started, 1)
+    def tests(self, files: tuple[str, ...], step: Step) -> None:
+        started = self.clock()
+        output = self.run(step, [sys.executable, "-m", "pytest", "-q", *files])
+        elapsed = round(self.clock() - started, 1)
         summary = output.strip().splitlines()[-1] if output.strip() else ""
         step.detail.update(
+            files=list(files),
             summary=summary,
             wall_seconds=elapsed,
             cap_seconds=TEST_CAP_SECONDS,
             over_cap=elapsed > TEST_CAP_SECONDS,
         )
+        if elapsed > TEST_CAP_SECONDS:
+            raise StepFailed(f"{step.name}: {elapsed} s over the {TEST_CAP_SECONDS} s cap")
 
     def package(self, step: Step) -> None:
         assert self.wheel is not None
@@ -176,7 +186,7 @@ class Qualification:
             ("artifact_identity", self.identity),
             ("generation_and_parity", self.generation),
             ("cohort", self.cohort),
-            ("release_tests", self.tests),
+            *((name, functools.partial(self.tests, files)) for name, files in RELEASE_TEST_STEPS),
             ("package", self.package),
             ("identity_after_install", self.identity_after),
         ]
