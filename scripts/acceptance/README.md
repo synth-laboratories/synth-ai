@@ -194,6 +194,13 @@ The batch owner supplies one mode0600 fixture per fresh driver run, at most64KiB
 }
 ```
 
+Seal it with `python -m scripts.acceptance.message_fixture_writer` (SYN-5745): it
+reads the answered exchange from the record run and the fresh replay run's event
+cursor through the public surface, writes the fixture once at mode 0600 and
+prints its SHA-256. It refuses a recording whose question was not answered by
+exactly one posted manager reply. The thread id, recording digest and internal
+ids are still supplied by the batch owner.
+
 The recording identity comes from the batch's selected sealed recording. The
 current-run cursor, internal IDs and refusal targets come from that same
 cohort's fixture custody, never guessed IDs. Hash the private fixture once before
