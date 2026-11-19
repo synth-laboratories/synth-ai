@@ -85,6 +85,17 @@ inspect it, and `run.known_state` when a known state enum is useful. Unknown ser
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
 
+To check the documented SDK, CLI and stdio MCP examples locally, use a Python
+environment with the SDK's development dependencies and MCP extra:
+
+```sh
+python scripts/check_quickstart_examples.py --wheel PATH --wheel-sha256 SHA256 --output RECEIPT.json
+```
+
+Use the SHA-256 from the selected wheel's qualification receipt. The command
+loads the wheel directly, checks its generated contract against this checkout,
+and runs the examples and error checks against a loopback fixture.
+
 For release qualification, `python scripts/quickstart_smoke.py --execute --fixture-org ORG_ID --cohort-file COHORT.json --output PATH`
 exercises SDK, CLI and stdio MCP against an explicitly configured API. It has
 three $4 run caps ($12 aggregate), retains mutation and cancellation identities,

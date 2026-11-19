@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from synth_ai.errors import _BY_CODE
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -119,3 +121,15 @@ def test_listed_operation_refusals_are_in_error_guide():
         if not re.search(rf"`{re.escape(code)}`[^\n]*\b{status}\b", guide)
     )
     assert not missing, f"listed refusals missing from the error guide with their status: {missing}"
+
+
+def test_typed_refusals_document_the_recovery_action():
+    guide = (ROOT / "docs/errors.md").read_text()
+    for code, error_class in _BY_CODE.items():
+        if code == "client_upgrade_required":
+            assert re.search(r"`client_upgrade_required`.*UpgradeRequiredError", guide)
+            assert "Run `pip install -U synth-ai`" in guide
+            continue
+        row = re.search(rf"^\| `{code}` \|.+`{error_class.__name__}` \| ([^|]+)\|$", guide, re.M)
+        assert row is not None, f"Missing next action for {code} ({error_class.__name__})"
+        assert row[1].strip().endswith("."), f"Missing next action for {code}"
