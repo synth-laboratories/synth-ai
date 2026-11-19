@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
@@ -14,6 +15,7 @@ from pydantic import ValidationError
 
 from ._generated.models import File, Problem, ProblemOutcome, RunSnapshot
 from ._limits import UPLOAD_MEDIA_TYPE_MAX_BYTES
+from ._retry import retry_delay
 
 
 class ErrorKind(StrEnum):
@@ -501,10 +503,11 @@ def raise_for_response(response: httpx.Response) -> None:
 
 
 def retry_after_seconds(value: str | None) -> int | None:
-    """A `Retry-After` delay in whole seconds; an absent or non-delay value is None."""
-    if value is None or not value.isascii() or not value.isdigit():
+    """Preserve delta-seconds or an HTTP date without rounding the server delay down."""
+    if value is None:
         return None
-    return int(value)
+    delay = retry_delay(value, 0)
+    return math.ceil(delay) if delay is not None else None
 
 
 def raise_problem(
