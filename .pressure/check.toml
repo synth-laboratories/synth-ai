@@ -32,16 +32,16 @@ remedy = "Restore the generated strict contract and ty CI checks; run the typed 
 
 [[checks]]
 id = "sdk_type_verification"
-description = "SDK tooling and consumer type contracts retain complete ty and annotation checks"
+description = "The local SDK type gate checks accepted and rejected consumer contracts"
 severity = "error"
-require_paths = ["scripts/check_type_contracts.py", "typing_tests/accepted.py", "typing_tests/rejected.py", "tests/test_type_contracts.py"]
+require_paths = [".venv/bin/python", "scripts/check_type_contracts.py", "typing_tests/accepted.py", "typing_tests/rejected.py", "tests/test_type_contracts.py"]
 file_contains = [
   { path = "pyproject.toml", pattern = 'include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]' },
-  { path = ".github/workflows/ci.yml", pattern = "uv run python scripts/check_type_contracts.py" },
-  { path = ".github/workflows/publish-dev.yml", pattern = "uv run python scripts/check_type_contracts.py" },
   { path = "tests/test_type_contracts.py", pattern = "test_contract_gate_rejects_missing_or_unexpected_diagnostics" },
 ]
-remedy = "Restore full SDK/tooling ty coverage and exact positive/negative type-contract verification."
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_type_contracts.py"
+command_timeout_seconds = 30
+remedy = "Run the local type-contract gate with the repository venv and correct the accepted or rejected consumer diagnostics."
 
 
 [[checks]]
