@@ -7,19 +7,50 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      wheel_sha256: ${{ steps.bind.outputs.wheel_sha256 }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.11'
+      - name: Bind the release tag to the qualified wheel
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git cat-file -t "$GITHUB_REF")" = tag
+          expected=$(git for-each-ref --format='%(contents:trailers:key=Wheel-SHA256,valueonly)' "$GITHUB_REF")
+          if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Release tag requires one Wheel-SHA256 trailer for the qualified wheel" >&2
+            exit 1
+          fi
+          printf 'wheel_sha256=%s\n' "$expected" >> "$GITHUB_OUTPUT"
       - run: uv sync --locked --extra mcp
       - run: uv run python -c 'import os, synth_ai; assert os.environ["GITHUB_REF_NAME"] == "v" + synth_ai.__version__'
-      # Run scripts/qualify_release.py locally before tagging.
-      - run: uv build && uv run twine check dist/*
+      - name: Reproduce the exact locally qualified wheel
+        env:
+          EXPECTED_WHEEL_SHA256: ${{ steps.bind.outputs.wheel_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv build --wheel
+          shopt -s nullglob
+          files=(dist/*)
+          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == *.whl ]]; then
+            echo "Expected exactly one wheel in dist/" >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "$EXPECTED_WHEEL_SHA256" "${files[0]}" | sha256sum --check -
+          uv run twine check --strict "${files[0]}"
       - uses: actions/upload-artifact@v4
         with:
-          name: distributions
-          path: dist/
+          name: qualified-wheel
+          path: dist/*.whl
+          if-no-files-found: error
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -29,6 +60,22 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: distributions
-          path: dist/
+          name: qualified-wheel
+          path: dist
+      - name: Recheck the exact wheel before publishing
+        env:
+          EXPECTED_WHEEL_SHA256: ${{ needs.build.outputs.wheel_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(dist/*)
+          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == *.whl ]]; then
+            echo "Expected exactly one wheel in dist/" >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "$EXPECTED_WHEEL_SHA256" "${files[0]}" | sha256sum --check -
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: false
