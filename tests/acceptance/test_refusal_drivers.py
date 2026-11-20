@@ -49,6 +49,13 @@ def pressure_api(contract, *, status, retryable):
         run_id=RUN,
         state="queued",
         queue=STANDING,
+        optimizer={
+            "topology": "swarms_v2",
+            "version": 2,
+            "params": {},
+            "reason": "environment_default",
+            "definition_digest": "sha256:" + "a" * 64,
+        },
         execution_closed=False,
         accounting_final=False,
         cleanup_complete=False,
