@@ -377,7 +377,7 @@ def test_adapter_refusal_survives_generator_context_manager():
 
 @pytest.mark.parametrize("surface", ["mcp_stdio", "mcp_hosted"])
 def test_mcp_recorded_launch_preserves_public_body_and_refuses_repeat(contract, tmp_path, surface):
-    from test_j1_drivers import RECORDED_BODY, RECORDED_PUBLIC
+    from test_j1_drivers import RECORDED_BODY
 
     from scripts.acceptance.j1 import RecordedLaunch
     from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
@@ -391,8 +391,10 @@ def test_mcp_recorded_launch_preserves_public_body_and_refuses_repeat(contract, 
         recording=recording, idempotency_key="recorded-once", journal=journal
     )
     assert journal.read_accepted() == accepted
+    # The recorded MCP body omits private cache wiring and preserves the original optimizer.
+    public_body = {key: value for key, value in RECORDED_BODY.items() if key != "local_cache"}
     assert caller.calls == [
-        (Tool.LAUNCH, {"body": RECORDED_PUBLIC, "idempotency_key": "recorded-once"})
+        (Tool.LAUNCH, {"body": public_body, "idempotency_key": "recorded-once"})
     ]
     with pytest.raises(LaunchJournalError):
         driver.launch_recorded(
