@@ -56,6 +56,9 @@ revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.tom
 - Typed synchronous and asynchronous Swarms clients, CLI and MCP tools share the
   public Core contract. Files and a message launch a run; result reads preserve
   its answer, exact charge, output references and canonical attempt tree.
+- The [CLI migration guide](docs/cli-migration-0.31-0.32.md) lists the grouped
+  commands removed in 0.32, their replacements, and the corresponding commands
+  in 0.41.
 - Named `local`, `staging` and `prod` profiles select the target explicitly. The
   customer default is production; credentials remain bound to their host.
 - Retryable 429 and 503 responses honor `Retry-After` with bounded jittered
