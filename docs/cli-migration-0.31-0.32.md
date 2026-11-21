@@ -83,3 +83,45 @@ API keys and legal acceptance can also be managed in the signed-in Console.
 - Human-readable output is now the default. For scripts requiring a record, use
   the new command with `--json` and handle its documented exit codes. Some old
   generated commands have no CLI counterpart; use their typed SDK method.
+
+## Moving from 0.31 to 0.41
+
+Use the [current quickstart](quickstart.md) for the tested Swarms journey.
+The replacements above describe the 0.32 transition. For 0.41 scripts,
+apply these updates:
+
+- `synth run MESSAGE --budget USD --idempotency-key KEY` accepts an explicit
+  launch key. Preserve the key and request arguments when the launch outcome
+  is uncertain.
+- `synth result RUN` reads the answer after completion. Use `synth outputs RUN`
+  to list outputs, and `synth download RUN OUTPUT -o DIR` for verified bytes.
+- Use `synth message RUN TEXT --kind question --idempotency-key KEY` and
+  `synth messages RUN` for runs with an admitted manager queue.
+- Retired managed evaluation commands have no Swarms CLI replacement.
+  Use the current command reference to confirm the flags for scripts you retain.
+
+These 0.41 commands cover operations that previously required a typed SDK call
+or the Console. For account mutations, the server still enforces the authority
+required by the operation.
+
+| 0.31 command | 0.41 replacement |
+| --- | --- |
+| `synth swarms program RUN` | `synth inspect RUN --view program` |
+| `synth swarms configuration RUN` | `synth inspect RUN --view configuration` |
+| `synth swarms sandboxes RUN` | `synth inspect RUN --view sandboxes` |
+| `synth swarms output RUN OUTPUT` | `synth inspect RUN --view output --output-id OUTPUT` |
+| `synth swarms families` | `synth families` |
+| `synth swarms upload-text` | `synth files upload-text TEXT --name NAME` |
+| `synth swarms uploads-prepare` | `synth uploads prepare --body PATH` |
+| `synth swarms uploads-get UPLOAD` | `synth uploads get UPLOAD` |
+| `synth swarms uploads-finalize UPLOAD` | `synth uploads finalize UPLOAD` |
+| `synth swarms files` | `synth files list` |
+| `synth swarms file FILE` | `synth files get FILE` |
+| `synth swarms labels RUN` | `synth labels RUN --body PATH` |
+| `synth api-keys list` | `synth keys list` |
+| `synth billing history` | `synth billing history` |
+| `synth billing statements` | `synth billing statements` |
+| `synth billing plans` | `synth billing plans` |
+| `synth billing checkout-status ID` | `synth billing checkout-status ID` |
+| `synth usage export` | `synth organization usage-export --since SINCE --until UNTIL` |
+| `synth usage export-status ID` | `synth organization usage-export-status ID` |

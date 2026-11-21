@@ -432,12 +432,23 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
                 return self.json_reply(
                     200,
                     {
+                        "run_id": run_id,
+                        "status": "completed",
+                        "accounting": snapshot(run_id)["charge"],
                         "run": snapshot(run_id),
                         "state": "completed",
                         "answer": receipt.nonce,
                         "answer_output": output(run_id),
                         "objective_answer": None,
                         "charge": snapshot(run_id)["charge"],
+                        "attempt_tree": {
+                            "state": "unavailable",
+                            "run_id": run_id,
+                            "code": "run_records_projection_unavailable",
+                            "stage": "run_result",
+                            "cause": "Canonical research record projection is unavailable for this cohort.",
+                        },
+                        "result_file": None,
                     },
                 )
             if suffix == "/outputs":

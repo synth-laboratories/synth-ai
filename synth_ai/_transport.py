@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Mapping
+import time
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Mapping,
+)
 from contextlib import aclosing, asynccontextmanager
 from pathlib import Path
 from typing import TypeVar
@@ -12,14 +20,14 @@ from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
-from pydantic import BaseModel, JsonValue, ValidationError
+from pydantic import BaseModel, JsonValue, RootModel, ValidationError
 
 from ._event_stream import decode_events, validate_stream_response
 from ._file_source import FileIO
-from ._generated.models import RunEvent, RunSnapshot, UploadGrant
+from ._generated.models import RunEvent, RunMilestone, RunSnapshot, UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
-from ._operations import OperationExecutor
+from ._operations import OperationExecutor, OperationResult
 from ._retry import RetryPolicy as RetryPolicy
 from ._retry import retry_delay as retry_delay
 from ._retry import stream_refusal_retryable
@@ -51,6 +59,8 @@ class Transport:
         retries: int = 2,
         retry_policy: RetryPolicy | None = None,
         diagnostic_hook: DiagnosticHook | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         url = httpx.URL(self.base_url)
@@ -70,6 +80,9 @@ class Transport:
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be finite and positive")
         self.diagnostic_hook = diagnostic_hook
+        # The admission-pending send retry waits through these; tests inject fakes.
+        self.sleep = sleep
+        self.clock = clock
         self.timeout = timeout
         self.retry_policy = retry_policy or RetryPolicy(
             attempts=retries + 1, deadline_seconds=timeout * (retries + 1)
@@ -106,10 +119,24 @@ class Transport:
         operation_id: str,
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> BaseModel | bytes | None:
+        result = await self._invoke_result(
+            operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
+        )
+        return result.value
+
+    async def _invoke_result(
+        self,
+        operation_id: str,
+        *,
+        path: Mapping[str, str] | None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None,
+        body: BaseModel | Mapping[str, JsonValue] | None,
+        idempotency_key: str | None,
+    ) -> OperationResult:
         return await OperationExecutor(
             self.client,
             self.base_url,
@@ -117,6 +144,8 @@ class Transport:
             self.retry_policy,
             self.headers,
             self.diagnostic_hook,
+            sleep=self.sleep,
+            clock=self.clock,
         ).invoke(operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key)
 
     def _transfers(self) -> ArtifactTransfer:
@@ -133,6 +162,25 @@ class Transport:
         self, grant: UploadGrant, content: bytes | AsyncIterable[bytes], *, idempotency_key: str
     ) -> None:
         await self._transfers().put_upload(grant, content, idempotency_key=idempotency_key)
+
+    async def download(
+        self,
+        operation_id: str,
+        *,
+        path: Mapping[str, str],
+        query: Mapping[str, str],
+        max_bytes: int,
+    ) -> tuple[bytes, str]:
+        """Read a bounded binary operation into memory with its served media type."""
+        if operation_id != "getRunOutputContent":
+            raise ValueError("bounded download supports getRunOutputContent only")
+        return await self._transfers().read_output(
+            path["run_id"],
+            path["output_id"],
+            revision_id=query["revision_id"],
+            digest_sha256=query["digest_sha256"],
+            max_bytes=max_bytes,
+        )
 
     async def download_output(
         self,
@@ -161,21 +209,28 @@ class Transport:
         model: type[T],
         *,
         path: Mapping[str, str] | None = None,
-        query: Mapping[str, str | int | float | bool | None] | None = None,
+        query: Mapping[str, str | int | float | bool | list[str] | None] | None = None,
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
+        on_replay: Callable[[T], Awaitable[T]] | None = None,
     ) -> T:
-        result = await self.invoke(
+        response = await self._invoke_result(
             operation_id, path=path, query=query, body=body, idempotency_key=idempotency_key
         )
+        result = response.value
+        if isinstance(result, RootModel) and not isinstance(result, model):
+            # A read that answers one of several views: the caller names its view.
+            result = result.root
         if not isinstance(result, model):
             raise SynthError("Unexpected response model for " + operation_id)
+        if response.replayed and on_replay is not None:
+            return await on_replay(result)
         return result
 
     @asynccontextmanager
     async def subscribe_events(
         self, run_id: str, state: StreamCheckpoint
-    ) -> AsyncGenerator[AsyncIterator[RunEvent], None]:
+    ) -> AsyncGenerator[AsyncIterator[RunEvent | RunMilestone], None]:
         """Open the durable feed before an observer performs its authoritative read."""
         state.bind(run_id)
         state.__post_init__()
@@ -233,7 +288,9 @@ class Transport:
                     try:
                         async with self.subscribe_events(run_id, state) as events:
                             async for item in events:
-                                yield item
+                                # Milestones advance recovery without leaking into follow().
+                                if isinstance(item, RunEvent):
+                                    yield item
                     except httpx.TransportError as error:
                         disconnected, cause = True, error
                     except SwarmsAPIError as refusal:

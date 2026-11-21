@@ -1,12 +1,12 @@
 # Public contract and retry policy
 
-Core owns the pinned public OpenAPI, scope registry and per-operation retry eligibility. `scripts/gen_contract.py` generates models, operation metadata, MCP schemas, OAuth login scopes and version metadata. Regenerate and run `--check` after changing the contract or package version. `SOURCE.toml` binds to the exact Core commit and content hash; this candidate preserves the 8192 UTF-8-byte message limit.
+Core owns the pinned public OpenAPI, scope registry and per-operation retry eligibility. `scripts/gen_contract.py` generates models, operation metadata, MCP schemas, OAuth login scopes and version metadata. Regenerate and run `--check` after changing the contract or package version. `SOURCE.toml` binds to the exact Core commit and content hash; the generated MESSAGE_MAX_BYTES constant defines the current UTF-8-byte message limit.
 
 `x-synth-max-bytes` produces a Pydantic UTF-8-byte validator. The CLI reads the same generated message limit. `x-synth-message-text` rejects Unicode-blank messages and NUL. Shared fixtures in `contracts/fixtures/message-limits.json` match Core's fixture source and cover ASCII, emoji and two-byte characters at both sides of the limit.
 
 `x-synth-idempotency-key` means the operation uses a stable key header, not that all failures can be replayed. `x-synth-retry` separately declares `safe_read`, `deduplicated` or `never`. Verified reads and public POST operations declared `x-synth-idempotency: durable_key` retry 429/503 responses automatically. Core audits these through its durable tenant/subject/operation/body-bound reserve-and-replay middleware. Transport failures or explicit unknown outcomes return immediately with request/key identity retained. PATCH/DELETE and protocol mutations never automatically replay. The contract records each audit and the existing 24-hour completed-response retention window.
 
-`RetryPolicy` bounds attempts, total monotonic deadline, exponential backoff and additive jitter. Retry-After is a minimum wait and is never shortened to fit a budget; if it cannot fit, the last response is returned as a typed API error. Existing `timeout` and `retries` arguments remain supported and derive the default policy. Event-feed reconnects in `wait()`/`follow()` use the same attempts and backoff; a feed refusal is reconnected only when its Problem says `retryable: true` (or is the legacy `event_owner_unavailable` 503 without that member), as specified in [protocols](protocols.md#notification-driven-observation). Cancellation propagates. User-Agent and exported version are generated from project metadata.
+`RetryPolicy` bounds attempts, total monotonic deadline, exponential backoff and additive jitter. Retry-After is a minimum wait and is never shortened to fit a budget; if it cannot fit, the last response is returned as a typed API error. The one exception is `run_message_admission_pending` on a message send: it is retried under the same key with its own 120 s budget, and each wait is Retry-After capped at 60 s (see [errors](errors.md#message-codes)). Existing `timeout` and `retries` arguments remain supported and derive the default policy. Event-feed reconnects in `wait()`/`follow()` use the same attempts and backoff; a feed refusal is reconnected only when its Problem says `retryable: true` (or is the legacy `event_owner_unavailable` 503 without that member), as specified in [protocols](protocols.md#notification-driven-observation). Cancellation propagates. User-Agent and exported version are generated from project metadata.
 
 Run `uv run pytest -q`, `uv run ty check`, and both generator checks. These are offline checks; no hosted acceptance or release is implied. Package acceptance checks use explicit errors and also fail under optimized Python.
 
@@ -34,3 +34,15 @@ Launch contract 4 (Core contract 1.3.0) / SDK 0.32.0 makes `message` required.
 A launch without one, or with a blank one, is refused locally with `ValueError`
 and by Core with 422 `invalid_launch_request` (cause `message`) before any
 funding.
+
+
+## OAuth scope names
+
+The advertised `user:org:read`, `synth:read` and `synth:action` scopes are retained
+OAuth protocol grants, not separate products. Core's canonical scope registry
+maps them to `account:read`, `swarms:read`, and
+`swarms:run swarms:write swarms:control`, respectively. Consent requires
+`user:org:read` so a credential can identify its organization; removing it from
+discovery while still requiring it would break authorization. These names are
+not API-key mint scopes. Scope changes must update Core's consent, challenge,
+registry and generated SDK login scopes together.

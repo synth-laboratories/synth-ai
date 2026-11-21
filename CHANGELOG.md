@@ -1,369 +1,73 @@
 # Changelog
 
-## 0.39.0
+## Unreleased
 
-- Pin Core public contract 1.18.0 (Core `1c3bbbc0`; spec SHA-256 `db4b9502…44bd`). `RunPauseLimit.reason` names the program's rule behind an actor-limit pause (for example `planner_left_park_unfunded`). Core `06d2c18e` served it under the 1.17.0 label, so `swarms.get()` of a limit-paused run raised `ResponseContractError` (`pause.limit.reason Extra inputs are not permitted`) under the 0.38.0 pin.
-- `RunSnapshot.problems` is `list[RunProblem]`: `code` and `cause` always, typed `severity`, `upstream_status_basis` and the root of the refusal chain (`upstream_service`, `upstream_stage`, `upstream_message`, `limiting_policy`, `upstream_detail`). Unknown problem fields are kept in `model_extra`.
-- The pin also carries Core's launch call-bound refusal text (`run_budget_below_call_bound`) in the MCP launch schema.
+Changes here describe the new Swarms product. Historical releases remain in Git history.
 
-## 0.38.0
+- Contract 1.40.0 (Core c17b5fd6): revoke your own MCP OAuth grant with an API key
+  (SYN-5737): SDK `client.account.revoke_oauth_grant(grant_id)`, CLI
+  `synth grants revoke GRANT`, MCP tool `account_oauth_grant_revoke` (`account:write`).
+- Message sends retry Core's 503 `run_message_admission_pending` (SYN-5744): the
+  SDK, CLI and MCP resend under the same Idempotency-Key, waiting Retry-After
+  (1 s when absent, capped at 60 s) within a 120 s budget. Exhaustion raises
+  `UpstreamUnavailableError` with `attempts` and `elapsed_seconds`.
+- Diagnostics: `retry_suppressed` events with a typed `RetrySuppressed` when the
+  deadline or an invalid `Retry-After` stops a retry (SYN-5724).
+- Contract 1.39.0 (Core e9dc3a36, introduced at 1dfeed39): run messages
+  (SYN-5745) and `continue_from` (SYN-5748).
+  - SDK: `swarms.send_message`, `messages`/`iter_messages`, `message`,
+    `follow_messages` and `wait_for_reply` (a local timeout never cancels the
+    message or the run). `follow()` yields typed `run.message.*` events.
+    `MessageKind`, `ManagerMessageState` and `MessageDisposition` are generated
+    StrEnums; a discarded body is `BodyUnavailable(reason)`.
+  - Typed refusals: `message_too_large`, `run_message_rate_limited` (Retry-After
+    only when retryable), `run_not_accepting_messages`, `run_message_queue_full`,
+    `messaging_unavailable`, `continue_from_not_found`,
+    `continue_from_not_terminal` and `continue_from_inputs_unavailable`.
+  - CLI: `synth message RUN TEXT [--kind ...]`, `synth messages RUN [--follow]`,
+    `synth run --continue-from RUN`. MCP: `swarms_run_message_send`,
+    `swarms_run_messages`, `swarms_run_message`, and `continue_from` on
+    `swarms_run_launch`. `RunLineage` appears on the result and report.
+- Contracts 1.37.0 and 1.38.0 (Core 033ca45a): `RunResult` now carries `run_id`,
+  `status` (the terminal outcome: `completed`, `partial`, `failed` or
+  `cancelled`) and `accounting` (the final ledger-backed `RunCharge`, always
+  `final`, or `None` when Core has no accounting reader) through
+  `swarms.result`, `synth result` (`--json`; human output adds `status` and
+  `accounting` lines on stderr) and the `swarms_run_result` MCP tool (SYN-5637).
+  A 422 `run_budget_below_call_bound` launch refusal's `Problem` carries
+  `minimum_budget_micros` and `budget_floor` (`BudgetFloor`).
+- Contract 1.36.1 (SYN-5667; 1.36.1 adds the public names to the contract and MCP tool descriptions): a `swarms_v2` pin takes `params.max_tasks`
+  (1..4096) and `params.max_repairs_per_task` (0..32) in the SDK
+  (`OptimizerParams`), the CLI (`--max-tasks`, `--max-repairs-per-task`, with
+  `--optimizer swarms_v2@VERSION`) and the MCP launch tool. Public names are
+  Swarms (`swarms_v2`, default) and Fork-and-Flush (`fork_flush`, experimental,
+  never default); `topology_name()` and `synth families` print them.
+- Contract 1.35.1: `synth login --device` and `auth.login_device` sign in on a
+  machine without a browser through the OAuth device authorization grant (SYN-5680).
+- Contract 1.35.0: `account.redeem_promo`, `synth promo redeem` and the
+  `account_promo_redeem` MCP tool redeem a promotional code (SYN-5752). A trial
+  campaign's redemption carries `trial` (plan and fixed start/end).
 
-- Register immutable tasks, evaluators, datasets, policies and pools through the public API.
-- Preflight, create, inspect, cancel and wait for signed evaluations through the SDK, CLI and MCP.
-- Preserve exact large integer inputs and return structured CLI wait deadlines.
-- Pin Core public contract 1.16.0 (Core `1461e10c`; spec SHA-256 `7b1c6fcd…20dd`), which adds the seven evaluation operations on top of 1.15.0. Evaluation attestations carry issuer `synth`.
-- Re-pin to Core public contract 1.17.0 (Core `51d35d57`; spec SHA-256 `33b0080b…436b`), which declares the bodies of the limit events (`limits.revised`, `limit.reached`, `limit.warning`, `run.paused`, `run.resumed`, `actor.parked`, `actor.unparked`). Under the earlier pin `events()` refused every run at its first event.
-- Update the 1.17.0 pin to Core `6c31c186` (spec SHA-256 `eb399de8…32aa4`), including the planner budget-floor refusal in launch guidance and generated MCP schema.
+## 0.41.0 — source candidate
 
-## 0.37.0
+This checkout does not attest publication or installed acceptance. The exact Core
+revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
 
-- Re-pin to Core dev public contract 1.15.0 (Core `17540502`; spec SHA-256 `b45d7899…f93e`). Run snapshots carry typed `api_version` and `variant` (`SwarmsVariantVersion`); the run report gains sandbox preparation time, compute metering, and rollout provider and compute charges. All additions are optional reads.
-- Re-pin to Core dev public contract 1.14.0 (Core `ec98548f`; spec SHA-256 `5543e889…7b17`). Labels are not unique: 1.13.0 names two different specs, so the pin is the Core commit plus spec SHA.
-- Merge the published 0.34.0 line (self-serve billing lifecycle, `AutoReload.disclosure`, `set_auto_reload(disclosure_version=)`) into dev; dev keeps `getRunLimits`/`updateRunLimits`.
-- Adopt Core contract 1.13.0 and expose assignment limits, parked actor state and revision history through the limits projection.
+- Typed synchronous and asynchronous Swarms clients, CLI and MCP tools share the
+  public Core contract. Files and a message launch a run; result reads preserve
+  its answer, exact charge, output references and canonical attempt tree.
+- The [CLI migration guide](docs/cli-migration-0.31-0.32.md) lists the grouped
+  commands removed in 0.32, their replacements, and the corresponding commands
+  in 0.41.
+- Named `local`, `staging` and `prod` profiles select the target explicitly. The
+  customer default is production; credentials remain bound to their host.
+- Retryable 429 and 503 responses honor `Retry-After` with bounded jittered
+  retries. Nonretryable refusals surface immediately. Queued runs expose their
+  position, estimate and expiry while waiting for admission.
+- Special Free requests, self-serve billing, run-limit updates and per-role
+  launch choices use the same typed public API.
+- Contract 1.34.0 includes queued run standing and result.md references. Source and fixture qualification do
+  not establish acceptance of a deployed cohort.
 
-## 0.35.0
-
-- Add revision-fenced `update_limits` and `synth limits set`, with typed revision, entitlement and exhausted-limit errors (Core contract 1.11.0).
-- Launch accepts `maximum_tokens` and `pause_retention_seconds`; CLI flags are `--tokens` and `--pause-retention`. Run time supports up to 86400 unpaused seconds; pause retention defaults to 86400 seconds.
-- Launch and budget raises now check plan daily/weekly spend entitlements, including open funding holds, as well as wallet credit. Existing customers may receive `spend_entitlement_exceeded` at launch.
-
-## 0.34.0
-
-Contract: the SDK pins Core public contract 1.13.0 (Core `18cdf24c`, SHA-256
-`816d2ae9…0d59`), the contract production Core serves. It adds self-serve
-billing lifecycle operations. None is an MCP tool; like `createCheckout`, they
-are SDK and HTTP only.
-
-New on `billing` (async and sync), each a read or write of Core's
-operation of the same name:
-
-- `subscription()` returns the org's `Subscription`, or `None` when it has never
-  had one (`getSubscription`).
-- `cancel_subscription()` and `resume_subscription()` (`Subscription`).
-- `preview_subscription_change(plan_id)` returns a `SubscriptionChangePreview`
-  (amount due now, credit applied, new period end) without changing anything.
-- `change_subscription_plan(plan_id)` (`Subscription`).
-- `payment_method_session()` returns a `PaymentMethodSession` whose `url` is the
-  hosted page for updating the card.
-- `auto_reload()` and `set_auto_reload(enabled=, threshold=, amount=,
-  disclosure_version=)` (`AutoReload`). `AutoReload.disclosure`
-  (`AutoReloadDisclosure`: `version`, `template`, `card`, `limits`) is the text
-  an admin must be shown before turning it on. Turning auto-reload on needs a
-  signed-in browser session: with an API key Core refuses it with
-  `browser_session_required` (`ForbiddenError`), so enable it in the console.
-  Turning it off works with an API key.
-- `spend_alerts()` and `set_spend_alerts(monthly_amount=, enabled=)`
-  (`SpendAlerts`); `monthly_amount=None` clears the amount.
-
-`Problem` gains optional `field` and `reason`, which name the refused field and
-why. Mutations take an optional `idempotency_key`. `Account` carries
-`billing_attention` (`BillingAttention`: `kind`, `since`) when billing needs the
-org's action. `checkout` now documents that an org holding a subscription Stripe
-has not ended (`active`, `past_due`, `incomplete`, `unpaid`, `paused`) is refused
-with `subscription_already_active`.
-
-Generator: `scripts/gen_contract.py` accepts PUT operations and a response that is
-a schema or `null`; the operation table gains `nullable_response`.
-
-## 0.34.0 (dev line, never published)
-
-These entries shipped only in dev builds; the published 0.34.0 is described below and everything here is carried in 0.36.0.
-
-- `wait` stops on a paused run with `RunPausedError` carrying its pause record. CLI pause has a distinct exit status (Core contract 1.10.0).
-
-- Add `swarms.limits(run_id)` and the `swarms_run_limits` MCP tool, using Core contract 1.9.0. Reads preserve unknown quantities and expose owner observation freshness and funding separately from usage.
-
-## 0.33.0
-
-Contract: the SDK pins Core public contract 1.9.0 (Core `cf85aa84`, SHA-256
-`96ebcdea…d2a3b3`), which adds `GET /v1/runs/{run_id}/result` (`getRunResult`)
-and the MCP tool `swarms_run_result`, so an MCP client reads a run's answer in
-one call.
-
-Breaking (no support window): `swarms.result(run)` is now that one read and
-returns Core's `RunResult`: `run`, `state`, `answer`, `answer_output`,
-`objective_answer`, `charge`. `outputs` and `content` and the `max_outputs`,
-`max_bytes` and `max_json_outputs` arguments are gone; list outputs with
-`outputs()` / `iter_outputs()` and fetch bytes with `output_content()` or
-`download_output()`. Core chooses the answer in publication order; the old
-client-side choice used listing order, which Core sorts by output id, so with
-several text outputs it could return an older one. `ObjectiveAnswerBody` and
-`ObjectiveAnswerSource` are replaced by the generated `ObjectiveAnswerAnswer`
-(its `sources` are plain objects). `synth result RUN --json` prints the
-`RunResult` as Core returned it.
-
-`swarms.wait` outlasts a Core deploy: 502, 503 and 504 on its snapshot reads or
-event feed are retried with backoff until the caller's `timeout`, then the
-original error is raised. A Problem marked `retryable: false` still ends the wait
-at once. Launch and other mutations are never retried.
-
-`synth run` validates the budget, limits, labels and profile before uploading
-any `--file`, so an out-of-range `--parallel-workers` or `--wall` uploads nothing.
-
-## 0.32.3
-
-Contract: the SDK pins Core public contract 1.8.0 (Core `f2f9ae9f`, SHA-256
-`bebc837c…42a32e`). Launch accepts `limits.parallel_workers`, an integer from 1
-to 10 (default 1): the planner may run up to that many workers at once, one per
-task. `swarms.launch` and `swarms.run` (async and sync) take
-`parallel_workers=`, `synth run` takes `--parallel-workers N`, and the MCP launch
-tool schema carries the field. The generated `Limits` model enforces the range,
-so the SDK rejects an out-of-range value with a `ValidationError` before
-sending; Core refuses it with 422 `invalid_launch_request`, cause
-`limits.parallel_workers`. The budget must fund the planner, the reviewer and
-every parallel worker at once; a smaller budget is refused with 422
-`launch_budget_below_actor_floor`, now mapped to
-`LaunchBudgetBelowActorFloorError` (an `InvalidRequestError`). Research profiles
-do not accept `parallel_workers`.
-
-## 0.32.2
-
-Contract: the SDK pins Core public contract 1.7.0 (Core `3a62a087`, SHA-256
-`7f60260f…1dcab`). The run snapshot gains a read-only `charge` (`RunCharge`:
-`amount` Money, `final` bool) on launch, single-run and wait reads (list pages
-omit it), and `started_at` is now populated for new runs. `RunResult.charge`
-exposes it; `synth result RUN` and `synth run --wait` print one line on stderr,
-`charge  AMOUNT USD (final|not final)` (stdout stays the answer alone), and
-`--json` includes `charge`.
-
-Contract 1.6.0 (Core `867e0819`) bounded `limits.wall_time_seconds` is now at most 3600 (one hour),
-down from 86400: Agents refuses actor deadlines more than an hour away, so a
-longer run used to be admitted and then fail at start with `deadline_invalid`.
-Core now refuses it at launch with 422 `invalid_launch_request`, cause
-`limits.wall_time_seconds`. The generated `Limits` model enforces the bound, so the SDK rejects a larger
-value with a `ValidationError` before sending. `synth run --wall` help and
-`docs/swarms.md` state the bound.
-
-SDK (SYN-5583): `swarms.result()` reads an objective answer. A run whose only
-output is an `application/json` `synth.objective-answer.v1` document (empty
-filename) used to return `answer=None`. Without a text output, `result()` now
-uses the most recent objective answer: `answer` is its `answer.text`, `content`
-the raw JSON, `objective_answer` the typed `ObjectiveAnswer`, and the source
-output moves to the new `answer_output` field (`answer` is now the answer text,
-not the output record). `synth result RUN` and `synth run --wait` print it.
-
-SDK (SYN-5583): unsupported upload formats are one typed refusal,
-`UploadFormatUnsupportedError` (`InvalidRequestError`, code
-`upload_format_unsupported`, 422, `supported_formats`). It replaces the plain
-`ValueError` from `upload_file`, the pydantic `ValidationError` from
-`upload_text` (and `prepare_upload`), and the stdio MCP schema text; the stdio
-MCP server now returns an `isError` Problem for it, and `tool_arguments_invalid`
-for other invalid input. The server's own 422 maps to the same class. The CLI
-prints it like any refusal and exits 4.
-
-## 0.32.1
-
-Contract: the SDK pins Core public contract 1.5.0 (Core `12ba622f`). Core now
-refuses `synth-ai` clients older than its minimum version with HTTP 426 and code
-`client_upgrade_required`; the body carries `minimum_version` and `client_version`.
-
-SDK: `UpgradeRequiredError` (a `SwarmsAPIError`, exported from `synth_ai`) is raised
-for that refusal and is never retried. The CLI prints the refusal and one line
-ending `run: pip install -U synth-ai`, and exits 4.
-
-## 0.32.0
-
-Contract: the SDK pins Core public contract 1.4.0 (Core `817056b9`, SHA-256
-`4c3e45cc…f365`). The generated `Problem` model has `retryable` and
-`last_event_id`; stream reconnects read the typed `retryable` member and keep the
-`event_owner_unavailable`/503 fallback for servers that omit it. The new read-only
-`GET /v1/runs/{run_id}/wait` (`waitRun`, `RunWait`) backs the MCP
-`swarms_run_wait` tool; the typed client keeps `wait()`, which already follows
-the event stream to completion, and adds no method for it.
-
-MCP: the stdio server adds `swarms_run_pause`, `swarms_run_resume`,
-`swarms_run_tasks`, `usage_for_run` and `swarms_run_wait`, with the same names,
-scopes and argument schemas as Core's hosted catalog (20 tools; the catalog file
-is byte-identical to Core's). The generator honours `x-synth-mcp-required`.
-
-CLI: `synth result RUN` prints the answer text, or the `RunResult` as JSON.
-`synth run --wait` ends with the answer text in human mode.
-
-Tests: `tests/test_journey.py` drives one customer journey (profiles, upload,
-launch, watch through a retryable stream drop, pause/resume, outputs, answer,
-usage) through the SDK, the CLI and the MCP tools, and fails naming any step a
-surface lacks.
-
-Docs: `docs/quickstart.md` (one per surface), an error guide in
-`docs/errors.md`, and the support policy: only the latest release is supported.
-
-Breaking: the `synth` CLI is replaced by task verbs (SYN-5564), with no
-compatibility period. Commands: `login [--no-browser]`, `whoami`, `logout`,
-`profiles`, `upload`, `run`, `status`, `wait`, `logs [-f]`, `tasks`, `ls`, `pause`,
-`resume`, `cancel`, `outputs`, `download`, `report`, `result`, `usage`, `billing`,
-`limits`.
-Output is aligned text; `--json` on every command prints the SDK record as one
-JSON document. Exit codes: 0 success, 1 client or usage error, 2 wait timeout,
-3 run failed or cancelled, 4 server refusal. `logs -f` resumes from a 0600
-checkpoint under `~/.config/synth/streams/` (`SYNTH_STATE_DIR`). See
-`docs/cli.md`. `auth.login(open_browser=False, redirect_source=...)` accepts a
-pasted loopback redirect.
-
-| Removed | Replacement |
-| --- | --- |
-| `synth swarms status` | `synth status RUN` |
-| `synth swarms report` | `synth report RUN` |
-| `synth swarms sandboxes` | removed, no replacement |
-| `synth swarms list` | `synth ls` |
-| `synth swarms events` | `synth logs RUN` |
-| `synth swarms cancel` | `synth cancel RUN` |
-| `synth swarms pause` | `synth pause RUN` |
-| `synth swarms resume` | `synth resume RUN` |
-| `synth swarms program` | removed, no replacement |
-| `synth swarms configuration` | removed, no replacement |
-| `synth swarms tasks` | `synth tasks RUN` |
-| `synth swarms outputs` | `synth outputs RUN` |
-| `synth swarms output` | `synth outputs RUN` |
-| `synth swarms output-content` | `synth download RUN OUTPUT` |
-| `synth swarms families` | removed, no replacement |
-| `synth swarms profiles` | `synth profiles` |
-| `synth swarms upload-text` | `synth upload PATH` |
-| `synth swarms uploads-prepare` | `synth upload PATH` |
-| `synth swarms uploads-get` | removed, no replacement |
-| `synth swarms uploads-finalize` | `synth upload PATH` |
-| `synth swarms files` | removed, no replacement |
-| `synth swarms file` | removed, no replacement |
-| `synth swarms labels` | `synth run --label k=v (at launch)` |
-| `synth swarms download` | `synth download RUN [OUTPUT] [-o DIR]` |
-| `synth swarms upload` | `synth upload PATH...` |
-| `synth swarms launch` | `synth run "goal" --budget B` |
-| `synth swarms run` | `synth run "goal" --budget B --wait` |
-| `synth swarms wait` | `synth wait RUN` |
-| `synth swarms follow` | `synth logs RUN -f` |
-| `synth swarms attach` | `synth logs RUN -f` |
-| `synth swarms watch` | `synth logs RUN -f, then synth wait RUN` |
-| `synth account get` | `synth whoami` |
-| `synth account accept-terms` | removed, no replacement |
-| `synth api-keys list` | removed, no replacement |
-| `synth api-keys mint` | removed, no replacement |
-| `synth api-keys update-grants` | removed, no replacement |
-| `synth api-keys rotate` | removed, no replacement |
-| `synth api-keys revoke` | removed, no replacement |
-| `synth billing balance` | `synth billing` |
-| `synth billing history` | removed, no replacement |
-| `synth billing statements` | removed, no replacement |
-| `synth billing plans` | removed, no replacement |
-| `synth billing checkout` | removed, no replacement |
-| `synth billing checkout-status` | removed, no replacement |
-| `synth usage summary` | `synth usage` |
-| `synth usage records` | `synth usage RUN` |
-| `synth usage export` | removed, no replacement |
-| `synth usage export-status` | removed, no replacement |
-| `synth limits list` | `synth limits` |
-| `synth auth status` | `synth whoami` |
-| `--json REQUEST bodies` | removed; typed flags only |
-| `--task PATH (launch/run)` | `synth run --file PATH` |
-| `--until, --providers-*/--models-*, --idempotency-key, --last-event-id` | removed, no replacement (logs -f keeps its own checkpoint) |
-
-Breaking: `message` is required on run launch. Core public contract 1.3.0
-(synth-backend `5403b03b1c30d59ab2aeb38ca28260827412f1c7`, SHA-256
-`94d95075bf0815e6d70363dc53b01c348db5bf4f75c90416f97a05f779f0a027`) makes
-`LaunchRequest.message` a required string (32 KiB UTF-8, not blank, no NUL);
-Core refuses a launch without one with 422 `invalid_launch_request`, cause
-`message`, before any run or hold. `swarms.launch()`/`run()` take `message: str`
-with no default and raise `ValueError` locally for a missing or blank message;
-the generated `LaunchRequest` and MCP `swarms_run_launch` schema require it; the
-CLI requires the goal.
-
-`wait()` and `follow()` survive a dropped event stream. A feed refusal returned
-on open or in-stream now reconnects from the checkpoint when its Problem carries
-`retryable: true`, or, for servers that predate that member, when it is
-`event_owner_unavailable` with status 503 (seen during server deploys). Reconnects
-share the `RetryPolicy.attempts` budget and the single `timeout`, never
-re-deliver an event, and `wait()` rereads the run before declaring a milestone.
-All other refusals still propagate at once. Exhausted reconnects raise
-`TransportFailureError` (`event_stream_interrupted`) whose message states the
-attempts made, with `connection_attempts`, `checkpoint` and the last `snapshot`.
-
-New `swarms.result(run)` (async and sync) returns a `RunResult` with the finished
-run's snapshot, all outputs and the UTF-8 text of its last `text/*` output
-(`content` is `None` when there is none). An unfinished run raises
-`ResultUnavailableError`; outputs (1000) and answer bytes (1 MiB) are bounded.
-
-## 0.31.0 (released 2026-11-09)
-
-Aligns with the integrated Core public contract and its 32 KiB UTF-8 message
-limit. Profile eligibility comes from generated metadata and explicit discovery.
-Adds typed lazy iterators, payload-free diagnostic hooks, bounded streaming
-uploads with source identity/digest verification, and runnable fixture-tested
-recipes. Closing either client prevents new requests and preserves injected
-HTTP ownership.
-
-## 0.30.0 (not published; changes ship in 0.31.0)
-
-`wait()` now subscribes before reading run state, uses durable events as wakeups,
-and periodically reconciles dropped notifications. EOF, authentication failures,
-reconnect limits and the final accounting/cleanup polling phase are explicit.
-Observation cancellation closes its stream without cancelling execution.
-
-Request construction, operation execution, retries and artifact transfers have
-focused internal owners. Retry bodies are immutable snapshots; malformed mutation
-responses retain uncertainty and identity. Stream checkpoints explicitly mean
-receipt, isolate mutable collections, and suppress replayed committed frames.
-Checkpoint restoration accepts read-only mappings as well as dictionaries.
-
-A cohort checker verifies source provenance and exact Core contract bytes.
-Isolated wheel qualification now exercises notification-based SDK observation and
-the optional MCP server over stdio, in addition to imports and CLI help.
-
-The release smoke now checks a bounded two-run Swarms journey instead of an
-unreachable full-API gate. Its v4 receipt reports `smoke_complete`, verified output,
-final accounting and cleanup; launch and cancellation identities survive resume.
-Unrelated account, API-key and checkout mutations are removed from the smoke.
-Historical receipts remain intact and cannot be resumed with the v4 runner.
-
-Generated Python types now include only supported SDK operation models, public
-exports and their dependencies. Removes unused profile-override, OAuth-server and
-MCP-transport schemas from the private generated module; the full pinned Core
-contract remains unchanged. Drops an unread transport retry field.
-
-Type verification now covers all SDK tooling and accepted consumer examples.
-Explicit negative type contracts guard budgets, models and sync/async return
-types. Generators and smoke receipts have typed boundaries; scripts require
-annotations. No provider-backed smoke run is needed for these checks.
-
-Strict, frozen generated records reject implicit scalar coercion. Nested file
-inputs, upload grants, resource selections and tasks have named models. Schema
-enums are `StrEnum` classes. Public clients and run helpers have explicit typed
-parameters; `run` no longer accepts an arbitrary launch keyword bag.
-
-`CompletionMilestone`, `RunSnapshot.finished` and `known_state` expose lifecycle
-semantics without hiding unknown server states. Event payloads are validated
-against their declared event kinds. Checkpoints have a typed, versioned persisted
-format and still read the original unversioned format. Local errors expose stable
-codes and categories. Credential records and auth status now use attribute access.
-
-CI uses `ty`, expanded Ruff annotation/suppression rules, and an AST standards
-lint for Any aliases, explicit API signatures, typed maps, strict frozen records,
-and validation bypasses. Production modules contain no `Any`
-annotations; intentional JSON extensions remain `JsonValue`.
-
-## 0.29.0 (unreleased)
-
-Every run requires a budget. Public launch selection uses published named
-`profile` values with optional `research_task`; `program`, `method` and
-`profile_overrides` are removed. Profiles can be discovered through the SDK and
-CLI. Routing supports fixed or prohibited provider/model lists. Finished waits
-require execution closure, final accounting and cleanup. Uploads and streams
-retain recovery identities.
-
-## 0.26.0
-
-Public API v1: generated models and operations, opaque resource IDs, decimal-string
-money, typed Problem Details, cursor pagination, resumable event streams, OAuth
-PKCE, and matching local/hosted MCP tools. Async and synchronous clients share
-one transport. API-key management requires a signed-in session.
-
-Adds owner resource intents, provider presets through profile overrides, and CLI
-`watch` with terminal snapshots and bounded streaming.
-
-Adds execution method selection for Status Quo, Fork & Flush and Forgetting through
-`method=` and `--method`. The two research methods require a published project
-pairing. Adds file upload and run attachment through `upload_file`, `upload_text` and
-`synth swarms upload`.
-
-Adds `run.selection` for research run results and the selected snapshot output. Removes
-`method.forge_profile_digest` from run snapshots.
-
-Earlier releases and their changelog remain at tag `legacy/0.24.0`.
+- Nov 16 admits `swarms_v2` only. `fork_flush` stays a reserved public enum;
+  pinned requests receive a typed refusal and experimental entries never default.

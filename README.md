@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. The published release is 0.34.0 (Core contract 1.13.0, launch contract 3). The contract pin for this checkout is recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
+Typed Python 3.11+ client for the Synth public API v1. This checkout declares SDK 0.41.0; the exact Core contract pin is recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml). A source version does not attest PyPI publication or the deployed service revision.
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 
@@ -44,10 +44,12 @@ with SynthClient() as client:
     )
 ```
 
-Uploads accept UTF-8 text, Markdown and JSON, at most 32 MiB per file and per
-launch, with at most 32 references. `upload_text` and MCP `swarms_upload_file`
+Uploads accept binary files with bounded ASCII media types, at most 16 MiB per
+file and 64 MiB per launch, with at most 10,000 references. `upload_text` and MCP `swarms_upload_file`
 accept up to 32 KiB inline. `synth upload task.md` uses
 the full upload protocol. Pool resources use the public selector `pool`.
+`upload_directory` preserves relative names through that same protocol; see
+[directory uploads](docs/swarms.md#directory-uploads) for snapshot and recovery semantics.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
 
@@ -63,7 +65,6 @@ with SynthClient() as client:
 synth profiles
 synth run "Solve this task" --budget 2.00 --profile swarms-v2 --wait
 synth profiles --research-task published-task
-synth run "Improve the policy" --budget 2.00 --profile fork-flush --research-task published-task
 synth logs RUN_ID -f
 synth download RUN_ID -o results/
 ```
@@ -83,6 +84,17 @@ Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
 inspect it, and `run.known_state` when a known state enum is useful. Unknown server
 states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
+
+To check the documented SDK, CLI and stdio MCP examples locally, use a Python
+environment with the SDK's development dependencies and MCP extra:
+
+```sh
+python scripts/check_quickstart_examples.py --wheel PATH --wheel-sha256 SHA256 --output RECEIPT.json
+```
+
+Use the SHA-256 from the selected wheel's qualification receipt. The command
+loads the wheel directly, checks its generated contract against this checkout,
+and runs the examples and error checks against a loopback fixture.
 
 For release qualification, `python scripts/quickstart_smoke.py --execute --fixture-org ORG_ID --cohort-file COHORT.json --output PATH`
 exercises SDK, CLI and stdio MCP against an explicitly configured API. It has

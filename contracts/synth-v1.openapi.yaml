@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.18.0
+  version: 1.40.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -140,6 +140,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_terms_accept
       x-synth-status: implemented
       x-synth-legacy-path: /v1/account/terms-acceptance
       summary: Record the org's acceptance of a terms version (idempotent per version).
@@ -234,6 +235,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_keys_list
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: List the caller's personal and automation keys (session only).
@@ -307,6 +309,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_api_key_create
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys
       summary: Mint a key. The secret is returned once (session only).
@@ -388,6 +391,7 @@ paths:
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_key_revoke
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Revoke a key (idempotent, session only).
@@ -452,6 +456,7 @@ paths:
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_api_key_update
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}
       summary: Replace a key's scopes (optimistic on authorization_version, session only).
@@ -556,6 +561,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_api_key_rotate
       x-synth-status: implemented
       x-synth-legacy-path: /v1/api-keys/{key_id}/rotate
       summary: Revoke a key and mint its replacement in the same rotation family (session only).
@@ -655,11 +661,13 @@ paths:
                 token_endpoint: https://mcp.usesynth.ai/mcp/oauth/token
                 registration_endpoint: https://mcp.usesynth.ai/mcp/oauth/register
                 revocation_endpoint: https://mcp.usesynth.ai/mcp/oauth/revoke
+                device_authorization_endpoint: https://mcp.usesynth.ai/mcp/oauth/device_authorization
                 response_types_supported:
                 - code
                 grant_types_supported:
                 - authorization_code
                 - refresh_token
+                - urn:ietf:params:oauth:grant-type:device_code
                 code_challenge_methods_supported:
                 - S256
                 token_endpoint_auth_methods_supported:
@@ -975,7 +983,7 @@ paths:
       x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-legacy-path: /mcp/oauth/token
-      summary: authorization_code (PKCE S256) and refresh_token grants; rotation with reuse detection.
+      summary: authorization_code (PKCE S256), refresh_token and RFC 8628 device_code grants; rotation with reuse detection.
       security: []
       requestBody:
         required: true
@@ -1004,6 +1012,178 @@ paths:
                 $ref: '#/components/schemas/OAuthError'
               example:
                 error: invalid_request
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device_authorization:
+    post:
+      tags:
+      - mcp
+      operationId: authorizeOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device_authorization
+      summary: RFC 8628 device authorization for the first-party CLI; returns a device code and a short user code.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceAuthorizationRequest'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDeviceAuthorization'
+              example:
+                device_code: example
+                user_code: BCDF-GHJK
+                verification_uri: https://usesynth.ai/mcp/device
+                verification_uri_complete: https://usesynth.ai/mcp/device?user_code=BCDF-GHJK
+                expires_in: 600
+                interval: 5
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: unauthorized_client
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: slow_down
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device/verify:
+    post:
+      tags:
+      - mcp
+      operationId: readOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device/verify
+      summary: Pending device authorization behind a user code (console origin, Clerk session only; attempts are rate-limited).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceUserCode'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDevicePending'
+              example:
+                user_code: BCDF-GHJK
+                client_id: synth-ai-cli
+                client_name: Synth AI CLI
+                scopes:
+                - synth:read
+                resource: https://mcp.usesynth.ai/mcp
+                verified: true
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: rate_limited
+        default:
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: temporarily_unavailable
+      x-synth-source: core/internal/mcpoauth/routes.go
+  /mcp/oauth/device/consent:
+    post:
+      tags:
+      - mcp
+      operationId: decideOAuthDevice
+      x-synth-scope: "protocol"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-status: implemented
+      x-synth-legacy-path: /mcp/oauth/device/consent
+      summary: Approve or deny a device authorization for the session user and active org (console origin, Clerk session only).
+      security:
+      - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthDeviceDecision'
+      responses:
+        '200':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthDeviceDecided'
+              example:
+                status: approved
+        '400':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: invalid_request
+        '429':
+          description: Protocol response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+              example:
+                error: rate_limited
         default:
           description: Protocol response.
           content:
@@ -1313,7 +1493,8 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
-      summary: Launch a run.
+      summary: Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush
+        (fork_flush) is experimental, never the default, and not served in this release.
       description: 'Problem codes on 503: launch_refund_unavailable (The execution service refused the launch and the hold
         refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
         program release could not be persisted). In both cases the run is failed with accounting_final=false
@@ -1378,6 +1559,8 @@ paths:
               $ref: '#/components/headers/RateLimit-Reset'
             Cache-Control:
               $ref: '#/components/headers/Cache-Control'
+            X-Synth-Queue-Position:
+              $ref: '#/components/headers/X-Synth-Queue-Position'
         '500':
           $ref: '#/components/responses/Problem'
         default:
@@ -1800,7 +1983,6 @@ paths:
                 items:
                 - sandbox_id: sbx_ABEiM0RVZneImaq7zN3u_w
                   role: planner
-                  provider_kind: docker
                   state: destroyed
                   image:
                     status: resolved
@@ -1922,6 +2104,16 @@ paths:
                   output_tokens: 0
                   reasoning_tokens: 0
                   model_time_ms: 0
+                scoring:
+                  calls: 0
+                  failed_calls: 0
+                  charge: {amount: '0.000000000000', currency: USD}
+                  subsidized: {amount: '0.000000000000', currency: USD}
+                  input_tokens: 0
+                  cached_input_tokens: 0
+                  output_tokens: 0
+                  reasoning_tokens: 0
+                  model_time_ms: 0
                 sandbox_compute: metered
                 rollout_compute: attributed
                 compute_by_provider:
@@ -1995,6 +2187,99 @@ paths:
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: null
       x-synth-mcp-name: swarms_run_report
+  /v1/runs/{run_id}/allocation:
+    get:
+      tags:
+      - runs
+      operationId: getRunAllocation
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Per-actor inference and sandbox allocation, usage and charge.
+      description: 'Each declared actor''s launch choice (explicit or default; assigned or planner_decides),
+        the sandbox frozen for every assignment generation (a later generation is a permitted replacement),
+        its sandbox usage and compute charge. final is true once the run is terminal and execution is closed:
+        no further generation can be admitted. Financial finality is the run''s accounting_final.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/launch_choices.go
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: The run's allocation as far as it is known.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAllocation'
+              example:
+                run_id: run_ABEiM0RVZneImaq7zN3u_w
+                menu_revision: lcm1_0000000000000000000000000000000000000000000000000000000000000000
+                final: true
+                actors:
+                - actor_id: worker
+                  role: worker
+                  launch:
+                    inference: {state: assigned, source: explicit, profile_id: luna-low}
+                    sandbox: {state: planner_decides, source: explicit}
+                  placements:
+                  - {assignment_generation: 0, profile_id: 2vcpu-2gib-local, profile_digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000'}
+                  replacements: 0
+                  usage:
+                    calls: 3
+                    failed_calls: 0
+                    charge: {amount: '0.01', currency: USD}
+                    subsidized: {amount: '0.00', currency: USD}
+                    input_tokens: 1000
+                    cached_input_tokens: 0
+                    output_tokens: 100
+                    reasoning_tokens: 0
+                    model_time_ms: 2000
+                  compute_metering: metered
+                  compute_charge: {amount: '0.00', currency: USD}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_run_allocation
   /v1/runs/{run_id}/outputs:
     get:
       tags:
@@ -2167,6 +2452,12 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_output_content
+      # The 200 body is bytes; MCP returns McpOutputContent instead (text as UTF-8 when the media
+      # type is textual and the bytes are valid UTF-8, otherwise base64). Over
+      # McpOutputContent.byte_size.maximum the tool refuses with output_content_too_large_for_mcp
+      # and names this operation's HTTP download.
+      x-synth-mcp-result: McpOutputContent
       summary: The output's bytes at the revision and digest read from its record.
       description: Served as an attachment under the artifact policy (declared type, `nosniff`, sandbox
         CSP). `422 output_revision_required` unless exactly `revision_id` and `digest_sha256` are given;
@@ -2267,6 +2558,11 @@ paths:
         bytes is refused 409 result_answer_too_large and one that is not UTF-8 409
         result_answer_not_text; download either with getRunOutputContent. 409
         output_revision_changed when the output changed during the read; 404 run_not_found.
+        result_file is the run's result.md, rendered by Core from the available attempt tree and its
+        Report on the first such read and published once as a pinned run output; later reads serve
+        that same output and never re-render it. It is null exactly when attempt_tree is
+        unavailable, and it is never chosen as the answer. Download its bytes with
+        getRunOutputContent.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/result.go
       x-synth-legacy-path: null
@@ -2281,7 +2577,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/RunResult'
               example:
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                status: completed
+                accounting:
+                  amount:
+                    amount: '0.10'
+                    currency: USD
+                  final: true
                 state: completed
+                attempt_tree:
+                  state: unavailable
+                  run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                  code: run_records_projection_unavailable
+                  stage: run_result
+                  cause: Canonical research record projection is unavailable for this cohort.
+                result_file: null
                 answer: The answer.
                 answer_output:
                   run_id: run_AAAAAAAAAAAAAAAAAAAAAA
@@ -2339,6 +2649,137 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/launch-choices:
+    get:
+      tags:
+      - runs
+      operationId: getLaunchChoices
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Inference and sandbox choices for each role of a prospective launch.
+      description: 'The admitted menu a launch with the same profile, domicile_requirement, parallel_workers
+        and wall_time_seconds would use, per declared role, with today''s defaults. Names are supplier-neutral;
+        sandbox placements are opaque option ids. Exclusions name only choices the caller could make, with
+        cause locality, not_executable or affordability (affordability only when maximum_charge is given).
+        Launch with role_assignments and this menu_revision; a launch against another revision is refused
+        409 launch_menu_revision_stale with current_revision. Reading creates no run, hold or resource.
+        A research profile is refused 422 role_assignments_unsupported.'
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/runs/launch_choices.go
+      parameters:
+      - name: profile
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      - name: domicile_requirement
+        in: query
+        schema:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+      - name: parallel_workers
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: wall_time_seconds
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: maximum_charge
+        in: query
+        description: Decimal USD amount; enables affordability exclusions.
+        schema:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,8})?$
+      responses:
+        '200':
+          description: The menu and its revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LaunchChoices'
+              example:
+                menu_revision: lcm1_0000000000000000000000000000000000000000000000000000000000000000
+                run_profile: swarms-v2
+                domicile_requirement: unrestricted
+                affordability:
+                  status: evaluated
+                  maximum_charge: {amount: '5.00', currency: USD}
+                  wall_time_seconds: 3600
+                roles:
+                - {actor_id: planner, role: planner, default_inference_profile: luna-low, default_sandbox_profile: 2vcpu-2gib-local, planner_decides_allowed: false}
+                - {actor_id: worker, role: worker, default_inference_profile: luna-low, default_sandbox_profile: null, planner_decides_allowed: true}
+                inference_profiles:
+                - profile_id: luna-low
+                  model: gpt-6-luna
+                  effort: low
+                  profile_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+                  context_window: 1050000
+                  maximum_output_tokens: 128000
+                  per_call_spend_cap: {amount: '1.00', currency: USD}
+                  input_price_per_million_tokens: {amount: '1.25', currency: USD}
+                  cached_input_price_per_million_tokens: {amount: '0.125', currency: USD}
+                  output_price_per_million_tokens: {amount: '10.00', currency: USD}
+                sandbox_profiles:
+                - profile_id: 2vcpu-2gib-local
+                  size_id: 2vcpu-2gib
+                  domicile: local
+                  cpu_millis: 2000
+                  memory_bytes: 2147483648
+                  disk_bytes: 10737418240
+                  hourly_price: {amount: '0.10', currency: USD}
+                  option_required: false
+                  options:
+                  - option_id: sbo1_0000000000000000_0000000000000000000000000000000000000000000000000000000000000000
+                    hourly_price: {amount: '0.10', currency: USD}
+                exclusions:
+                - {kind: inference, profile_id: luna-xhigh, cause: affordability, code: launch_choice_unaffordable}
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-legacy-path: null
+      x-synth-mcp-name: swarms_launch_choices
   /v1/families:
     get:
       tags:
@@ -2348,7 +2789,8 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
-      summary: The launchable program families (GA set, swarms.general@1).
+      summary: The launchable program families (GA set, swarms.general@1) and optimizer topologies. Swarms
+        (swarms_v2) is the default; Fork-and-Flush (fork_flush) is experimental and never the default.
       x-synth-status: implemented
       x-synth-source: core/internal/public/runs/http.go
       responses:
@@ -2482,6 +2924,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_usage_summary
       x-synth-status: implemented
       x-synth-source: core/internal/public/usage/http.go
       summary: Rollup of the caller's settled charge-usage rows by day, source and key.
@@ -2677,7 +3120,7 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/usage/records
-      x-synth-mcp-name: usage_for_run
+      x-synth-mcp-name: account_usage_for_run
       x-synth-mcp-required:
       - run_id
   /v1/limits:
@@ -2689,6 +3132,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_limits_list
       x-synth-status: implemented
       x-synth-source: core/internal/public/limits/http.go
       summary: The caller's plan limits with current use and reset times.
@@ -2753,6 +3197,311 @@ paths:
         '504':
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /v1/limits
+  /v1/promotions/redeem:
+    post:
+      tags:
+      - account
+      operationId: redeemPromo
+      x-synth-scope: "account:billing:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: account_promo_redeem
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/promotions/redeem
+      summary: Redeem a promotional code for this organization.
+      description: Code is exact and case-sensitive. One redemption per campaign and org. Same-key retries
+        replay; a new key after success returns promo_already_redeemed. Unknown and expired codes share
+        promo_code_unknown. Shared org/IP rate windows fail closed. Promotional credit is non-refundable
+        and expires at the grant expiry. A plan trial runs from redemption without pausing; a paid
+        subscription outranks it, and at expiry the plan returns to the owner assignment or Free. A second
+        unexpired trial refuses with promo_trial_active; an internal org refuses with promo_trial_not_applicable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoRedeemRequest'
+      responses:
+        '201':
+          description: Promotional benefits applied atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoRedemption'
+              example:
+                redemption_id: 20000000-0000-4000-8000-000000000001
+                campaign_id: 20000000-0000-4000-8000-000000000002
+                org_id: 20000000-0000-4000-8000-000000000003
+                redeemed_at: '2026-11-17T00:00:00Z'
+                grant_ids:
+                - 20000000-0000-4000-8000-000000000004
+                override_ids: []
+                replayed: false
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/promotions/http.go
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /v1/plan-requests:
+    post:
+      tags:
+      - account
+      operationId: requestSpecialFree
+      x-synth-scope: "account:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: account_plan_request_create
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests
+      summary: Ask for owner review to move this org to Special Free.
+      description: >-
+        Any org member with a user-bound credential may ask. An org has at most one pending request
+        (409 plan_request_pending_exists). A denial starts a 14-day cooldown (429 plan_request_cooldown
+        with Retry-After). An org already on Special Free or a paid plan gets 409 plan_request_not_needed.
+        use_case over 4096 bytes or more than 5 links gets 422 plan_request_too_large. The use case and
+        links are stored for review and are never returned by this API, logged or sent in email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpecialFreeRequestInput'
+      responses:
+        '201':
+          description: Request retained for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequest'
+              example:
+                request_id: 00000000-0000-4000-8000-000000000054
+                state: pending
+                created_at: '2026-11-16T18:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/planrequests/http.go
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+    get:
+      tags:
+      - account
+      operationId: listPlanRequests
+      x-synth-scope: "account:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: account_plan_requests_list
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests
+      summary: List this org's plan requests, newest first (at most 100).
+      responses:
+        '200':
+          description: The org's requests as status projections; the use case and links are not returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequestList'
+              example:
+                items:
+                - request_id: 00000000-0000-4000-8000-000000000054
+                  state: denied
+                  created_at: '2026-11-16T18:00:00Z'
+                  decided_at: '2026-11-17T18:00:00Z'
+                  decision_reason: not_a_fit
+                limit: 100
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+      x-synth-source: core/internal/public/planrequests/http.go
+  /v1/plan-requests/{request_id}:
+    delete:
+      tags:
+      - account
+      operationId: withdrawPlanRequest
+      x-synth-scope: "account:write"
+      x-synth-retry: "never"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: account_plan_request_withdraw
+      x-synth-status: implemented
+      x-synth-legacy-path: /v1/plan-requests/{request_id}
+      summary: Withdraw this org's pending plan request.
+      description: >-
+        Moves a pending request to withdrawn and frees the org's one pending place. A request that is
+        not pending gets 409 plan_request_not_pending; an unknown id gets 404 plan_request_unknown.
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRequest'
+              example:
+                request_id: 00000000-0000-4000-8000-000000000054
+                state: withdrawn
+                created_at: '2026-11-16T18:00:00Z'
+                decided_at: '2026-11-16T19:00:00Z'
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '410':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '504':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/ResourceNotFound'
+      x-synth-source: core/internal/public/planrequests/http.go
   /v1/billing/plans:
     get:
       tags:
@@ -2762,6 +3511,11 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_plans_list
+      # Public tool class: the operation is unauthenticated (security: [] and no scope), so the
+      # tool carries no scope check. The domain names the scheme prefix a scope would have given.
+      x-synth-mcp-access: public
+      x-synth-mcp-domain: account
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       security: []
@@ -2910,6 +3664,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_history
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Balance movements of the caller's org (ledger entries), newest first, cursor-paged.
@@ -3013,6 +3768,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_statements_list
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Monthly statements of the caller's org (UTC calendar months), derived from the ledger,
@@ -3106,6 +3862,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_checkout_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Read one Checkout attempt of the caller's org.
@@ -3188,6 +3945,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_checkout_create
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
       summary: Create a hosted Stripe Checkout session for a plan or a custom credit amount.
@@ -3272,6 +4030,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_subscription_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: The caller's org subscription, or null on the Free plan.
@@ -3349,6 +4108,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_cancel
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Cancel the org subscription at period end (now when past due).
@@ -3430,6 +4190,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_resume
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Resume a subscription whose cancel is pending.
@@ -3508,6 +4269,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_subscription_change_preview
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: What switching the org subscription to another plan would charge now.
@@ -3597,6 +4359,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_subscription_change
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/subscription.go
       summary: Switch the org subscription to another plan now.
@@ -3692,6 +4455,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_payment_method_session_create
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: Open Stripe's hosted page to update the org's card.
@@ -3768,6 +4532,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_auto_reload_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: The org's auto-reload setting.
@@ -3870,6 +4635,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_auto_reload_set
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/auto_reload.go
       summary: Save the org's auto-reload setting.
@@ -3980,6 +4746,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_billing_spend_alerts_get
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/spend_alerts.go
       summary: The org's spend alert settings and its most recent alert.
@@ -4052,6 +4819,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_billing_spend_alerts_set
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/spend_alerts.go
       summary: Replace the org's spend alert settings (org admin only).
@@ -4159,12 +4927,18 @@ paths:
       tags:
       - mcp
       operationId: revokeOAuthGrant
-      x-synth-scope: "protocol"
+      x-synth-scope: "account:write"
       x-synth-retry: "never"
       x-synth-idempotency: "none"
       x-synth-idempotency-key: false
-      summary: revokeOAuthGrant
+      x-synth-mcp-name: account_oauth_grant_revoke
+      summary: Revoke one of the caller's own MCP OAuth grants (connected apps).
+      description: The signed-in session or a user-bound API key or OAuth token with account:write
+        revokes only its own user's grant in its organization. Another user's grant, another
+        organization's grant and an absent grant are the identical 404 oauth_grant_not_found.
+        An API key without account:write or without a user is 403 session_required.
       security:
+      - apiKey: []
       - clerkSession: []
       x-synth-status: implemented
       x-synth-source: core/internal/mcpoauth/grants.go
@@ -4200,6 +4974,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_upload_create
       summary: Prepare an immutable file upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4242,6 +5017,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_upload_get
       summary: Read an upload.
       description: Returns the retained upload. A caller with swarms:write also receives a renewed size/digest-bound PUT grant while it is pending. Read-only callers receive no write grant.
       x-synth-status: implemented
@@ -4273,6 +5049,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_upload_finalize
       summary: Scan and finalize an upload.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4302,7 +5079,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
-      summary: Upload a text, Markdown or JSON file (up to 32 KiB inline).
+      summary: Upload a file inline (up to 32 KiB). The name may be a relative path such as `src/main.py`.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
       x-synth-source: core/internal/public/files/http.go
@@ -4319,8 +5096,8 @@ paths:
               additionalProperties: false
               required: [name, media_type, content]
               properties:
-                name: {type: string, minLength: 1, maxLength: 256}
-                media_type: {type: string, enum: [text/plain, text/markdown, application/json]}
+                name: {type: string, minLength: 1, maxLength: 1024, pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'}
+                media_type: {type: string, minLength: 1, maxLength: 255}
                 content: {type: string, maxLength: 32768}
       responses:
         '201':
@@ -4347,6 +5124,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_files_list
       summary: List the organization's finalized files.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4376,6 +5154,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_file_get
       summary: Read a finalized file manifest.
       x-synth-status: implemented
       x-synth-owner: W1-uploads
@@ -4405,6 +5184,7 @@ paths:
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: account_usage_export_create
       summary: Export settled usage records.
       x-synth-status: implemented
       x-synth-owner: W2-console
@@ -4440,6 +5220,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: account_usage_export_get
       summary: Read an export and its download link.
       x-synth-status: implemented
       x-synth-owner: W2-console
@@ -4601,6 +5382,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_program
       summary: Read the admitted program.
       x-synth-status: implemented
       x-synth-owner: W1-controls
@@ -4634,6 +5416,7 @@ paths:
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_configuration
       summary: Read the frozen run configuration.
       x-synth-status: implemented
       x-synth-owner: W1-controls
@@ -4662,11 +5445,11 @@ paths:
       tags:
       - swarms
       operationId: getRunLimits
-      x-synth-mcp-name: swarms_run_limits
       x-synth-scope: "swarms:read"
       x-synth-retry: "safe_read"
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_limits
       summary: Read authoritative run limits and usage.
       x-synth-status: implemented
       x-synth-owner: SYN-5591
@@ -4702,11 +5485,11 @@ paths:
     post:
       tags: [swarms]
       operationId: updateRunLimits
-      x-synth-mcp-name: swarms_run_limits_update
       x-synth-scope: "swarms:run"
       x-synth-retry: "deduplicated"
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_run_limits_update
       summary: Change a live run's limits.
       x-synth-status: implemented
       x-synth-owner: SYN-5601
@@ -4783,334 +5566,153 @@ paths:
                 has_more: false
         default:
           $ref: '#/components/responses/Problem'
-  /v1/evaluation-inputs/{kind}:
+  /v1/runs/{run_id}/messages:
     post:
-      operationId: registerEvaluationInput
       tags:
-      - evaluations
-      summary: Register an immutable evaluation input.
-      x-synth-scope: swarms:run
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
+      - swarms
+      operationId: sendRunMessage
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "mq_owner_key"
       x-synth-idempotency-key: true
-      x-synth-mcp-name: register_evaluation_input
+      x-synth-mcp-name: swarms_run_message_send
+      summary: Send a message to the run.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
       parameters:
-      - name: kind
+      - name: run_id
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - task
-          - pool
-          - policy
-          - evaluator
-          - dataset
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EvaluationInput'
-      responses:
-        '201':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationRevision'
-              example:
-                kind: policy
-                revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                name: example
-                payload:
-                  name: example
-                  files:
-                    worker.py: 'print(1)
-
-                      '
-                  command:
-                  - python
-                  - worker.py
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-    get:
-      operationId: listEvaluationInputs
-      tags:
-      - evaluations
-      summary: List registered evaluation inputs.
-      x-synth-scope: swarms:read
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
-      x-synth-mcp-name: list_evaluation_inputs
-      parameters:
-      - name: kind
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - task
-          - pool
-          - policy
-          - evaluator
-          - dataset
-      - name: name
-        in: query
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationRevisionList'
-              example:
-                revisions: []
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-  /v1/evaluation-inputs/{kind}/{revision_id}:
-    get:
-      operationId: getEvaluationInput
-      tags:
-      - evaluations
-      summary: Read an immutable evaluation input.
-      x-synth-scope: swarms:read
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
-      x-synth-mcp-name: get_evaluation_input
-      parameters:
-      - name: kind
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - task
-          - pool
-          - policy
-          - evaluator
-          - dataset
-      - name: revision_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationRevision'
-              example:
-                kind: policy
-                revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                name: example
-                payload:
-                  name: example
-                  files:
-                    worker.py: 'print(1)
-
-                      '
-                  command:
-                  - python
-                  - worker.py
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-  /v1/evaluations/preflight:
-    post:
-      operationId: preflightEvaluation
-      tags:
-      - evaluations
-      summary: Quote evaluation resources and maximum charge.
-      x-synth-scope: swarms:run
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
-      x-synth-mcp-name: preflight_evaluation
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEvaluation'
-      responses:
-        '200':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationQuote'
-              example:
-                jobs: 3
-                concurrency: 3
-                provider: modal
-                region: us-east
-                per_job_maximum_micros: 1000
-                maximum_charge_micros: 3000
-                isolation: separate_container
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-  /v1/evaluations:
-    post:
-      operationId: createEvaluation
-      tags:
-      - evaluations
-      summary: Reserve a budget and start an evaluation.
-      x-synth-scope: swarms:run
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: owner_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
-      x-synth-mcp-name: create_evaluation
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEvaluation'
-      responses:
-        '202':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationResponse'
-              example:
-                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                status: pending
-                request:
-                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  aggregation: mean
-                  max_concurrency: 3
-                rollouts: []
-                attestation: null
-        '200':
-          description: Existing evaluation returned for the same operation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationResponse'
-              example:
-                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                status: pending
-                request:
-                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  aggregation: mean
-                  max_concurrency: 3
-                rollouts: []
-                attestation: null
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-  /v1/evaluations/{evaluation_id}:
-    get:
-      operationId: getEvaluation
-      tags:
-      - evaluations
-      summary: Read evaluation progress and signed results.
-      x-synth-scope: swarms:read
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: safe_read
-      x-synth-retry: safe_read
-      x-synth-idempotency-key: false
-      x-synth-mcp-name: get_evaluation
-      parameters:
-      - name: evaluation_id
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Evaluation operation result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvaluationResponse'
-              example:
-                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                status: pending
-                request:
-                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  aggregation: mean
-                  max_concurrency: 3
-                rollouts: []
-                attestation: null
-        default:
-          $ref: '#/components/responses/ServiceUnavailable'
-  /v1/evaluations/{evaluation_id}/cancel:
-    post:
-      operationId: cancelEvaluation
-      tags:
-      - evaluations
-      summary: Cancel an evaluation and reconcile its compute.
-      x-synth-scope: swarms:run
-      x-synth-status: implemented
-      x-synth-source: core/internal/public/evaluations
-      x-synth-legacy-path: none
-      x-synth-idempotency: durable_key
-      x-synth-retry: same_key
-      x-synth-idempotency-key: true
-      x-synth-mcp-name: cancel_evaluation
-      parameters:
-      - name: evaluation_id
-        in: path
-        required: true
-        schema:
-          type: string
+          $ref: '#/components/schemas/RunId'
       - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '202':
-          description: Evaluation operation result.
+          description: Message accepted.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvaluationResponse'
+                $ref: '#/components/schemas/RunMessage'
               example:
-                evaluation_id: eval_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                status: pending
-                request:
-                  policy_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  evaluator_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  dataset_revision_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-                  aggregation: mean
-                  max_concurrency: 3
-                rollouts: []
-                attestation: null
+                message_id: msg_AAAAAAAAAAAAAAAAAAAAAA
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                thread_id: thr_AAAAAAAAAAAAAAAAAAAAAA
+                author: customer
+                kind: guidance
+                sequence: 1
+                body:
+                  kind: available
+                  text: Consider the measured score.
+                state:
+                  kind: queued
+                created_at: '2026-11-17T20:00:00Z'
+                updated_at: '2026-11-17T20:00:00Z'
         default:
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/Problem'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRunMessage'
+    get:
+      tags:
+      - swarms
+      operationId: listRunMessages
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_messages
+      summary: Read the customer-visible conversation.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Visible message history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMessagePage'
+              example:
+                items: []
+                next_cursor: null
+                has_more: false
+                availability:
+                  kind: unavailable
+                  reason: messaging_unavailable
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/messages/{message_id}:
+    get:
+      tags:
+      - swarms
+      operationId: getRunMessage
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_message
+      summary: Read a customer-visible message.
+      description: Messages are unavailable until the admitted run has a customer-visible manager thread.
+        Sends refuse run_not_accepting_messages; history explicitly reports messaging_unavailable. Acceptance
+        never implies delivery.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5744
+      x-synth-source: core/internal/public/runs/messages.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - name: message_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/MessageId'
+      responses:
+        '200':
+          description: Visible message history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunMessage'
+              example:
+                message_id: msg_AAAAAAAAAAAAAAAAAAAAAA
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                thread_id: thr_AAAAAAAAAAAAAAAAAAAAAA
+                author: customer
+                kind: guidance
+                sequence: 1
+                body:
+                  kind: available
+                  text: Consider the measured score.
+                state:
+                  kind: queued
+                created_at: '2026-11-17T20:00:00Z'
+                updated_at: '2026-11-17T20:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     apiKey:
@@ -5170,7 +5772,13 @@ components:
             stage: public
             outcome: not_accepted
     AuthenticationRequired:
-      description: authentication required
+      description: >-
+        Customer authentication failed. Core returns `unauthenticated` when the
+        request supplies no credential. An invalid, expired, rotated-out, or
+        revoked API key returns `api_key_invalid`; the response does not
+        disclose which condition invalidated the key. Other authentication
+        failures retain their operation-specific codes, including
+        `authentication_required` where required by the operation.
       content:
         application/problem+json:
           schema:
@@ -5416,518 +6024,292 @@ components:
         Cache-Control:
           $ref: '#/components/headers/Cache-Control'
   schemas:
-    EvaluationPolicy:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.policy.v1
-          default: synth.policy.v1
-          title: Schema Version
-          type: string
-        name:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Name
-          type: string
-        files:
-          additionalProperties:
-            type: string
-          maxProperties: 64
-          minProperties: 1
-          title: Files
-          type: object
-        command:
-          items:
-            type: string
-          maxItems: 64
-          minItems: 1
-          title: Command
-          type: array
-      required:
-      - name
-      - files
-      - command
-      title: Policy
-      type: object
-    EvaluationLimits:
-      additionalProperties: false
-      properties:
-        timeout_seconds:
-          maximum: 3600
-          minimum: 1
-          title: Timeout Seconds
-          type: integer
-        cpu_cores:
-          maximum: 64
-          minimum: 1
-          title: Cpu Cores
-          type: integer
-        memory_mb:
-          maximum: 262144
-          minimum: 128
-          title: Memory Mb
-          type: integer
-        storage_mb:
-          maximum: 1048576
-          minimum: 128
-          title: Storage Mb
-          type: integer
-      required:
-      - timeout_seconds
-      - cpu_cores
-      - memory_mb
-      - storage_mb
-      title: Limits
-      type: object
-    EvaluationEvaluator:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluator.v1
-          default: synth.evaluator.v1
-          title: Schema Version
-          type: string
-        name:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Name
-          type: string
-        image:
-          maxLength: 512
-          pattern: ^[^\s@]+@sha256:[0-9a-f]{64}$
-          title: Image
-          type: string
-        candidate_image:
-          maxLength: 512
-          pattern: ^[^\s@]+@sha256:[0-9a-f]{64}$
-          title: Candidate Image
-          type: string
-        command:
-          items:
-            type: string
-          maxItems: 64
-          minItems: 1
-          title: Command
-          type: array
-        pool_id:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Pool Id
-          type: string
-        task_id:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Task Id
-          type: string
-        task_digest:
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Task Digest
-          type: string
-        input_schema:
-          additionalProperties: true
-          title: Input Schema
-          type: object
-        limits:
-          $ref: '#/components/schemas/EvaluationLimits'
-        region:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Region
-          type: string
-        isolation:
-          const: separate_container
-          default: separate_container
-          title: Isolation
-          type: string
-        result_format:
-          const: synth.evaluation-result.v1
-          default: synth.evaluation-result.v1
-          title: Result Format
-          type: string
-      required:
-      - name
-      - image
-      - candidate_image
-      - command
-      - pool_id
-      - task_id
-      - task_digest
-      - input_schema
-      - limits
-      - region
-      title: Evaluator
-      type: object
-    EvaluationTaskInstance:
-      additionalProperties: false
-      properties:
-        id:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Id
-          type: string
-        seed:
-          maximum: 9223372036854775807
-          minimum: 0
-          title: Seed
-          type: integer
-        inputs:
-          additionalProperties: true
-          title: Inputs
-          type: object
-      required:
-      - id
-      - seed
-      - inputs
-      title: TaskInstance
-      type: object
-    EvaluationDataset:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluation-dataset.v1
-          default: synth.evaluation-dataset.v1
-          title: Schema Version
-          type: string
-        name:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Name
-          type: string
-        instances:
-          items:
-            $ref: '#/components/schemas/EvaluationTaskInstance'
-          maxItems: 1024
-          minItems: 1
-          title: Instances
-          type: array
-      required:
-      - name
-      - instances
-      title: Dataset
-      type: object
-    EvaluationTask:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluation-task.v1
-          default: synth.evaluation-task.v1
-          title: Schema Version
-          type: string
-        name:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Name
-          type: string
-        description:
-          type: string
-          maxLength: 65536
-          default: ''
-        candidate_contract:
-          type: object
-          additionalProperties: true
-        input_schema:
-          additionalProperties: true
-          title: Input Schema
-          type: object
-      required:
-      - name
-      - input_schema
-      title: Task
-      type: object
-    EvaluationPool:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluation-pool.v1
-          default: synth.evaluation-pool.v1
-          title: Schema Version
-          type: string
-        name:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Name
-          type: string
-        provider:
-          enum:
-          - modal
-          - docker
-          title: Provider
-          type: string
-        concurrency:
-          maximum: 128
-          minimum: 1
-          title: Concurrency
-          type: integer
-        region:
-          pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-          title: Region
-          type: string
-      required:
-      - name
-      - provider
-      - concurrency
-      - region
-      title: Pool
-      type: object
-    EvaluationEvaluationRequest:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluation.v1
-          default: synth.evaluation.v1
-          title: Schema Version
-          type: string
-        policy_revision_id:
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Policy Revision Id
-          type: string
-        evaluator_revision_id:
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Evaluator Revision Id
-          type: string
-        dataset_revision_id:
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Dataset Revision Id
-          type: string
-        instance_ids:
-          items:
-            pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
-            type: string
-          maxItems: 1024
-          title: Instance Ids
-          type: array
-        aggregation:
-          default: mean
-          enum:
-          - mean
-          - sum
-          - min
-          - max
-          title: Aggregation
-          type: string
-        max_concurrency:
-          maximum: 128
-          minimum: 1
-          title: Max Concurrency
-          type: integer
-      required:
-      - policy_revision_id
-      - evaluator_revision_id
-      - dataset_revision_id
-      - max_concurrency
-      title: EvaluationRequest
-      type: object
-    EvaluationResult:
-      additionalProperties: false
-      properties:
-        schema_version:
-          const: synth.evaluation-result.v1
-          default: synth.evaluation-result.v1
-          title: Schema Version
-          type: string
-        score:
-          title: Score
-          type: number
-        metrics:
-          additionalProperties:
-            type: number
-          maxProperties: 256
-          title: Metrics
-          type: object
-      required:
-      - score
-      title: Result
-      type: object
-    CreateEvaluation:
+    MessageId:
+      type: string
+      pattern: ^msg_[A-Za-z0-9_-]{22}$
+    MessageKind:
+      type: string
+      enum:
+      - guidance
+      - directive
+      - question
+    PostedMessageKind:
+      type: string
+      enum: [reply, update]
+    ManagerMessageState:
+      type: string
+      enum:
+      - accepted
+      - queued
+      - delivered
+      - disposed
+      - expired
+      - posted
+    MessageDisposition:
+      type: string
+      enum:
+      - acknowledged
+      - applied
+      - declined
+      - answered
+    SendRunMessage:
       type: object
       additionalProperties: false
       required:
-      - request
-      - maximum_charge_micros
+      - kind
+      - text
       properties:
-        request:
-          $ref: '#/components/schemas/EvaluationEvaluationRequest'
-        maximum_charge_micros:
-          type: integer
-          minimum: 0
-          maximum: 1000000000000
-    EvaluationInput:
+        kind:
+          $ref: '#/components/schemas/MessageKind'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          x-synth-max-bytes: 8192
+          x-synth-no-nul: true
+    BodyAvailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - text
+      properties:
+        kind:
+          type: string
+          const: available
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          x-synth-max-bytes: 8192
+    BodyUnavailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - reason
+      properties:
+        kind:
+          type: string
+          const: unavailable
+        reason:
+          type: string
+          const: retention
+    RunMessageBody:
       oneOf:
-      - $ref: '#/components/schemas/EvaluationPolicy'
-      - $ref: '#/components/schemas/EvaluationEvaluator'
-      - $ref: '#/components/schemas/EvaluationDataset'
-      - $ref: '#/components/schemas/EvaluationTask'
-      - $ref: '#/components/schemas/EvaluationPool'
-    EvaluationResponse:
+      - $ref: '#/components/schemas/BodyAvailable'
+      - $ref: '#/components/schemas/BodyUnavailable'
+      discriminator:
+        propertyName: kind
+        mapping:
+          available: '#/components/schemas/BodyAvailable'
+          unavailable: '#/components/schemas/BodyUnavailable'
+    MessageDispositionRecord:
       type: object
+      additionalProperties: false
       required:
-      - evaluation_id
-      - status
-      - request
-      - rollouts
-      - attestation
+      - kind
       properties:
-        evaluation_id:
+        kind:
+          $ref: '#/components/schemas/MessageDisposition'
+        reason_message_id:
+          $ref: '#/components/schemas/MessageId'
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: declined
+        then:
+          required:
+          - reason_message_id
+        else:
+          not:
+            required:
+            - reason_message_id
+    RunMessageState:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      properties:
+        kind:
+          $ref: '#/components/schemas/ManagerMessageState'
+        decision_step:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+        disposition:
+          $ref: '#/components/schemas/MessageDispositionRecord'
+      allOf:
+      - if:
+          properties:
+            kind:
+              enum:
+              - delivered
+              - disposed
+        then:
+          required:
+          - decision_step
+        else:
+          not:
+            required:
+            - decision_step
+      - if:
+          properties:
+            kind:
+              const: disposed
+        then:
+          required:
+          - disposition
+        else:
+          not:
+            required:
+            - disposition
+    RunMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - message_id
+      - run_id
+      - thread_id
+      - author
+      - kind
+      - sequence
+      - body
+      - state
+      - created_at
+      - updated_at
+      properties:
+        message_id:
+          $ref: '#/components/schemas/MessageId'
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        thread_id:
           type: string
-        status:
+          pattern: ^thr_[A-Za-z0-9_-]{22}$
+        author:
           type: string
-          enum:
-          - prepared
-          - pending
-          - running
-          - cancelling
-          - completed
-          - failed
-          - cancelled
-        request:
-          $ref: '#/components/schemas/EvaluationEvaluationRequest'
-        rollouts:
+          pattern: ^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$
+        kind:
+          anyOf:
+          - $ref: '#/components/schemas/MessageKind'
+          - $ref: '#/components/schemas/PostedMessageKind'
+        sequence:
+          type: integer
+          minimum: 1
+        body:
+          $ref: '#/components/schemas/RunMessageBody'
+        state:
+          $ref: '#/components/schemas/RunMessageState'
+        reply_to_message_id:
+          $ref: '#/components/schemas/MessageId'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MessageHistoryAvailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      properties:
+        kind:
+          type: string
+          const: available
+    MessageHistoryUnavailable:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - reason
+      properties:
+        kind:
+          type: string
+          const: unavailable
+        reason:
+          type: string
+          const: messaging_unavailable
+    RunMessagePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      - has_more
+      - availability
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/RunMessage'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+        has_more:
+          type: boolean
+        availability:
+          oneOf:
+          - $ref: '#/components/schemas/MessageHistoryAvailable'
+          - $ref: '#/components/schemas/MessageHistoryUnavailable'
+          discriminator:
+            propertyName: kind
+            mapping:
+              available: '#/components/schemas/MessageHistoryAvailable'
+              unavailable: '#/components/schemas/MessageHistoryUnavailable'
+    RunMessageEventPayload:
+      type: object
+      additionalProperties: false
+      required:
+      - message_id
+      - state
+      - author
+      properties:
+        message_id:
+          $ref: '#/components/schemas/MessageId'
+        state:
+          $ref: '#/components/schemas/RunMessageState'
+        author:
+          type: string
+          pattern: ^(customer|manager|actor:[a-z][a-z0-9_/-]{0,127})$
+        reply_to_message_id:
+          $ref: '#/components/schemas/MessageId'
+    RunLineage:
+      type: object
+      additionalProperties: false
+      required:
+      - parent_run_id
+      - inherited_artifacts
+      properties:
+        parent_run_id:
+          $ref: '#/components/schemas/RunId'
+        inherited_artifacts:
           type: array
           items:
-            $ref: '#/components/schemas/EvaluationRollout'
-        attestation:
-          anyOf:
-          - $ref: '#/components/schemas/EvaluationAttestation'
-          - type: 'null'
-        quote:
-          $ref: '#/components/schemas/EvaluationQuote'
-      additionalProperties: false
-    EvaluationQuote:
+            $ref: '#/components/schemas/RunInheritedArtifact'
+    RunInheritedArtifact:
       type: object
       additionalProperties: false
-      properties:
-        jobs:
-          type: integer
-          minimum: 1
-          maximum: 1024
-        concurrency:
-          type: integer
-          minimum: 1
-          maximum: 128
-        provider:
-          type: string
-          enum:
-          - docker
-          - modal
-        region: &evaluation_id002
-          type: string
-        per_job_maximum_micros: &evaluation_id001
-          type: integer
-          minimum: 0
-        maximum_charge_micros: *evaluation_id001
-        isolation:
-          type: string
-          enum:
-          - separate_container
       required:
-      - jobs
-      - concurrency
-      - provider
-      - region
-      - per_job_maximum_micros
-      - maximum_charge_micros
-      - isolation
-    EvaluationRevision:
-      type: object
-      additionalProperties: false
+      - kind
+      - artifact_id
+      - digest_sha256
       properties:
         kind:
           type: string
           enum:
-          - policy
-          - evaluator
-          - dataset
-          - task
-          - pool
-        revision_id: *evaluation_id002
-        name: *evaluation_id002
-        payload:
-          $ref: '#/components/schemas/EvaluationInput'
-      required:
-      - kind
-      - revision_id
-      - payload
-    EvaluationRevisionSummary:
-      type: object
-      additionalProperties: false
-      properties:
-        kind: *evaluation_id002
-        revision_id: *evaluation_id002
-        name: *evaluation_id002
-        created_at:
+          - best_output
+          - attempt_summaries
+          - manager_queue
+        artifact_id:
           type: string
-          format: date-time
-      required:
-      - kind
-      - revision_id
-      - name
-      - created_at
-    EvaluationAttestation:
-      type: object
-      additionalProperties: false
-      properties:
-        schema_version:
+          format: uuid
+        digest_sha256:
           type: string
-          enum:
-          - synth.evaluation-attestation.v1
-        issuer:
-          type: string
-          enum:
-          - synth
-        key_id: *evaluation_id002
-        evidence:
-          type: object
-          additionalProperties: true
-        evidence_digest: *evaluation_id002
-        signature: *evaluation_id002
-      required:
-      - schema_version
-      - issuer
-      - key_id
-      - evidence
-      - evidence_digest
-      - signature
-    EvaluationRollout:
-      type: object
-      additionalProperties: false
-      properties:
-        ordinal: *evaluation_id001
-        instance_id: *evaluation_id002
-        rollout_id:
-          anyOf:
-          - *evaluation_id002
-          - type: 'null'
-        status:
-          type: string
-          enum:
-          - pending
-          - dispatching
-          - running
-          - recovering
-          - completed
-          - failed
-          - cancelled
-        result:
-          anyOf:
-          - $ref: '#/components/schemas/EvaluationResult'
-          - type: 'null'
-        usage_fact_id:
-          anyOf:
-          - *evaluation_id002
-          - type: 'null'
-        error_code:
-          anyOf:
-          - *evaluation_id002
-          - type: 'null'
-      required:
-      - ordinal
-      - instance_id
-      - rollout_id
-      - status
-      - result
-      - usage_fact_id
-      - error_code
-    EvaluationRevisionList:
-      type: object
-      additionalProperties: false
-      properties:
-        revisions:
-          type: array
-          items:
-            $ref: '#/components/schemas/EvaluationRevisionSummary'
-      required:
-      - revisions
+          pattern: ^[0-9a-f]{64}$
     Limit:
       type: object
       required:
@@ -5938,8 +6320,8 @@ components:
       properties:
         resource:
           type: string
-          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 5, max 50, internal
-            -1, credits/free 1), included_usage.'
+          description: 'e.g. container_pool, swarm_run (concurrent_runs: standard 10, max 50, internal
+            -1, credits/free 10), included_usage.'
         metric:
           type: string
         window:
@@ -6058,6 +6440,101 @@ components:
           oneOf:
           - $ref: '#/components/schemas/BillingAttention'
           - type: 'null'
+        promotional_grants:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/PromotionalGrant"
+    PromoRedeemRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 200
+    PromoRedemption:
+      type: object
+      additionalProperties: false
+      required:
+      - redemption_id
+      - campaign_id
+      - org_id
+      - redeemed_at
+      - grant_ids
+      - override_ids
+      - replayed
+      properties:
+        redemption_id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        redeemed_at:
+          type: string
+          format: date-time
+        grant_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        override_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        trial:
+          $ref: '#/components/schemas/PromoTrialGrant'
+        replayed:
+          type: boolean
+    PromoTrialGrant:
+      type: object
+      additionalProperties: false
+      required:
+      - trial_id
+      - plan_id
+      - starts_at
+      - ends_at
+      properties:
+        trial_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          enum:
+          - standard.monthly
+          - max.monthly
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+    PromotionalGrant:
+      type: object
+      additionalProperties: false
+      required:
+      - grant_id
+      - amount
+      - remaining
+      - expires_at
+      properties:
+        grant_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/Money'
+        remaining:
+          $ref: '#/components/schemas/Money'
+        expires_at:
+          type: string
+          format: date-time
     AccountTerms:
       type: object
       required:
@@ -6105,6 +6582,74 @@ components:
         org_id:
           type: string
           format: uuid
+    SpecialFreeRequestInput:
+      type: object
+      additionalProperties: false
+      required:
+      - use_case
+      properties:
+        use_case:
+          type: string
+          minLength: 1
+          description: Why the org needs Special Free, at most 4096 UTF-8 bytes (422 plan_request_too_large
+            above that). Customer content; stored for owner review, never logged, returned or emailed.
+        links:
+          type: array
+          default: []
+          description: At most 5 http(s) links (422 plan_request_too_large above that), each at most 2048 bytes.
+          items:
+            type: string
+    PlanRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - request_id
+      - state
+      - created_at
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - pending
+          - approved
+          - denied
+          - withdrawn
+        created_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+        decision_reason:
+          type: string
+          enum:
+          - insufficient_detail
+          - not_a_fit
+          - abuse_risk
+          - duplicate
+          - other
+        assignment_id:
+          type: string
+          format: uuid
+    PlanRequestList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - limit
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PlanRequest'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
     Scope:
       type: string
       enum:
@@ -6397,8 +6942,8 @@ components:
         every actor held at once (the planner and the workers, plus the reviewer with parallel workers),
         each holding at least one worst-case model call on its routed preset; a smaller maximum_charge
         is refused at launch with 422 run_budget_below_call_bound, cause limits.maximum_charge, whose
-        detail names the per-actor call bound (call_bound_micros), the actor count (actor_count) and
-        the minimum budget (minimum_budget_micros).
+        Problem states the minimum budget as the integer minimum_budget_micros and its inputs in
+        budget_floor (call bounds, compute holds, actor floor, actor count).
       properties:
         maximum_charge:
           $ref: '#/components/schemas/LaunchBudget'
@@ -6412,7 +6957,7 @@ components:
             is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget
             must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds
             an equal slice of the budget, and never less than one worst-case model call); a smaller
-            maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose detail states
+            maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose Problem states
             the minimum in micro-USD (minimum_budget_micros).
             Not accepted with research profiles.
         wall_time_seconds:
@@ -6457,17 +7002,104 @@ components:
       required:
       - families
       properties:
+        topologies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyCatalogEntry'
         families:
           type: array
           items:
             $ref: '#/components/schemas/Family'
         routing:
           $ref: '#/components/schemas/RoutingCatalog'
+    TopologyCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [topology, version, label, auto, availability]
+      properties:
+        topology:
+          type: string
+          enum: [swarms_v2, fork_flush]
+          description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
+            and never the default; not served in this release.
+        version:
+          type: integer
+          minimum: 1
+        label:
+          type: string
+          enum: [default, experimental]
+        auto:
+          type: boolean
+        availability:
+          type: string
+          enum: [served, unavailable]
+        definition_digest:
+          type: string
+        cause:
+          type: string
+    OptimizerRequest:
+      oneOf:
+      - type: string
+        const: auto
+      - type: object
+        additionalProperties: false
+        required: [topology, version]
+        properties:
+          topology:
+            type: string
+            enum: [swarms_v2, fork_flush]
+            description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
+              and never the default; not served in this release.
+          version:
+            type: integer
+            minimum: 1
+          params:
+            $ref: '#/components/schemas/OptimizerParams'
+      default: auto
+    OptimizerParams:
+      type: object
+      additionalProperties: false
+      description: Public swarms_v2 controls. Omitted fields keep the server's defaults
+        (max_tasks is the larger of 4 and limits.parallel_workers; max_repairs_per_task
+        is 2). Any field on another topology is refused with optimizer_params_unsupported.
+        Spend, time, token and concurrency limits stay authoritative.
+      properties:
+        max_tasks:
+          type: integer
+          minimum: 1
+          maximum: 4096
+          description: Most tasks the planner's work plan may hold, 1 to 4096. Default
+            max(4, limits.parallel_workers); must be at least limits.parallel_workers. Only
+            on a swarms_v2 pin.
+        max_repairs_per_task:
+          type: integer
+          minimum: 0
+          maximum: 32
+          description: Most repair attempts per task after a rejected review, 0 to 32.
+            Default 2. Only on a swarms_v2 pin.
+    ResolvedOptimizer:
+      type: object
+      additionalProperties: false
+      required: [topology, version, params, reason, definition_digest]
+      properties:
+        topology:
+          type: string
+          enum: [swarms_v2, fork_flush]
+        version:
+          type: integer
+          minimum: 1
+        params:
+          $ref: '#/components/schemas/OptimizerParams'
+          description: The explicit params the launch supplied; omitted fields are absent.
+        reason:
+          type: string
+          enum: [environment_default, explicit_pin]
+        definition_digest:
+          type: string
     LaunchRequest:
       x-synth-profile-requirements:
         swarms-v2: false
         fork-flush: true
-        forgetting: true
       x-synth-default-profile: swarms-v2
       type: object
       additionalProperties: false
@@ -6475,11 +7107,24 @@ components:
       - message
       - limits
       properties:
+        continue_from:
+          $ref: '#/components/schemas/RunId'
+          description: Seed a fresh run (own budget, limits, sandboxes and holds) from a terminal run in
+            this organization. Refused before any run or hold with 404 continue_from_not_found (also
+            for another organization's run), 409 continue_from_not_terminal or 409
+            continue_from_inputs_unavailable. An admitted continuation records RunLineage, shown on the
+            result and the report; the parent is never resumed.
+        optimizer:
+          $ref: '#/components/schemas/OptimizerRequest'
+        domicile_requirement:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+          description: Frozen sandbox domicile. Omit for the environment default; production defaults to US only.
         message:
           type: string
           minLength: 1
-          maxLength: 32768
-          x-synth-max-bytes: 32768
+          maxLength: 1048576
+          x-synth-max-bytes: 1048576
           x-synth-message-text: true
         limits:
           $ref: '#/components/schemas/Limits'
@@ -6490,9 +7135,10 @@ components:
           properties:
             files:
               type: array
-              maxItems: 32
+              maxItems: 10000
               items:
                 type: object
+                additionalProperties: false
                 required:
                 - file_id
                 - revision_id
@@ -6536,6 +7182,188 @@ components:
             type: string
         routing:
           $ref: '#/components/schemas/RoutingConstraints'
+        role_assignments:
+          type: object
+          minProperties: 1
+          maxProperties: 64
+          description: Per declared actor (getLaunchChoices roles) inference and sandbox choices. Requires
+            launch_menu_revision. An omitted actor or dimension takes its default; planner_decides leaves it for
+            the planner. Unknown actors, choices outside the menu, excluded choices and choices policy refuses are
+            refused before any hold. Not accepted with research profiles.
+          propertyNames:
+            pattern: ^[a-z][a-z0-9_]{0,63}$
+          additionalProperties:
+            $ref: '#/components/schemas/RoleAssignment'
+        launch_menu_revision:
+          type: string
+          pattern: ^lcm1_[0-9a-f]{64}$
+          description: getLaunchChoices menu_revision the choices were made against. A different current menu
+            is refused 409 launch_menu_revision_stale with current_revision. A replay with the same
+            Idempotency-Key and the same choices returns the accepted run; different choices are refused 422
+            idempotency_key_reused.
+    RoleAssignment:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        inference_profile:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        sandbox_profile:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        sandbox_option:
+          type: string
+          pattern: ^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$
+          description: An option id from the sandbox profile's options. Requires sandbox_profile.
+        planner_decides:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [inference, sandbox]
+    LaunchChoices:
+      type: object
+      additionalProperties: false
+      required: [menu_revision, run_profile, domicile_requirement, affordability, roles, inference_profiles, sandbox_profiles, exclusions]
+      properties:
+        menu_revision:
+          type: string
+          pattern: ^lcm1_[0-9a-f]{64}$
+        run_profile:
+          type: string
+        domicile_requirement:
+          type: string
+          enum: [us_only, us_or_europe, unrestricted]
+        affordability:
+          type: object
+          additionalProperties: false
+          required: [status, wall_time_seconds]
+          properties:
+            status:
+              type: string
+              enum: [evaluated, not_evaluated]
+            maximum_charge:
+              $ref: '#/components/schemas/Money'
+            wall_time_seconds:
+              type: integer
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceRole'
+        inference_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceInference'
+        sandbox_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceSandbox'
+        exclusions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaunchChoiceExclusion'
+    LaunchChoiceRole:
+      type: object
+      additionalProperties: false
+      required: [actor_id, role, default_inference_profile, default_sandbox_profile, planner_decides_allowed]
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+          enum: [planner, worker, reviewer, run_assessor]
+        default_inference_profile:
+          type: [string, 'null']
+        default_sandbox_profile:
+          type: [string, 'null']
+          description: null means the actor waits for the planner to assign its sandbox.
+        planner_decides_allowed:
+          type: boolean
+    LaunchChoiceInference:
+      type: object
+      additionalProperties: false
+      required: [profile_id, model, effort, profile_digest, context_window, maximum_output_tokens, per_call_spend_cap, input_price_per_million_tokens, cached_input_price_per_million_tokens, output_price_per_million_tokens]
+      properties:
+        profile_id:
+          type: string
+        model:
+          type: string
+        effort:
+          type: string
+        profile_digest:
+          type: string
+        context_window:
+          type: integer
+        maximum_output_tokens:
+          type: integer
+        per_call_spend_cap:
+          $ref: '#/components/schemas/Money'
+        input_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+        cached_input_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+        output_price_per_million_tokens:
+          $ref: '#/components/schemas/Money'
+    LaunchChoiceSandbox:
+      type: object
+      additionalProperties: false
+      required: [profile_id, size_id, domicile, cpu_millis, memory_bytes, disk_bytes, hourly_price, option_required, options]
+      properties:
+        profile_id:
+          type: string
+        size_id:
+          type: string
+        domicile:
+          type: string
+          enum: [us, eu, local, unrestricted]
+        gpu_kind:
+          type: string
+        gpu_count:
+          type: integer
+        cpu_millis:
+          type: integer
+        memory_bytes:
+          type: integer
+        disk_bytes:
+          type: integer
+        hourly_price:
+          $ref: '#/components/schemas/Money'
+          description: The highest option price.
+        option_required:
+          type: boolean
+          description: More than one option serves this profile; a choice must name sandbox_option.
+        options:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [option_id, hourly_price]
+            properties:
+              option_id:
+                type: string
+                pattern: ^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$
+              hourly_price:
+                $ref: '#/components/schemas/Money'
+    LaunchChoiceExclusion:
+      type: object
+      additionalProperties: false
+      required: [kind, profile_id, cause, code]
+      properties:
+        kind:
+          type: string
+          enum: [inference, sandbox]
+        profile_id:
+          type: string
+        option_id:
+          type: string
+        cause:
+          type: string
+          enum: [locality, not_executable, affordability]
+        code:
+          type: string
     OwnerResourceRequest:
       type: object
       additionalProperties: false
@@ -6567,6 +7395,20 @@ components:
             $ref: '#/components/schemas/OwnerResourceLimits'
         selection:
           type: object
+        evaluation_templates:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^sha256:[0-9a-f]{64}$'
+      if:
+        required: [evaluation_templates]
+      then:
+        properties:
+          selection:
+            maxProperties: 0
       oneOf:
       - properties:
           plugin:
@@ -6824,6 +7666,10 @@ components:
       - started_at
       - closed_at
       properties:
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
+        optimizer:
+          $ref: '#/components/schemas/ResolvedOptimizer'
         pause:
           $ref: '#/components/schemas/RunPause'
         limits_revision:
@@ -6924,6 +7770,20 @@ components:
             refusal on a run that then completed) is not listed.
         charge:
           $ref: '#/components/schemas/RunCharge'
+        settlement_blockers:
+          type: array
+          maxItems: 1
+          description: Single-run reads of a terminal run only. What its books wait on while `accounting_final`
+            is false; empty once it is true. Open runs and list pages omit it.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
+        cleanup_blockers:
+          type: array
+          maxItems: 66
+          description: Single-run reads of a terminal run only. What its `cleanup_complete` waits on; empty
+            when nothing is open. Open runs and list pages omit it.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
         failure:
           description: Open failure projection or null. Reasons include launch_not_dispatched (the worker
             found a queued run that never reached the execution service; the hold was refunded).
@@ -6949,6 +7809,78 @@ components:
           $ref: '#/components/schemas/RunSelection'
         routing:
           $ref: '#/components/schemas/RoutingReadback'
+        queue:
+          $ref: '#/components/schemas/RunQueueStanding'
+    RunQueueStanding:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      description: Launch and single-run reads of a run waiting for capacity only (state queued, not yet
+        admitted). Absent once the run is admitted, and on list pages.
+      required:
+      - position
+      - ahead
+      - estimated_start_at
+      - expires_at
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: 1-based FIFO place among all runs waiting for capacity; the same number as the
+            launch's X-Synth-Queue-Position header.
+        ahead:
+          type: integer
+          minimum: 0
+        estimated_start_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: An estimate, not a promise, from the rolling median time recent runs held a running
+            slot. Null when there are too few recent runs to measure.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the run fails with run_queue_expired if it has not been admitted.
+    RunBlocker:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      description: One thing a terminal run waits on. Ids only.
+      required:
+      - kind
+      - id
+      - since
+      properties:
+        kind:
+          type: string
+          enum:
+          - in_doubt_call
+          - open_gateway_call
+          - gateway_session_open
+          - agents_session_unsettled
+          - program_attempt_open
+          - compute_hold_open
+          - program_settle_pending
+          - settlement_pending
+          - settlement_refused
+          - accounting_not_final
+          - sandbox_active
+          - rollout_active
+          - deployment_active
+          - evaluation_pool_cleanup
+          - owned_cleanup_pending
+          - owned_cleanup_blocked
+        id:
+          type: string
+          maxLength: 256
+          description: The blocking object's id (receipt, Gateway session, Agents session, resource or
+            run id); for settlement_refused, the refusal code.
+        since:
+          type: string
+          format: date-time
+          description: When this blocker started holding the run (first refusal with it, resource
+            creation, or the run's end).
     RunCharge:
       type: object
       additionalProperties: false
@@ -7168,6 +8100,16 @@ components:
             x-synth-event-kind: actor.parked
           - $ref: '#/components/schemas/ActorUnparkedPayload'
             x-synth-event-kind: actor.unparked
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.accepted
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.delivered
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.disposed
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.expired
+          - $ref: '#/components/schemas/RunMessageEventPayload'
+            x-synth-event-kind: run.message.posted
           - type: 'null'
     RunGuidance:
       type: object
@@ -7543,6 +8485,11 @@ components:
           - string
           - 'null'
           format: date-time
+        evidence:
+          type: array
+          description: Public evaluation result references retained by this claim; private owner evidence is omitted.
+          items:
+            $ref: '#/components/schemas/ObjectiveReceipt'
     ObjectiveVerdict:
       type: object
       required:
@@ -7653,12 +8600,56 @@ components:
           type: string
           pattern: ^sha256:[0-9a-f]{64}$
           description: Present only when status is resolved.
+    SandboxProfile:
+      type: object
+      additionalProperties: false
+      required: [actor_id, profile_id, profile_digest, size_id, domicile]
+      properties:
+        actor_id:
+          type: string
+        profile_id:
+          type: string
+          description: What the sandbox provides, never who supplies it. Form <size>[-<gpu>]-<domicile>.
+          pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+          examples: [4vcpu-8gib-us]
+        profile_digest:
+          type: string
+          pattern: '^sha256:[a-f0-9]{64}$'
+        size_id:
+          type: string
+        domicile:
+          type: string
+          description: Where the sandbox's data is held. unrestricted means no jurisdiction is declared; local means the local development host.
+          enum: [us, eu, local, unrestricted]
+        gpu_kind:
+          type: string
+          enum: [t4, l4]
+        gpu_count:
+          type: integer
+          minimum: 1
+    SandboxPerformance:
+      type: object
+      required: [size_id, sample_count, status, ready_p50_ms, ready_p90_ms]
+      properties:
+        size_id:
+          type: string
+        sample_count:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [unknown, measured]
+        ready_p50_ms:
+          type: [integer, 'null']
+          minimum: 0
+        ready_p90_ms:
+          type: [integer, 'null']
+          minimum: 0
     RunSandbox:
       type: object
       required:
       - sandbox_id
       - role
-      - provider_kind
       - state
       - image
       - cpu_millis
@@ -7668,6 +8659,8 @@ components:
       - destroyed
       - observation
       properties:
+        profile:
+          $ref: '#/components/schemas/SandboxProfile'
         sandbox_id:
           type: string
           pattern: ^sbx_[A-Za-z0-9_-]{22}$
@@ -7678,14 +8671,6 @@ components:
           - worker
           - reviewer
           - other
-        provider_kind:
-          type: string
-          enum:
-          - docker
-          - daytona
-          - modal
-          - exe_dev
-          - unobserved
         state:
           type: string
           description: pending has no provider session yet. requested awaits a box. created has a box whose
@@ -7863,6 +8848,7 @@ components:
           - worker
           - reviewer
           - other
+          - scoring
         calls:
           type: integer
           minimum: 0
@@ -7906,8 +8892,10 @@ components:
             description: When the run prepared this actor, before it requested the sandbox. not_recorded when no preparation was retained.
           compute_metering:
             type: string
-            enum: [not_metered]
-            description: Actor sandbox compute is not metered, so it has no charge. This is not a zero amount.
+            enum: [not_metered, pending, metered]
+            description: Legacy admissions are not metered. Profile admissions are pending until their observed usage is settled, then metered.
+          compute_charge:
+            $ref: '#/components/schemas/Money'
           time_to_create_ms:
             type: integer
             description: Prepared to created. Present only when both were observed and created is not before prepared.
@@ -8089,12 +9077,19 @@ components:
       - sandboxes
       - teardown
       - unattributed
+      - scoring
       - sandbox_compute
       - rollout_compute
       - compute_by_provider
       - reward
       - timings
       properties:
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
+        sandbox_performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxPerformance'
         evaluations:
           type: array
           maxItems: 1024
@@ -8104,6 +9099,18 @@ components:
           $ref: '#/components/schemas/RunId'
         settlement:
           $ref: '#/components/schemas/RunSettlementSummary'
+        settlement_blockers:
+          type: array
+          maxItems: 1
+          description: What the run's books wait on; empty once settled or while the run is open.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
+        cleanup_blockers:
+          type: array
+          maxItems: 66
+          description: What the run's cleanup_complete waits on; empty when nothing is open.
+          items:
+            $ref: '#/components/schemas/RunBlocker'
         attribution:
           type: string
           description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained
@@ -8134,6 +9141,8 @@ components:
           - unobserved
         unattributed:
           $ref: '#/components/schemas/RunUsage'
+        scoring:
+          $ref: '#/components/schemas/RunUsage'
         sandbox_compute:
           type: string
           description: metered means rollout sandbox compute is charged within the run's maximum_charge. not_metered means sandboxes carry no charge at all, which is not a zero cost.
@@ -8159,6 +9168,81 @@ components:
           $ref: '#/components/schemas/RunReward'
         timings:
           $ref: '#/components/schemas/RunTimings'
+    RunAllocation:
+      type: object
+      additionalProperties: false
+      required: [run_id, menu_revision, final, actors]
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        menu_revision:
+          type: [string, 'null']
+          description: The menu revision the launch named, or null.
+        final:
+          type: boolean
+        actors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunAllocationActor'
+    RunAllocationChoice:
+      type: object
+      additionalProperties: false
+      required: [state, source]
+      properties:
+        state:
+          type: string
+          enum: [assigned, planner_decides]
+        source:
+          type: string
+          enum: [explicit, default]
+        profile_id:
+          type: string
+        option_id:
+          type: string
+    RunAllocationActor:
+      type: object
+      additionalProperties: false
+      required: [actor_id, role, launch, placements, replacements, usage, compute_metering]
+      properties:
+        actor_id:
+          type: string
+        role:
+          type: string
+        launch:
+          type: object
+          additionalProperties: false
+          required: [inference, sandbox]
+          properties:
+            inference:
+              $ref: '#/components/schemas/RunAllocationChoice'
+            sandbox:
+              $ref: '#/components/schemas/RunAllocationChoice'
+        placements:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [assignment_generation, profile_id, profile_digest]
+            properties:
+              assignment_generation:
+                type: integer
+                minimum: 0
+              profile_id:
+                type: string
+              profile_digest:
+                type: string
+              option_id:
+                type: string
+        replacements:
+          type: integer
+          minimum: 0
+        usage:
+          $ref: '#/components/schemas/RunUsage'
+        compute_metering:
+          type: string
+          enum: [not_metered, pending, metered]
+        compute_charge:
+          $ref: '#/components/schemas/Money'
     RunOutput:
       type: object
       required:
@@ -8186,19 +9270,579 @@ components:
           - content_ref: '...'
         filename:
           type: string
+    RunRecordReference:
+      type: object
+      additionalProperties: false
+      description: Exact retained provenance with a public authority class, canonical
+        record kind, revision and digest. Historical record IDs are opaque; this reference
+        is never a storage URL or credential.
+      required:
+      - source
+      - kind
+      - record_id
+      - revision
+      - digest_sha256
+      properties:
+        source:
+          type: string
+          enum:
+          - research
+          - evaluation
+          - execution
+          - files
+          - billing
+          - admission
+          description: Public authority class assigned by the authenticated projection
+            reader; never a private service identity.
+        kind:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        record_id:
+          type: string
+          pattern: ^(?:[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}|intern-exec:[0-9a-f]{64})$
+        revision:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      allOf:
+      - if:
+          properties:
+            record_id:
+              pattern: '^intern-exec:'
+          required:
+          - record_id
+        then:
+          properties:
+            kind:
+              const: mloky_execution
+            source:
+              const: execution
+    RunTrialState:
+      type: string
+      enum:
+      - registered
+      - running
+      - succeeded
+      - failed
+      - interrupted
+      - rejected
+      description: The canonical research TrialV2 state; review and score outcomes remain
+        separate.
+    RunScoreOutcome:
+      type: string
+      enum:
+      - measured
+      - failed
+      - negative
+      - 'null'
+      - inconclusive
+      - interrupted
+      - rejected
+    RunScoreVerification:
+      type: string
+      enum:
+      - unverified
+      - producer_bound
+      description: Canonical Result verification. Producer-bound evidence does not imply
+        held-out evaluation.
+    RunScoreMeasurement:
+      type: object
+      additionalProperties: false
+      description: Canonical research Measurement; no score is inferred from a run outcome.
+      required:
+      - name
+      - value
+      - unit
+      - uncertainty
+      properties:
+        name:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        value:
+          type:
+          - number
+          - 'null'
+          description: Null is a measurement with no observed numeric value, never zero.
+        unit:
+          type: string
+          pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+        uncertainty:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          description: Null means uncertainty was not reported.
+    RunAttemptScore:
+      type: object
+      additionalProperties: false
+      description: Projection of one retained canonical Result, with its exact record
+        identity and scientific limitations. Usage references are not monetary totals.
+      required:
+      - record
+      - trial
+      - outcome
+      - measurements
+      - evaluator
+      - verification
+      - scorer_receipt
+      - evidence
+      - usage
+      - missing_evidence
+      - limitations
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: result
+              source:
+                const: research
+        trial:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: trial
+              source:
+                const: research
+        outcome:
+          $ref: '#/components/schemas/RunScoreOutcome'
+        measurements:
+          type: array
+          maxItems: 256
+          items:
+            $ref: '#/components/schemas/RunScoreMeasurement'
+        evaluator:
+          description: Absent only when the Result declares no evaluator.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        verification:
+          $ref: '#/components/schemas/RunScoreVerification'
+        scorer_receipt:
+          description: Absent for an unverified Result that declares no scorer receipt.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        evidence:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+        usage:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+        missing_evidence:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        limitations:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+      allOf:
+      - if:
+          properties:
+            verification:
+              const: producer_bound
+          required:
+          - verification
+        then:
+          properties:
+            scorer_receipt:
+              $ref: '#/components/schemas/RunRecordReference'
+      - if:
+          properties:
+            outcome:
+              const: measured
+          required:
+          - outcome
+        then:
+          properties:
+            evaluator:
+              $ref: '#/components/schemas/RunRecordReference'
+            evidence:
+              minItems: 1
+            measurements:
+              minItems: 1
+              contains:
+                properties:
+                  value:
+                    type: number
+                required:
+                - value
+    RunAttemptReview:
+      type: object
+      additionalProperties: false
+      description: A retained ReviewV2, joined through exact canonical references rather
+        than prose or event order.
+      required:
+      - record
+      - target
+      - decision
+      - rationale
+      - sources
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: review
+              source:
+                const: research
+        target:
+          $ref: '#/components/schemas/RunRecordReference'
+        decision:
+          type: string
+          enum:
+          - comment
+          - approved
+          - rejected
+          - needs_correction
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        sources:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+    RunResearchNote:
+      type: object
+      additionalProperties: false
+      description: A bounded canonical LogEntry. Transcripts and model outputs are not
+        projected here.
+      required:
+      - record
+      - log
+      - category
+      - text
+      - occurred_at
+      - correction_of
+      - sources
+      properties:
+        record:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: log_entry
+              source:
+                const: research
+        log:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: research_log
+              source:
+                const: research
+        category:
+          type: string
+          enum:
+          - observation
+          - rationale
+          - attempt
+          - failure
+          - decision
+          - correction
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        occurred_at:
+          type: string
+          format: date-time
+        correction_of:
+          description: An exact preceding LogEntry only for a correction.
+          oneOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - type: 'null'
+        sources:
+          type: array
+          maxItems: 1024
+          items:
+            $ref: '#/components/schemas/RunRecordReference'
+      allOf:
+      - if:
+          properties:
+            category:
+              const: correction
+          required:
+          - category
+        then:
+          properties:
+            correction_of:
+              allOf:
+              - $ref: '#/components/schemas/RunRecordReference'
+              - properties:
+                  kind:
+                    const: log_entry
+                  source:
+                    const: research
+        else:
+          properties:
+            correction_of:
+              type: 'null'
+    RunAttemptNode:
+      type: object
+      additionalProperties: false
+      description: One retained TrialV2 revision with exact parent linkage. Scientific
+        evidence, review, and billing remain independent authorities.
+      required:
+      - trial
+      - parent_trial
+      - protocol
+      - experiment
+      - arm
+      - state
+      - scores
+      - reviews
+      - notes
+      - input_gaps
+      - deviations
+      - charge
+      properties:
+        trial:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: trial
+              source:
+                const: research
+        parent_trial:
+          description: Null identifies a root trial; siblings retain the same exact parent.
+          oneOf:
+          - allOf:
+            - $ref: '#/components/schemas/RunRecordReference'
+            - properties:
+                kind:
+                  const: trial
+                source:
+                  const: research
+          - type: 'null'
+        protocol:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: protocol
+              source:
+                const: research
+        experiment:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: experiment
+              source:
+                const: research
+        arm:
+          type:
+          - string
+          - 'null'
+          description: The canonical Trial arm, or null when not declared.
+        state:
+          $ref: '#/components/schemas/RunTrialState'
+        scores:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunAttemptScore'
+        reviews:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunAttemptReview'
+        notes:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunResearchNote'
+        input_gaps:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        deviations:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        charge:
+          description: Only a billing-authoritative trial attribution. Null means no authoritative
+            attribution is available; it never means free.
+          oneOf:
+          - $ref: '#/components/schemas/RunCharge'
+          - type: 'null'
+    RunAttemptTreeAvailable:
+      type: object
+      additionalProperties: false
+      description: An authenticated projection of retained research records for this run.
+        An empty attempts array is permitted only after the record authority established
+        that no trials exist. The projection itself never establishes settlement or cleanup
+        finality.
+      required:
+      - state
+      - run_id
+      - protocol
+      - experiment
+      - research_log
+      - report
+      - attempts
+      - notes
+      properties:
+        state:
+          type: string
+          const: available
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        protocol:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: protocol
+              source:
+                const: research
+        experiment:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: experiment
+              source:
+                const: research
+        research_log:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: research_log
+              source:
+                const: research
+        report:
+          allOf:
+          - $ref: '#/components/schemas/RunRecordReference'
+          - properties:
+              kind:
+                const: report
+              source:
+                const: research
+        attempts:
+          type: array
+          maxItems: 135168
+          items:
+            $ref: '#/components/schemas/RunAttemptNode'
+        notes:
+          type: array
+          maxItems: 4096
+          items:
+            $ref: '#/components/schemas/RunResearchNote'
+    RunAttemptTreeUnavailable:
+      type: object
+      additionalProperties: false
+      description: Missing or uncertain record authority is explicit. This variant contains
+        no attempt inventory, score, or inferred zero cost.
+      required:
+      - state
+      - run_id
+      - code
+      - stage
+      - cause
+      properties:
+        state:
+          type: string
+          const: unavailable
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        code:
+          type: string
+          enum:
+          - run_records_projection_unavailable
+          - run_records_not_retained
+          - run_records_pending
+          - run_records_in_doubt
+        stage:
+          type: string
+          const: run_result
+        cause:
+          type: string
+          minLength: 1
+          maxLength: 1024
+    RunAttemptTree:
+      description: The one public attempt-tree contract used by SDK, CLI, MCP and Console.
+        Availability is distinct from execution, accounting and cleanup.
+      oneOf:
+      - $ref: '#/components/schemas/RunAttemptTreeAvailable'
+      - $ref: '#/components/schemas/RunAttemptTreeUnavailable'
+      discriminator:
+        propertyName: state
+        mapping:
+          available: '#/components/schemas/RunAttemptTreeAvailable'
+          unavailable: '#/components/schemas/RunAttemptTreeUnavailable'
     RunResult:
       type: object
       additionalProperties: false
-      description: A finished run's result as getRunResult serves it. The same fields as the SDK's
-        RunResult (run, answer, answer_output, objective_answer, charge).
+      description: A finished run's result with an explicit canonical research-record projection.
+        Unavailable research records never imply an empty attempt tree or zero charge.
       required:
+      - run_id
+      - status
+      - accounting
       - run
       - state
       - answer
       - answer_output
       - objective_answer
       - charge
+      - attempt_tree
+      - result_file
       properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        status:
+          type: string
+          enum: [completed, partial, failed, cancelled]
+          description: The authoritative terminal outcome of the run.
+        accounting:
+          description: Final ledger-backed charge, or null if no accounting reader is configured.
+          oneOf:
+          - allOf:
+            - $ref: '#/components/schemas/RunCharge'
+            - properties:
+                final:
+                  const: true
+          - type: 'null'
+        lineage:
+          $ref: '#/components/schemas/RunLineage'
+        attempt_tree:
+          $ref: '#/components/schemas/RunAttemptTree'
+        result_file:
+          description: The run's result.md, rendered by Core from the available attempt tree and
+            its Report and published once through output custody. Null exactly when
+            attempt_tree.state is unavailable.
+          oneOf:
+          - $ref: '#/components/schemas/RunResultFile'
+          - type: 'null'
         run:
           $ref: '#/components/schemas/RunSnapshot'
         state:
@@ -8224,6 +9868,49 @@ components:
           oneOf:
           - $ref: '#/components/schemas/RunCharge'
           - type: 'null'
+    RunResultFile:
+      type: object
+      description: The pinned run output (a RunOutput) that holds result.md. Its bytes are read
+        with getRunOutputContent at the reference's revision_id and digest_sha256.
+      required:
+      - run_id
+      - output_id
+      - state
+      - reference
+      - filename
+      properties:
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        output_id:
+          $ref: '#/components/schemas/OutId'
+        state:
+          type: string
+          const: available
+        reference:
+          type: object
+          additionalProperties:
+            type: string
+          required:
+          - revision_id
+          - digest_sha256
+          - byte_size
+          - media_type
+          properties:
+            revision_id:
+              type: string
+              minLength: 1
+            digest_sha256:
+              type: string
+              pattern: ^[0-9a-f]{64}$
+            byte_size:
+              type: string
+              pattern: ^(0|[1-9][0-9]{0,6})$
+            media_type:
+              type: string
+              const: text/markdown
+        filename:
+          type: string
+          const: result.md
     ObjectiveAnswer:
       type: object
       description: One objective's recorded answer (an application/json output).
@@ -8296,6 +9983,7 @@ components:
           type: string
           enum:
           - free
+          - granted
           - recurring
           - credit_pack
           - internal
@@ -8332,6 +10020,45 @@ components:
           description: Per-resource caps for this plan. A cap of -1 means no cap.
           items:
             $ref: '#/components/schemas/Limit'
+    McpOutputContent:
+      type: object
+      description: 'The MCP tool result for getRunOutputContent (swarms_run_output_content). `content`
+        is the bytes as UTF-8 text when `encoding` is `utf8` (the media type is textual and the bytes
+        are valid UTF-8), otherwise standard base64 with padding. `sha256` is computed over the bytes.
+        Outputs over `byte_size.maximum` (262144 bytes) are refused with the tool error code
+        `output_content_too_large_for_mcp` carrying `byte_size`, `max_bytes` and `download_operation`
+        (getRunOutputContent over HTTP).'
+      additionalProperties: false
+      required:
+      - media_type
+      - byte_size
+      - sha256
+      - encoding
+      - content
+      properties:
+        media_type:
+          type: string
+          description: The served Content-Type, parameters included.
+        byte_size:
+          type: integer
+          minimum: 0
+          maximum: 262144
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        encoding:
+          type: string
+          enum:
+          - utf8
+          - base64
+        content:
+          type: string
+      example:
+        media_type: text/plain; charset=utf-8
+        byte_size: 5
+        sha256: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        encoding: utf8
+        content: hello
     PlanCatalog:
       type: object
       required:
@@ -9028,9 +10755,27 @@ components:
       additionalProperties: false
       required: [resource, metric, window, cap, current, reset_at]
       properties:
+        source:
+          type: string
+          enum: [plan, override]
+          description: Authority behind the effective cap. Overrides are filtered at read time.
+        override:
+          type: object
+          additionalProperties: false
+          required: [override_id, reason, expires_at]
+          properties:
+            override_id:
+              type: string
+              format: uuid
+            reason:
+              type: string
+              enum: [design_partner, support, incident, sales_trial, internal]
+            expires_at:
+              type: string
+              format: date-time
         resource:
           type: string
-          description: container_pool, swarm_run, agent_codex, sandbox, openrouter, included_usage or public_api.
+          description: container_pool, swarm_run, agent_codex, sandbox, included_usage or public_api.
         metric:
           type: string
         window:
@@ -9058,6 +10803,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LimitRow'
+    Overload:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - service
+      - limit
+      - retry_after
+      - retryable
+      properties:
+        code:
+          type: string
+          enum:
+          - RateLimited
+          - Overloaded
+          - DependencyUnavailable
+          - QueueFull
+        service:
+          type: string
+          minLength: 1
+          description: Machine identifier of the service refusing admission.
+        limit:
+          type: string
+          minLength: 1
+          description: Machine limit identifier, such as outbound_requests; not its numeric capacity.
+        retry_after:
+          type: integer
+          minimum: 0
+          description: Delay in seconds; the HTTP Retry-After delta-seconds value must match.
+        retryable:
+          type: boolean
+          description: Explicit retry permission subject to the operation's mutation-safety rules.
     Problem:
       type: object
       required:
@@ -9071,6 +10848,8 @@ components:
       - stage
       - outcome
       properties:
+        overload:
+          $ref: '#/components/schemas/Overload'
         type:
           type: string
           format: uri
@@ -9102,12 +10881,10 @@ components:
           - unknown
         retryable:
           type: boolean
-          description: Present on every in-stream SSE error event, and false on 426
-            client_upgrade_required; absent elsewhere. On a stream, true means the
-            condition is transient (for example the event subscription closed while Core instances
-            were replaced) and reopening the stream with Last-Event-ID resumes it; false means the
-            error is final for this stream (credential revoked, run not found, an event that cannot
-            be delivered).
+          description: Explicit retry permission for HTTP overload refusals and in-stream errors.
+            When overload is present, this equals overload.retryable; a mutation requires explicit
+            request-intake nonacceptance evidence. Missing or unknown evidence grants no retry.
+            Stream retries retain Last-Event-ID checkpoint semantics.
         last_event_id:
           type: string
           pattern: ^[0-9]+(\.[1-3])?$
@@ -9148,6 +10925,72 @@ components:
           type: string
           description: On auto_reload_invalid only, why the field was refused when more than its bounds
             (`below_threshold`).
+        minimum_budget_micros:
+          type: integer
+          minimum: 1
+          description: On 422 run_budget_below_call_bound at launch only, the least
+            limits.maximum_charge in micro-USD that funds the run's actors on its resolved routes.
+            Retrying with at least this budget passes the funding check. Absent when the same code
+            refuses an actor after the run started.
+        budget_floor:
+          $ref: '#/components/schemas/BudgetFloor'
+    BudgetFloor:
+      type: object
+      additionalProperties: false
+      description: On 422 run_budget_below_call_bound at launch only, the inputs minimum_budget_micros
+        is computed from. They are inputs, not addends; with parallel workers each worker's share
+        grows with the budget, so the parts do not sum to the minimum. Amounts are micro-USD.
+      required:
+      - planner_spend_cap_micros
+      - planner_call_bound_micros
+      - worker_call_bound_micros
+      - reviewer_call_bound_micros
+      - container_call_bound_micros
+      - planner_compute_hold_micros
+      - worker_compute_hold_micros
+      - actor_floor_micros
+      - actor_count
+      - parallel_workers
+      properties:
+        planner_spend_cap_micros:
+          type: integer
+          minimum: 0
+          description: The planner's spend cap.
+        planner_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the planner's routes.
+        worker_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the workers' routes.
+        reviewer_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the reviewer's routes.
+        container_call_bound_micros:
+          type: integer
+          minimum: 0
+          description: One worst-case model call on the container actor's routes; 0 without one.
+        planner_compute_hold_micros:
+          type: integer
+          minimum: 0
+          description: The planner's sandbox compute hold.
+        worker_compute_hold_micros:
+          type: integer
+          minimum: 0
+          description: Each worker attempt's sandbox compute hold.
+        actor_floor_micros:
+          type: integer
+          minimum: 0
+          description: The least budget any actor starts with.
+        actor_count:
+          type: integer
+          minimum: 1
+          description: Actors the budget holds at once.
+        parallel_workers:
+          type: integer
+          minimum: 1
     RunWait:
       type: object
       additionalProperties: false
@@ -9212,6 +11055,9 @@ components:
           type: string
           format: uri
         revocation_endpoint:
+          type: string
+          format: uri
+        device_authorization_endpoint:
           type: string
           format: uri
         response_types_supported:
@@ -9391,6 +11237,108 @@ components:
       - redirect_host
       - verified
       additionalProperties: false
+    OAuthDeviceAuthorizationRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+        scope:
+          type: string
+        resource:
+          type: string
+          format: uri
+      required:
+      - client_id
+      - scope
+      additionalProperties: false
+    OAuthDeviceAuthorization:
+      type: object
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          pattern: ^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$
+        verification_uri:
+          type: string
+          format: uri
+        verification_uri_complete:
+          type: string
+          format: uri
+        expires_in:
+          type: integer
+          minimum: 1
+        interval:
+          type: integer
+          minimum: 1
+      required:
+      - device_code
+      - user_code
+      - verification_uri
+      - verification_uri_complete
+      - expires_in
+      - interval
+      additionalProperties: false
+    OAuthDeviceUserCode:
+      type: object
+      properties:
+        user_code:
+          type: string
+          minLength: 8
+          maxLength: 32
+      required:
+      - user_code
+      additionalProperties: false
+    OAuthDevicePending:
+      type: object
+      properties:
+        user_code:
+          type: string
+        client_id:
+          type: string
+        client_name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        resource:
+          type: string
+          format: uri
+        verified:
+          type: boolean
+      required:
+      - user_code
+      - client_id
+      - client_name
+      - scopes
+      - resource
+      - verified
+      additionalProperties: false
+    OAuthDeviceDecision:
+      type: object
+      properties:
+        user_code:
+          type: string
+          minLength: 8
+          maxLength: 32
+        approve:
+          type: boolean
+      required:
+      - user_code
+      - approve
+      additionalProperties: false
+    OAuthDeviceDecided:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - approved
+          - denied
+      required:
+      - status
+      additionalProperties: false
     OAuthConsentDecision:
       type: object
       properties:
@@ -9442,7 +11390,10 @@ components:
           enum:
           - authorization_code
           - refresh_token
+          - urn:ietf:params:oauth:grant-type:device_code
         client_id:
+          type: string
+        device_code:
           type: string
         code:
           type: string
@@ -9788,17 +11739,16 @@ components:
         name:
           type: string
           minLength: 1
-          maxLength: 256
+          maxLength: 1024
+          pattern: '^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)(?:/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+))*$'
         media_type:
           type: string
-          enum:
-          - text/plain
-          - text/markdown
-          - application/json
+          minLength: 1
+          maxLength: 255
         size_bytes:
           type: integer
           minimum: 0
-          maximum: 33554432
+          maximum: 16777216
         digest_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -9980,7 +11930,12 @@ components:
         remaining: {type: [integer, 'null'], minimum: 0}
         overshoot: {type: [integer, 'null'], minimum: 0}
         state: {type: string}
-        action: {type: string, enum: [notify, pause, stop]}
+        action:
+          type: string
+          enum: [notify, pause, stop, none]
+          description: What the program does when the meter reaches its cap. none is reported only for an
+            uncapped meter (state uncapped, effective_cap null), which no cap enforces; for example
+            planner_turns under actor limits, where spend binds the planner instead of turns.
       required: [dimension]
     ActorLimitsProgress:
       type: object
@@ -10154,6 +12109,14 @@ components:
     X-Synth-Output-Revision:
       schema:
         type: string
+    X-Synth-Queue-Position:
+      description: >-
+        Present only when the launched run is waiting for capacity (state queued): its 1-based
+        FIFO place, the same number as the body's queue.position. An idempotent replay repeats
+        the original answer.
+      schema:
+        type: integer
+        minimum: 1
     Content-Disposition:
       schema:
         type: string

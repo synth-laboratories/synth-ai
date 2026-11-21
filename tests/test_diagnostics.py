@@ -20,7 +20,10 @@ async def test_diagnostics_are_safe_and_hook_failures_cannot_change_outcome(cont
         calls.append(request)
         if len(calls) == 1:
             return httpx.Response(
-                503, json=local_problem("busy", "admission").model_dump(mode="json")
+                503,
+                json=local_problem("busy", "admission")
+                .model_copy(update={"retryable": True})
+                .model_dump(mode="json"),
             )
         return httpx.Response(202, json=snapshot)
 
@@ -88,3 +91,46 @@ async def test_injected_redirect_policy_cannot_forward_credentials(operation, tm
                         digest_sha256="0" * 64,
                     )
     assert caught.value.problem.upstream_status == 307 and len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "reason"),
+    [("120", "deadline_exceeded"), ("not-a-delay", "retry_after_invalid")],
+)
+async def test_deadline_suppressed_retry_emits_typed_diagnostic(retry_after, reason):
+    from synth_ai.diagnostics import RetrySuppressedReason
+    from synth_ai.errors import SwarmsAPIError
+
+    events, calls = [], []
+
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(
+            503,
+            headers={"Retry-After": retry_after},
+            json=local_problem("busy", "admission")
+            .model_copy(update={"retryable": True})
+            .model_dump(mode="json"),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "secret-key",
+            base_url="https://example.test",
+            http_client=http,
+            retry_policy=RetryPolicy(deadline_seconds=5, backoff_seconds=0, jitter_seconds=0),
+            diagnostic_hook=events.append,
+        ) as api:
+            with pytest.raises(SwarmsAPIError):
+                await api.swarms.get("run")
+    assert len(calls) == 1
+    assert [event.phase for event in events] == [
+        DiagnosticPhase.RETRY_SUPPRESSED,
+        DiagnosticPhase.FAILED,
+    ]
+    suppressed = events[0].retry_suppressed
+    assert suppressed.reason == RetrySuppressedReason(reason)
+    assert suppressed.status == 503 and suppressed.retry_after == retry_after
+    assert 0 < suppressed.remaining_seconds <= 5
+    assert (suppressed.delay_seconds is None) == (reason == "retry_after_invalid")
+    assert events[1].retry_suppressed is None and events[1].attempts == 1

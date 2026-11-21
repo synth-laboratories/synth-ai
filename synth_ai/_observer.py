@@ -1,8 +1,9 @@
 """Observe milestones using durable-feed wakeups and authoritative run snapshots.
 
-The feed opens before each initial read. Events carry no completion authority;
-periodic reconciliation covers lost notifications. Each wait owns and closes its
-single pending feed read, and cancellation never mutates the server-side run.
+The feed opens before each initial read and stays open through cleanup. Each
+milestone wakes an authoritative read; periodic reconciliation covers lost wakes.
+Each wait owns and closes its single pending feed read, and cancellation never
+mutates the server-side run. See docs/protocols.md for recovery semantics.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from typing import Protocol
 
 import httpx
 
-from ._generated.models import RunEvent, RunSnapshot
+from ._generated.models import RunEvent, RunMilestone, RunSnapshot
 from ._protocol import CompletionMilestone
 from ._retry import RetryPolicy, stream_refusal_retryable
 from ._stream import StreamCheckpoint
@@ -27,13 +28,12 @@ from .errors import (
     RunPausedError,
     SwarmsAPIError,
     WaitTimeoutError,
+    local_problem,
     stream_interrupted,
 )
 
-# Independent from the old polling cadence: idle durable feeds need a safety
-# read, not one GET per second. Older servers get a slower explicit fallback.
+# Reconcile lost wakes on an open feed; milestones drive normal progress.
 _RECONCILE_SECONDS = 30.0
-_FALLBACK_MIN_SECONDS = 1.0
 # Gateway statuses a Core deploy produces on reads. Reads are safe to repeat, so a
 # wait backs off and retries them until its own timeout; mutations never do.
 _TRANSIENT_READ_STATUSES = frozenset({502, 503, 504})
@@ -55,7 +55,7 @@ class ObservationSource(Protocol):
 
     def subscribe_events(
         self, run_id: str, state: StreamCheckpoint
-    ) -> AbstractAsyncContextManager[AsyncIterator[RunEvent]]: ...
+    ) -> AbstractAsyncContextManager[AsyncIterator[RunEvent | RunMilestone]]: ...
 
     async def request(
         self, operation_id: str, model: type[RunSnapshot], *, path: dict[str, str]
@@ -131,14 +131,9 @@ class RunObserver:
                 )
             return False
 
-        async def poll() -> RunSnapshot:
-            while True:
-                current = await read()
-                if reached(current):
-                    return current
-                await asyncio.sleep(max(_FALLBACK_MIN_SECONDS, poll_interval))
-
-        async def next_event(events: AsyncIterator[RunEvent]) -> RunEvent:
+        async def next_event(
+            events: AsyncIterator[RunEvent | RunMilestone],
+        ) -> RunEvent | RunMilestone:
             return await anext(events)
 
         try:
@@ -147,14 +142,14 @@ class RunObserver:
                 cause: Exception | None = None
                 attempt = 0
                 while attempt < attempts:
-                    subscribed, tail_poll, reading = False, False, False
+                    reading = False
                     try:
                         async with self._source.subscribe_events(run_id, checkpoint) as events:
-                            subscribed = True
                             if reached(await read()):
                                 assert snapshot is not None
                                 return snapshot
                             pending = asyncio.create_task(next_event(events))
+                            final = False
                             try:
                                 while True:
                                     done, _ = await asyncio.wait(
@@ -163,28 +158,31 @@ class RunObserver:
                                     ended = False
                                     if done:
                                         try:
-                                            pending.result()
+                                            item = pending.result()
                                             recovered("feed")
+                                            final = final or (
+                                                isinstance(item, RunMilestone) and item.final
+                                            )
                                         except StopAsyncIteration:
                                             ended = True
                                     if reached(await read()):
                                         assert snapshot is not None
                                         return snapshot
                                     if ended:
-                                        # Core closes the event feed at execution closure;
-                                        # accounting/cleanup can still change afterward.
-                                        tail_poll = (
-                                            snapshot is not None and snapshot.execution_closed
-                                        )
                                         break
                                     if done:
                                         pending = asyncio.create_task(next_event(events))
                             finally:
                                 pending.cancel()
                                 await asyncio.gather(pending, return_exceptions=True)
-                        if tail_poll:
-                            await asyncio.sleep(max(_FALLBACK_MIN_SECONDS, poll_interval))
-                            return await poll()
+                            if final:
+                                error = ResponseContractError(
+                                    local_problem(
+                                        "event_stream_ended_before_milestone", "listRunEvents"
+                                    )
+                                )
+                                error.checkpoint = checkpoint
+                                raise error
                     except SwarmsAPIError as error:
                         # A deploy's gateway failures on the feed reconnect from the
                         # checkpoint without spending an attempt; the timeout bounds them.
@@ -195,21 +193,8 @@ class RunObserver:
                         # checkpoint; the next attempt rereads before any milestone.
                         if not reading and stream_refusal_retryable(error.problem):
                             cause = error
-                        # Only explicit endpoint/capability refusals permit fallback.
-                        # Authentication, expiry, malformed streams and 404 propagate.
-                        elif (
-                            subscribed
-                            or isinstance(error, ResponseContractError)
-                            or error.status
-                            not in {
-                                406,
-                                415,
-                                501,
-                            }
-                        ):
-                            raise
                         else:
-                            return await poll()
+                            raise
                     except httpx.TransportError as error:
                         cause = error
                     if attempt + 1 < attempts:

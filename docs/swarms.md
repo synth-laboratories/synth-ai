@@ -23,6 +23,14 @@ sending). Research profiles do not accept it. Core owns task counts.
 guidance, routing and response types are available from `synth_ai.models`.
 Guidance validates UTF-8 byte limits and text rules before sending.
 
+`launch(..., continue_from=parent_run_id)` forwards an opaque parent run ID.
+The CLI accepts `synth run --continue-from RUN`; MCP accepts the same field in
+the `swarms_run_launch` body. Current Core source refuses continuation until
+the required retained input and planner producers are available. A missing or
+foreign parent returns `ContinueFromNotFoundError`, a live parent returns
+`ContinueFromNotTerminalError`, and unavailable inherited inputs return
+`ContinueFromInputsUnavailableError`. A refusal creates no continuation run.
+
 `RunSnapshot.api_version` is the semantic version of the responding Swarms API.
 `RunSnapshot.variant` identifies the selected variant and its semantic version
 pinned when the run was admitted. Both are optional for compatibility with
@@ -44,7 +52,9 @@ is 64 MiB; set an explicit higher bound for larger outputs.
 
 `result(run)` takes a `RunSnapshot` or a run ID and returns Core's `RunResult`
 (`synth_ai.models`) from one `getRunResult` read, the same record the MCP tool
-`swarms_run_result` returns: `run` (the snapshot), `state`, `answer` (the answer
+`swarms_run_result` returns: `run_id`, `status` (the terminal outcome),
+`accounting` (the final ledger-backed `RunCharge`, or `None` without an
+accounting reader), `run` (the snapshot), `state`, `answer` (the answer
 text), `answer_output` (the `RunOutput` it came from), `objective_answer` (the
 parsed `ObjectiveAnswer`, when that is the source) and `charge` (`RunCharge`:
 `amount` and `final`; `None` when Core omits it). Core picks the most recently
@@ -94,34 +104,64 @@ Call `profiles()` or `profiles(research_task="TASK")` to discover published
 profiles. The result includes `default_profile` and entries with `id`, `name`,
 `description`, `revision`, `available`, optional `unavailable_reason`, and
 supported routing. Availability is a read-only check, not a funding reservation.
-It reflects caller permissions, served recipes and task approvals. Launch
-revalidates those facts and checks the requested budget and resources.
+Omit `profile` for Core's default; an explicit profile is never silently
+replaced. `run.profile` retains the named revision, compiled program definition
+and exact actor profile digests; catalog updates never relabel historical runs.
 
-| Profile | ID | Additional input |
+## Optimizer topologies
+
+| Public name | Machine ID | Treatment |
 | --- | --- | --- |
-| Swarms v2 | `swarms-v2` | None |
-| Fork & Flush | `fork-flush` | `research_task` |
-| Forgetting | `forgetting` | `research_task` |
+| Swarms | `swarms_v2` | Default. The only topology served in this release. |
+| Fork-and-Flush | `fork_flush` | Experimental. Opt-in only, never the default; not served yet, so a pin is refused with `optimizer_topology_unavailable`. |
 
-Omit `profile` for Core's default. An explicit profile is never silently
-replaced. The public API does not accept `program`, `method`,
-`profile_overrides`, or arbitrary actor/algorithm settings. A research profile
-uses the task's approved immutable parameters, evaluator, baseline, context and
-actor profile. Missing, revoked or foreign approvals refuse before funding.
+`optimizer="auto"` (or omitting it) lets Core resolve the default, Swarms.
+`client.swarms.families()`, `synth families`, the MCP catalog and the Console
+read the same catalog. `synth_ai.topology_name(entry)` and `synth families`
+print the public name with its treatment, for example `Swarms (default)` and
+`Fork-and-Flush (experimental, unavailable)`. An experimental topology is never
+shown as the default, whatever the catalog's `auto` flag says.
+
+### Swarms controls
+
+A `swarms_v2` pin accepts two optional parameters (contract 1.36.0):
+
+| Parameter | Range | When omitted |
+| --- | --- | --- |
+| `max_tasks` | 1..4096, at least `limits.parallel_workers` | the larger of 4 and `parallel_workers` |
+| `max_repairs_per_task` | 0..32 | 2 |
 
 ```python
+from synth_ai import OptimizerParams, OptimizerPin
+
 run = client.swarms.run(
     "Improve the policy", budget="2.00",
-    profile="fork-flush", research_task="published-task",
+    optimizer=OptimizerPin(
+        topology="swarms_v2", version=2,
+        params=OptimizerParams(max_tasks=8, max_repairs_per_task=3),
+    ),
 )
-print(run.profile.id, run.profile.revision, run.profile.digest)
+print(run.optimizer.params)  # only the parameters you supplied
 ```
 
-`run.profile` retains the named revision, compiled program definition and exact
-actor profile digests. Its digest binds the resolved recipe, including approved
-research settings. Updating the catalog does not relabel historical runs;
-runs predating named profiles omit this field. `run.method` continues to expose
-retained research details as readback, not as a launch selector.
+```bash
+synth run "Improve the policy" --budget 2.00 \
+  --optimizer swarms_v2@2 --max-tasks 8 --max-repairs-per-task 3
+```
+
+The MCP `swarms_run_launch` tool takes the same `optimizer.params` object.
+Spend, time, token and concurrency limits stay authoritative; these controls
+never raise a grant. Omitting both leaves the launch exactly as before. Core
+refuses before funding with 422:
+
+- `optimizer_params_unsupported`: an unknown parameter, or parameters on `auto`
+  or another topology (the CLI refuses these locally);
+- `optimizer_param_invalid`: a value that is not an integer;
+- `optimizer_param_out_of_range`: outside the range above;
+- `optimizer_param_conflict`: `max_tasks` below `limits.parallel_workers`.
+
+The run's `optimizer` keeps its admitted identity, resolution reason, definition
+digest and supplied `params`. Catalog changes cannot relabel historical runs.
 
 `run.selection` reports what a research run selected. Only `selected` has an incumbent
 and a downloadable `selected-snapshot.tar.gz`, a gzipped tar whose SHA-256 equals
@@ -194,3 +234,67 @@ snapshot and run ID. Finished runs with no result raise `ResultUnavailableError`
 when waiting for a result; imported history that cannot prove the milestone is
 reported explicitly. CLI exit codes are listed in [cli.md](cli.md).
 The timeout bounds both streaming and final polling, and does not cancel the run.
+
+## Directory uploads
+
+```python
+files = await client.swarms.upload_directory("./task", idempotency_key="task-upload-1")
+inputs = {
+    "files": [
+        {
+            "file_id": file.file_id,
+            "revision_id": file.revision_id,
+            "digest_sha256": file.digest_sha256,
+        }
+        for file in files
+    ]
+}
+run = await client.swarms.launch("Solve the uploaded task", budget="4.50", inputs=inputs)
+```
+
+The synchronous client exposes the same method. File names are relative to the
+chosen directory; binary bytes and dotfiles are included. Each file uses the
+existing prepare, PUT and finalize protocol. An empty directory returns an empty
+list. Empty directories themselves have no uploaded file representation.
+
+Before any API request, the helper freezes the complete directory into a private
+disk spool using bounded chunks. Changes to the originals after that snapshot do
+not change submitted bytes. Symlink roots and entries, special files, unsupported
+names, and files that change while being copied are refused. Descriptor-relative traversal
+requires POSIX; unsupported platforms refuse before uploading.
+
+Bounds come from Core's pinned `contracts/file-limits.json`: 16 MiB per file,
+64 MiB total, 1,024-byte relative names and 255-byte path segments. The directory
+helper also bounds traversal to 10,000 entries, counting directories as well as
+files, so empty directory trees cannot make scanning unbounded. It does not apply
+ignore rules. The spool is closed on success, failure or cancellation.
+
+Use the same batch idempotency key and unchanged files to recover a partial
+upload. Per-file keys are derived from that key and the relative name; changed
+content retains the same key and the server can refuse a conflicting retry.
+Uploads are sequential, and already committed files remain in custody if a later
+file fails. `synth_ai.errors.DirectoryUploadError` retains `completed_files`, the
+failed `name`, the batch `idempotency_key`, and `file_idempotency_key`; its cause
+retains any upload-transfer or API refusal. Cancellation during an API transfer raises `DirectoryUploadCancelledError`,
+which remains an `asyncio.CancelledError` and retains the same custody fields.
+Cancellation before the snapshot completes makes no API requests. Retain the
+batch key before starting.
+
+The file-limit projection and provenance are checked by
+`python scripts/gen_file_limits.py --check` in CI. This helper adds no public API
+operation or hosted MCP access to local files.
+
+
+For local stdio MCP, explicitly grant one directory at server startup:
+
+```sh
+synth-ai-mcp --upload-root /absolute/path/to/bundle
+```
+
+Only this invocation advertises `swarms_upload_directory`; its only argument is
+`idempotency_key`. The server pins the root through descriptor-relative traversal
+without following symlinks, and uploads exactly that root. No tool parameter can
+select another local path. Success returns the ordered file records and batch key;
+partial failure or cancellation returns an MCP error containing completed files,
+the current file name and both retry keys. Hosted MCP and stdio without the grant
+retain the generated public catalog with no local filesystem authority.

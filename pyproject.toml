@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synth-ai"
-version = "0.39.0"
+version = "0.41.0"
 description = "Typed Synth public API, CLI and MCP client"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,7 +12,7 @@ license = "MIT"
 dependencies = ["httpx>=0.27,<1", "pydantic>=2.11,<3", "typing-extensions>=4.12"]
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.12,<2"]
+mcp = ["mcp>=1.30,<2"]
 
 [project.scripts]
 synth = "synth_ai.cli:main"
@@ -20,7 +20,18 @@ synth-ai = "synth_ai.cli:main"
 synth-ai-mcp = "synth_ai.mcp.server:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyyaml>=6", "types-PyYAML", "jsonschema>=4", "ruff>=0.17.3", "ty>=0.0.99", "build>=1.2", "twine>=6"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pyyaml>=6",
+    "types-PyYAML",
+    "jsonschema>=4",
+    "ruff>=0.17.3",
+    "ty>=0.0.99",
+    "build>=1.2",
+    "twine>=6",
+    "playwright>=1.56,<2",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["synth_ai"]
@@ -29,6 +40,7 @@ packages = ["synth_ai"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = ["acceptance: customer-path drivers; runtime cases require an explicit owned cached target"]
 
 [tool.ty.src]
 include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]

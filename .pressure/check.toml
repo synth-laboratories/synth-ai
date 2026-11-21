@@ -1,6 +1,19 @@
 scope = "repo"
 
 [[checks]]
+id = "sdk_canonical_file_limits"
+description = "Upload bounds are generated from the exact pinned Core file-limit artifact"
+severity = "error"
+require_paths = ["contracts/file-limits.json", "contracts/FILE_LIMITS_SOURCE.toml", "scripts/gen_file_limits.py", "synth_ai/_generated/file_limits.py", ".venv/bin/python"]
+file_contains = [
+  { path = "synth_ai/_limits.py", pattern = "UPLOAD_MAX_BYTES = FILE_MAX_BYTES" },
+  { path = ".github/workflows/ci.yml", pattern = "scripts/gen_file_limits.py --check" },
+]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/gen_file_limits.py --check"
+command_timeout_seconds = 10
+remedy = "Refresh the canonical Core artifact and its exact provenance together, regenerate the SDK projection, and preserve pre-transfer directory bounds and identity checks."
+
+[[checks]]
 id = "sdk_strict_typed_protocols"
 description = "Generated strict models and semantic payloads remain guarded by ty and boundary regressions"
 severity = "error"
@@ -19,16 +32,16 @@ remedy = "Restore the generated strict contract and ty CI checks; run the typed 
 
 [[checks]]
 id = "sdk_type_verification"
-description = "SDK tooling and consumer type contracts retain complete ty and annotation checks"
+description = "The local SDK type gate checks accepted and rejected consumer contracts"
 severity = "error"
-require_paths = ["scripts/check_type_contracts.py", "typing_tests/accepted.py", "typing_tests/rejected.py", "tests/test_type_contracts.py"]
+require_paths = [".venv/bin/python", "scripts/check_type_contracts.py", "typing_tests/accepted.py", "typing_tests/rejected.py", "tests/test_type_contracts.py"]
 file_contains = [
-  { path = "pyproject.toml", pattern = 'include = ["synth_ai", "scripts", "typing_tests/accepted.py"]' },
-  { path = ".github/workflows/ci.yml", pattern = "uv run python scripts/check_type_contracts.py" },
-  { path = ".github/workflows/publish-dev.yml", pattern = "uv run python scripts/check_type_contracts.py" },
+  { path = "pyproject.toml", pattern = 'include = ["synth_ai", "scripts", "examples", "typing_tests/accepted.py"]' },
   { path = "tests/test_type_contracts.py", pattern = "test_contract_gate_rejects_missing_or_unexpected_diagnostics" },
 ]
-remedy = "Restore full SDK/tooling ty coverage and exact positive/negative type-contract verification."
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_type_contracts.py"
+command_timeout_seconds = 30
+remedy = "Run the local type-contract gate with the repository venv and correct the accepted or rejected consumer diagnostics."
 
 
 [[checks]]
@@ -57,3 +70,39 @@ file_contains = [
   { path = "RELEASING.md", pattern = "Full public API, hosted MCP" },
 ]
 remedy = "Restore the scoped Swarms smoke and run its budget, resume, output-integrity and lifecycle regressions; keep full API/MCP qualification separate."
+
+[[checks]]
+id = "sdk_surface_parity"
+description = "Every contract customer operation is reachable from the SDK, CLI and MCP under one MCP naming scheme (SYN-5691)"
+severity = "error"
+require_paths = ["scripts/check_surface_parity.py", "tests/test_surface_parity.py", ".venv/bin/python"]
+file_contains = [
+  { path = ".github/workflows/ci.yml", pattern = "scripts/check_surface_parity.py" },
+  { path = "lefthook.yml", pattern = "scripts/check_surface_parity.py" },
+]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py"
+command_timeout_seconds = 120
+remedy = "Bind the operation through a public SDK method, the CLI and MCP dispatch, and give it a contract x-synth-mcp-name of the form <scope domain>_<resource>[_<verb>]."
+
+[[checks]]
+id = "recorded_message_driver_integrity"
+description = "Message fixtures keep immutable replay identity and receipts omit body text"
+severity = "error"
+require_paths = ["scripts/acceptance/message_fixture.py", "scripts/acceptance/message_journey.py", "tests/acceptance/test_message_journey_offline.py", "tests/acceptance/test_message_surface_bindings.py"]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests/acceptance/test_message_journey_offline.py tests/acceptance/test_message_surface_bindings.py"
+command_timeout_seconds = 100
+remedy = "Restore frozen fixture hashes, fresh-run checks, typed refusals and body redaction. These are scripted-surface checks, not installed transport/browser/replay acceptance."
+
+[[checks]]
+id = "sdk_run_message_contract"
+description = "Run messaging retains generated domain enums, state constraints, typed retention and local-only reply deadlines"
+severity = "error"
+require_paths = ["tests/test_messages.py", "tests/test_message_refusals.py", "tests/test_doc_snippets.py", "examples/messaging.py"]
+file_contains = [
+  { path = "scripts/gen_contract.py", pattern = "named_string_enums(schemas)" },
+  { path = "synth_ai/_operations.py", pattern = '"mq_owner_key"' },
+  { path = "synth_ai/swarms.py", pattern = "async def wait_for_reply(" },
+]
+command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests/test_messages.py tests/test_message_refusals.py tests/test_doc_snippets.py"
+command_timeout_seconds = 30
+remedy = "Regenerate from the exact pinned Core contract and retain strict message states/body availability. Reply waits must observe the feed and never cancel server work."

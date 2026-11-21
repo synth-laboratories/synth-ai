@@ -23,6 +23,7 @@ from synth_ai.errors import (
     ErrorKind,
     InvalidRequestError,
     LaunchBudgetBelowActorFloorError,
+    LaunchValidationError,
     ResponseContractError,
     WaitTimeoutError,
 )
@@ -95,8 +96,10 @@ async def test_wrong_wall_time_type_is_rejected_before_any_request(value):
         transport=httpx.MockTransport(lambda request: sent.append(request))
     ) as transport:
         async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(ValidationError):
+            with pytest.raises(LaunchValidationError) as caught:
                 await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
+            assert caught.value.code == "invalid_launch_request"
+            assert caught.value.outcome == "not_accepted"
     assert not sent
 
 
@@ -107,8 +110,10 @@ async def test_wall_time_outside_twenty_four_hours_is_rejected_before_any_reques
         transport=httpx.MockTransport(lambda request: sent.append(request))
     ) as transport:
         async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(ValidationError):
+            with pytest.raises(LaunchValidationError) as caught:
                 await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
+            assert caught.value.code == "invalid_launch_request"
+            assert caught.value.outcome == "not_accepted"
     assert not sent
 
 
@@ -132,8 +137,10 @@ async def test_parallel_workers_outside_one_to_ten_is_rejected_before_any_reques
         transport=httpx.MockTransport(lambda request: sent.append(request))
     ) as transport:
         async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(ValidationError):
+            with pytest.raises(LaunchValidationError) as caught:
                 await client.swarms.launch("hello", budget="1", parallel_workers=value)
+            assert caught.value.code == "invalid_launch_request"
+            assert caught.value.outcome == "not_accepted"
     assert not sent
 
 

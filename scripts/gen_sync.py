@@ -16,14 +16,24 @@ def generate() -> str:
         "from decimal import Decimal",
         "from pathlib import Path",
         "import builtins",
-        "from collections.abc import Iterator",
+        "from inspect import getdoc",
+        "from types import FunctionType",
+        "from collections.abc import Iterator, Mapping, Sequence",
+        "from pydantic import JsonValue",
         "from ._blocking import Runner",
         "from ._stream import StreamCheckpoint",
         "from ._protocol import CompletionMilestone",
+        "from ._requests import DomicileRequirement",
+        "from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT",
         "from ._generated.models import RunResult",
         "from .account import AsyncAccount, AsyncApiKeys",
         "from .billing import AsyncBilling",
         "from .swarms import AsyncSwarms",
+        "",
+        "def _copy_method_docs(delegate: type, source: type) -> None:",
+        "    for name, method in vars(delegate).items():",
+        "        if not name.startswith('_') and isinstance(method, FunctionType):",
+        "            method.__doc__ = getdoc(getattr(source, name))",
         "",
     ]
     model_imports = set()
@@ -45,7 +55,9 @@ def generate() -> str:
             if name == "AccountClient":
                 lines += ["        self.api_keys=ApiKeysClient(runner, source.api_keys)"]
             for fn in cls.body:
-                if not isinstance(fn, ast.AsyncFunctionDef) or fn.name.startswith("_"):
+                if not isinstance(
+                    fn, (ast.AsyncFunctionDef, ast.FunctionDef)
+                ) or fn.name.startswith("_"):
                     continue
                 args = ast.unparse(fn.args)
                 if fn.returns is None:
@@ -64,11 +76,14 @@ def generate() -> str:
                     callargs += ["**" + fn.args.kwarg.arg]
                 call = f"self._async.{fn.name}(" + ",".join(callargs) + ")"
                 runner = "iterate" if returns.startswith("Iterator[") else "call"
-                lines += [
-                    f"    def {fn.name}({args}) -> {returns}:",
-                    f"        return self._runner.{runner}({call})",
-                ]
-            lines += [""]
+                delegated = (
+                    f"self._runner.{runner}({call})"
+                    if isinstance(fn, ast.AsyncFunctionDef)
+                    else call
+                )
+                lines.append(f"    def {fn.name}({args}) -> {returns}:")
+                lines.append(f"        return {delegated}")
+            lines += ["", f"_copy_method_docs({name}, {cls.name})", ""]
     lines.insert(1, "from ._generated.models import (" + ", ".join(sorted(model_imports)) + ")")
     source = "\n".join(lines) + "\n"
     source = subprocess.run(
