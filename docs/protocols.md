@@ -140,14 +140,18 @@ none of the consumer examples or live smoke operations are executed.
 Events wake the observer; only a fresh snapshot can prove a milestone. Idle
 connections reconcile at `max(30 seconds, poll_interval)` to cover missing
 notifications. Heartbeats do not trigger reads. One monotonic `timeout` covers
-subscription, reads, reconnect delays and fallback, and cancels observation only.
+subscription, reads and reconnect delays, and cancels observation only.
 
 Reconnect attempts are bounded by `RetryPolicy.attempts`; delays respect both its
 backoff and `poll_interval`. Unexpected EOF or a transport disconnect does not
-prove completion. Once the server closes a feed for an execution-closed run,
-accounting and cleanup continue through explicit polling at
-`max(1 second, poll_interval)`. The same polling fallback applies when opening a
-feed returns a valid 406, 415 or 501 Problem.
+prove completion. Core keeps the feed open through execution closure, accounting
+finality and cleanup, emitting typed `event: milestone` frames. Each milestone
+advances the composite `<sequence>.<level>` checkpoint and wakes one `getRun`;
+`follow()` yields run events only. A cut feed resumes past its last checkpoint.
+If Core ends its final milestone feed but `getRun` still cannot prove the
+requested state, `wait()` raises `ResponseContractError` with code
+`event_stream_ended_before_milestone`. A 406, 415 or 501 refusal propagates;
+there is no polling fallback.
 
 A server refusal of the feed, whether returned when the feed opens or sent
 in-stream as an `error` frame, reconnects only when the server marks it
@@ -172,7 +176,7 @@ disconnect or refusal is its `__cause__`. `WaitTimeoutError` retains the latest
 snapshot and run identity.
 
 `poll_interval` remains accepted by sync and async methods, but now controls the
-minimum reconnect/fallback cadence, not continuous polling while a feed is open.
+minimum reconnect cadence, not continuous polling while a feed is open.
 Use `contextlib.aclosing` if stopping `follow()` before exhaustion:
 
 ```python
@@ -251,8 +255,8 @@ Availability is advisory at discovery time: launch admission checks it again.
 The SDK never substitutes a different profile or relaxes an only/exclude set.
 An unknown ID remains representable and is sent to Core for a named decision.
 
-Core's policy now authorizes a 32768-byte UTF-8 message for this coordinated
-cohort. The generated SDK, CLI and MCP use that exact byte boundary. Install the
+Core's policy now authorizes a 1048576-byte (1 MiB) UTF-8 message for this
+coordinated cohort (contract 1.27.0). The generated SDK, CLI and MCP use that exact byte boundary. Install the
 qualified Core cohort first, then the SDK. This does not change guidance text
 limits or permit a newer SDK to assume an older server accepts larger messages.
 
@@ -269,7 +273,8 @@ providers remain separately readable in generated records.
 
 `upload_file` and `resume_upload` hash and stream regular files in 64 KiB chunks.
 Each client permits at most four outstanding disk operations; cancellation joins
-an outstanding operation before closing its file. Size remains bounded to 32 MiB.
+an outstanding operation before closing its file, including repeated cancellation.
+Core's pinned file-limit projection bounds each file to 16 MiB.
 Device/inode, size, modification/change timestamps and a streaming digest must
 match the prepared source. Replacing or editing the file is refused before
 finalization. Prepare/finalize and retry requests retain the original upload key;
@@ -303,7 +308,11 @@ Pass `diagnostic_hook` to either client to receive immutable
 attempt count and elapsed seconds describe generated API invocations; correlation
 values are SHA256 hashes of request/idempotency IDs. There are no prompts,
 response bodies, tokens, signed URLs or payment data in these records. No hook
-means no logging. A hook exception cannot change the operation's result. This
+means no logging. When a retryable 429/503 is not retried, a `retry_suppressed`
+event carries a typed `RetrySuppressed` (reason `deadline_exceeded` or
+`retry_after_invalid`, the status, the raw `Retry-After`, the computed delay and
+the remaining deadline) before the final `failed` event, so a single attempt is
+never unexplained. A hook exception cannot change the operation's result. This
 hook is synchronous and should be cheap; it is not an exporter thread or a
 billing estimator. Transfer bytes and stream metrics remain independently
 measured in qualification rather than represented as API billing facts.
@@ -331,3 +340,60 @@ facades; generation and semantic fault tests retain the existing standards bar.
 See [executable recipes](../examples/README.md) for launch, profiles, routing,
 result/finality, timeout/cancel, restartable events, upload recovery, verified
 artifacts and usage readback.
+
+## CLI and MCP SDK boundary
+
+The CLI validates a launch with `swarms.prepare_launch()` before uploading files.
+It uses the same profile catalog state and validation as `swarms.launch()`.
+`cancel --idempotency-key` passes the caller's mutation identity unchanged.
+
+The stdio MCP adapter validates the generated tool schema, parses typed request
+bodies, then calls public SDK methods through `mcp.dispatch`. It never invokes
+transport directly. `swarms.wait_update()` exposes one bounded server wait
+response; `swarms.wait()` observes until the requested completion milestone.
+`update_limits_request()` preserves an exact typed limit body when an adapter
+already has the public request model. Sync delegates include these public methods.
+
+## Named environment profiles
+
+`SynthClient(environment=Environment.STAGING)` and `AsyncSynthClient` select
+`local`, `staging` or `prod`. CLI: `synth --env staging runs list`; stdio MCP:
+`synth-ai-mcp --env staging`. Omitting a profile preserves the existing default
+production/`SYNTH_API_BASE_URL` behavior. Explicit profiles ignore that ambient
+origin and reject simultaneous `base_url` selection. Stored credentials remain
+keyed by the selected API origin.
+
+`prod` uses `https://api.usesynth.ai`; `staging` uses the staging Core origin
+published by the backend Railway runbook. Their URL values can be configured
+with `SYNTH_PROD_API_BASE_URL` and `SYNTH_STAGING_API_BASE_URL`. Both require HTTPS.
+`local` requires `SYNTH_LOCAL_API_BASE_URL` from the slot manager or journey driver;
+Core declares no published host port, so the SDK does not guess one. Local HTTP
+is permitted. Empty values and non-origin URLs are refused before credential
+resolution or any request. These variables contain URL values, not feature flags.
+
+## Optimizer selection (contract 1.28)
+
+`run`, `launch` and `prepare_launch` accept `optimizer="auto"` or a generated
+`OptimizerPin`. Omitting the field uses Core's declared environment default.
+CLI: `--optimizer auto` or `--optimizer swarms_v2@2`. MCP launch uses the same
+public request schema. Core owns environment availability and resolution; a
+catalog entry labeled `unavailable` does not become runnable in the SDK.
+
+`FamilyList.topologies` is typed, including availability, label, version and
+cause. `RunSnapshot.optimizer` carries the immutable admitted topology, numeric
+version, parameters, selection reason and definition digest. A requested pin is
+separate from this resolved admission receipt. Current parameters are a closed
+empty object; extra tuning fields refuse locally. Pin models, resolved receipts
+and catalog types are exported from `synth_ai.models`.
+
+The event page method reads JSON; `follow()` owns SSE subscriptions and the
+checkpoint/milestone behavior described above. Report breakdowns sum to settled
+charges; pending reports have empty breakdowns, and absent historical attribution
+is `not_recorded`. Metered rollout compute belongs to `settlement.rollout` within
+`maximum_charge`; `not_metered` is uncharged and does not assert zero cost.
+Sandbox teardown is complete only after execution closure and verified resource
+absence; `unobserved` preserves missing evidence. Core result selection uses the
+latest available `text/*` output, then the latest `synth.objective-answer.v1`
+JSON (`answer.text`); absent answer fields stay None. An unfinished result read
+raises `ResultUnavailableError` with a fresh snapshot. Sync delegates preserve
+the same authored public documentation.

@@ -11,23 +11,33 @@ from ._sync import AccountClient, BillingClient, SwarmsClient
 from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
 from .diagnostics import DiagnosticHook
+from .environments import Environment
 
 
 class SynthClient:
+    """Access Swarms, account and billing through the public API.
+
+    Use as a context manager to close client resources. API keys and base URLs
+    can be passed explicitly or resolved by the documented authentication flow.
+    """
+
     def __init__(
         self,
         api_key: str | None = None,
         *,
         base_url: str | None = None,
+        environment: Environment | None = None,
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 30,
         retries: int = 2,
         retry_policy: RetryPolicy | None = None,
         diagnostic_hook: DiagnosticHook | None = None,
     ) -> None:
+        """Create a client with a request timeout in seconds and bounded retries."""
         self._async = AsyncSynthClient(
             api_key,
             base_url=base_url,
+            environment=environment,
             http_client=http_client,
             timeout=timeout,
             retries=retries,
@@ -40,6 +50,7 @@ class SynthClient:
         self.billing = BillingClient(self._runner, self._async.billing)
 
     def close(self) -> None:
+        """Close the client transport and owned network resources."""
         if self._runner.closed:
             return
         try:

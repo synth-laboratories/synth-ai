@@ -2,37 +2,37 @@
   {
     "name": "ascii_boundary",
     "unit": "a",
-    "repeat": 32768,
+    "repeat": 1048576,
     "accepted": true
   },
   {
     "name": "ascii_over",
     "unit": "a",
-    "repeat": 32769,
+    "repeat": 1048577,
     "accepted": false
   },
   {
     "name": "utf8_boundary",
     "unit": "😀",
-    "repeat": 8192,
+    "repeat": 262144,
     "accepted": true
   },
   {
     "name": "utf8_over",
     "unit": "😀",
-    "repeat": 8193,
+    "repeat": 262145,
     "accepted": false
   },
   {
     "name": "two_byte_boundary",
     "unit": "é",
-    "repeat": 16384,
+    "repeat": 524288,
     "accepted": true
   },
   {
     "name": "two_byte_over",
     "unit": "é",
-    "repeat": 16385,
+    "repeat": 524289,
     "accepted": false
   },
   {

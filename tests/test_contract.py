@@ -35,39 +35,6 @@ def test_every_request_has_a_runtime_validator():
     } <= MODELS.keys()
 
 
-@pytest.mark.parametrize(
-    "kind,payload",
-    [
-        (
-            "task",
-            {
-                "name": "sort",
-                "description": "Sort integers",
-                "input_schema": {"type": "object"},
-                "candidate_contract": {},
-            },
-        ),
-        (
-            "policy",
-            {"name": "sort", "files": {"sort.py": "print(1)"}, "command": ["python", "sort.py"]},
-        ),
-    ],
-)
-async def test_union_request_is_validated_and_sent_without_root_wrapper(kind, payload):
-    def handle(request):
-        assert json.loads(request.content) == payload
-        return httpx.Response(
-            201, json={"kind": kind, "revision_id": "sha256:" + "a" * 64, "payload": payload}
-        )
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
-        transport = Transport("https://example.test", "fixture", client=client)
-        result = await transport.invoke(
-            "registerEvaluationInput", path={"kind": kind}, body=payload, idempotency_key="union"
-        )
-        assert result.payload.model_dump(mode="json", exclude_unset=True) == payload
-
-
 def test_wire_examples(contract):
     for _path, item in contract["paths"].items():
         for operation in item.values():
@@ -132,14 +99,17 @@ async def test_every_operation_on_wire(contract, oid):
 def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
-    assert len(by_name) == len(hosted["tools"]) == 30
+    assert len(by_name) == len(hosted["tools"]) == 66  # 1.40.0 adds account_oauth_grant_revoke
     assert {
         "swarms_run_pause",
         "swarms_run_resume",
         "swarms_run_tasks",
-        "usage_for_run",
+        "account_usage_for_run",
         "swarms_run_wait",
         "swarms_run_result",
+        "swarms_run_message_send",
+        "swarms_run_messages",
+        "swarms_run_message",
     } <= set(by_name)
     for tool in hosted["tools"]:
         local = by_name.pop(tool["name"])

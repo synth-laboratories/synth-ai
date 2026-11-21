@@ -6,25 +6,38 @@ import re
 import stat
 import subprocess
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 
 from synth_ai import cli
+from synth_ai._generated.file_limits import FILE_MAX_BYTES
 from synth_ai._generated.operations import OPERATIONS
 
 RUN_ID = "run_AAAAAAAAAAAAAAAAAAAAAA"
 EXPECTED_COMMANDS = [
-    "evaluations",
+    "content",
+    "labels",
+    "files",
+    "uploads",
+    "keys",
+    "organization",
+    "inspect",
+    "families",
+    "runs",
     "login",
     "whoami",
     "logout",
     "profiles",
+    "choices",
     "upload",
     "run",
     "status",
     "wait",
     "logs",
+    "message",
+    "messages",
     "tasks",
     "ls",
     "pause",
@@ -33,10 +46,14 @@ EXPECTED_COMMANDS = [
     "outputs",
     "download",
     "report",
+    "allocation",
     "result",
     "usage",
     "billing",
     "limits",
+    "plan",
+    "grants",
+    "promo",
 ]
 
 
@@ -135,7 +152,16 @@ def test_help_lists_exactly_the_task_verbs():
         (["resume", RUN_ID], "resumeRun", "command"),
         (["cancel", RUN_ID], "cancelRun", "state"),
         (["outputs", RUN_ID], "listRunOutputs", "OUTPUT"),
+        (["message", RUN_ID, "fixture"], "sendRunMessage", "customer"),
+        (["messages", RUN_ID], "listRunMessages", "messaging_unavailable"),
+        (
+            ["messages", RUN_ID, "--message", "msg_AAAAAAAAAAAAAAAAAAAAAA"],
+            "getRunMessage",
+            "customer",
+        ),
         (["report", RUN_ID], "getRunReport", "settlement"),
+        (["allocation", RUN_ID], "getRunAllocation", "menu revision"),
+        (["choices"], "getLaunchChoices", "SANDBOX"),
         (["profiles"], "listProfiles", "PROFILE"),
         (["usage"], "getUsageSummary", "charge"),
         (["usage", RUN_ID], "listUsageRecords", "RECORD"),
@@ -162,6 +188,30 @@ def test_run_requires_a_goal(api, capsys):
     assert code == cli.EXIT_CLIENT_ERROR and out == ""
     assert err.startswith("usage_error: ")
     assert api.calls == []
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ("index", "search", "q"),
+        ("--json", "index"),
+        ("index",),
+        ("--env", "local", "index", "--json"),
+    ],
+)
+def test_index_is_a_typed_local_refusal(api, capsys, argv):
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == ""
+    if "--json" in argv:
+        assert json.loads(err)["code"] == "index_not_available"
+    else:
+        assert err.startswith("index_not_available: ")
+    assert api.calls == []
+
+
+def test_index_as_an_option_value_stays_a_usage_error(api, capsys):
+    code, _, err = invoke(api, capsys, "--base-url", "index")
+    assert code == cli.EXIT_CLIENT_ERROR and err.startswith("usage_error: ")
 
 
 def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, tmp_path):
@@ -219,6 +269,79 @@ def test_run_refuses_bad_flags_before_any_upload(api, capsys, tmp_path, flags):
     path = tmp_path / "notes.md"
     path.write_bytes(b"# Notes\n")
     argv = ["run", "Find the fault", "--budget", "2.00", "--file", str(path), *flags]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "", err
+    assert api.calls == []
+
+
+RECORDED_CRAFTAX_RESOURCES = [
+    {
+        "plugin": "pool",
+        "version": 1,
+        "roles": ["planner", "worker"],
+        "limits": {"rollouts": 90, "spend_micros": 11000},
+        "selection": {},
+        "evaluation_templates": [
+            "sha256:5c6763bbbb0a481d071ccd340b02133e2a4907c3b1088d16c87bd1d9d40e6007"
+        ],
+    }
+]
+
+
+def test_run_sends_recorded_resources_exactly(api, capsys, tmp_path):
+    path = tmp_path / "resources.json"
+    path.write_text(json.dumps(RECORDED_CRAFTAX_RESOURCES))
+    argv = ["run", "Goal", "--budget", "10.00", "--resources", str(path)]
+    code, _, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_OK, err
+    launch = json.loads(next(r for oid, r in api.calls if oid == "createRun").content)
+    assert launch["resources"] == RECORDED_CRAFTAX_RESOURCES
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "{}",
+        "not json",
+        json.dumps([{**RECORDED_CRAFTAX_RESOURCES[0], "plugin": "other"}]),
+        json.dumps([{**RECORDED_CRAFTAX_RESOURCES[0], "local_cache": {"mode": "replay"}}]),
+    ],
+)
+def test_run_refuses_bad_resources_before_any_call(api, capsys, tmp_path, document):
+    path = tmp_path / "resources.json"
+    path.write_text(document)
+    upload = tmp_path / "notes.md"
+    upload.write_bytes(b"# Notes\n")
+    argv = ["run", "Goal", "--budget", "1.00", "--file", str(upload), "--resources", str(path)]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "", err
+    assert err.startswith("client_error: --resources ")
+    assert api.calls == []
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_run_refuses_unknown_topology_in_one_line(api, capsys, tmp_path, as_json):
+    """SYN-5666: the refusal detail is one line that names the field, not pydantic's dump."""
+    upload = tmp_path / "notes.md"
+    upload.write_bytes(b"# Notes\n")
+    argv = ["run", "Goal", "--budget", "1.00", "--file", str(upload)]
+    argv += ["--optimizer", "no_such_topology@1", *(["--json"] if as_json else [])]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_CLIENT_ERROR and out == "" and api.calls == [], err
+    assert err.count("\n") == 1, err
+    if as_json:
+        problem = json.loads(err)
+        assert problem["code"] == "client_error", err
+        detail = problem["detail"]
+    else:
+        assert err.startswith("client_error: "), err
+        detail = err.removeprefix("client_error: ")
+    assert "\n" not in detail.strip() and "--optimizer" in detail, err
+    assert "topology" in detail and "no_such_topology" in detail, err
+
+
+def test_run_refuses_unreadable_resources_file(api, capsys, tmp_path):
+    argv = ["run", "Goal", "--budget", "1.00", "--resources", str(tmp_path / "absent.json")]
     code, out, err = invoke(api, capsys, *argv)
     assert code == cli.EXIT_CLIENT_ERROR and out == "", err
     assert api.calls == []
@@ -342,7 +465,9 @@ def test_download_writes_verified_outputs(api, capsys, contract, tmp_path):
     assert code == cli.EXIT_CLIENT_ERROR and "not found" in err
 
 
-def serve_result(api, contract, answer, *, media_type="text/markdown", objective=None):
+def serve_result(
+    api, contract, answer, *, media_type="text/markdown", objective=None, result_file=None
+):
     """Serve getRunResult from whatever getRun currently returns (so charge edits apply)."""
     api.overrides["getRun"] = (200, snapshot_in(contract, "completed"))
     source = {
@@ -358,16 +483,50 @@ def serve_result(api, contract, answer, *, media_type="text/markdown", objective
         return httpx.Response(
             200,
             json={
+                "run_id": run["run_id"],
+                "status": run["state"],
+                "accounting": None,
                 "run": run,
                 "state": run["state"],
                 "answer": answer,
                 "answer_output": None if answer is None else source,
                 "objective_answer": objective,
                 "charge": run.get("charge"),
+                "attempt_tree": {
+                    "state": "unavailable",
+                    "run_id": run["run_id"],
+                    "code": "run_records_projection_unavailable",
+                    "stage": "run_result",
+                    "cause": "Canonical research record projection is unavailable for this cohort.",
+                },
+                "result_file": result_file,
             },
         )
 
     api.overrides["getRunResult"] = result
+
+
+def test_result_names_result_md_on_stderr(api, capsys, contract):
+    result_md = {
+        "run_id": RUN_ID,
+        "output_id": "out_BBBBBBBBBBBBBBBBBBBBBB",
+        "state": "available",
+        "filename": "result.md",
+        "reference": {
+            "revision_id": "rev",
+            "digest_sha256": "1" * 64,
+            "byte_size": "12",
+            "media_type": "text/markdown",
+        },
+    }
+    serve_result(api, contract, "The answer is 42.", result_file=result_md)
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer is 42.\n"
+    assert "result.md  out_BBBBBBBBBBBBBBBBBBBBBB" in err
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out)["result_file"]["output_id"] == "out_BBBBBBBBBBBBBBBBBBBBBB"
 
 
 def serve_answer(api, contract, text):
@@ -386,6 +545,8 @@ def test_result_prints_the_answer_or_the_run_result(api, capsys, contract):
     assert document["answer"] == "The answer is 42."
     assert document["answer_output"]["output_id"] == "out_AAAAAAAAAAAAAAAAAAAAAA"
     assert document["objective_answer"] is None
+    assert document["attempt_tree"]["state"] == "unavailable"
+    assert document["attempt_tree"]["code"] == "run_records_projection_unavailable"
     assert len(out.strip().splitlines()) == 1
 
 
@@ -410,14 +571,35 @@ def test_result_prints_an_objective_answer(api, capsys, contract):
     assert document["objective_answer"]["objective_id"] == "codename"
 
 
-def test_upload_in_an_unsupported_format_is_a_typed_refusal(api, capsys, tmp_path):
+def test_binary_upload_uses_prepare_protocol_without_a_format_allowlist(api, capsys, tmp_path):
     pdf = tmp_path / "paper.pdf"
-    pdf.write_bytes(b"%PDF-1.4")
+    content = b"%PDF-1.4\x00\xff"
+    pdf.write_bytes(content)
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="paper.pdf",
+        media_type="application/octet-stream",
+        size_bytes=len(content),
+        digest_sha256=hashlib.sha256(content).hexdigest(),
+    )
+
+    def prepare(request):
+        assert json.loads(request.content) == {
+            "name": "paper.pdf",
+            "media_type": "application/octet-stream",
+            "size_bytes": len(content),
+            "digest_sha256": file["digest_sha256"],
+        }
+        return httpx.Response(
+            201,
+            json={"upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA", "state": "committed", "file": file},
+        )
+
+    api.overrides["createUpload"] = prepare
     code, out, err = invoke(api, capsys, "upload", str(pdf))
-    assert code == cli.EXIT_SERVER_REFUSAL and out == ""
-    assert err.startswith("upload_format_unsupported: ")
-    assert "text/plain, text/markdown, application/json" in err
-    assert not api.calls
+    assert code == cli.EXIT_OK and err == ""
+    assert "paper.pdf" in out
+    assert [operation for operation, _ in api.calls] == ["createUpload"]
 
 
 def test_result_without_a_text_answer_says_so(api, capsys, contract):
@@ -531,18 +713,6 @@ def test_result_without_charge_prints_no_charge_line(api, capsys, contract):
     assert json.loads(out)["charge"] is None
 
 
-def test_evaluation_wait_deadline_is_a_structured_cli_error(api, capsys, contract):
-    _, body = example(contract, "getEvaluation")
-    body["status"] = "running"
-    api.overrides["getEvaluation"] = (200, body)
-    code, out, err = invoke(
-        api, capsys, "evaluations", "wait", body["evaluation_id"], "--timeout", "0.02", "--json"
-    )
-    assert code == cli.EXIT_WAIT_TIMEOUT, err
-    assert out == ""
-    assert json.loads(err)["code"] == "wait_timeout"
-
-
 def test_run_reuses_explicit_launch_and_per_file_keys(api, capsys, contract, tmp_path):
     path = tmp_path / "task.md"
     content = b"# Task\n"
@@ -628,3 +798,174 @@ def test_upload_failure_prints_recovery_identity(api, capsys, contract, tmp_path
         assert "upload_id=upl_AAAAAAAAAAAAAAAAAAAAAA" in err
         assert f"idempotency_key={key}" in err
     assert all(oid != "createRun" for oid, _ in api.calls)
+
+
+def test_directory_upload_requires_explicit_single_root_and_retry_key(api, capsys, tmp_path):
+    for arguments in (
+        ["upload", "--directory", str(tmp_path)],
+        ["upload", "--directory", str(tmp_path), str(tmp_path), "--idempotency-key", "batch"],
+    ):
+        code, _, error = invoke(api, capsys, *arguments)
+        assert code == cli.EXIT_CLIENT_ERROR
+        assert "one path and --idempotency-key" in error
+        assert api.calls == []
+
+
+def test_directory_upload_cli_preserves_binary_names_and_retry_identity(api, capsys, tmp_path):
+    root = tmp_path / "bundle"
+    (root / "nested").mkdir(parents=True)
+    content = b"\x00\xffbinary"
+    (root / "nested" / "policy.bin").write_bytes(content)
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="nested/policy.bin",
+        media_type="application/octet-stream",
+        size_bytes=len(content),
+        digest_sha256=hashlib.sha256(content).hexdigest(),
+    )
+    api.overrides["createUpload"] = (
+        201,
+        {
+            "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+            "state": "committed",
+            "file": file,
+        },
+    )
+    for _ in range(2):
+        code, output, error = invoke(
+            api,
+            capsys,
+            "upload",
+            "--directory",
+            str(root),
+            "--idempotency-key",
+            "directory-batch",
+            "--json",
+        )
+        assert code == 0, error
+        assert json.loads(output)[0]["name"] == "nested/policy.bin"
+    assert [operation for operation, _ in api.calls] == ["createUpload", "createUpload"]
+    first, second = [request for _, request in api.calls]
+    assert first.headers["Idempotency-Key"] == second.headers["Idempotency-Key"]
+    assert json.loads(first.content)["digest_sha256"] == hashlib.sha256(content).hexdigest()
+
+
+def test_directory_upload_cli_reports_partial_custody(api, capsys, tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "a.bin").write_bytes(b"a")
+    (root / "b.bin").write_bytes(b"b")
+    _, file = example(api.contract, "uploadFile")
+    file.update(
+        name="a.bin",
+        media_type="application/octet-stream",
+        size_bytes=1,
+        digest_sha256=hashlib.sha256(b"a").hexdigest(),
+    )
+
+    def partial(request):
+        if json.loads(request.content)["name"] == "a.bin":
+            return httpx.Response(
+                201,
+                json={
+                    "upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA",
+                    "state": "committed",
+                    "file": file,
+                },
+            )
+        return httpx.Response(503, json={"code": "unavailable"})
+
+    api.overrides["createUpload"] = partial
+    code, output, error = invoke(
+        api,
+        capsys,
+        "upload",
+        "--directory",
+        str(root),
+        "--idempotency-key",
+        "partial-batch",
+        "--json",
+    )
+    assert code == cli.EXIT_CLIENT_ERROR
+    assert output == ""
+    receipt = json.loads(error)
+    assert receipt["code"] == "directory_upload_incomplete"
+    assert receipt["name"] == "b.bin"
+    assert receipt["idempotency_key"] == "partial-batch"
+    assert receipt["file_idempotency_key"]
+    assert receipt["completed_files"][0]["name"] == "a.bin"
+
+
+def test_login_device_shows_the_code_and_never_the_device_code(capsys):
+    from synth_ai._auth_models import DeviceAuthorization
+
+    cli.show_device_code(
+        DeviceAuthorization(
+            device_code="synth_odc_v1_secret",
+            user_code="BCDF-GHJK",
+            verification_uri="https://usesynth.ai/mcp/device",
+            verification_uri_complete="https://usesynth.ai/mcp/device?user_code=BCDF-GHJK",
+            expires_in=600,
+            interval=5,
+        )
+    )
+    err = capsys.readouterr().err
+    assert "BCDF-GHJK" in err and "https://usesynth.ai/mcp/device" in err
+    assert "synth_odc_v1_secret" not in err
+
+
+def test_login_device_and_no_browser_are_exclusive(capsys):
+    assert cli.main(["login", "--device", "--no-browser"]) != cli.EXIT_OK
+    assert "not allowed with argument --device" in capsys.readouterr().err
+
+
+ENVELOPE = json.loads(
+    (Path(__file__).parent / "fixtures" / "core_run_result_1_37_0.json").read_text()
+)
+
+
+def test_result_reports_the_run_status_and_final_accounting(api, capsys):
+    """Contract 1.37.0 (SYN-5637): `synth result` carries run_id, status and accounting."""
+    fixture = json.loads(json.dumps(ENVELOPE))
+    api.overrides["getRunResult"] = (200, fixture)
+    code, out, err = invoke(api, capsys, "result", RUN_ID, "--json")
+    assert code == cli.EXIT_OK, err
+    assert json.loads(out) == fixture
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert out == "The answer.\n"
+    assert "status  completed" in err.splitlines()
+    assert "accounting  0.10 USD (final)" in err.splitlines()
+    fixture.update(accounting=None, status="partial")
+    code, out, err = invoke(api, capsys, "result", RUN_ID)
+    assert code == cli.EXIT_OK, err
+    assert "status  partial" in err.splitlines()
+    assert "accounting  unavailable" in err.splitlines()
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_oversize_upload_surfaces_the_typed_upload_size_exceeded_refusal(
+    api, capsys, tmp_path, as_json
+):
+    """SYN-5666: an oversize file is Core's typed 422, not a generic client_error."""
+    path = tmp_path / "big.txt"
+    with path.open("wb") as stream:
+        stream.truncate(FILE_MAX_BYTES + 1)
+    argv = [
+        "run",
+        "Goal",
+        "--budget",
+        "1.00",
+        "--file",
+        str(path),
+        *(["--json"] if as_json else []),
+    ]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == cli.EXIT_SERVER_REFUSAL and out == "", err
+    if as_json:
+        problem = json.loads(err)
+        assert (problem["code"], problem["status"]) == ("upload_size_exceeded", 422)
+        assert problem["maximum_size_bytes"] == str(FILE_MAX_BYTES)
+    else:
+        assert err.startswith("upload_size_exceeded: "), err
+    assert api.calls == []

@@ -1,0 +1,21 @@
+{
+  "pre_fix_c4739811": {
+    "source": "B14 batches/B14/evidence/SYN-5723-core-overload-raw.json (installed Core c4739811)",
+    "status": 503,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "2"
+    },
+    "body": "{\"error\":{\"code\":\"overloaded\",\"service\":\"synth-backend\",\"stage\":\"inbound_admission\",\"detail\":{\"limit\":\"inbound_requests\",\"retry_after\":\"2\",\"retryable\":\"true\"}}}\n"
+  },
+  "fixed": {
+    "source": "Captured from Core's Bulkhead(NewInboundPool()) handler on synth-backend c4739811+f5311d62 (pick 939c5fe7), exe.dev VM go test, GET /v1/account with the customer pool full",
+    "status": 503,
+    "headers": {
+      "content-type": "application/problem+json",
+      "cache-control": "no-store",
+      "retry-after": "2"
+    },
+    "body": "{\"type\":\"https://docs.usesynth.ai/errors/overloaded\",\"title\":\"Service Unavailable\",\"status\":503,\"detail\":\"Service Unavailable\",\"instance\":\"urn:request:\",\"code\":\"overloaded\",\"service\":\"synth-backend\",\"stage\":\"inbound_admission\",\"outcome\":\"not_accepted\",\"retryable\":true}\n"
+  }
+}

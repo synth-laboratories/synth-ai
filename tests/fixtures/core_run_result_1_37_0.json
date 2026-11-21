@@ -1,0 +1,61 @@
+{
+  "run_id": "run_AAAAAAAAAAAAAAAAAAAAAA",
+  "status": "completed",
+  "accounting": {
+    "amount": {
+      "amount": "0.10",
+      "currency": "USD"
+    },
+    "final": true
+  },
+  "state": "completed",
+  "attempt_tree": {
+    "state": "unavailable",
+    "run_id": "run_AAAAAAAAAAAAAAAAAAAAAA",
+    "code": "run_records_projection_unavailable",
+    "stage": "run_result",
+    "cause": "Canonical research record projection is unavailable for this cohort."
+  },
+  "result_file": null,
+  "answer": "The answer.",
+  "answer_output": {
+    "run_id": "run_AAAAAAAAAAAAAAAAAAAAAA",
+    "output_id": "out_AAAAAAAAAAAAAAAAAAAAAA",
+    "state": "available",
+    "reference": {
+      "revision_id": "example",
+      "digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "byte_size": "11",
+      "media_type": "text/plain"
+    },
+    "filename": "answer.txt"
+  },
+  "objective_answer": null,
+  "charge": {
+    "amount": {
+      "amount": "0.10",
+      "currency": "USD"
+    },
+    "final": true
+  },
+  "run": {
+    "metadata": {},
+    "run_id": "run_AAAAAAAAAAAAAAAAAAAAAA",
+    "labels": {},
+    "labels_revision": 1,
+    "objectives": [],
+    "guidance_coverage": [],
+    "state": "completed",
+    "model": "example",
+    "provider": "example",
+    "result_available": true,
+    "execution_closed": true,
+    "accounting_final": true,
+    "cleanup_complete": true,
+    "problems": [],
+    "problems_observed": false,
+    "created_at": "2026-11-04T18:00:00Z",
+    "started_at": "2026-11-04T18:00:00Z",
+    "closed_at": "2026-11-04T18:10:00Z"
+  }
+}
