@@ -1,5 +1,8 @@
 """Validate the built wheel, source budget and isolated installation."""
 
+import argparse
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,16 +18,37 @@ def require(condition: bool, message: str) -> None:
 
 ROOT = Path(__file__).resolve().parents[1]
 version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-wheel = ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
-source_bytes = sum(
-    p.stat().st_size
-    for p in (ROOT / "synth_ai").rglob("*")
-    if p.is_file() and "__pycache__" not in p.parts
-)
+parser = argparse.ArgumentParser(description=__doc__)
+# An exact candidate (scripts/qualify_release.py); the default stays the checkout's dist wheel.
+parser.add_argument("--wheel", type=Path)
+arguments = parser.parse_args()
+wheel = arguments.wheel or ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
+if arguments.wheel is None:
+    source_bytes = sum(
+        p.stat().st_size
+        for p in (ROOT / "synth_ai").rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts
+    )
+else:
+    # Measure the candidate's own package source, not whatever the checkout holds now.
+    with zipfile.ZipFile(wheel) as candidate:
+        source_bytes = sum(
+            member.file_size
+            for member in candidate.infolist()
+            if member.filename.startswith("synth_ai/") and not member.is_dir()
+        )
 require(wheel.stat().st_size < 150 * 1024, "package acceptance invariant failed")
 # 0.32 added the task-verb CLI, run results and stream recovery (about 274 KiB).
-# The bound catches an accidental vendored tree, not ordinary growth.
-require(source_bytes < 400 * 1024, "package acceptance invariant failed")
+# Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
+# it to about 414 KiB: two operations' generated models, MCP tools and CLI views.
+# 0.41 public source docstrings and their generated sync copies add 44 KiB
+# (469,361 total source bytes). Keep a 480 KiB source cap and the unchanged
+# 150 KiB wheel cap; neither permits an accidental vendored dependency tree.
+source_limit = 480 * 1024
+require(
+    source_bytes < source_limit,
+    f"SDK source size {source_bytes} exceeds budget {source_limit} bytes",
+)
 with zipfile.ZipFile(wheel) as archive:
     require("synth_ai/py.typed" in archive.namelist(), "wheel must ship PEP 561 types")
     require(
@@ -68,7 +92,18 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         cwd=directory,
     )
     subprocess.run(
-        ["uv", "pip", "install", "--python", str(python), "--no-cache", str(wheel) + "[mcp]"],
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(python),
+            "--no-cache",
+            str(wheel) + "[mcp]",
+            "pytest",
+            "pytest-asyncio",
+            "pyyaml",
+        ],
         check=True,
     )
     subprocess.run(
@@ -77,10 +112,47 @@ with tempfile.TemporaryDirectory(prefix=".wheel-smoke-", dir=ROOT) as directory:
         cwd=directory,
     )
 
+    # Execute the published documentation against site-packages. Only fixtures,
+    # tests and customer docs are copied into the isolated runner directory.
+    for name in (
+        "docs/quickstart.md",
+        "docs/errors.md",
+        "docs/cli-migration-0.31-0.32.md",
+        "contracts/synth-v1.openapi.yaml",
+        "tests/conftest.py",
+        "tests/test_journey.py",
+        "tests/test_messages.py",
+        "tests/quickstart_examples.py",
+        "tests/test_error_guide.py",
+    ):
+        destination = Path(directory) / name
+        destination.parent.mkdir(exist_ok=True)
+        shutil.copyfile(ROOT / name, destination)
+    subprocess.run(
+        [
+            str(python),
+            "-I",
+            "-m",
+            "pytest",
+            "-q",
+            "--asyncio-mode=auto",
+            "--basetemp",
+            str(Path(directory) / "pytest-tmp"),
+            "tests/quickstart_examples.py",
+            "tests/test_error_guide.py",
+            "tests/test_journey.py",
+        ],
+        check=True,
+        cwd=directory,
+        env=dict(os.environ, PYTHONPATH="", PYTHONNOUSERSITE="1"),
+        timeout=120,
+    )
+
 print(
     {
         "wheel_bytes": wheel.stat().st_size,
         "package_source_bytes": source_bytes,
         "isolated_install": "passed",
+        "installed_quickstarts_and_error_guide": "passed",
     }
 )

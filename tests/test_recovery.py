@@ -98,7 +98,12 @@ async def test_retry_freezes_nested_payload_and_identity():
     def handle(request):
         calls.append(request)
         body["metadata"]["tags"].append("changed")
-        return httpx.Response(503, json=local_problem("busy", "admission").model_dump(mode="json"))
+        return httpx.Response(
+            503,
+            json=local_problem("busy", "admission")
+            .model_copy(update={"retryable": True})
+            .model_dump(mode="json"),
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         transport = Transport(

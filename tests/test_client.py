@@ -32,7 +32,9 @@ async def test_launch_exact_money_and_retry_identity(contract):
             return httpx.Response(
                 503,
                 headers={"Retry-After": "0"},
-                json=local_problem("unavailable", "admission").model_dump(mode="json"),
+                json=local_problem("unavailable", "admission")
+                .model_copy(update={"retryable": True})
+                .model_dump(mode="json"),
             )
         return httpx.Response(202, json=snapshot(contract))
 
@@ -164,7 +166,7 @@ def test_cli_inventory_and_task(tmp_path):
 
 
 def test_retry_wait_is_bounded():
-    assert retry_delay("61", 0) is None
+    assert retry_delay("61", 0) == 61
     assert retry_delay("0", 0) == 0
     assert retry_delay("garbage", 0) is None
 

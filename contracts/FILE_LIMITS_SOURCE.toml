@@ -1,0 +1,4 @@
+repository = "https://github.com/synth-laboratories/synth-backend"
+path = "contracts/public/file-limits.json"
+commit = "ee427bfb1c0f4119a790dca2c4d61d101d0e0741"
+sha256 = "7da6e162ff3d3faf0cd6f6ea85acaf1d6b0c61dadd2c632af5c8a50910405129"

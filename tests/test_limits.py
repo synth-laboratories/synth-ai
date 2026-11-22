@@ -75,3 +75,28 @@ async def test_update_limits_preserves_revision_and_idempotency(contract):
     }
     assert seen[0].method == "POST"
     assert seen[0].headers["Idempotency-Key"] == "fixed-revision-operation"
+
+
+def test_account_limit_preserves_override_authority():
+    from synth_ai._generated.models import LimitRow
+
+    row = LimitRow.model_validate(
+        {
+            "resource": "swarm_run",
+            "metric": "concurrency",
+            "window": "instant",
+            "cap": 25,
+            "current": 11,
+            "reset_at": None,
+            "source": "override",
+            "override": {
+                "override_id": "00000000-0000-0000-0000-000000000001",
+                "reason": "design_partner",
+                "expires_at": "2026-12-01T00:00:00Z",
+            },
+        }
+    )
+    assert row.source == "override"
+    assert row.override is not None
+    assert str(row.override.override_id) == "00000000-0000-0000-0000-000000000001"
+    assert row.override.reason == "design_partner"

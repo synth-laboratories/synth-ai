@@ -15,7 +15,13 @@ from ._generated.models import UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
 from ._retry import RetryPolicy
-from .errors import DataIntegrityError, SynthError, TransportFailureError, local_problem
+from .errors import (
+    DataIntegrityError,
+    SynthError,
+    TransportFailureError,
+    local_problem,
+    output_content_too_large,
+)
 
 
 class ArtifactTransfer:
@@ -66,6 +72,60 @@ class ArtifactTransfer:
             ) from error
         if response.status_code not in {200, 201, 204, 412}:
             raise SynthError("Upload transfer refused: HTTP " + str(response.status_code))
+
+    async def read_output(
+        self,
+        run_id: str,
+        output_id: str,
+        *,
+        revision_id: str,
+        digest_sha256: str,
+        max_bytes: int,
+    ) -> tuple[bytes, str]:
+        """Read a pinned output revision into memory, refusing past max_bytes.
+
+        Returns the bytes and the served Content-Type. Stops reading at the bound."""
+        route = (
+            OPERATIONS["getRunOutputContent"]["path"]
+            .replace("{run_id}", quote(run_id, safe=""))
+            .replace("{output_id}", quote(output_id, safe=""))
+        )
+        try:
+            async with asyncio.timeout(self.retry_policy.deadline_seconds):
+                async with self.client.stream(
+                    "GET",
+                    self.base_url + route,
+                    params={"revision_id": revision_id, "digest_sha256": digest_sha256},
+                    headers=self.headers(),
+                    follow_redirects=False,
+                    timeout=self.timeout,
+                ) as response:
+                    if not response.is_success:
+                        await raise_stream_error(response)
+                    if response.headers.get("X-Synth-Output-Revision", revision_id) != revision_id:
+                        raise DataIntegrityError(
+                            "output revision does not match the pinned reference"
+                        )
+                    declared = response.headers.get("Content-Length", "")
+                    if declared.isdigit() and int(declared) > max_bytes:
+                        raise output_content_too_large(int(declared), max_bytes, lower_bound=False)
+                    content = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        content += chunk
+                        if len(content) > max_bytes:
+                            raise output_content_too_large(
+                                len(content), max_bytes, lower_bound=True
+                            )
+                    media_type = str(
+                        response.headers.get("Content-Type", "application/octet-stream")
+                    )
+        except (httpx.TransportError, TimeoutError) as cause:
+            raise TransportFailureError(
+                local_problem("output_transfer_failed", "getRunOutputContent")
+            ) from cause
+        if hashlib.sha256(content).hexdigest() != digest_sha256:
+            raise DataIntegrityError("output digest does not match the pinned reference")
+        return bytes(content), media_type
 
     async def download_output(
         self,

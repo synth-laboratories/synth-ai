@@ -2,23 +2,45 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
+import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import httpx
+    from mcp.server import Server
     from mcp.types import CallToolResult, TextContent, Tool
 
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, JsonValue
 
-from .._generated.operations import OPERATIONS
+from .._retry import RetryPolicy
 from ..aclient import AsyncSynthClient
-from ..errors import InvalidRequestError, SwarmsAPIError, check_upload_format, local_problem
+from ..environments import Environment
+from ..errors import (
+    DirectoryUploadCancelledError,
+    DirectoryUploadError,
+    InvalidRequestError,
+    SwarmsAPIError,
+    check_upload_format,
+    local_problem,
+)
+from . import directory
+from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
 
 UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
 
 
-async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, JsonValue]) -> str:
+async def call_tool(
+    client: AsyncSynthClient,
+    name: str,
+    arguments: dict[str, JsonValue],
+    *,
+    upload_descriptor: int | None = None,
+) -> str:
+    if name == directory.NAME and upload_descriptor is not None:
+        return await directory.upload(client, upload_descriptor, arguments)
     tool = next((tool for tool in TOOLS if tool["name"] == name), None)
     if tool is None:
         raise ValueError("Unknown tool")
@@ -26,26 +48,9 @@ async def call_tool(client: AsyncSynthClient, name: str, arguments: dict[str, Js
     if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
         raise ValueError("Tool arguments do not match the contract")
     validate_arguments(tool["operationId"], schema, arguments)
-    op = OPERATIONS[tool["operationId"]]
-    path = TypeAdapter(dict[str, str]).validate_python(
-        {key: arguments[key] for key in op["path_params"]}, strict=True
-    )
-    query = TypeAdapter(dict[str, str | int | float | bool | None]).validate_python(
-        {key: arguments[key] for key in op["query_params"] if key in arguments}, strict=True
-    )
-    body = TypeAdapter(dict[str, JsonValue] | None).validate_python(
-        arguments.get("body"), strict=True
-    )
-    idempotency_key = TypeAdapter(str | None).validate_python(
-        arguments.get("idempotency_key"), strict=True
-    )
-    result = await client._transport.invoke(
-        tool["operationId"],
-        path=path,
-        query=query,
-        body=body,
-        idempotency_key=idempotency_key,
-    )
+    result = await dispatch(client, tool["operationId"], arguments)
+    if result is None:
+        return "null"  # The public operation has no representation or a nullable result.
     if isinstance(result, BaseModel):
         return result.model_dump_json(exclude_unset=True)
     raise ValueError("Unexpected tool response")
@@ -73,40 +78,111 @@ def validate_arguments(
         )
 
 
-async def serve() -> None:
+async def serve(
+    *,
+    environment: Environment | None = None,
+    upload_root: str | None = None,
+    http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
+) -> None:
+    """Serve the catalog on stdio.
+
+    `http_client` lets a harness route the public calls through its own
+    transport (for example a cached replay grant) while the stdio framing, tool
+    validation and dispatch stay this server's own. `retry_policy` lets a harness
+    that owns retries replace the SDK's per-operation loop; `None` keeps the default.
+    """
+    with directory.grant_root(upload_root) as descriptor:
+        await _serve(
+            environment=environment,
+            upload_descriptor=descriptor,
+            http_client=http_client,
+            retry_policy=retry_policy,
+        )
+
+
+async def _serve(
+    *,
+    environment: Environment | None,
+    upload_descriptor: int | None,
+    http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
+) -> None:
     try:
-        from mcp.server import Server
         from mcp.server.stdio import stdio_server
-        from mcp.types import CallToolResult, TextContent, Tool
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
-    server = Server("synth")
-    async with AsyncSynthClient() as client:
-
-        async def list_tools() -> list[Tool]:
-            return [
-                Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
-                for t in TOOLS
-            ]
-
-        async def invoke(
-            name: str, arguments: dict[str, JsonValue]
-        ) -> list[TextContent] | CallToolResult:
-            try:
-                content = await call_tool(client, name, arguments)
-            except SwarmsAPIError as error:
-                return CallToolResult(
-                    isError=True,
-                    content=[TextContent(type="text", text=error.problem.model_dump_json())],
-                )
-            return [TextContent(type="text", text=content)]
-
-        server.list_tools()(list_tools)
-        # call_tool validates input itself so refusals are Problems, not schema text.
-        server.call_tool(validate_input=False)(invoke)
+    async with AsyncSynthClient(
+        environment=environment, http_client=http_client, retry_policy=retry_policy
+    ) as client:
+        server = build_server(client, upload_descriptor=upload_descriptor)
         async with stdio_server() as (reader, writer):
             await server.run(reader, writer, server.create_initialization_options())
 
 
+def refusal(error: SwarmsAPIError) -> str:
+    """The tool error text: the Problem, plus `retry_after_seconds` like the CLI's JSON.
+
+    MCP has no response headers, so the server's Retry-After rides beside the
+    Problem's own members instead of being dropped (SYN-5723).
+    """
+    if error.retry_after_seconds is None:
+        return error.problem.model_dump_json()
+    document = error.problem.model_dump(mode="json")
+    document["retry_after_seconds"] = error.retry_after_seconds
+    return json.dumps(document)
+
+
+def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> Server:
+    """The MCP server bound to an open client; the caller owns the client's lifetime."""
+    try:
+        from mcp.server import Server
+        from mcp.types import CallToolResult, TextContent, Tool
+    except ImportError as error:
+        raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
+    server = Server("synth")
+
+    async def list_tools() -> list[Tool]:
+        catalog = [
+            Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
+            for t in TOOLS
+        ]
+        if upload_descriptor is not None:
+            catalog.append(
+                Tool(
+                    name=directory.NAME,
+                    description=directory.DESCRIPTION,
+                    inputSchema=directory.SCHEMA,
+                )
+            )
+        return catalog
+
+    async def invoke(
+        name: str, arguments: dict[str, JsonValue]
+    ) -> list[TextContent] | CallToolResult:
+        try:
+            content = await call_tool(client, name, arguments, upload_descriptor=upload_descriptor)
+        except (DirectoryUploadError, DirectoryUploadCancelledError) as error:
+            return CallToolResult(
+                isError=True, content=[TextContent(type="text", text=directory.failure(error))]
+            )
+        except SwarmsAPIError as error:
+            return CallToolResult(
+                isError=True, content=[TextContent(type="text", text=refusal(error))]
+            )
+        return [TextContent(type="text", text=content)]
+
+    server.list_tools()(list_tools)
+    # call_tool validates input itself so refusals are Problems, not schema text.
+    server.call_tool(validate_input=False)(invoke)
+    return server
+
+
 def main() -> None:
-    asyncio.run(serve())
+    parser = argparse.ArgumentParser(prog="synth-ai-mcp")
+    parser.add_argument("--env", type=Environment, choices=tuple(Environment))
+    parser.add_argument(
+        "--upload-root", help="Grant upload of exactly this absolute local directory"
+    )
+    options = parser.parse_args()
+    asyncio.run(serve(environment=options.env, upload_root=options.upload_root))

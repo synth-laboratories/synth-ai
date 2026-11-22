@@ -60,7 +60,7 @@ def retry_delay(value: str | None, attempt: int) -> float | None:
             seconds = (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
         except (ValueError, TypeError, OverflowError):
             return None
-    return max(0, seconds) if math.isfinite(seconds) and seconds <= 60 else None
+    return max(0, seconds) if math.isfinite(seconds) else None
 
 
 def stream_refusal_retryable(problem: Problem) -> bool:
@@ -75,3 +75,32 @@ def stream_refusal_retryable(problem: Problem) -> bool:
     if problem.retryable is not None:
         return problem.retryable
     return (problem.code, problem.status) in _LEGACY_RETRYABLE_STREAM_REFUSALS
+
+
+# A send to a run whose admission is not yet committed is refused with this typed 503
+# before Core holds the body (SYN-5744). The refusal is retried under the same
+# Idempotency-Key, outside the operation's attempt and deadline bounds, for at most
+# this total budget; each wait is the server's Retry-After, capped.
+ADMISSION_PENDING_CODE = "run_message_admission_pending"
+ADMISSION_RETRY_BUDGET_SECONDS = 120.0
+ADMISSION_RETRY_WAIT_DEFAULT_SECONDS = 1.0
+ADMISSION_RETRY_WAIT_MAX_SECONDS = 60.0
+
+
+def admission_pending(problem: Problem | None, status: int) -> bool:
+    """Whether a refusal is Core's typed not-yet-admitted send refusal."""
+    return (
+        problem is not None
+        and status == 503
+        and problem.status == 503
+        and problem.code == ADMISSION_PENDING_CODE
+        and problem.retryable is not False
+    )
+
+
+def admission_wait(value: str | None) -> float:
+    """Retry-After seconds (or an HTTP date); missing or invalid waits 1 s; capped at 60 s."""
+    delay = retry_delay(value, 0) if value is not None else None
+    if delay is None:
+        delay = ADMISSION_RETRY_WAIT_DEFAULT_SECONDS
+    return min(ADMISSION_RETRY_WAIT_MAX_SECONDS, delay)

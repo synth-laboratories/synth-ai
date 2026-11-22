@@ -47,3 +47,7 @@ Live calls require the compatible Core cohort pinned in `contracts/SOURCE.toml`.
 The 0.31 cohort exposes a 32 KiB UTF-8 message limit; older server limits are not
 inferred from the Python package version. Publication and live release
 acceptance are separate from these offline recipes.
+
+For a bounded customer-owned Craftax launch with no pre-created resources, see
+[Craftax through Swarms](craftax_swarms/README.md). It records lifecycle evidence;
+benchmark pairing and installed release identity require separate verification.
