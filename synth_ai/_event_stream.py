@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator
 
 import httpx
 
-from ._generated.models import Problem, RunEvent
+from ._generated.models import Problem, RunEvent, RunMilestone
 from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH
 from ._stream import StreamCheckpoint, bounded_lines, frames
 from .errors import raise_problem
@@ -16,7 +16,7 @@ from .errors import raise_problem
 
 async def decode_events(
     response: httpx.Response, run_id: str, state: StreamCheckpoint
-) -> AsyncGenerator[RunEvent, None]:
+) -> AsyncGenerator[RunEvent | RunMilestone, None]:
     validate_stream_response(response)
     async for frame in frames(bounded_lines(response.aiter_bytes())):
         if frame.event == "error":
@@ -24,6 +24,18 @@ async def decode_events(
                 Problem.model_validate_json(frame.data),
                 request_id=response.headers.get("x-request-id"),
             )
+        if frame.event == "milestone":
+            milestone = RunMilestone.model_validate_json(frame.data)
+            if milestone.run_id != run_id:
+                raise ValueError("milestone belongs to another run")
+            if frame.id is None or not frame.id or len(frame.id) > CHECKPOINT_MAX_ID_LENGTH:
+                raise ValueError("milestone without a resumable cursor")
+            duplicate = frame.id == state.last_event_id
+            state.last_event_id = frame.id
+            state.pending_event_ids.clear()
+            if not duplicate:
+                yield milestone
+            continue
         if frame.event not in {"message", "event"}:
             raise ValueError("unknown event frame type")
         item = RunEvent.model_validate_json(frame.data) if frame.data else None

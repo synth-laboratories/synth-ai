@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import BinaryIO, TypeVar
 
 from ._limits import UPLOAD_MAX_BYTES
-from .errors import DataIntegrityError
+from .errors import DataIntegrityError, upload_size_exceeded
 
 T = TypeVar("T")
 CHUNK_BYTES = 64 << 10
@@ -31,10 +31,14 @@ class FileIO:
             except asyncio.CancelledError:
                 # A Python thread cannot be cancelled. Join it before allowing
                 # the caller to close/reuse a descriptor it may still access.
-                try:
-                    await task
-                finally:
-                    raise
+                # A second caller cancellation must not cancel the join either.
+                joined = asyncio.gather(task, return_exceptions=True)
+                while not joined.done():
+                    try:
+                        await asyncio.shield(joined)
+                    except asyncio.CancelledError:
+                        continue
+                raise
 
 
 @dataclass(frozen=True)
@@ -88,13 +92,13 @@ class FileSource:
         try:
             identity = FileIdentity.read(info)
             if identity.size > UPLOAD_MAX_BYTES:
-                raise ValueError("File exceeds the 32 MiB limit")
+                raise upload_size_exceeded(UPLOAD_MAX_BYTES)
             digest = hashlib.sha256()
             size = 0
             while chunk := stream.read(CHUNK_BYTES):
                 size += len(chunk)
                 if size > UPLOAD_MAX_BYTES:
-                    raise ValueError("File exceeds the 32 MiB limit")
+                    raise upload_size_exceeded(UPLOAD_MAX_BYTES)
                 digest.update(chunk)
             source = cls(path, stream, identity, digest.hexdigest())
             source.verify()

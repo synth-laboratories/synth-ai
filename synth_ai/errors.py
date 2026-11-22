@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import math
 from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
@@ -11,7 +13,9 @@ if TYPE_CHECKING:
 import httpx
 from pydantic import ValidationError
 
-from ._generated.models import Problem, ProblemOutcome, RunSnapshot, UploadFileRequestMediaType
+from ._generated.models import File, Problem, ProblemOutcome, RunSnapshot
+from ._limits import UPLOAD_MEDIA_TYPE_MAX_BYTES
+from ._retry import retry_delay
 
 
 class ErrorKind(StrEnum):
@@ -50,12 +54,11 @@ class PaginationError(SynthError, ValueError):
         self.cursor = cursor
 
 
-UPLOAD_FORMATS: tuple[str, ...] = tuple(m.value for m in UploadFileRequestMediaType)
-
-
 class SwarmsAPIError(SynthError):
     kind = ErrorKind.API
     checkpoint: StreamCheckpoint | None = None
+    retry_after_seconds: int | None = None
+    """The refusal's `Retry-After` in whole seconds, when the server sent one."""
 
     def __init__(
         self, problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
@@ -73,6 +76,10 @@ class SwarmsAPIError(SynthError):
 
 class InvalidRequestError(SwarmsAPIError):
     pass
+
+
+class LaunchValidationError(InvalidRequestError, ValueError):
+    """A local launch refusal; also preserves ValueError compatibility."""
 
 
 class UnauthenticatedError(SwarmsAPIError):
@@ -93,6 +100,18 @@ class NotFoundError(SwarmsAPIError):
 
 class ConflictError(SwarmsAPIError):
     pass
+
+
+class ContinueFromNotFoundError(NotFoundError):
+    """The parent run is absent or inaccessible in the caller's organization."""
+
+
+class ContinueFromNotTerminalError(ConflictError):
+    """The selected parent has not reached a terminal state."""
+
+
+class ContinueFromInputsUnavailableError(ConflictError):
+    """The parent's required retained input references are unavailable."""
 
 
 class LimitsRevisionConflictError(ConflictError):
@@ -123,7 +142,35 @@ class RateLimitedError(SwarmsAPIError):
 
 
 class UpstreamUnavailableError(SwarmsAPIError):
-    pass
+    """A 502/503/504 refusal.
+
+    For `run_message_admission_pending`, raised only after the SDK's bounded
+    same-key retry ran out: `attempts` counts requests sent and `elapsed_seconds`
+    the time spent; both are None for every other refusal.
+    """
+
+    attempts: int | None = None
+    elapsed_seconds: float | None = None
+
+
+class MessageTooLargeError(InvalidRequestError):
+    """The UTF-8 message body exceeds the public message limit."""
+
+
+class RunMessageRateLimitedError(RateLimitedError):
+    """The run's send allowance is exhausted; the Problem owns retryability."""
+
+
+class RunNotAcceptingMessagesError(ConflictError):
+    """The run cannot currently accept a customer message."""
+
+
+class RunMessageQueueFullError(ConflictError):
+    """The bounded customer queue has no capacity."""
+
+
+class MessagingUnavailableError(UpstreamUnavailableError):
+    """The run has no admitted customer messaging interface."""
 
 
 class ServerError(SwarmsAPIError):
@@ -150,11 +197,49 @@ class UpgradeRequiredError(SwarmsAPIError):
 class UploadFormatUnsupportedError(InvalidRequestError):
     """422 upload_format_unsupported: the media type is not an accepted upload format.
 
-    Raised by the SDK before any request for a format it knows Core refuses, and
-    mapped from the server's own refusal. `supported_formats` lists what is accepted.
+    Raised before transfer for a media type outside Core's bounded ASCII
+    type/subtype grammar. Binary media types are accepted.
     """
 
-    supported_formats: tuple[str, ...] = UPLOAD_FORMATS
+    maximum_media_type_bytes: ClassVar[int] = UPLOAD_MEDIA_TYPE_MAX_BYTES
+
+
+class UploadSizeExceededError(InvalidRequestError):
+    """422 upload_size_exceeded: the file is larger than Core accepts for one upload.
+
+    Raised before transfer for a file over `maximum_size_bytes` (16 MiB), and
+    mapped from Core's own 422. The Problem carries `maximum_size_bytes`.
+    """
+
+
+class OutputContentTooLargeError(InvalidRequestError):
+    """413 output_content_too_large_for_mcp: the output is over the MCP inline bound.
+
+    The Problem carries `byte_size` (a lower bound when `byte_size_lower_bound`),
+    `max_bytes` and `download_operation`; read it with `download_output` instead.
+    """
+
+
+def output_content_too_large(
+    byte_size: int, max_bytes: int, *, lower_bound: bool
+) -> OutputContentTooLargeError:
+    base = local_problem(
+        "output_content_too_large_for_mcp",
+        "getRunOutputContent",
+        status=413,
+        detail=f"output is {'over ' if lower_bound else ''}{byte_size} bytes; MCP returns at most {max_bytes}. Download it over HTTP (getRunOutputContent).",
+    )
+    return OutputContentTooLargeError(
+        Problem.model_validate(
+            {
+                **base.model_dump(),
+                "byte_size": byte_size,
+                "byte_size_lower_bound": lower_bound,
+                "max_bytes": max_bytes,
+                "download_operation": "getRunOutputContent",
+            }
+        )
+    )
 
 
 class LaunchBudgetBelowActorFloorError(InvalidRequestError):
@@ -204,6 +289,45 @@ class UploadTransferError(SynthError):
         self.idempotency_key = idempotency_key
 
 
+class DirectoryUploadError(SynthError):
+    """A partial directory upload retains committed files and retry identity."""
+
+    kind = ErrorKind.UPLOAD
+    code = "directory_upload_incomplete"
+
+    def __init__(
+        self,
+        name: str,
+        completed_files: tuple[File, ...],
+        idempotency_key: str,
+        file_idempotency_key: str,
+    ) -> None:
+        super().__init__(f"Directory upload is incomplete at {name}")
+        self.name = name
+        self.completed_files = completed_files
+        self.idempotency_key = idempotency_key
+        self.file_idempotency_key = file_idempotency_key
+
+
+class DirectoryUploadCancelledError(asyncio.CancelledError):
+    """Cancellation retains directory custody while remaining a CancelledError."""
+
+    code = "directory_upload_cancelled"
+
+    def __init__(
+        self,
+        name: str,
+        completed_files: tuple[File, ...],
+        idempotency_key: str,
+        file_idempotency_key: str,
+    ) -> None:
+        super().__init__(f"Directory upload cancelled at {name}")
+        self.name = name
+        self.completed_files = completed_files
+        self.idempotency_key = idempotency_key
+        self.file_idempotency_key = file_idempotency_key
+
+
 class ResponseContractError(SwarmsAPIError):
     """A response could not be decoded; mutation identity remains recoverable."""
 
@@ -219,6 +343,26 @@ class RunObservationError(SynthError):
         super().__init__(message)
         self.snapshot = snapshot
         self.run_id = snapshot.run_id if snapshot is not None else run_id
+
+
+class MessageReplyTimeoutError(RunObservationError):
+    """A local observation deadline; the server message remains unchanged."""
+
+    code = "message_reply_timeout"
+
+    def __init__(self, *, run_id: str, message_id: str) -> None:
+        super().__init__("Message reply was not observed before the deadline", run_id=run_id)
+        self.message_id = message_id
+
+
+class MessageReplyUnavailableError(RunObservationError):
+    """The feed reached finality without a correlated reply."""
+
+    code = "message_reply_unavailable"
+
+    def __init__(self, *, run_id: str, message_id: str) -> None:
+        super().__init__("Run closed without an observed message reply", run_id=run_id)
+        self.message_id = message_id
 
 
 class RunFailedError(RunObservationError):
@@ -259,6 +403,14 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
 
 
 _BY_CODE: dict[str, type[SwarmsAPIError]] = {
+    "continue_from_not_found": ContinueFromNotFoundError,
+    "continue_from_not_terminal": ContinueFromNotTerminalError,
+    "continue_from_inputs_unavailable": ContinueFromInputsUnavailableError,
+    "message_too_large": MessageTooLargeError,
+    "run_message_rate_limited": RunMessageRateLimitedError,
+    "run_not_accepting_messages": RunNotAcceptingMessagesError,
+    "run_message_queue_full": RunMessageQueueFullError,
+    "messaging_unavailable": MessagingUnavailableError,
     "limits_revision_conflict": LimitsRevisionConflictError,
     "limit_above_ceiling": LimitAboveCeilingError,
     "limit_still_reached": LimitStillReachedError,
@@ -266,6 +418,7 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "spend_entitlement_exceeded": SpendEntitlementExceededError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
+    "upload_size_exceeded": UploadSizeExceededError,
     "launch_budget_below_actor_floor": LaunchBudgetBelowActorFloorError,
     "provider_preset_not_allowed": ProviderPresetNotAllowedError,
     **dict.fromkeys(
@@ -362,16 +515,31 @@ def raise_for_response(response: httpx.Response) -> None:
         request_id=response.headers.get("x-request-id")
         or response.request.headers.get("x-request-id"),
         idempotency_key=response.request.headers.get("idempotency-key"),
+        retry_after_seconds=retry_after_seconds(response.headers.get("retry-after")),
     )
 
 
+def retry_after_seconds(value: str | None) -> int | None:
+    """Preserve delta-seconds or an HTTP date without rounding the server delay down."""
+    if value is None:
+        return None
+    delay = retry_delay(value, 0)
+    return math.ceil(delay) if delay is not None else None
+
+
 def raise_problem(
-    problem: Problem, *, request_id: str | None = None, idempotency_key: str | None = None
+    problem: Problem,
+    *,
+    request_id: str | None = None,
+    idempotency_key: str | None = None,
+    retry_after_seconds: int | None = None,
 ) -> None:
     kind = _BY_CODE.get(problem.code) or _BY_STATUS.get(
         problem.status, ServerError if problem.status >= 500 else InvalidRequestError
     )
-    raise kind(problem, request_id=request_id, idempotency_key=idempotency_key)
+    error = kind(problem, request_id=request_id, idempotency_key=idempotency_key)
+    error.retry_after_seconds = retry_after_seconds
+    raise error
 
 
 def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupportedError:
@@ -381,15 +549,35 @@ def upload_format_unsupported(media_type: str | None) -> UploadFormatUnsupported
             "upload_format_unsupported",
             "upload",
             status=422,
-            detail=f"{media_type or 'This file type'} is not supported. Supported upload formats: "
-            + ", ".join(UPLOAD_FORMATS)
-            + ".",
+            detail=f"Media type must be ASCII type/subtype without whitespace, at most {UPLOAD_MEDIA_TYPE_MAX_BYTES} bytes.",
         )
+    )
+
+
+def upload_size_exceeded(maximum_bytes: int) -> UploadSizeExceededError:
+    """The typed local refusal for a file over Core's per-upload byte limit."""
+    base = local_problem(
+        "upload_size_exceeded",
+        "upload",
+        status=422,
+        detail=f"File exceeds the {maximum_bytes}-byte upload limit.",
+    )
+    return UploadSizeExceededError(
+        Problem.model_validate({**base.model_dump(), "maximum_size_bytes": str(maximum_bytes)})
     )
 
 
 def check_upload_format(media_type: str | None) -> str:
     """Return `media_type` when Core accepts it as an upload, else raise the typed refusal."""
-    if media_type is None or media_type not in UPLOAD_FORMATS:
+    if media_type is None:
+        raise upload_format_unsupported(media_type)
+    slash = media_type.find("/")
+    if (
+        not media_type
+        or len(media_type) > UPLOAD_MEDIA_TYPE_MAX_BYTES
+        or slash <= 0
+        or slash == len(media_type) - 1
+        or any(ord(character) <= 32 or ord(character) >= 127 for character in media_type)
+    ):
         raise upload_format_unsupported(media_type)
     return media_type

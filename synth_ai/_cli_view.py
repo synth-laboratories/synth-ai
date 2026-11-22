@@ -17,14 +17,22 @@ from ._generated.models import (
     Balance,
     EventPage,
     File,
+    LaunchChoices,
     LimitList,
     LimitMeter,
     Money,
+    OAuthGrantRevoked,
     OutputPage,
+    PlanRequest,
+    PlanRequestList,
+    RunAllocation,
+    RunAllocationChoice,
     RunCharge,
     RunControlReceipt,
     RunEvent,
     RunLimitsProgress,
+    RunMessage,
+    RunMessagePage,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -67,17 +75,23 @@ def table(header: Sequence[str], rows: Sequence[Sequence[object]]) -> str:
 
 
 def snapshot(value: RunSnapshot) -> str:
-    return facts(
-        [
-            ("run", value.run_id),
-            ("state", value.state),
-            ("profile", value.profile.id if value.profile is not None else None),
-            ("model", value.model),
-            ("result", "available" if value.result_available else "pending"),
-            ("created", value.created_at),
-            ("closed", value.closed_at),
+    rows: list[tuple[str, object]] = [
+        ("run", value.run_id),
+        ("state", value.state),
+        ("profile", value.profile.id if value.profile is not None else None),
+        ("model", value.model),
+        ("result", "available" if value.result_available else "pending"),
+        ("created", value.created_at),
+        ("closed", value.closed_at),
+    ]
+    # Contract 1.32.0: only a run waiting for capacity carries its queue standing.
+    if value.queue is not None:
+        rows += [
+            ("queue", f"position {value.queue.position} ({value.queue.ahead} ahead)"),
+            ("starts", value.queue.estimated_start_at),
+            ("expires", value.queue.expires_at),
         ]
-    )
+    return facts(rows)
 
 
 def receipt(value: RunControlReceipt) -> str:
@@ -86,6 +100,22 @@ def receipt(value: RunControlReceipt) -> str:
 
 def event(value: RunEvent) -> str:
     return "  ".join([str(value.sequence).rjust(6), value.observed_at or "-", value.kind])
+
+
+def message(value: RunMessage) -> str:
+    """Keep retention unavailability distinct from a blank message."""
+    text = (
+        value.body.text
+        if value.body.kind == "available"
+        else "message no longer available (retention)"
+    )
+    return "  ".join([value.message_id, value.author, value.state.kind, text])
+
+
+def messages(value: RunMessagePage) -> str:
+    if value.availability.kind == "unavailable":
+        return value.availability.reason
+    return "\n".join(message(item) for item in value.items)
 
 
 def events(value: EventPage) -> str:
@@ -136,6 +166,97 @@ def saved(value: Sequence[SavedOutput]) -> str:
     return table(["OUTPUT", "PATH"], [[s.output.output_id, s.path] for s in value])
 
 
+def launch_choices(value: LaunchChoices) -> str:
+    text = facts(
+        [
+            ("menu revision", value.menu_revision),
+            ("run profile", value.run_profile),
+            ("domicile", value.domicile_requirement.value),
+            ("affordability", value.affordability.status.value),
+        ]
+    )
+    text += "\n\n" + table(
+        ["ACTOR", "ROLE", "DEFAULT INFERENCE", "DEFAULT SANDBOX", "PLANNER MAY DECIDE"],
+        [
+            [
+                r.actor_id,
+                r.role.value,
+                r.default_inference_profile,
+                r.default_sandbox_profile or "planner decides",
+                "yes" if r.planner_decides_allowed else "no",
+            ]
+            for r in value.roles
+        ],
+    )
+    text += "\n\n" + table(
+        ["INFERENCE", "MODEL", "EFFORT", "INPUT /1M", "OUTPUT /1M", "PER CALL CAP"],
+        [
+            [
+                p.profile_id,
+                p.model,
+                p.effort,
+                money(p.input_price_per_million_tokens),
+                money(p.output_price_per_million_tokens),
+                money(p.per_call_spend_cap),
+            ]
+            for p in value.inference_profiles
+        ],
+    )
+    text += "\n\n" + table(
+        ["SANDBOX", "SIZE", "DOMICILE", "HOURLY", "OPTIONS"],
+        [
+            [
+                s.profile_id,
+                s.size_id,
+                s.domicile.value,
+                money(s.hourly_price),
+                ("choose one of " if s.option_required else "") + str(len(s.options)),
+            ]
+            for s in value.sandbox_profiles
+        ],
+    )
+    if value.exclusions:
+        text += "\n\n" + table(
+            ["EXCLUDED", "KIND", "OPTION", "CAUSE"],
+            [[e.profile_id, e.kind.value, e.option_id, e.cause.value] for e in value.exclusions],
+        )
+    return text
+
+
+def _choice(value: RunAllocationChoice) -> str:
+    chosen = "planner decides" if value.profile_id is None else value.profile_id
+    return chosen + " (" + value.source.value + ")"
+
+
+def allocation(value: RunAllocation) -> str:
+    text = facts(
+        [
+            ("run", value.run_id),
+            ("menu revision", value.menu_revision),
+            ("final", "yes" if value.final else "no"),
+        ]
+    )
+    if value.actors:
+        text += "\n\n" + table(
+            ["ACTOR", "INFERENCE", "SANDBOX", "PLACED", "REPLACED", "CALLS", "COMPUTE"],
+            [
+                [
+                    a.actor_id,
+                    _choice(a.launch.inference),
+                    _choice(a.launch.sandbox),
+                    a.placements[-1].profile_id if a.placements else None,
+                    a.replacements,
+                    a.usage.calls,
+                    money(a.compute_charge)
+                    if a.compute_charge is not None
+                    else a.compute_metering.value,
+                ]
+                for a in value.actors
+            ],
+        )
+    return text
+
+
 def report(value: RunReport) -> str:
     rows: list[tuple[str, object]] = [
         ("run", value.run_id),
@@ -149,6 +270,24 @@ def report(value: RunReport) -> str:
         text += "\n\n" + table(
             ["PROVIDER", "MODEL", "CALLS", "CHARGE"],
             [[m.provider, m.model, m.calls, money(m.charge)] for m in value.by_model],
+        )
+    if value.sandboxes:
+        text += "\n\n" + table(
+            ["ACTOR", "SIZE", "DOMICILE", "READY MS", "COMPUTE"],
+            [
+                [
+                    item.profile.actor_id if item.profile is not None else item.role.value,
+                    item.profile.size_id
+                    if item.profile is not None
+                    else f"{item.cpu_millis / 1000:g} CPU / {item.memory_bytes / (1 << 30):g} GiB",
+                    item.profile.domicile.value if item.profile is not None else "unknown",
+                    item.time_to_ready_ms if item.time_to_ready_ms is not None else "unknown",
+                    money(item.compute_charge)
+                    if item.compute_charge is not None
+                    else item.compute_metering.value,
+                ]
+                for item in value.sandboxes
+            ],
         )
     return text
 
@@ -174,8 +313,27 @@ def result(value: RunResult) -> str:
     return summary
 
 
+def status_line(value: RunResult) -> str:
+    """The run's authoritative terminal outcome (completed, partial, failed or cancelled)."""
+    return "status  " + value.status
+
+
+def accounting_line(value: RunResult) -> str:
+    """The final ledger-backed charge, or that Core has no accounting reader for it."""
+    if value.accounting is None:
+        return "accounting  unavailable"
+    return "accounting  " + money(value.accounting.amount) + " (final)"
+
+
+def result_file_line(value: RunResult) -> str | None:
+    """The run's result.md output, read with `download RUN OUTPUT`; None when unavailable."""
+    if value.result_file is None:
+        return None
+    return "result.md  " + value.result_file.output_id
+
+
 def result_json(value: RunResult) -> str:
-    """`RunResult` as Core returned it: run, state, the answer, its source and the charge."""
+    """`RunResult` as Core returned it: run_id, status, accounting, the answer and the charge."""
     return value.model_dump_json(exclude_unset=True)
 
 
@@ -222,6 +380,32 @@ def limits(value: LimitList) -> str:
         )
         if value.items
         else ""
+    )
+
+
+def plan_request(value: PlanRequest) -> str:
+    return facts(
+        [
+            ("request", value.request_id),
+            ("state", value.state),
+            ("created", value.created_at),
+            ("decided", value.decided_at),
+            ("reason", value.decision_reason),
+        ]
+    )
+
+
+def oauth_grant_revoked(value: OAuthGrantRevoked) -> str:
+    return facts([("grant", value.grant_id), ("status", value.status), ("outcome", value.outcome)])
+
+
+def plan_requests(value: PlanRequestList) -> str:
+    return table(
+        ["REQUEST", "STATE", "CREATED", "DECIDED", "REASON"],
+        [
+            [i.request_id, i.state, i.created_at, i.decided_at, i.decision_reason]
+            for i in value.items
+        ],
     )
 
 

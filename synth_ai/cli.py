@@ -12,25 +12,33 @@ from pathlib import Path
 from typing import NoReturn, TypeVar
 
 import httpx
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
+from ._auth_models import DeviceAuthorization
+from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
-    CreateEvaluation,
-    EvaluationInput,
     InputFile,
     LaunchRequest,
+    MessageKind,
+    OptimizerPin,
+    OptimizerRequest,
+    OwnerResourceRequest,
+    RoleAssignment,
     RunInputs,
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
-from ._requests import launch_request
+from ._retry import RetryPolicy
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
+from .environments import Environment, resolve_base_url
 from .errors import (
+    DirectoryUploadError,
+    LaunchValidationError,
     ResponseContractError,
     RunPausedError,
     SwarmsAPIError,
@@ -41,6 +49,7 @@ from .errors import (
     WaitTimeoutError,
 )
 from .swarms import AsyncSwarms
+from .topologies import topology_name
 
 EXIT_OK = 0
 EXIT_CLIENT_ERROR = 1
@@ -52,16 +61,27 @@ UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
 DEFAULT_WAIT_SECONDS = 3600.0
 
 COMMANDS: dict[str, str] = {
-    "evaluations": "Register inputs and evaluate policies",
+    "content": "Save output content",
+    "labels": "Update run labels",
+    "files": "Files",
+    "uploads": "Upload records",
+    "keys": "API keys",
+    "organization": "Organization",
+    "inspect": "Run details",
+    "families": "Topology catalog",
+    "runs": "List runs",
     "login": "Sign in",
     "whoami": "Signed-in account",
     "logout": "Sign out",
     "profiles": "Run profiles",
+    "choices": "Per-role launch choices",
     "upload": "Upload files",
     "run": "Launch a run",
     "status": "Run state",
     "wait": "Wait for a run to finish",
     "logs": "Run events",
+    "message": "Send a run message",
+    "messages": "Run messages",
     "tasks": "Run tasks",
     "ls": "Recent runs",
     "pause": "Pause a run",
@@ -70,10 +90,14 @@ COMMANDS: dict[str, str] = {
     "outputs": "Run outputs",
     "download": "Download run outputs",
     "report": "Run report",
+    "allocation": "Per-actor allocation",
     "result": "Run answer",
     "usage": "Usage",
     "billing": "Balance",
     "limits": "Limits",
+    "plan": "Special Free plan requests",
+    "grants": "MCP OAuth grants (connected apps)",
+    "promo": "Promotional credit",
 }
 
 EPILOG = """exit codes:
@@ -97,6 +121,71 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
+def parse_optimizer(
+    value: str | None, *, max_tasks: int | None = None, max_repairs_per_task: int | None = None
+) -> OptimizerRequest | None:
+    """Parse the public optimizer selector; Core owns resolution and availability.
+
+    The two Swarms controls ride only on an explicit `swarms_v2@VERSION` pin, as Core
+    requires; `auto`, an omitted selector or another topology refuses them locally.
+    """
+    controls = {
+        name: number
+        for name, number in (
+            ("max_tasks", max_tasks),
+            ("max_repairs_per_task", max_repairs_per_task),
+        )
+        if number is not None
+    }
+    if value is None or value == "auto":
+        if controls:
+            raise UsageError(
+                "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
+            )
+        # Omitted selection uses Core's declared environment default.
+        return None if value is None else "auto"
+    topology, separator, version = value.partition("@")
+    if separator == "" or not version.isascii() or not version.isdecimal():
+        raise UsageError("optimizer must be auto or TOPOLOGY@VERSION")
+    if controls and topology != "swarms_v2":
+        raise UsageError(
+            "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
+        )
+    pin: dict[str, object] = {"topology": topology, "version": int(version)}
+    if controls:
+        pin["params"] = controls
+    try:
+        return OptimizerPin.model_validate(pin)
+    except ValidationError as error:
+        first = error.errors()[0]
+        where = ".".join(str(part) for part in first["loc"])
+        raise UsageError("--optimizer " + value + ": " + where + ": " + first["msg"]) from error
+
+
+RESOURCES = TypeAdapter(list[OwnerResourceRequest])
+
+
+def parse_resources(path: str | None) -> list[OwnerResourceRequest] | None:
+    """Read the public owner resource requests (the launch body's `resources` array)."""
+    if path is None:
+        return None
+    try:
+        document = Path(path).read_bytes()
+    except OSError as error:
+        raise UsageError(
+            "--resources file unreadable: " + path + ": " + error.__class__.__name__
+        ) from error
+    try:
+        resources = RESOURCES.validate_json(document)
+    except ValidationError as error:
+        first = error.errors()[0]
+        where = ".".join(str(part) for part in first["loc"]) or "document"
+        raise UsageError(
+            "--resources must be a JSON array of resource requests: " + where + ": " + first["msg"]
+        ) from error
+    return resources
+
+
 def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
     return str(
         uuid.uuid5(
@@ -111,6 +200,7 @@ def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None =
 def parser() -> argparse.ArgumentParser:
     root = Parser(prog="synth", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
     root.add_argument("--base-url")
+    root.add_argument("--env", dest="environment", type=Environment, choices=tuple(Environment))
     common = Parser(add_help=False)
     common.add_argument("--json", action="store_true", help="print the SDK record as JSON")
     verbs = root.add_subparsers(dest="command", required=True, metavar="COMMAND")
@@ -123,17 +213,54 @@ def parser() -> argparse.ArgumentParser:
     def add(name: str) -> argparse.ArgumentParser:
         return created[name]
 
-    add("login").add_argument("--no-browser", action="store_true")
+    runs = add("runs").add_subparsers(dest="runs_action", required=True)
+    runs_list = runs.add_parser("list", parents=[common])
+    runs_list.add_argument("--limit", type=int, default=20)
+    runs_list.add_argument("--cursor")
+    runs_list.add_argument("--state")
+    login = add("login").add_mutually_exclusive_group()
+    login.add_argument("--no-browser", action="store_true")
+    login.add_argument("--device", action="store_true")
     add("whoami")
+    promo = add("promo").add_subparsers(dest="promo_action", required=True)
+    redeem = promo.add_parser("redeem", parents=[common])
+    redeem.add_argument("code")
+    redeem.add_argument("--idempotency-key")
     add("logout")
     add("profiles").add_argument("--research-task")
-    add("upload").add_argument("paths", nargs="+", metavar="PATH")
+    choices = add("choices")
+    choices.add_argument("--profile")
+    choices.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
+    choices.add_argument("--parallel-workers", type=int, metavar="N")
+    choices.add_argument("--wall", type=int, metavar="SECONDS")
+    choices.add_argument("--budget", help="list choices this maximum charge cannot afford")
+    upload = add("upload")
+    upload.add_argument("paths", nargs="+", metavar="PATH")
+    upload.add_argument("--directory", action="store_true")
+    upload.add_argument("--idempotency-key")
     run = add("run")
-    run.add_argument("goal")
+    task = run.add_mutually_exclusive_group(required=True)
+    task.add_argument("goal", nargs="?")
+    task.add_argument("--task-file")
     run.add_argument("--budget", required=True)
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
+    run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
+    run.add_argument(
+        "--max-tasks",
+        type=int,
+        metavar="N",
+        help="Swarms work-plan tasks, 1..4096, at least --parallel-workers (needs swarms_v2 pin)",
+    )
+    run.add_argument(
+        "--max-repairs-per-task",
+        type=int,
+        metavar="N",
+        help="Swarms repairs per rejected task, 0..32 (needs swarms_v2 pin)",
+    )
+    run.add_argument("--continue-from", metavar="RUN")
     run.add_argument("--research-task")
+    run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
     run.add_argument("--file", action="append", default=[], metavar="PATH")
     run.add_argument(
         "--wall", type=int, metavar="SECONDS", help="unpaused run time, 1..86400 seconds"
@@ -147,9 +274,29 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--tokens", type=int)
     run.add_argument("--pause-retention", type=int, metavar="SECONDS")
     run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
+    run.add_argument(
+        "--resources",
+        metavar="PATH",
+        help="JSON array of resource requests, sent as the launch's resources",
+    )
+    run.add_argument(
+        "--assign",
+        action="append",
+        default=[],
+        metavar="ACTOR.DIMENSION=ID",
+        help="role choice from `synth choices`; DIMENSION is inference, sandbox or option",
+    )
+    run.add_argument(
+        "--planner-decides",
+        action="append",
+        default=[],
+        metavar="ACTOR.DIMENSION",
+        help="leave this worker's inference or sandbox to the planner",
+    )
+    run.add_argument("--menu-revision", help="menu_revision of the `synth choices` read")
     run.add_argument("--wait", action="store_true")
     run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
-    for name in ("status", "pause", "resume", "cancel", "report", "result"):
+    for name in ("status", "pause", "resume", "cancel", "report", "allocation", "result"):
         add(name).add_argument("run_id", metavar="RUN")
     wait = add("wait")
     wait.add_argument("run_id", metavar="RUN")
@@ -164,6 +311,18 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--cursor")
     logs.add_argument("--limit", type=int, default=100)
     logs.add_argument("--cursor")
+    message = add("message")
+    message.add_argument("run_id", metavar="RUN")
+    message.add_argument("text", metavar="TEXT")
+    message.add_argument("--kind", choices=tuple(MessageKind), default=MessageKind.GUIDANCE)
+    message.add_argument("--idempotency-key")
+    messages = add("messages")
+    messages.add_argument("run_id", metavar="RUN")
+    messages.add_argument("--cursor")
+    messages.add_argument("--limit", type=int, default=20)
+    message_mode = messages.add_mutually_exclusive_group()
+    message_mode.add_argument("--follow", action="store_true")
+    message_mode.add_argument("--message", dest="message_id", metavar="MESSAGE")
     ls = add("ls")
     ls.add_argument("--limit", type=int, default=20)
     ls.add_argument("--cursor")
@@ -173,7 +332,7 @@ def parser() -> argparse.ArgumentParser:
     download.add_argument("output_id", nargs="?", metavar="OUTPUT")
     download.add_argument("-o", "--out", default=".", metavar="DIR")
     add("usage").add_argument("run_id", nargs="?", metavar="RUN")
-    add("billing")
+    configure(created, common)
     limits = add("limits")
     limits.add_argument("run_id", nargs="?", metavar="RUN|set")
     limits.add_argument("set_run_id", nargs="?", metavar="RUN")
@@ -185,32 +344,19 @@ def parser() -> argparse.ArgumentParser:
     limits.add_argument("--resume", action="store_true")
     limits.add_argument("--reason")
     limits.add_argument("--idempotency-key")
-    for name in ("pause", "resume"):
+    for name in ("pause", "resume", "cancel"):
         add(name).add_argument("--idempotency-key")
-    evaluation_common = Parser(add_help=False)
-    evaluation_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
-    evaluation = add("evaluations").add_subparsers(dest="evaluation_action", required=True)
-    for action in ("register", "list", "input"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("kind", choices=("task", "pool", "policy", "evaluator", "dataset"))
-        if action == "register":
-            command.add_argument("file")
-            command.add_argument("--idempotency-key")
-        elif action == "input":
-            command.add_argument("revision_id")
-        else:
-            command.add_argument("--name")
-    for action in ("preflight", "create"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("file")
-        command.add_argument("--idempotency-key")
-    for action in ("get", "cancel", "wait"):
-        command = evaluation.add_parser(action, parents=[evaluation_common])
-        command.add_argument("evaluation_id")
-        if action == "cancel":
-            command.add_argument("--idempotency-key")
-        if action == "wait":
-            command.add_argument("--timeout", type=float, default=600)
+    plan_common = Parser(add_help=False)
+    plan_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    plan = add("plan").add_subparsers(dest="plan_action", required=True)
+    plan_request = plan.add_parser("request", parents=[plan_common])
+    plan_request.add_argument("--use-case", required=True)
+    plan_request.add_argument("--link", action="append", default=[], dest="links")
+    plan_request.add_argument("--idempotency-key")
+    plan.add_parser("requests", parents=[plan_common])
+    plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
+    grants = add("grants").add_subparsers(dest="grants_action", required=True)
+    grants.add_parser("revoke", parents=[plan_common]).add_argument("grant_id", metavar="GRANT")
     return root
 
 
@@ -222,10 +368,43 @@ def read_task(path: str) -> str:
         if len(found) != 1 or found[0].name not in {"task.md", "TASK.md", "task.txt"}:
             raise ValueError("task bundle must contain exactly one task text file")
         source = found[0]
-    raw = source.read_bytes()
+    with source.open("rb") as stream:
+        raw = stream.read(MESSAGE_MAX_BYTES + 1)
     if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
         raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
     return message_text(raw.decode("utf-8"))
+
+
+ASSIGN_FIELDS = {
+    "inference": "inference_profile",
+    "sandbox": "sandbox_profile",
+    "option": "sandbox_option",
+}
+
+
+def parse_role_assignments(
+    assign: Sequence[str], planner_decides: Sequence[str]
+) -> dict[str, RoleAssignment] | None:
+    """--assign worker.inference=luna-high and --planner-decides worker_2.sandbox."""
+    roles: dict[str, dict[str, JsonValue]] = {}
+    for value in assign:
+        target, sep, choice = value.partition("=")
+        actor, dot, dimension = target.partition(".")
+        if not sep or not dot or not actor or not choice or dimension not in ASSIGN_FIELDS:
+            raise ValueError("--assign must be ACTOR.inference|sandbox|option=ID: " + value)
+        fields = roles.setdefault(actor, {})
+        if ASSIGN_FIELDS[dimension] in fields:
+            raise ValueError("--assign names " + target + " twice")
+        fields[ASSIGN_FIELDS[dimension]] = choice
+    for value in planner_decides:
+        actor, dot, dimension = value.partition(".")
+        if not dot or not actor or dimension not in ("inference", "sandbox"):
+            raise ValueError("--planner-decides must be ACTOR.inference|sandbox: " + value)
+        decided = roles.setdefault(actor, {}).setdefault("planner_decides", [])
+        if not isinstance(decided, list) or dimension in decided:
+            raise ValueError("--planner-decides names " + value + " twice")
+        decided.append(dimension)
+    return {actor: RoleAssignment.model_validate(fields) for actor, fields in roles.items()} or None
 
 
 def parse_labels(values: Sequence[str]) -> dict[str, str] | None:
@@ -264,41 +443,107 @@ def finished_code(snapshot: RunSnapshot) -> int:
     return EXIT_RUN_UNSUCCESSFUL if snapshot.state in UNSUCCESSFUL_STATES else EXIT_OK
 
 
-async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | None) -> int:
+async def execute(
+    args: argparse.Namespace,
+    http_client: httpx.AsyncClient | None,
+    retry_policy: RetryPolicy | None = None,
+) -> int:
     out = Output(args.json)
-    async with AsyncSynthClient(base_url=args.base_url, http_client=http_client) as client:
+    async with AsyncSynthClient(
+        base_url=args.base_url,
+        environment=args.environment,
+        http_client=http_client,
+        retry_policy=retry_policy,
+    ) as client:
         swarms = client.swarms
         command = str(args.command)
-        if command == "evaluations":
-            result = await execute_evaluation(swarms, args)
-            out.record(result, lambda record: record.model_dump_json(exclude_unset=True))
+        if command in {
+            "files",
+            "uploads",
+            "keys",
+            "organization",
+            "inspect",
+            "content",
+            "labels",
+        } or (command == "billing" and args.resource_action is not None):
+            value = await execute_resource(client, args)
+            print(
+                "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
+            )
+        elif command == "families":
+            catalog = await swarms.families()
+            if args.json:
+                print(catalog.model_dump_json(exclude_unset=True), flush=True)
+            else:
+                for entry in catalog.topologies or []:
+                    print(
+                        f"{topology_name(entry)}\t{entry.topology}@{entry.version}"
+                        f"\t{entry.availability}",
+                        flush=True,
+                    )
+        elif command == "promo":
+            value = await client.account.redeem_promo(
+                args.code, idempotency_key=args.idempotency_key
+            )
+            print(value.model_dump_json(), flush=True)
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
             out.record(await swarms.profiles(research_task=args.research_task), view.profiles)
+        elif command == "choices":
+            out.record(
+                await swarms.launch_choices(
+                    profile=args.profile,
+                    domicile_requirement=args.domicile,
+                    parallel_workers=args.parallel_workers,
+                    wall_time_seconds=args.wall,
+                    budget=args.budget,
+                ),
+                view.launch_choices,
+            )
         elif command == "upload":
-            out.records([await swarms.upload_file(path) for path in args.paths], view.files)
+            if args.directory:
+                if len(args.paths) != 1 or not args.idempotency_key:
+                    raise UsageError("directory upload requires one path and --idempotency-key")
+                files = await swarms.upload_directory(
+                    args.paths[0], idempotency_key=args.idempotency_key
+                )
+            else:
+                if args.idempotency_key:
+                    raise UsageError("--idempotency-key requires --directory")
+                files = [await swarms.upload_file(path) for path in args.paths]
+            out.records(files, view.files)
         elif command == "run":
             if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
                 raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
-            request = launch_request(
-                args.goal,
+            if (args.goal is None) == (args.task_file is None):
+                raise UsageError("provide a goal or --task-file")
+            goal = read_task(args.task_file) if args.task_file is not None else args.goal
+            request = swarms.prepare_launch(
+                goal,
                 budget=args.budget,
                 profile=args.profile,
                 research_task=args.research_task,
+                domicile_requirement=args.domicile,
                 wall_time_seconds=args.wall,
                 maximum_tokens=args.tokens,
                 pause_retention_seconds=args.pause_retention,
                 parallel_workers=args.parallel_workers,
                 inputs=None,
                 labels=parse_labels(args.label),
-                resources=None,
+                resources=parse_resources(args.resources),
                 routing=None,
                 guidance=None,
-                profile_requirements=swarms._profile_requirements,
-                default_profile=swarms._default_profile,
+                role_assignments=parse_role_assignments(args.assign, args.planner_decides),
+                launch_menu_revision=args.menu_revision,
+                optimizer=parse_optimizer(
+                    args.optimizer,
+                    max_tasks=args.max_tasks,
+                    max_repairs_per_task=args.max_repairs_per_task,
+                ),
+                continue_from=args.continue_from,
             )
             uploaded = [
                 await swarms.upload_file(
@@ -363,7 +608,28 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
         elif command == "tasks":
             page = await swarms.tasks(args.run_id, cursor=args.cursor, limit=args.limit)
             out.record(page, view.tasks)
-        elif command == "ls":
+        elif command == "message":
+            out.record(
+                await swarms.send_message(
+                    args.run_id,
+                    args.text,
+                    kind=MessageKind(args.kind),
+                    idempotency_key=args.idempotency_key or mutation_key("message", args.run_id),
+                ),
+                view.message,
+            )
+        elif command == "messages":
+            if args.message_id is not None:
+                out.record(await swarms.message(args.run_id, args.message_id), view.message)
+            elif args.follow:
+                async for item in swarms.follow_messages(args.run_id):
+                    out.record(item, view.message)
+            else:
+                out.record(
+                    await swarms.messages(args.run_id, cursor=args.cursor, limit=args.limit),
+                    view.messages,
+                )
+        elif command in {"ls", "runs"}:
             page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
             out.record(page, view.runs)
         elif command == "pause":
@@ -383,7 +649,10 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 view.receipt,
             )
         elif command == "cancel":
-            out.record(await swarms.cancel(args.run_id), view.snapshot)
+            out.record(
+                await swarms.cancel(args.run_id, idempotency_key=args.idempotency_key),
+                view.snapshot,
+            )
         elif command == "outputs":
             page = await swarms.outputs(args.run_id, cursor=args.cursor, limit=args.limit)
             out.record(page, view.outputs)
@@ -391,12 +660,20 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
             out.records(await download(swarms, args.run_id, args.output_id, args.out), view.saved)
         elif command == "report":
             out.record(await swarms.report(args.run_id), view.report)
+        elif command == "allocation":
+            out.record(await swarms.allocation(args.run_id), view.allocation)
         elif command == "result":
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
+            if not args.json:
+                print(view.status_line(finished), file=sys.stderr, flush=True)
+                print(view.accounting_line(finished), file=sys.stderr, flush=True)
             closing = view.charge_line(finished.charge)
             if closing is not None and not args.json:
                 print(closing, file=sys.stderr, flush=True)
+            markdown = view.result_file_line(finished)
+            if markdown is not None and not args.json:
+                print(markdown, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)
@@ -429,37 +706,24 @@ async def execute(args: argparse.Namespace, http_client: httpx.AsyncClient | Non
                 out.record(await client.account.limits(), view.limits)
             else:
                 out.record(await swarms.limits(args.run_id), view.run_limits)
+        elif command == "plan":
+            if args.plan_action == "request":
+                # The use case is customer content: it goes to the SDK and nowhere else.
+                request = await client.account.request_special_free(
+                    use_case=args.use_case, links=args.links, idempotency_key=args.idempotency_key
+                )
+                out.record(request, view.plan_request)
+            elif args.plan_action == "requests":
+                out.record(await client.account.plan_requests(), view.plan_requests)
+            else:
+                withdrawn = await client.account.withdraw_plan_request(args.request_id)
+                out.record(withdrawn, view.plan_request)
+        elif command == "grants":
+            revoked = await client.account.revoke_oauth_grant(args.grant_id)
+            out.record(revoked, view.oauth_grant_revoked)
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK
-
-
-async def execute_evaluation(swarms: AsyncSwarms, args: argparse.Namespace) -> BaseModel:
-    action = args.evaluation_action
-    if action == "register":
-        payload = TypeAdapter(EvaluationInput).validate_json(Path(args.file).read_bytes())
-        return await swarms.register_evaluation_input(
-            args.kind, payload, idempotency_key=args.idempotency_key
-        )
-    if action == "list":
-        return await swarms.evaluation_inputs(args.kind, name=args.name)
-    if action == "input":
-        return await swarms.evaluation_input(args.kind, args.revision_id)
-    if action in {"preflight", "create"}:
-        payload = CreateEvaluation.model_validate_json(Path(args.file).read_bytes())
-        method = swarms.preflight_evaluation if action == "preflight" else swarms.evaluate
-        return await method(
-            payload.request,
-            maximum_charge_micros=payload.maximum_charge_micros,
-            idempotency_key=args.idempotency_key,
-        )
-    if action == "cancel":
-        return await swarms.cancel_evaluation(
-            args.evaluation_id, idempotency_key=args.idempotency_key
-        )
-    if action == "wait":
-        return await swarms.wait_evaluation(args.evaluation_id, timeout=args.timeout)
-    return await swarms.evaluation(args.evaluation_id)
 
 
 async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
@@ -503,21 +767,35 @@ def paste_redirect(authorization: str) -> str:
     return str(sys.stdin.readline())
 
 
+def show_device_code(device: DeviceAuthorization) -> None:
+    print(
+        f"Open {device.verification_uri} and enter {device.user_code}",
+        file=sys.stderr,
+        flush=True,
+    )
+    if device.verification_uri_complete is not None:
+        print(device.verification_uri_complete, file=sys.stderr, flush=True)
+
+
 def run_auth(args: argparse.Namespace) -> int:
     out = Output(args.json)
-    if args.command == "login":
+    base_url = resolve_base_url(args.base_url, args.environment)
+    if args.command == "login" and args.device:
+        auth.login_device(base_url, show=show_device_code)
+    elif args.command == "login":
         auth.login(
-            args.base_url,
+            base_url,
             open_browser=not args.no_browser,
             redirect_source=paste_redirect if args.no_browser else None,
         )
     else:
-        auth.logout(args.base_url)
-    out.record(auth.status(args.base_url), view.auth_status)
+        auth.logout(base_url)
+    out.record(auth.status(base_url), view.auth_status)
     return EXIT_OK
 
 
 def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None) -> None:
+    detail = " ".join(detail.split())  # A refusal detail is one line (SYN-5666).
     if as_json:
         body = (
             problem.model_dump_json()
@@ -529,31 +807,59 @@ def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None
         print(code + ": " + detail, file=sys.stderr, flush=True)
 
 
+# Core answers /v1/index/* with 404 index_not_available; the CLI names the same code
+# locally, before any request, since it has no Index command (SYN-5666).
+INDEX_NOT_AVAILABLE = (
+    "Index is not available on the Swarms API; launch a run with files and a message."
+)
+
+
+# Root options that take a value; the command is the first token after them.
+ROOT_VALUE_OPTIONS = frozenset({"--base-url", "--env"})
+
+
+def index_requested(raw: Sequence[str]) -> bool:
+    tokens = iter(raw)
+    for item in tokens:
+        if item in ROOT_VALUE_OPTIONS:
+            next(tokens, None)
+        elif not item.startswith("-"):
+            return item == "index"
+    return False
+
+
 def upgrade_hint(error: UpgradeRequiredError) -> str:
     minimum = "" if error.minimum_version is None else f" (minimum {error.minimum_version})"
     return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
 
 
-def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    retry_policy: RetryPolicy | None = None,
+) -> int:
+    """Run one CLI command. `retry_policy` lets a harness that owns retries (one attempt per
+    delivery) replace the SDK's per-operation retry loop; `None` keeps the customer default."""
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
     try:
         args = parser().parse_args(raw)
     except UsageError as error:
-        fail("usage_error", str(error), as_json)
+        if index_requested(raw):
+            fail("index_not_available", INDEX_NOT_AVAILABLE, as_json)
+        else:
+            fail("usage_error", str(error), as_json)
         return EXIT_CLIENT_ERROR
     try:
         if args.command in {"login", "logout"}:
             return run_auth(args)
-        return asyncio.run(execute(args, http_client))
+        return asyncio.run(execute(args, http_client, retry_policy))
     except RunPausedError as error:
         fail(error.code, str(error), as_json)
         return EXIT_RUN_PAUSED
     except WaitTimeoutError as error:
         fail(error.code, str(error), as_json)
-        return EXIT_WAIT_TIMEOUT
-    except TimeoutError:
-        fail("wait_timeout", "Evaluation did not finish before the wait deadline", as_json)
         return EXIT_WAIT_TIMEOUT
     except (TransportFailureError, ResponseContractError) as error:
         fail(error.problem.code, error.problem.detail, as_json, error.problem)
@@ -564,8 +870,31 @@ def main(argv: Sequence[str] | None = None, *, http_client: httpx.AsyncClient | 
             print(upgrade_hint(error), file=sys.stderr, flush=True)
         return EXIT_SERVER_REFUSAL
     except SwarmsAPIError as error:
-        fail(error.problem.code, error.problem.detail, as_json, error.problem)
-        return EXIT_SERVER_REFUSAL
+        if error.retry_after_seconds is None:
+            fail(error.problem.code, error.problem.detail, as_json, error.problem)
+        elif as_json:
+            # The wait arrives as a header; carry it beside the problem's own members.
+            document = error.problem.model_dump(mode="json")
+            document["retry_after_seconds"] = error.retry_after_seconds
+            print(json.dumps(document), file=sys.stderr, flush=True)
+        else:
+            fail(error.problem.code, error.problem.detail, False)
+            print(f"retry after {error.retry_after_seconds} seconds", file=sys.stderr, flush=True)
+        return (
+            EXIT_CLIENT_ERROR if isinstance(error, LaunchValidationError) else EXIT_SERVER_REFUSAL
+        )
+    except DirectoryUploadError as error:
+        receipt = {
+            "code": error.code,
+            "name": error.name,
+            "idempotency_key": error.idempotency_key,
+            "file_idempotency_key": error.file_idempotency_key,
+            "completed_files": [file.model_dump(mode="json") for file in error.completed_files],
+        }
+        # A partial upload is not rolled back. Keep the committed identities and
+        # caller's retry key on stderr in either output mode.
+        print(json.dumps(receipt), file=sys.stderr, flush=True)
+        return EXIT_CLIENT_ERROR
     except UploadTransferError as error:
         if as_json:
             print(

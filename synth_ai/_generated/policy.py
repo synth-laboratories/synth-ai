@@ -7,6 +7,7 @@ SDK_OAUTH_SCOPES = (
     "synth:read",
     "synth:action",
 )
-MESSAGE_MAX_BYTES = 32768
-PROFILE_REQUIRES_RESEARCH_TASK = {"forgetting": True, "fork-flush": True, "swarms-v2": False}
+MESSAGE_MAX_BYTES = 1048576
+MCP_OUTPUT_CONTENT_MAX_BYTES = 262144
+PROFILE_REQUIRES_RESEARCH_TASK = {"fork-flush": True, "swarms-v2": False}
 DEFAULT_RUN_PROFILE = "swarms-v2"

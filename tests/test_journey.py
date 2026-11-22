@@ -180,12 +180,23 @@ class FakeApi:
             return httpx.Response(
                 200,
                 json={
+                    "run_id": run["run_id"],
+                    "status": run["state"],
+                    "accounting": None,
                     "run": run,
                     "state": run["state"],
                     "answer": ANSWER.decode(),
                     "answer_output": self.output,
                     "objective_answer": None,
                     "charge": run.get("charge"),
+                    "attempt_tree": {
+                        "state": "unavailable",
+                        "run_id": run["run_id"],
+                        "code": "run_records_projection_unavailable",
+                        "stage": "run_result",
+                        "cause": "Canonical research record projection is unavailable for this cohort.",
+                    },
+                    "result_file": None,
                 },
             )
         if oid == "getRunOutputContent":
@@ -412,7 +423,7 @@ def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
         facts.answer = (await tool("swarms_run_result", run_id=RUN_ID))["answer"]
 
     async def usage():
-        facts.usage_records = len((await tool("usage_for_run", run_id=RUN_ID))["items"])
+        facts.usage_records = len((await tool("account_usage_for_run", run_id=RUN_ID))["items"])
 
     steps = dict(
         discover_profiles=discover_profiles,

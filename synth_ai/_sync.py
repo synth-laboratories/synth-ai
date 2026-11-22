@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from decimal import Decimal
+from inspect import getdoc
 from pathlib import Path
-from typing import Literal
+from types import FunctionType
 
 from ._blocking import Runner
 from ._generated.models import (
@@ -19,28 +20,33 @@ from ._generated.models import (
     BillingStatement,
     BillingStatementPage,
     CheckoutAttempt,
+    CheckoutRequestPackId,
     CheckoutSession,
-    EvaluationEvaluationRequest,
-    EvaluationInput,
-    EvaluationQuote,
-    EvaluationResponse,
-    EvaluationRevision,
-    EvaluationRevisionList,
     EventPage,
     FamilyList,
     File,
     FilePage,
+    LaunchChoices,
     LaunchRequest,
     LimitList,
+    McpOutputContent,
+    MessageKind,
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
+    OAuthGrantRevoked,
+    OptimizerRequest,
     OutputPage,
     OwnerResourceRequest,
     PaymentMethodSession,
     PlanCatalog,
+    PlanRequest,
+    PlanRequestList,
+    PromoRedemption,
+    RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
+    RunAllocation,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -48,6 +54,9 @@ from ._generated.models import (
     RunInputs,
     RunLabels,
     RunLimitsProgress,
+    RunLimitUpdate,
+    RunMessage,
+    RunMessagePage,
     RunOutput,
     RunPage,
     RunProfileCatalog,
@@ -58,21 +67,32 @@ from ._generated.models import (
     RunSnapshot,
     RunTask,
     RunTaskPage,
+    RunWait,
     Scope,
+    SetSpendAlertsRequest,
     SpendAlerts,
     Subscription,
     SubscriptionChangePreview,
+    TermsAcceptance,
     Upload,
     UsageExport,
     UsageRecord,
     UsageRecordPage,
     UsageSummary,
 )
+from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT
 from ._protocol import CompletionMilestone
+from ._requests import DomicileRequirement
 from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
 from .billing import AsyncBilling
 from .swarms import AsyncSwarms
+
+
+def _copy_method_docs(delegate: type, source: type) -> None:
+    for name, method in vars(delegate).items():
+        if not name.startswith("_") and isinstance(method, FunctionType):
+            method.__doc__ = getdoc(getattr(source, name))
 
 
 class SwarmsClient:
@@ -80,75 +100,49 @@ class SwarmsClient:
         self._runner = runner
         self._async = source
 
-    def register_evaluation_input(
+    def send_message(
         self,
-        kind: Literal["task", "pool", "policy", "evaluator", "dataset"],
-        payload: EvaluationInput,
+        run_id: str,
+        text: str,
         *,
-        idempotency_key: str | None = None,
-    ) -> EvaluationRevision:
+        kind: MessageKind = MessageKind.GUIDANCE,
+        idempotency_key: str,
+    ) -> RunMessage:
         return self._runner.call(
-            self._async.register_evaluation_input(kind, payload, idempotency_key=idempotency_key)
+            self._async.send_message(run_id, text, kind=kind, idempotency_key=idempotency_key)
         )
 
-    def evaluation_inputs(self, kind: str, *, name: str | None = None) -> EvaluationRevisionList:
-        return self._runner.call(self._async.evaluation_inputs(kind, name=name))
+    def messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 20
+    ) -> RunMessagePage:
+        return self._runner.call(self._async.messages(run_id, cursor=cursor, limit=limit))
 
-    def evaluation_input(self, kind: str, revision_id: str) -> EvaluationRevision:
-        return self._runner.call(self._async.evaluation_input(kind, revision_id))
+    def iter_messages(
+        self, run_id: str, *, cursor: str | None = None, limit: int = 100
+    ) -> Iterator[RunMessage]:
+        return self._runner.iterate(self._async.iter_messages(run_id, cursor=cursor, limit=limit))
 
-    def preflight_evaluation(
+    def message(self, run_id: str, message_id: str) -> RunMessage:
+        return self._runner.call(self._async.message(run_id, message_id))
+
+    def follow_messages(self, run_id: str) -> Iterator[RunMessage]:
+        return self._runner.iterate(self._async.follow_messages(run_id))
+
+    def wait_for_reply(
         self,
-        request: EvaluationEvaluationRequest,
+        run_id: str,
+        message_id: str,
         *,
-        maximum_charge_micros: int,
-        idempotency_key: str | None = None,
-    ) -> EvaluationQuote:
-        return self._runner.call(
-            self._async.preflight_evaluation(
-                request,
-                maximum_charge_micros=maximum_charge_micros,
-                idempotency_key=idempotency_key,
-            )
-        )
+        timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
+    ) -> RunMessage:
+        return self._runner.call(self._async.wait_for_reply(run_id, message_id, timeout=timeout))
 
-    def evaluate(
-        self,
-        request: EvaluationEvaluationRequest,
-        *,
-        maximum_charge_micros: int,
-        idempotency_key: str | None = None,
-    ) -> EvaluationResponse:
-        return self._runner.call(
-            self._async.evaluate(
-                request,
-                maximum_charge_micros=maximum_charge_micros,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def evaluation(self, evaluation_id: str) -> EvaluationResponse:
-        return self._runner.call(self._async.evaluation(evaluation_id))
-
-    def cancel_evaluation(
-        self, evaluation_id: str, *, idempotency_key: str | None = None
-    ) -> EvaluationResponse:
-        return self._runner.call(
-            self._async.cancel_evaluation(evaluation_id, idempotency_key=idempotency_key)
-        )
-
-    def wait_evaluation(
-        self, evaluation_id: str, *, timeout: float = 600, poll_interval: float = 2
-    ) -> EvaluationResponse:
-        return self._runner.call(
-            self._async.wait_evaluation(evaluation_id, timeout=timeout, poll_interval=poll_interval)
-        )
-
-    def launch(
+    def prepare_launch(
         self,
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         wall_time_seconds: int | None = None,
         maximum_tokens: int | None = None,
         pause_retention_seconds: int | None = None,
@@ -160,12 +154,60 @@ class SwarmsClient:
         research_task: str | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
+    ) -> LaunchRequest:
+        return self._async.prepare_launch(
+            message,
+            budget=budget,
+            domicile_requirement=domicile_requirement,
+            wall_time_seconds=wall_time_seconds,
+            maximum_tokens=maximum_tokens,
+            pause_retention_seconds=pause_retention_seconds,
+            parallel_workers=parallel_workers,
+            inputs=inputs,
+            labels=labels,
+            resources=resources,
+            profile=profile,
+            research_task=research_task,
+            routing=routing,
+            guidance=guidance,
+            role_assignments=role_assignments,
+            launch_menu_revision=launch_menu_revision,
+            optimizer=optimizer,
+            continue_from=continue_from,
+        )
+
+    def launch(
+        self,
+        message: str,
+        *,
+        budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
+        wall_time_seconds: int | None = None,
+        maximum_tokens: int | None = None,
+        pause_retention_seconds: int | None = None,
+        parallel_workers: int | None = None,
+        inputs: RunInputs | None = None,
+        labels: dict[str, str] | None = None,
+        resources: builtins.list[OwnerResourceRequest] | None = None,
+        profile: str | None = None,
+        research_task: str | None = None,
+        routing: RoutingConstraints | None = None,
+        guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
             self._async.launch(
                 message,
                 budget=budget,
+                domicile_requirement=domicile_requirement,
                 wall_time_seconds=wall_time_seconds,
                 maximum_tokens=maximum_tokens,
                 pause_retention_seconds=pause_retention_seconds,
@@ -177,6 +219,10 @@ class SwarmsClient:
                 research_task=research_task,
                 routing=routing,
                 guidance=guidance,
+                role_assignments=role_assignments,
+                launch_menu_revision=launch_menu_revision,
+                optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )
@@ -193,6 +239,7 @@ class SwarmsClient:
         message: str,
         *,
         budget: str | Decimal,
+        domicile_requirement: DomicileRequirement | None = None,
         profile: str | None = None,
         research_task: str | None = None,
         timeout: float = 600,
@@ -208,12 +255,17 @@ class SwarmsClient:
         resources: builtins.list[OwnerResourceRequest] | None = None,
         routing: RoutingConstraints | None = None,
         guidance: builtins.list[RunGuidance] | None = None,
+        role_assignments: dict[str, RoleAssignment] | None = None,
+        launch_menu_revision: str | None = None,
+        optimizer: OptimizerRequest | None = None,
+        continue_from: str | None = None,
         idempotency_key: str | None = None,
     ) -> RunSnapshot:
         return self._runner.call(
             self._async.run(
                 message,
                 budget=budget,
+                domicile_requirement=domicile_requirement,
                 profile=profile,
                 research_task=research_task,
                 timeout=timeout,
@@ -229,6 +281,10 @@ class SwarmsClient:
                 resources=resources,
                 routing=routing,
                 guidance=guidance,
+                role_assignments=role_assignments,
+                launch_menu_revision=launch_menu_revision,
+                optimizer=optimizer,
+                continue_from=continue_from,
                 idempotency_key=idempotency_key,
             )
         )
@@ -240,6 +296,13 @@ class SwarmsClient:
             self._async.upload_file(
                 filename, media_type=media_type, idempotency_key=idempotency_key
             )
+        )
+
+    def upload_directory(
+        self, directory: str | int, *, idempotency_key: str
+    ) -> builtins.list[File]:
+        return self._runner.call(
+            self._async.upload_directory(directory, idempotency_key=idempotency_key)
         )
 
     def resume_upload(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
@@ -303,6 +366,9 @@ class SwarmsClient:
 
     def get(self, run_id: str) -> RunSnapshot:
         return self._runner.call(self._async.get(run_id))
+
+    def wait_update(self, run_id: str, *, timeout_seconds: int = 30) -> RunWait:
+        return self._runner.call(self._async.wait_update(run_id, timeout_seconds=timeout_seconds))
 
     def wait(
         self,
@@ -374,6 +440,13 @@ class SwarmsClient:
             )
         )
 
+    def update_limits_request(
+        self, run_id: str, request: RunLimitUpdate, *, idempotency_key: str | None = None
+    ) -> RunLimitsProgress:
+        return self._runner.call(
+            self._async.update_limits_request(run_id, request, idempotency_key=idempotency_key)
+        )
+
     def configuration(self, run_id: str) -> RunConfiguration:
         return self._runner.call(self._async.configuration(run_id))
 
@@ -382,6 +455,9 @@ class SwarmsClient:
 
     def report(self, run_id: str) -> RunReport:
         return self._runner.call(self._async.report(run_id))
+
+    def allocation(self, run_id: str) -> RunAllocation:
+        return self._runner.call(self._async.allocation(run_id))
 
     def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
         return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
@@ -426,6 +502,15 @@ class SwarmsClient:
             )
         )
 
+    def output_inline(
+        self, run_id: str, output_id: str, *, revision_id: str, digest_sha256: str
+    ) -> McpOutputContent:
+        return self._runner.call(
+            self._async.output_inline(
+                run_id, output_id, revision_id=revision_id, digest_sha256=digest_sha256
+            )
+        )
+
     def download_output(
         self,
         run_id: str,
@@ -458,6 +543,25 @@ class SwarmsClient:
     def routing_catalog(self) -> RoutingCatalog:
         return self._runner.call(self._async.routing_catalog())
 
+    def launch_choices(
+        self,
+        *,
+        profile: str | None = None,
+        domicile_requirement: DomicileRequirement | None = None,
+        parallel_workers: int | None = None,
+        wall_time_seconds: int | None = None,
+        budget: str | Decimal | None = None,
+    ) -> LaunchChoices:
+        return self._runner.call(
+            self._async.launch_choices(
+                profile=profile,
+                domicile_requirement=domicile_requirement,
+                parallel_workers=parallel_workers,
+                wall_time_seconds=wall_time_seconds,
+                budget=budget,
+            )
+        )
+
     def profiles(self, *, research_task: str | None = None) -> RunProfileCatalog:
         return self._runner.call(self._async.profiles(research_task=research_task))
 
@@ -487,6 +591,9 @@ class SwarmsClient:
 
     def iter_files(self, *, cursor: str | None = None, limit: int = 20) -> Iterator[File]:
         return self._runner.iterate(self._async.iter_files(cursor=cursor, limit=limit))
+
+
+_copy_method_docs(SwarmsClient, AsyncSwarms)
 
 
 class ApiKeysClient:
@@ -548,14 +655,29 @@ class ApiKeysClient:
         )
 
 
+_copy_method_docs(ApiKeysClient, AsyncApiKeys)
+
+
 class AccountClient:
     def __init__(self, runner: Runner, source: AsyncAccount) -> None:
         self._runner = runner
         self._async = source
         self.api_keys = ApiKeysClient(runner, source.api_keys)
 
+    def redeem_promo(self, code: str, *, idempotency_key: str | None = None) -> PromoRedemption:
+        return self._runner.call(self._async.redeem_promo(code, idempotency_key=idempotency_key))
+
     def get(self) -> Account:
         return self._runner.call(self._async.get())
+
+    def accept_terms(
+        self, *, version: str, accepted_at: str, idempotency_key: str | None = None
+    ) -> TermsAcceptance:
+        return self._runner.call(
+            self._async.accept_terms(
+                version=version, accepted_at=accepted_at, idempotency_key=idempotency_key
+            )
+        )
 
     def usage_summary(self, *, since: str | None = None, until: str | None = None) -> UsageSummary:
         return self._runner.call(self._async.usage_summary(since=since, until=until))
@@ -588,6 +710,24 @@ class AccountClient:
     def limits(self) -> LimitList:
         return self._runner.call(self._async.limits())
 
+    def request_special_free(
+        self, *, use_case: str, links: Sequence[str] = (), idempotency_key: str | None = None
+    ) -> PlanRequest:
+        return self._runner.call(
+            self._async.request_special_free(
+                use_case=use_case, links=links, idempotency_key=idempotency_key
+            )
+        )
+
+    def plan_requests(self) -> PlanRequestList:
+        return self._runner.call(self._async.plan_requests())
+
+    def withdraw_plan_request(self, request_id: str) -> PlanRequest:
+        return self._runner.call(self._async.withdraw_plan_request(request_id))
+
+    def revoke_oauth_grant(self, grant_id: str) -> OAuthGrantRevoked:
+        return self._runner.call(self._async.revoke_oauth_grant(grant_id))
+
     def iter_usage_records(
         self,
         *,
@@ -602,6 +742,9 @@ class AccountClient:
                 since=since, until=until, run_id=run_id, cursor=cursor, limit=limit
             )
         )
+
+
+_copy_method_docs(AccountClient, AsyncAccount)
 
 
 class BillingClient:
@@ -643,11 +786,14 @@ class BillingClient:
         self,
         *,
         plan_id: str | None = None,
+        pack_id: CheckoutRequestPackId | None = None,
         credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:
         return self._runner.call(
-            self._async.checkout(plan_id=plan_id, credit=credit, idempotency_key=idempotency_key)
+            self._async.checkout(
+                plan_id=plan_id, pack_id=pack_id, credit=credit, idempotency_key=idempotency_key
+            )
         )
 
     def subscription(self) -> Subscription | None:
@@ -712,6 +858,13 @@ class BillingClient:
             )
         )
 
+    def set_spend_alerts_request(
+        self, request: SetSpendAlertsRequest, *, idempotency_key: str | None = None
+    ) -> SpendAlerts:
+        return self._runner.call(
+            self._async.set_spend_alerts_request(request, idempotency_key=idempotency_key)
+        )
+
     def iter_history(
         self,
         *,
@@ -734,3 +887,6 @@ class BillingClient:
         return self._runner.iterate(
             self._async.iter_statements(months=months, cursor=cursor, limit=limit)
         )
+
+
+_copy_method_docs(BillingClient, AsyncBilling)

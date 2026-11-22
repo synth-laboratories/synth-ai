@@ -13,7 +13,8 @@ import httpx
 import pytest
 
 from synth_ai import AsyncSynthClient
-from synth_ai._generated.models import RunLimitsProgress, RunProblem, RunSnapshot
+from synth_ai._generated.models import LimitMeterAction, RunLimitsProgress, RunProblem, RunSnapshot
+from synth_ai.errors import ResponseContractError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SNAPSHOT = json.loads((FIXTURES / "core_limit_paused_run_snapshot.json").read_text())
@@ -88,3 +89,50 @@ async def test_get_and_limits_read_real_core_bodies():
     assert run.pause is not None and run.pause.limit is not None
     assert run.pause.limit.reason == "planner_left_park_unfunded"
     assert limits.run_id == SNAPSHOT["run_id"]
+
+
+# Orchestra 7e8fbbab reports planner_turns uncapped under actor limits, with no
+# enforcement action (contract 1.24.0); slot2 Core 8a2a37eb served this row.
+UNCAPPED_PLANNER_TURNS = {
+    "dimension": "planner_turns",
+    "unit": "count",
+    "scope": "run",
+    "effective_cap": None,
+    "used": 165,
+    "reserved": 0,
+    "unknown_reserved": 0,
+    "remaining": None,
+    "state": "uncapped",
+    "action": "none",
+}
+
+
+def _limits_with_planner_turns(row):
+    secondary = [
+        row if meter["dimension"] == "planner_turns" else meter for meter in LIMITS["secondary"]
+    ]
+    return {**LIMITS, "secondary": secondary}
+
+
+async def test_uncapped_meter_action_none_parses_and_unknown_action_is_refused():
+    limits = RunLimitsProgress.model_validate(_limits_with_planner_turns(UNCAPPED_PLANNER_TURNS))
+    planner = next(m for m in limits.secondary if m.dimension == "planner_turns")
+    assert planner.action is LimitMeterAction.NONE
+    assert planner.effective_cap is None and planner.state == "uncapped"
+
+    bodies = {"/none": _limits_with_planner_turns(UNCAPPED_PLANNER_TURNS)}
+    bodies["/bogus"] = _limits_with_planner_turns({**UNCAPPED_PLANNER_TURNS, "action": "skip"})
+
+    def handle(request):
+        key = "/bogus" if request.headers.get("x-case") == "bogus" else "/none"
+        return httpx.Response(200, json=bodies[key])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+        async with AsyncSynthClient(
+            "fixture", base_url="https://example.test", http_client=http
+        ) as client:
+            read = await client.swarms.limits(SNAPSHOT["run_id"])
+            assert read.secondary[5].action is LimitMeterAction.NONE
+            http.headers["x-case"] = "bogus"
+            with pytest.raises(ResponseContractError):
+                await client.swarms.limits(SNAPSHOT["run_id"])

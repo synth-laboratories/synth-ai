@@ -20,7 +20,11 @@ def synchronous(client: SynthClient) -> None:
     assert inputs.files is not None
     assert_type(inputs.files[0], InputFile)
     run = client.swarms.run(
-        "Solve the task", budget="1", inputs=inputs, until=CompletionMilestone.FINISHED
+        "Solve the task",
+        budget="1",
+        inputs=inputs,
+        optimizer="auto",
+        until=CompletionMilestone.FINISHED,
     )
     assert_type(run, RunSnapshot)
     assert_type(run.known_state, RunState | None)
@@ -36,7 +40,9 @@ def synchronous(client: SynthClient) -> None:
 
 
 async def asynchronous(client: AsyncSynthClient) -> None:
-    assert_type(await client.swarms.launch("Solve the task", budget="1"), RunSnapshot)
+    assert_type(
+        await client.swarms.launch("Solve the task", budget="1", optimizer="auto"), RunSnapshot
+    )
     assert_type(await client.swarms.run("Solve the task", budget="1"), RunSnapshot)
     assert_type(await client.swarms.profiles(), RunProfileCatalog)
     assert_type(await client.billing.balance(), Balance)

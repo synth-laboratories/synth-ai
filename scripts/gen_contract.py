@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import ast
 import builtins
+import gzip
 import hashlib
+import io
 import json
 import keyword
-import pprint
 import subprocess
 import tomllib
 from collections.abc import Mapping
@@ -80,6 +81,122 @@ class JSONObject(dict[str, JsonValue]):
         return result
 
 
+def field_name(name: str) -> str:
+    if not name.isidentifier():
+        raise ValueError(f"unsupported schema field name: {name}")
+    return (
+        name + "_"
+        if keyword.iskeyword(name) or name in {"model_config", "schema", "json", "copy"}
+        else name
+    )
+
+
+def named_string_enums(schemas: Mapping[str, JSONObject]) -> dict[str, list[str]]:
+    """Preserve canonical enum names instead of reducing them to literals."""
+    return {
+        name: schema.strings("enum")
+        for name, schema in schemas.items()
+        if schema.get("type") == "string" and "enum" in schema
+    }
+
+
+def constraint_expression(schema: JSONObject, value: str) -> str:
+    """Compile supported refinements against already parsed, typed model fields.
+
+    Unknown constraint vocabulary fails generation instead of weakening the wire
+    contract. Ordinary field types and bounds remain Pydantic's responsibility.
+    """
+    supported = {
+        "$ref",
+        "allOf",
+        "if",
+        "then",
+        "else",
+        "properties",
+        "required",
+        "const",
+        "enum",
+        "not",
+        "pattern",
+        "type",
+        "minItems",
+        "contains",
+        "description",
+    }
+    if unknown := schema.keys() - supported:
+        raise ValueError(f"unsupported schema constraint: {sorted(unknown)}")
+    terms: list[str] = []
+    if "$ref" in schema:
+        reference = schema.text("$ref").split("/")[-1]
+        if not reference.isidentifier():
+            raise ValueError("invalid constraint reference")
+        terms.append(f"isinstance({value}, {reference})")
+    for part in schema.object_array("allOf", optional=True):
+        terms.append(constraint_expression(part, value))
+    if "not" in schema:
+        terms.append(f"not {constraint_expression(schema.object('not'), value)}")
+    if "if" in schema:
+        condition = constraint_expression(schema.object("if"), value)
+        accepted = constraint_expression(schema.object("then", optional=True), value)
+        rejected = constraint_expression(schema.object("else", optional=True), value)
+        terms.append(f"({accepted} if {condition} else {rejected})")
+    elif "then" in schema or "else" in schema:
+        raise ValueError("conditional branch without if")
+    for name in schema.strings("required", optional=True):
+        terms.append(f"{name!r} in {value}.model_fields_set")
+    for name, child in schema.objects("properties", optional=True).items():
+        expression = constraint_expression(child, f"{value}.{field_name(name)}")
+        terms.append(f"({name!r} not in {value}.model_fields_set or {expression})")
+    if "const" in schema:
+        const = schema["const"]
+        # Singletons compare by identity: `x == True` also accepts 1 and fails ruff E712.
+        operator = "is" if const is None or isinstance(const, bool) else "=="
+        terms.append(f"{value} {operator} {const!r}")
+    if "enum" in schema:
+        terms.append(f"{value} in {tuple(schema.strings('enum'))!r}")
+    if "pattern" in schema:
+        terms.append(f"re.search({schema.text('pattern')!r}, {value}) is not None")
+    if "type" in schema:
+        match schema.text("type"):
+            case "null":
+                terms.append(f"{value} is None")
+            case "number":
+                terms.append(f"isinstance({value}, (int, float)) and not isinstance({value}, bool)")
+            case other:
+                raise ValueError(f"unsupported constraint type: {other}")
+    if "minItems" in schema:
+        minimum = schema["minItems"]
+        if type(minimum) is not int or minimum < 0:
+            raise ValueError("invalid minItems constraint")
+        terms.append(f"len({value}) >= {minimum}")
+    if "contains" in schema:
+        expression = constraint_expression(schema.object("contains"), "item")
+        terms.append(f"any({expression} for item in {value})")
+    return "(" + " and ".join(terms) + ")" if terms else "True"
+
+
+def model_constraints(schema: JSONObject) -> list[str]:
+    constraints = [
+        constraint_expression(part, "self") for part in schema.object_array("allOf", optional=True)
+    ]
+    for name, child in schema.objects("properties", optional=True).items():
+        value = "self." + field_name(name)
+        if "allOf" in child:
+            constraints.append(constraint_expression(child, value))
+        else:
+            for variant in child.object_array("oneOf", optional=True):
+                if "allOf" in variant:
+                    variants = child.object_array("oneOf")
+                    if len(variants) != 2 or not any(
+                        part.get("type") == "null" for part in variants
+                    ):
+                        raise ValueError("unsupported refined union")
+                    constraints.append(
+                        f"({value} is None or {constraint_expression(variant, value)})"
+                    )
+    return constraints
+
+
 def schema_references(value: JsonValue) -> set[str]:
     if isinstance(value, dict):
         found: set[str] = (
@@ -143,7 +260,91 @@ def select_sdk_schemas(schemas: Mapping[str, JSONObject], roots: set[str]) -> di
     return {name: schema for name, schema in schemas.items() if name in keep}
 
 
-def generate() -> dict[Path, str]:
+# A read whose response is a oneOf of alternative views names each view here;
+# the operation's response model is the union, and SDK methods read one view.
+inline_names_for_views = {
+    "ListEvaluationRolloutsResponse0": "EvaluationRolloutPage",
+    "ListEvaluationRolloutsResponse1": "EvaluationRolloutSummary",
+}
+
+
+def compress_catalog(payload: bytes) -> bytes:
+    """Package the generated catalog with a portable gzip header."""
+    buffer = io.BytesIO()
+    with gzip.GzipFile(fileobj=buffer, filename="", mode="wb", mtime=0) as archive:
+        archive.write(payload)
+    return buffer.getvalue()
+
+
+def render_operations(ops: Mapping[str, JSONObject]) -> str:
+    # Emit common values once while keeping named, readable overrides at each operation.
+    defaults: dict[str, JsonValue] = {
+        "auth": True,
+        "binary": False,
+        "idempotent": False,
+        "nullable_response": False,
+        "path_params": [],
+        "query_params": [],
+        "request_model": None,
+        "response_model": None,
+    }
+    preamble = """# Generated by scripts/gen_contract.py; do not edit.
+from collections.abc import Sequence
+from typing import TypedDict
+
+class Operation(TypedDict):
+    method: str
+    path: str
+    scope: str
+    path_params: list[str]
+    query_params: list[str]
+    idempotent: bool
+    retry: str
+    idempotency: str
+    request_model: str | None
+    response_model: str | None
+    binary: bool
+    nullable_response: bool
+    auth: bool
+
+def _operation(
+    *, method: str, path: str, scope: str, retry: str, idempotency: str,
+    auth: bool = True, binary: bool = False, idempotent: bool = False,
+    nullable_response: bool = False, path_params: Sequence[str] = (),
+    query_params: Sequence[str] = (), request_model: str | None = None,
+    response_model: str | None = None,
+) -> Operation:
+    return {
+        "auth": auth,
+        "binary": binary,
+        "idempotency": idempotency,
+        "idempotent": idempotent,
+        "method": method,
+        "nullable_response": nullable_response,
+        "path": path,
+        "path_params": list(path_params),
+        "query_params": list(query_params),
+        "request_model": request_model,
+        "response_model": response_model,
+        "retry": retry,
+        "scope": scope,
+    }
+
+OPERATIONS: dict[str, Operation] = {
+"""
+    lines = [preamble.rstrip()]
+    for name, op in sorted(ops.items()):
+        lines.append(f"    {name!r}: _operation(")
+        lines.extend(
+            f"        {key}={value!r},"
+            for key, value in sorted(op.items())
+            if key not in defaults or value != defaults[key]
+        )
+        lines.append("    ),")
+    return "\n".join([*lines, "}", ""])
+
+
+def generate() -> dict[Path, str | bytes]:
     pin = tomllib.loads((ROOT / "contracts/SOURCE.toml").read_text())
     if pin["sha256"] != hashlib.sha256(SPEC.read_bytes()).hexdigest():
         raise ValueError("contract pin hash mismatch")
@@ -161,17 +362,36 @@ def generate() -> dict[Path, str]:
     def flatten(s: JSONObject) -> JSONObject:
         if "allOf" not in s:
             return s
-        properties: dict[str, JsonValue] = {}
-        required: list[JsonValue] = []
+        merged = JSONObject({key: value for key, value in s.items() if key != "allOf"})
+        properties = dict(s.object("properties", optional=True))
+        required = s.strings("required", optional=True)
+        conditions: list[JsonValue] = []
         for part in s.object_array("allOf"):
+            if "if" in part:
+                conditions.append(part)
+                continue
             part = flatten(resolve(part))
-            properties.update(part.object("properties", optional=True))
-            required.extend(part.array("required", optional=True))
-        return JSONObject({"type": "object", "properties": properties, "required": required})
+            for key, value in part.object("properties", optional=True).items():
+                if key in properties and properties[key] != value:
+                    raise ValueError(f"conflicting allOf property: {key}")
+                properties[key] = value
+            required.extend(part.strings("required", optional=True))
+            conditions.extend(part.array("allOf", optional=True))
+            for key, value in part.items():
+                if key not in {"properties", "required", "allOf"}:
+                    merged.setdefault(key, value)
+        merged.update(type="object", properties=properties, required=list(dict.fromkeys(required)))
+        if conditions:
+            merged["allOf"] = conditions
+        return merged
 
     ops: dict[str, JSONObject] = {}
     for path, item in doc.objects("paths").items():
-        if not path.startswith("/v1/"):
+        # Outside /v1, only an operation the contract publishes as a scoped MCP tool is a
+        # client operation (revokeOAuthGrant, contract 1.40.0); protocol routes stay out.
+        if not path.startswith("/v1/") and not any(
+            isinstance(op, dict) and "x-synth-mcp-name" in op for op in item.values()
+        ):
             continue
         for method, op in item.items():
             if method not in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}:
@@ -203,9 +423,18 @@ def generate() -> dict[Path, str]:
                     if "application/json" in content:
                         schema = content.object("application/json").object("schema")
                         branches = schema.object_array("oneOf", optional=True)
-                        if branches:  # A ref or null: the operation answers `null` for none.
-                            refs = [b for b in branches if "$ref" in b]
-                            nulls = [b for b in branches if b.get("type") == "null"]
+                        refs = [b for b in branches if "$ref" in b]
+                        nulls = [b for b in branches if b.get("type") == "null"]
+                        views = [b for b in branches if b.get("type") == "object"]
+                        if branches and len(views) == len(branches) >= 2:
+                            # Alternative views of one read: a union of named branch models.
+                            if not all(
+                                oid[0].upper() + oid[1:] + "Response" + str(i)
+                                in inline_names_for_views
+                                for i in range(len(views))
+                            ):
+                                raise ValueError(oid + ": name every view of its oneOf response")
+                        elif branches:  # A ref or null: the operation answers `null` for none.
                             if len(refs) != 1 or len(nulls) != 1 or len(branches) != 2:
                                 raise ValueError(oid + ": unsupported oneOf response")
                             schema, nullable = refs[0], True
@@ -266,7 +495,9 @@ def generate() -> dict[Path, str]:
         return schema
 
     inline_names = {
+        **inline_names_for_views,
         "LaunchRequestInputs": "RunInputs",
+        "OptimizerRequest1": "OptimizerPin",
         "RunInputsFilesItem": "InputFile",
         "UploadPut": "UploadGrant",
         "RunTaskPageItemsItem": "RunTask",
@@ -276,9 +507,12 @@ def generate() -> dict[Path, str]:
     def lift_child(schema: JSONObject, name: str) -> JSONObject:
         name = inline_names.get(name, name)
         types = schema.get("type", [])
-        if "properties" in schema and (
+        closed_empty = types == "object" and schema.get("additionalProperties") is False
+        if ("properties" in schema or closed_empty) and (
             types == "object" or (isinstance(types, list) and "object" in types)
         ):
+            if "properties" not in schema:
+                schema["properties"] = {}
             nullable = isinstance(types, list) and "null" in types
             schemas[name] = lift(JSONObject({**schema, "type": "object"}), name)
             ref = JSONObject({"$ref": "#/components/schemas/" + name})
@@ -289,12 +523,22 @@ def generate() -> dict[Path, str]:
         schemas[name] = lift(schemas[name], name)
     schemas = select_sdk_schemas(schemas, sdk_model_roots(ops))
     enums = {
-        "RunState": schemas["RunSnapshot"].object("properties").object("state").strings("examples")
+        **named_string_enums(schemas),
+        "RunState": schemas["RunSnapshot"].object("properties").object("state").strings("examples"),
     }
 
     def annotation(s: JSONObject, name: str = "") -> str:
         if "$ref" in s:
-            return s.text("$ref").split("/")[-1]
+            reference = s.text("$ref").split("/")[-1]
+            if reference in enums:
+                return (
+                    "Annotated[" + reference + ", BeforeValidator(enum_value(" + reference + "))]"
+                )
+            return reference
+        refinements = s.object_array("allOf", optional=True)
+        if refinements and "$ref" in refinements[0]:
+            # A referenced model narrowed by const properties keeps the model's type.
+            return annotation(refinements[0])
         variants = s.object_array("anyOf", optional=True) or s.object_array("oneOf", optional=True)
         if variants:
             result = " | ".join(dict.fromkeys(annotation(v) for v in variants))
@@ -392,9 +636,10 @@ def generate() -> dict[Path, str]:
     lines = [
         "# Generated by scripts/gen_contract.py; do not edit.",
         "from __future__ import annotations",
-        "from typing import Annotated, Literal, TypeAlias",
+        "from typing import Annotated, Literal, Self, TypeAlias",
+        "import re",
         "from enum import StrEnum",
-        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue",
+        "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
         "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
@@ -405,6 +650,8 @@ def generate() -> dict[Path, str]:
     modelnames = []
     for n in ordered:
         s = schemas[n]
+        if n in enums:
+            continue  # Named enum classes are emitted with the other StrEnums.
         if s.get("type") == "object" and "properties" in s:
             modelnames.append(n)
             lines += [
@@ -434,6 +681,19 @@ def generate() -> dict[Path, str]:
                         + ")"
                     )
                 lines.append("    " + name + ": " + typ + default)
+            constraints = model_constraints(s)
+            if constraints:
+                lines += [
+                    "",
+                    '    @model_validator(mode="after")',
+                    "    def validate_schema_constraints(self) -> Self:",
+                ]
+                for index, expression in enumerate(constraints):
+                    lines += [
+                        f"        if not {expression}:",
+                        f"            raise ValueError({f'{n}: schema constraint {index + 1} failed'!r})",
+                    ]
+                lines += ["        return self"]
             if n == "RunSnapshot":
                 lines += [
                     "    @property",
@@ -470,7 +730,7 @@ def generate() -> dict[Path, str]:
     if aliased_requests or any("(RootModel[" in line for line in lines):
         lines[
             lines.index(
-                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue"
+                "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator"
             )
         ] += ", RootModel"
     enum_lines = []
@@ -489,29 +749,7 @@ def generate() -> dict[Path, str]:
         + ["    " + repr(n) + ": RootModel[" + n + "]," for n in aliased_requests]
         + ["}", ""]
     )
-    operations = (
-        """# Generated by scripts/gen_contract.py; do not edit.
-from typing import TypedDict
-
-class Operation(TypedDict):
-    method: str
-    path: str
-    scope: str
-    path_params: list[str]
-    query_params: list[str]
-    idempotent: bool
-    retry: str
-    idempotency: str
-    request_model: str | None
-    response_model: str | None
-    binary: bool
-    nullable_response: bool
-    auth: bool
-
-OPERATIONS: dict[str, Operation] = """
-        + pprint.pformat(ops, sort_dicts=True, width=100)
-        + "\n"
-    )
+    operations = render_operations(ops)
     catalog = JSONObject.parse(json.loads((ROOT / "contracts/mcp-tools.json").read_text()))
 
     def expand(value: JsonValue) -> JsonValue:
@@ -560,12 +798,17 @@ OPERATIONS: dict[str, Operation] = """
             if any(p["name"] == "Idempotency-Key" for p in params):
                 properties["idempotency_key"] = {"type": "string", "minLength": 1, "maxLength": 128}
                 required.append("idempotency_key")
+            # access: public marks the contract's one unauthenticated tool class; result names
+            # the component representing a non-JSON success body (McpOutputContent).
+            result_kind = operation.get("x-synth-mcp-result")
             expected_tools.append(
                 JSONObject(
                     {
                         "name": operation["x-synth-mcp-name"],
                         "description": operation["summary"],
                         "scope": operation["x-synth-scope"],
+                        "access": operation.get("x-synth-mcp-access", "scoped"),
+                        **({"result": result_kind} if result_kind is not None else {}),
                         "operationId": operation["operationId"],
                         "inputSchema": {
                             "type": "object",
@@ -579,14 +822,15 @@ OPERATIONS: dict[str, Operation] = """
     # The contract is the authority. The catalog is a generated consumer too.
     tool_values: list[JsonValue] = [tool for tool in expected_tools]
     catalog["tools"] = tool_values
+    tool_payload = json.dumps(tool_values, sort_keys=True, separators=(",", ":")).encode()
     tools = (
         "# Generated by scripts/gen_contract.py; do not edit.\n"
-        "from typing import TypedDict\nfrom pydantic import JsonValue\n"
+        "import gzip\nfrom importlib.resources import files\n"
+        "from typing import Literal, NotRequired\nfrom typing_extensions import TypedDict\nfrom pydantic import JsonValue, TypeAdapter\n"
         "class ToolSchema(TypedDict):\n    type: str\n    properties: dict[str, JsonValue]\n    required: list[str]\n    additionalProperties: bool\n"
-        "class ToolDefinition(TypedDict):\n    name: str\n    description: str\n    scope: str\n    operationId: str\n    inputSchema: ToolSchema\n"
-        "TOOLS: list[ToolDefinition] = "
-        + pprint.pformat(expected_tools, sort_dicts=True, width=100)
-        + "\n"
+        "class ToolDefinition(TypedDict):\n    name: str\n    description: str\n    scope: str\n    access: Literal['public', 'scoped']\n    result: NotRequired[Literal['McpOutputContent']]\n    operationId: str\n    inputSchema: ToolSchema\n"
+        "TOOLS: list[ToolDefinition] = TypeAdapter(list[ToolDefinition]).validate_json("
+        "gzip.decompress(files('synth_ai.mcp').joinpath('tools.json.gz').read_bytes()), strict=True)\n"
     )
     docs = (
         "# MCP tools\n\nGenerated from the pinned public OpenAPI and hosted catalog.\n\n| Tool | Operation | Scope |\n| --- | --- | --- |\n"
@@ -607,6 +851,11 @@ OPERATIONS: dict[str, Operation] = """
         + str(schemas["LaunchRequest"].object("properties").object("message")["x-synth-max-bytes"])
         + "\n"
     )
+    policy_source += (
+        "MCP_OUTPUT_CONTENT_MAX_BYTES = "
+        + str(schemas["McpOutputContent"].object("properties").object("byte_size")["maximum"])
+        + "\n"
+    )
     requirements = schemas["LaunchRequest"].object("x-synth-profile-requirements")
     policy_source += (
         "PROFILE_REQUIRES_RESEARCH_TASK = "
@@ -618,7 +867,7 @@ OPERATIONS: dict[str, Operation] = """
         + repr(schemas["LaunchRequest"].text("x-synth-default-profile"))
         + "\n"
     )
-    outputs: dict[Path, str] = {
+    outputs: dict[Path, str | bytes] = {
         ROOT / "synth_ai/_generated/policy.py": policy_source,
         ROOT
         / "synth_ai/_version.py": "# Generated from pyproject.toml; do not edit.\n__version__ = "
@@ -628,16 +877,18 @@ OPERATIONS: dict[str, Operation] = """
         ROOT / "synth_ai/_generated/models.py": "\n".join(lines),
         ROOT / "synth_ai/_generated/operations.py": operations,
         ROOT / "synth_ai/mcp/tools.py": tools,
+        ROOT / "synth_ai/mcp/tools.json.gz": compress_catalog(tool_payload),
         ROOT / "docs/mcp-tools.md": docs,
     }
     for path, source in list(outputs.items()):
         if path.suffix == ".py":
+            assert isinstance(source, str)
             fixed = subprocess.run(
                 [
                     "ruff",
                     "check",
                     "--select",
-                    "I,RUF036",
+                    "I,RUF036,E713",
                     "--fix",
                     "--stdin-filename",
                     str(path),
@@ -663,12 +914,13 @@ def main() -> None:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for path, source in generate().items():
+        content = source.encode() if isinstance(source, str) else source
         if args.check:
-            if not path.exists() or path.read_text() != source:
+            if not path.exists() or path.read_bytes() != content:
                 raise SystemExit("generated drift: " + str(path.relative_to(ROOT)))
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(source)
+            path.write_bytes(content)
     print("contract sha256 " + hashlib.sha256(SPEC.read_bytes()).hexdigest())
 
 

@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "repository": "cyberneticsbench-v2",
+    "commit": "c2134a5f6b11399f11fe3231f5f66b5d4e6eb72d",
+    "path": "tools/craftax_policy/starter/policy.py",
+    "sha256": "cd39f87ec93d7078442bf83fa807da0a2eeef45ea34cadb5cbc90d5bf1f1fcf1"
+  },
+  "field": {
+    "repository": "cyberneticsbench-v2",
+    "commit": "756650b1285fede7f1ce8bd149322cd60859ea1a",
+    "path": "cybernetics_evaluators/enginebench/fields/craftax-public-development-v3.json",
+    "sha256": "e3020baa8c6b1c030b5e03c24dc4fa0afd0a0a92e32f344dcfd20876ade6cd0e"
+  },
+  "evaluator_image": "ghcr.io/synth-laboratories/synth-evaluation-benchmark-verifier@sha256:bdbd01e0d4445ae4ad1131b78a4430341d541eabe41da367a2eab3807d780814",
+  "candidate_image": "ghcr.io/synth-laboratories/synth-evaluation-benchmark-candidate@sha256:5a4ba6a750c672333fad1954b4b64d1e32c9e414213d5e1ec500c36de593f7b7",
+  "image_source": "artifacts/merge-train-20261112/craftax-5x/staging-setup/frozen-source/common.py",
+  "image_architecture_verified": false
+}
