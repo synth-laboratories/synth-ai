@@ -22,6 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --force --no-tags origin "$GITHUB_REF:$GITHUB_REF"
           test "$(git cat-file -t "$GITHUB_REF")" = tag
           expected=$(git for-each-ref --format='%(contents:trailers:key=Wheel-SHA256,valueonly)' "$GITHUB_REF")
           if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
