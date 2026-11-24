@@ -20,9 +20,7 @@ from concurrent.futures import CancelledError as FutureCancelled
 from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
-from types import TracebackType
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import httpx
 from mcp import ClientSession, StdioServerParameters
@@ -31,11 +29,16 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.exceptions import McpError
 from mcp.types import CallToolResult, TextContent
-from pydantic import JsonValue
 
 from .j1 import AdapterError, refusal
 from .limits import MCP_CALL_SECONDS
 from .mcp_driver import MCPRefusal, ToolOutcome
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import TracebackType
+
+    from pydantic import JsonValue
 
 __all__ = ["HostedEndpoint", "SessionToolCaller", "StdioCommand", "hosted_session", "stdio_session"]
 
@@ -56,6 +59,16 @@ class HostedEndpoint:
     url: str
     # Opaque bearer for /mcp; Core mcpoauth authenticates it via s.Auth.
     bearer: str
+
+    def __post_init__(self) -> None:
+        if not self.url.startswith(("http://", "https://")):
+            raise ValueError("hosted MCP url must use http:// or https://")
+        if not self.bearer or any(
+            character.isspace() or ord(character) < 33 for character in self.bearer
+        ):
+            raise ValueError(
+                "hosted MCP bearer must be a non-empty opaque token without whitespace"
+            )
 
 
 def stdio_session(command: StdioCommand) -> SessionOpener:

@@ -4,20 +4,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import sys
 import uuid
-from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import NoReturn, TypeVar
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
-import httpx
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from typing_extensions import override
 
 from . import _cli_view as view
 from . import auth
-from ._auth_models import DeviceAuthorization
 from ._cli_surfaces import configure, execute_resource
 from ._generated.models import (
     InputFile,
@@ -31,7 +29,6 @@ from ._generated.models import (
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
-from ._retry import RetryPolicy
 from ._validation import message_text
 from ._version import __version__
 from .aclient import AsyncSynthClient
@@ -48,8 +45,16 @@ from .errors import (
     UploadTransferError,
     WaitTimeoutError,
 )
-from .swarms import AsyncSwarms
 from .topologies import topology_name
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    import httpx
+
+    from ._auth_models import DeviceAuthorization
+    from ._retry import RetryPolicy
+    from .swarms import AsyncSwarms
 
 EXIT_OK = 0
 EXIT_CLIENT_ERROR = 1
@@ -197,7 +202,11 @@ def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None =
     )
 
 
-def parser() -> argparse.ArgumentParser:
+def _stdin_has_pipe() -> bool:
+    return isinstance(sys.stdin, io.TextIOBase) and not sys.stdin.isatty()
+
+
+def parser(*, stdin_piped: bool = False) -> argparse.ArgumentParser:
     root = Parser(prog="synth", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
     root.add_argument("--base-url")
     root.add_argument("--env", dest="environment", type=Environment, choices=tuple(Environment))
@@ -239,9 +248,15 @@ def parser() -> argparse.ArgumentParser:
     upload.add_argument("--directory", action="store_true")
     upload.add_argument("--idempotency-key")
     run = add("run")
-    task = run.add_mutually_exclusive_group(required=True)
+    task = run.add_mutually_exclusive_group(required=not stdin_piped)
     task.add_argument("goal", nargs="?")
-    task.add_argument("--task-file")
+    task.add_argument(
+        "--goal-file",
+        "--task-file",
+        dest="task_file",
+        metavar="PATH",
+        help="read goal from UTF-8 file PATH, or '-' for stdin",
+    )
     run.add_argument("--budget", required=True)
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
@@ -361,15 +376,22 @@ def parser() -> argparse.ArgumentParser:
 
 
 def read_task(path: str) -> str:
-    """Read a task text file, or a bundle directory holding exactly one task file."""
-    source = Path(path)
-    if source.is_dir():
-        found = [p for p in source.iterdir() if not p.name.startswith(".")]
-        if len(found) != 1 or found[0].name not in {"task.md", "TASK.md", "task.txt"}:
-            raise ValueError("task bundle must contain exactly one task text file")
-        source = found[0]
-    with source.open("rb") as stream:
-        raw = stream.read(MESSAGE_MAX_BYTES + 1)
+    """Read a task text file, '-' (stdin), or a bundle directory holding one task file."""
+    if path == "-":
+        buffer = getattr(sys.stdin, "buffer", None)
+        if buffer is not None:
+            raw = bytes(buffer.read(MESSAGE_MAX_BYTES + 1))
+        else:
+            raw = sys.stdin.read(MESSAGE_MAX_BYTES + 1).encode("utf-8")
+    else:
+        source = Path(path)
+        if source.is_dir():
+            found = [p for p in source.iterdir() if not p.name.startswith(".")]
+            if len(found) != 1 or found[0].name not in {"task.md", "TASK.md", "task.txt"}:
+                raise ValueError("task bundle must contain exactly one task text file")
+            source = found[0]
+        with source.open("rb") as stream:
+            raw = stream.read(MESSAGE_MAX_BYTES + 1)
     if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
         raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
     return message_text(raw.decode("utf-8"))
@@ -518,9 +540,16 @@ async def execute(
                 raise UsageError("idempotency key must contain 1 to 128 characters")
             # Every flag is validated before any upload: a refused limit or label must
             # not leave uploaded files behind. Files join the validated request after.
-            if (args.goal is None) == (args.task_file is None):
-                raise UsageError("provide a goal or --task-file")
-            goal = read_task(args.task_file) if args.task_file is not None else args.goal
+            if args.goal is not None and args.task_file is not None:
+                raise UsageError("provide a goal or --goal-file, not both")
+            if args.task_file is not None:
+                goal = read_task(args.task_file)
+            elif args.goal is not None:
+                goal = args.goal
+            elif _stdin_has_pipe():
+                goal = read_task("-")
+            else:
+                raise UsageError("provide a goal, --goal-file PATH, or pipe stdin")
             request = swarms.prepare_launch(
                 goal,
                 budget=args.budget,
@@ -686,15 +715,15 @@ async def execute(
             if args.run_id == "set":
                 if args.set_run_id is None or args.expected_revision is None:
                     raise UsageError("limits set requires RUN and --expected-revision")
-                values = dict(
-                    expected_revision=args.expected_revision,
-                    budget=args.budget,
-                    wall_time_seconds=args.wall,
-                    maximum_tokens=args.tokens,
-                    pause_retention_seconds=args.pause_retention,
-                    resume=args.resume,
-                    reason=args.reason,
-                )
+                values = {
+                    "expected_revision": args.expected_revision,
+                    "budget": args.budget,
+                    "wall_time_seconds": args.wall,
+                    "maximum_tokens": args.tokens,
+                    "pause_retention_seconds": args.pause_retention,
+                    "resume": args.resume,
+                    "reason": args.reason,
+                }
                 key = args.idempotency_key or mutation_key("limits", args.set_run_id, values)
                 out.record(
                     await swarms.update_limits(args.set_run_id, **values, idempotency_key=key),
@@ -739,7 +768,7 @@ async def download(
     swarms: AsyncSwarms, run_id: str, output_id: str | None, directory: str
 ) -> list[view.SavedOutput]:
     target = Path(directory)
-    target.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(target.mkdir, parents=True, exist_ok=True)
     saved: list[view.SavedOutput] = []
     async for item in swarms.iter_outputs(run_id):
         if output_id is not None and item.output_id != output_id:
@@ -840,11 +869,12 @@ def main(
     retry_policy: RetryPolicy | None = None,
 ) -> int:
     """Run one CLI command. `retry_policy` lets a harness that owns retries (one attempt per
-    delivery) replace the SDK's per-operation retry loop; `None` keeps the customer default."""
+    delivery) replace the SDK's per-operation retry loop; `None` keeps the customer default.
+    """
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
     try:
-        args = parser().parse_args(raw)
+        args = parser(stdin_piped=_stdin_has_pipe()).parse_args(raw)
     except UsageError as error:
         if index_requested(raw):
             fail("index_not_available", INDEX_NOT_AVAILABLE, as_json)

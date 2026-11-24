@@ -70,10 +70,15 @@ one blocking `SessionToolCaller`:
   has no client-injection seam, so origin and key reach it via the child
   environment only (SYNTH_LOCAL_API_BASE_URL, SYNTH_API_KEY).
 - `mcp_hosted`: streamable HTTP to `--mcp-url` with `Authorization: Bearer`.
-  The entrypoint reads an opaque bearer from SYNTH_MCP_ACCESS_TOKEN (a harness
-  name introduced here). Core mcpoauth authenticates it via `s.Auth`; whether an
-  API key or only an MCP OAuth access token is accepted is not verified yet.
-  `mcp` is an optional extra, imported only for the MCP drivers.
+  The entrypoint reads an opaque bearer from `SYNTH_MCP_ACCESS_TOKEN` (a harness
+  name introduced here) and `HostedEndpoint` refuses blank or whitespace/header-
+  breaking tokens fail-closed before opening a connection. Local contract tests
+  verify bearer header forwarding, HTTP 401 refusal handling, `initialize`,
+  `tools/list`, and `tools/call` against a local streamable-HTTP `/mcp` server.
+  Live staging verification is still required to confirm whether Core's
+  `mcpoauth` middleware on staging accepts an API key or exclusively an MCP
+  OAuth access token. `mcp` is an optional extra, imported only for the MCP
+  drivers.
 
 ```
 python -m scripts.acceptance --driver mcp_stdio --run-id RUN --receipt-dir OWNED_NEW_DIR
@@ -124,11 +129,15 @@ acceptance is cancelled at once and fails. `raise_limit` on the SDK uses
 the next budget view. The cross-org matrix covers every ID-bearing contract
 operation; operations a surface cannot express stay uncovered (Inconclusive).
 
-Known client findings, retained as failing/Inconclusive steps rather than stubs:
-the SDK refuses a contract-invalid launch (oversize message, unknown topology)
-with a raw `pydantic.ValidationError` that has no public code, and `synth run`
-accepts the goal only as argv, so a message over the 1 MiB contract limit cannot
-be sent from the CLI (E2BIG). `tests/acceptance/test_journeys_refusals.py` pins both.
+Resolved client findings (SYN-5942): contract-invalid SDK launches now wrap all
+local validation errors (including `pydantic.ValidationError`, invalid budget,
+domicile, profile/research-task, and role-assignment preconditions) into typed
+`LaunchValidationError` (`SynthError` / `InvalidRequestError`, code
+`invalid_launch_request`, HTTP 422, outcome `not_accepted`) before any network
+call. `synth run` accepts `--goal-file PATH` (alias `--task-file PATH`),
+`--goal-file -`, and piped stdin so `>1 MiB` goals never fail with OS `E2BIG`.
+`tests/test_launch_and_cli_goal_contracts.py` and
+`tests/acceptance/test_journeys_refusals.py` pin both.
 
 SYN-5737 strengthens the cross-org comparison: only equal, typed resource-404
 Problems pass. Untyped 404s and `route_not_found` stay unproven, and an empty

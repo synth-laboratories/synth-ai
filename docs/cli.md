@@ -30,9 +30,10 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | | `synth billing` | `Balance` |
 | | `synth limits` | `LimitList` |
 
-`synth run` requires either a positional goal or `--task-file PATH`; the UTF-8
-file contents become the launch message. File input avoids operating-system
-argument limits and receives the same bounded message validation. `--file` uploads
+`synth run` requires a positional goal, `--goal-file PATH` (alias `--task-file PATH`,
+or `-` for stdin), or piped stdin; the UTF-8 contents become the launch message.
+File and stdin input avoid operating-system argument (`E2BIG`) limits and receive
+the same bounded message validation. `--file` uploads
 each file (prepare, transfer, finalize in one step) and attaches its reference.
 The default `--timeout` for `wait` and `run --wait` is 3600 seconds.
 
