@@ -284,7 +284,7 @@ def parser(*, stdin_piped: bool = False) -> argparse.ArgumentParser:
         "--parallel-workers",
         type=int,
         metavar="N",
-        help="workers the planner may run at once, 1..10 (default 1); the budget must fund all N",
+        help="workers the planner may run at once, 1..32 (default 1); the budget must fund all N",
     )
     run.add_argument("--tokens", type=int)
     run.add_argument("--pause-retention", type=int, metavar="SECONDS")

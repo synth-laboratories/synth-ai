@@ -188,6 +188,11 @@ class OverloadCode(StrEnum):
     QUEUEFULL = "QueueFull"
 
 
+class OwnerResourceRequestPlugin(StrEnum):
+    POOL = "pool"
+    INDEX = "index"
+
+
 class PlanKind(StrEnum):
     FREE = "free"
     GRANTED = "granted"
@@ -1071,6 +1076,9 @@ class OptimizerParams(WireModel):
     )
     max_tasks: Annotated[int, Field(ge=1, le=4096)] | None = None
     max_repairs_per_task: Annotated[int, Field(ge=0, le=32)] | None = None
+    branches: Annotated[int, Field(ge=2, le=32)] | None = None
+    rounds: Annotated[int, Field(ge=1, le=16)] | None = None
+    exploit_bps: Annotated[int, Field(ge=1000, le=6000)] | None = None
 
 
 class Org(WireModel):
@@ -1737,6 +1745,15 @@ class UsageExportRequest(WireModel):
     format: Literal["csv"]
 
 
+class UsageMeter(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    kind: str
+    quantity: int
+    unit: str
+
+
 class ActorLimitsProgress(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1932,7 +1949,7 @@ class Limits(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     maximum_charge: LaunchBudget
-    parallel_workers: Annotated[int, Field(ge=1, le=10)] | None = None
+    parallel_workers: Annotated[int, Field(ge=1, le=32)] | None = None
     wall_time_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
     maximum_tokens: Annotated[int, Field(ge=1, le=9223372036854775807)] | None = None
     pause_retention_seconds: Annotated[int, Field(ge=1, le=86400)] | None = None
@@ -2048,7 +2065,9 @@ class OwnerResourceRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    plugin: Literal["pool"]
+    plugin: Annotated[
+        OwnerResourceRequestPlugin, BeforeValidator(enum_value(OwnerResourceRequestPlugin))
+    ]
     version: Annotated[Literal[1], BeforeValidator(strict_int)] | None = None
     roles: Annotated[
         list[Literal["planner", "worker", "reviewer", "run_assessor"]],
@@ -2762,6 +2781,7 @@ class UsageRecord(WireModel):
     reasoning_tokens: int | None
     charge: Money
     created_at: str
+    meter: UsageMeter | None = None
 
 
 class UsageSummaryPending(WireModel):
@@ -3117,6 +3137,12 @@ class RunReportRollout(WireModel):
     rollout_id: str
     status: str
     seed: int
+    actor_id: str | None = None
+    task_id: str | None = None
+    episodes: Annotated[int, Field(ge=1)] | None = None
+    error_code: str | None = None
+    error_kind: str | None = None
+    error_stage: str | None = None
     reward: float | None = None
     refusal: str | None = None
     duration_ms: int | None = None
@@ -3720,6 +3746,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UploadGrant": UploadGrant,
     "UsageExport": UsageExport,
     "UsageExportRequest": UsageExportRequest,
+    "UsageMeter": UsageMeter,
     "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
     "AutoReloadLimits": AutoReloadLimits,

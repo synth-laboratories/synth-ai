@@ -141,8 +141,8 @@ def test_wall_time_admits_twenty_four_hours(value):
     assert request.limits.wall_time_seconds == value
 
 
-@pytest.mark.parametrize("value", [0, 11, -1])
-async def test_parallel_workers_outside_one_to_ten_is_rejected_before_any_request(value):
+@pytest.mark.parametrize("value", [0, 33, -1])
+async def test_parallel_workers_outside_one_to_thirty_two_is_rejected_before_any_request(value):
     sent = []
 
     def handle(request):

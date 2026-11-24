@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.40.0
+  version: 1.42.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -6950,7 +6950,7 @@ components:
         parallel_workers:
           type: integer
           minimum: 1
-          maximum: 10
+          maximum: 32
           default: 1
           description: The planner may run up to this many workers at once (one worker per task). The service
             default is 1. Out of range
@@ -7059,10 +7059,12 @@ components:
     OptimizerParams:
       type: object
       additionalProperties: false
-      description: Public swarms_v2 controls. Omitted fields keep the server's defaults
-        (max_tasks is the larger of 4 and limits.parallel_workers; max_repairs_per_task
-        is 2). Any field on another topology is refused with optimizer_params_unsupported.
-        Spend, time, token and concurrency limits stay authoritative.
+      description: Public topology controls. Omitted fields keep the server's defaults
+        (for swarms_v2, max_tasks is the larger of 4 and limits.parallel_workers and
+        max_repairs_per_task is 2; for fork_flush, branches is 4, rounds is 3 and
+        exploit_bps is 3000). Any field belonging to another topology is refused with
+        optimizer_params_unsupported. Spend, time, token and concurrency limits stay
+        authoritative.
       properties:
         max_tasks:
           type: integer
@@ -7077,6 +7079,24 @@ components:
           maximum: 32
           description: Most repair attempts per task after a rejected review, 0 to 32.
             Default 2. Only on a swarms_v2 pin.
+        branches:
+          type: integer
+          minimum: 2
+          maximum: 32
+          description: Exploratory branches forked per round, 2 to 32. Default 4. Only on
+            a fork_flush pin.
+        rounds:
+          type: integer
+          minimum: 1
+          maximum: 16
+          description: Exploit-fork-flush rounds, 1 to 16. Default 3. Only on a fork_flush
+            pin.
+        exploit_bps:
+          type: integer
+          minimum: 1000
+          maximum: 6000
+          description: Per-round budget share reserved for incumbent refinement in basis
+            points, 1000 to 6000. Default 3000. Only on a fork_flush pin.
     ResolvedOptimizer:
       type: object
       additionalProperties: false
@@ -7371,7 +7391,7 @@ components:
       properties:
         plugin:
           type: string
-          enum: [pool]
+          enum: [pool, index]
         version:
           type: integer
           const: 1
@@ -7395,6 +7415,16 @@ components:
             $ref: '#/components/schemas/OwnerResourceLimits'
         selection:
           type: object
+          additionalProperties: false
+          properties:
+            pool_ids:
+              type: array
+              minItems: 1
+              maxItems: 8
+              uniqueItems: true
+              items:
+                type: string
+                pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
         evaluation_templates:
           type: array
           minItems: 1
@@ -7417,23 +7447,23 @@ components:
             required: [spend_micros, rollouts]
             propertyNames:
               enum: [spend_micros, rollouts]
+      - properties:
+          plugin:
+            const: index
+          limits:
+            required: [spend_micros, index_searches]
+            propertyNames:
+              enum: [spend_micros, index_searches, calls]
           selection:
-            additionalProperties: false
-            properties:
-              pool_ids:
-                type: array
-                minItems: 1
-                maxItems: 8
-                uniqueItems: true
-                items:
-                  type: string
-                  pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'
+            maxProperties: 0
+        not:
+          required: [evaluation_templates]
     OwnerResourceLimits:
       type: object
       minProperties: 1
-      maxProperties: 2
+      maxProperties: 3
       propertyNames:
-        enum: [spend_micros, rollouts, calls]
+        enum: [spend_micros, rollouts, index_searches, calls]
       additionalProperties:
         type: integer
         minimum: 0
@@ -8922,6 +8952,25 @@ components:
           type: string
         seed:
           type: integer
+        actor_id:
+          type: string
+          description: The actor that requested the rollout, when recorded.
+        task_id:
+          type: string
+          description: The task identifier the rollout ran against, when recorded.
+        episodes:
+          type: integer
+          minimum: 1
+          description: Episode count evaluated in the rollout, when recorded.
+        error_code:
+          type: string
+          description: Typed failure code of a rollout that failed or was refused, when recorded.
+        error_kind:
+          type: string
+          description: Typed failure category of a rollout that failed or was refused, when recorded.
+        error_stage:
+          type: string
+          description: Execution stage at which a rollout failed or was refused, when recorded.
         reward:
           type: number
           description: Present only when the rollout was scored.
@@ -10740,6 +10789,21 @@ components:
         created_at:
           type: string
           format: date-time
+        meter:
+          $ref: '#/components/schemas/UsageMeter'
+    UsageMeter:
+      description: What a priced Index call counted. Absent on every other record.
+      type: object
+      additionalProperties: false
+      required: [kind, quantity, unit]
+      properties:
+        kind:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+        unit:
+          type: string
     UsageRecordPage:
       allOf:
       - $ref: '#/components/schemas/PageFields'

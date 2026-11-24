@@ -483,6 +483,20 @@ def generate() -> dict[Path, str | bytes]:
                 )
                 for key, value in schema.objects("properties", optional=True).items()
             }
+        # Several branches that only refine declared properties stay one model;
+        # Core decides the combinations a single model cannot express.
+        branches = schema.object_array("oneOf", optional=True)
+        declared = schema.objects("properties", optional=True)
+        if (
+            schema.get("type") == "object"
+            and len(branches) > 1
+            and all(
+                branch.keys() <= {"properties", "not"}
+                and branch.object("properties", optional=True).keys() <= declared.keys()
+                for branch in branches
+            )
+        ):
+            del schema["oneOf"]
         if "properties" in schema:
             schema["properties"] = {
                 key: lift_child(value, name + "".join(part.title() for part in key.split("_")))

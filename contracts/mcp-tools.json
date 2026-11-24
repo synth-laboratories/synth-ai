@@ -526,7 +526,7 @@
                   "parallel_workers": {
                     "default": 1,
                     "description": "The planner may run up to this many workers at once (one worker per task). The service default is 1. Out of range is refused at launch with 422 invalid_launch_request, cause limits.parallel_workers. The budget must fund the planner, the reviewer and every parallel worker at once (each parallel worker holds an equal slice of the budget, and never less than one worst-case model call); a smaller maximum_charge is refused at launch with 422 run_budget_below_call_bound, whose Problem states the minimum in micro-USD (minimum_budget_micros). Not accepted with research profiles.",
-                    "maximum": 10,
+                    "maximum": 32,
                     "minimum": 1,
                     "type": "integer"
                   },
@@ -568,8 +568,20 @@
                     "properties": {
                       "params": {
                         "additionalProperties": false,
-                        "description": "Public swarms_v2 controls. Omitted fields keep the server's defaults (max_tasks is the larger of 4 and limits.parallel_workers; max_repairs_per_task is 2). Any field on another topology is refused with optimizer_params_unsupported. Spend, time, token and concurrency limits stay authoritative.",
+                        "description": "Public topology controls. Omitted fields keep the server's defaults (for swarms_v2, max_tasks is the larger of 4 and limits.parallel_workers and max_repairs_per_task is 2; for fork_flush, branches is 4, rounds is 3 and exploit_bps is 3000). Any field belonging to another topology is refused with optimizer_params_unsupported. Spend, time, token and concurrency limits stay authoritative.",
                         "properties": {
+                          "branches": {
+                            "description": "Exploratory branches forked per round, 2 to 32. Default 4. Only on a fork_flush pin.",
+                            "maximum": 32,
+                            "minimum": 2,
+                            "type": "integer"
+                          },
+                          "exploit_bps": {
+                            "description": "Per-round budget share reserved for incumbent refinement in basis points, 1000 to 6000. Default 3000. Only on a fork_flush pin.",
+                            "maximum": 6000,
+                            "minimum": 1000,
+                            "type": "integer"
+                          },
                           "max_repairs_per_task": {
                             "description": "Most repair attempts per task after a rejected review, 0 to 32. Default 2. Only on a swarms_v2 pin.",
                             "maximum": 32,
@@ -579,6 +591,12 @@
                           "max_tasks": {
                             "description": "Most tasks the planner's work plan may hold, 1 to 4096. Default max(4, limits.parallel_workers); must be at least limits.parallel_workers. Only on a swarms_v2 pin.",
                             "maximum": 4096,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "rounds": {
+                            "description": "Exploit-fork-flush rounds, 1 to 16. Default 3. Only on a fork_flush pin.",
+                            "maximum": 16,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -645,21 +663,34 @@
                         },
                         "plugin": {
                           "const": "pool"
+                        }
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "evaluation_templates"
+                        ]
+                      },
+                      "properties": {
+                        "limits": {
+                          "propertyNames": {
+                            "enum": [
+                              "spend_micros",
+                              "index_searches",
+                              "calls"
+                            ]
+                          },
+                          "required": [
+                            "spend_micros",
+                            "index_searches"
+                          ]
+                        },
+                        "plugin": {
+                          "const": "index"
                         },
                         "selection": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "pool_ids": {
-                              "items": {
-                                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
-                                "type": "string"
-                              },
-                              "maxItems": 8,
-                              "minItems": 1,
-                              "type": "array",
-                              "uniqueItems": true
-                            }
-                          }
+                          "maxProperties": 0
                         }
                       }
                     }
@@ -681,12 +712,13 @@
                         "minimum": 0,
                         "type": "integer"
                       },
-                      "maxProperties": 2,
+                      "maxProperties": 3,
                       "minProperties": 1,
                       "propertyNames": {
                         "enum": [
                           "spend_micros",
                           "rollouts",
+                          "index_searches",
                           "calls"
                         ]
                       },
@@ -694,7 +726,8 @@
                     },
                     "plugin": {
                       "enum": [
-                        "pool"
+                        "pool",
+                        "index"
                       ],
                       "type": "string"
                     },
@@ -705,12 +738,13 @@
                           "minimum": 0,
                           "type": "integer"
                         },
-                        "maxProperties": 2,
+                        "maxProperties": 3,
                         "minProperties": 1,
                         "propertyNames": {
                           "enum": [
                             "spend_micros",
                             "rollouts",
+                            "index_searches",
                             "calls"
                           ]
                         },
@@ -743,6 +777,19 @@
                       "uniqueItems": true
                     },
                     "selection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "pool_ids": {
+                          "items": {
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                            "type": "string"
+                          },
+                          "maxItems": 8,
+                          "minItems": 1,
+                          "type": "array",
+                          "uniqueItems": true
+                        }
+                      },
                       "type": "object"
                     },
                     "version": {
