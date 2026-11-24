@@ -255,7 +255,7 @@ def test_run_uploads_files_labels_and_prints_the_run_id(api, capsys, contract, t
 @pytest.mark.parametrize(
     "flags",
     [
-        ["--parallel-workers", "11"],
+        ["--parallel-workers", "33"],
         ["--parallel-workers", "0"],
         ["--wall", "86401"],
         ["--wall", "0"],
