@@ -342,6 +342,78 @@ SDK_CALLS: Mapping[str, SdkCall] = {
         a.path["key_id"], idempotency_key=a.idempotency_key
     ),
     "revokeApiKey": lambda c, a: c.account.api_keys.revoke(a.path["key_id"]),
+    "getRunReview": lambda c, a: c.swarms.review(run_id(a)),
+    "getArtifact": lambda c, a: c.artifacts.get_artifact(a.path["artifact_id"]),
+    "updateArtifact": lambda c, a: c.artifacts.update_artifact(
+        a.path["artifact_id"],
+        str((a.body or {}).get("content", "")),
+        str((a.body or {}).get("summary", "")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "getArtifactContent": lambda c, a: c.artifacts.get_artifact_content(
+        a.path["artifact_id"],
+        revision_id=cast("Optional[str]", a.query.get("revision_id")),
+        digest_sha256=cast("Optional[str]", a.query.get("digest_sha256")),
+    ),
+    "shareArtifact": lambda c, a: c.artifacts.share_artifact(
+        a.path["artifact_id"],
+        scope=str((a.body or {}).get("scope", "org")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "revokeArtifactShare": lambda c, a: c.artifacts.revoke_artifact_share(a.path["artifact_id"]),
+    "listNotebookArtifacts": lambda c, a: c.artifacts.list_artifacts(
+        a.path["notebook_id"], run_id=cast("Optional[str]", a.query.get("run_id"))
+    ),
+    "createExperiment": lambda c, a: c.experiments.create_experiment(
+        a.path["notebook_id"],
+        str((a.body or {}).get("run_id", "")),
+        str((a.body or {}).get("title", "")),
+        str((a.body or {}).get("specification", "")),
+        cast("Sequence[str]", (a.body or {}).get("arms") or ["baseline"]),
+        idempotency_key=a.idempotency_key,
+    ),
+    "listNotebookExperiments": lambda c, a: c.experiments.list_experiments(
+        a.path["notebook_id"], run_id=cast("Optional[str]", a.query.get("run_id"))
+    ),
+    "getExperiment": lambda c, a: c.experiments.get_experiment(a.path["experiment_id"]),
+    "reviseExperiment": lambda c, a: c.experiments.revise_experiment(
+        a.path["experiment_id"],
+        title=cast("Optional[str]", (a.body or {}).get("title")),
+        specification=cast("Optional[str]", (a.body or {}).get("specification")),
+        hypothesis=cast("Optional[str]", (a.body or {}).get("hypothesis")),
+        stopping_criteria=cast("Optional[str]", (a.body or {}).get("stopping_criteria")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "initResearchLog": lambda c, a: c.research_logs.create_log(
+        a.path["notebook_id"],
+        title=str((a.body or {}).get("title", "")),
+        summary=cast("Optional[str]", (a.body or {}).get("summary")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "appendResearchLogEntry": lambda c, a: c.research_logs.append_entry(
+        a.path["notebook_id"],
+        str((a.body or {}).get("category", "observation")),
+        str((a.body or {}).get("text", "")),
+        run_id=cast("Optional[str]", (a.body or {}).get("run_id")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "searchResearchLog": lambda c, a: c.research_logs.search_entries(
+        a.path["notebook_id"],
+        query=cast("Optional[str]", a.query.get("query")),
+        category=cast("Optional[str]", a.query.get("category")),
+        run_id=cast("Optional[str]", a.query.get("run_id")),
+    ),
+    "correctResearchLogEntry": lambda c, a: c.research_logs.correct_entry(
+        a.path["notebook_id"],
+        a.path["entry_id"],
+        str((a.body or {}).get("text", "")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "exportResearchLog": lambda c, a: c.research_logs.export_log(
+        a.path["notebook_id"],
+        run_id=cast("Optional[str]", a.query.get("run_id")),
+        fmt=str(a.query.get("format") or "markdown"),
+    ),
 }
 
 
@@ -380,6 +452,13 @@ def body_file(directory: Path, body: Mapping[str, JsonValue]) -> str:
     descriptor, name = tempfile.mkstemp(suffix=".json", dir=directory)
     with os.fdopen(descriptor, "w") as output:
         json.dump(body, output)
+    return name
+
+
+def text_file(directory: Path, content: str) -> str:
+    descriptor, name = tempfile.mkstemp(suffix=".txt", dir=directory)
+    with os.fdopen(descriptor, "w") as output:
+        output.write(content)
     return name
 
 
@@ -589,6 +668,113 @@ CLI_ARGV: Mapping[str, ArgvBuilder] = {
         str(a.idempotency_key),
     ],
     "revokeApiKey": lambda a, d: ["keys", "revoke", a.path["key_id"]],
+    "getRunReview": inspect_view("review"),
+    "getArtifact": lambda a, d: ["artifacts", "get", a.path["artifact_id"]],
+    "updateArtifact": lambda a, d: [
+        "artifacts",
+        "update",
+        a.path["artifact_id"],
+        "--summary",
+        str((a.body or {}).get("summary", "probe")),
+        "--file",
+        text_file(d, str((a.body or {}).get("content", "<p>probe</p>"))),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "getArtifactContent": lambda a, d: ["artifacts", "content", a.path["artifact_id"]],
+    "shareArtifact": lambda a, d: [
+        "artifacts",
+        "share",
+        a.path["artifact_id"],
+        "--scope",
+        str((a.body or {}).get("scope", "org")),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "revokeArtifactShare": lambda a, d: ["artifacts", "revoke-share", a.path["artifact_id"]],
+    "listNotebookArtifacts": lambda a, d: [
+        "artifacts",
+        "list",
+        "--notebook-id",
+        a.path["notebook_id"],
+    ],
+    "createExperiment": lambda a, d: [
+        "experiments",
+        "create",
+        "--notebook-id",
+        a.path["notebook_id"],
+        "--run-id",
+        str((a.body or {}).get("run_id", "")),
+        "--title",
+        str((a.body or {}).get("title", "probe")),
+        "--specification",
+        str((a.body or {}).get("specification", "probe")),
+        "--arm",
+        "baseline",
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "listNotebookExperiments": lambda a, d: [
+        "experiments",
+        "list",
+        "--notebook-id",
+        a.path["notebook_id"],
+    ],
+    "getExperiment": lambda a, d: ["experiments", "get", a.path["experiment_id"]],
+    "reviseExperiment": lambda a, d: [
+        "experiments",
+        "revise",
+        a.path["experiment_id"],
+        "--title",
+        str((a.body or {}).get("title", "revised")),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "initResearchLog": lambda a, d: [
+        "research-log",
+        "init",
+        "--notebook-id",
+        a.path["notebook_id"],
+        "--title",
+        str((a.body or {}).get("title", "probe")),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "appendResearchLogEntry": lambda a, d: [
+        "research-log",
+        "append",
+        "--notebook-id",
+        a.path["notebook_id"],
+        "--category",
+        str((a.body or {}).get("category", "observation")),
+        "--text",
+        str((a.body or {}).get("text", "probe")),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "searchResearchLog": lambda a, d: [
+        "research-log",
+        "search",
+        "--notebook-id",
+        a.path["notebook_id"],
+    ],
+    "correctResearchLogEntry": lambda a, d: [
+        "research-log",
+        "correct",
+        a.path["entry_id"],
+        "--notebook-id",
+        a.path["notebook_id"],
+        "--text",
+        str((a.body or {}).get("text", "correction")),
+        "--idempotency-key",
+        str(a.idempotency_key),
+    ],
+    "exportResearchLog": lambda a, d: [
+        "research-log",
+        "export",
+        "--notebook-id",
+        a.path["notebook_id"],
+    ],
 }
 
 

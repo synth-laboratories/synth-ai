@@ -34,6 +34,23 @@ class ApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
+class AppendResearchLogEntryRequestAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class AppendResearchLogEntryRequestCategory(StrEnum):
+    HYPOTHESIS = "hypothesis"
+    ATTEMPT = "attempt"
+    OBSERVATION = "observation"
+    FAILURE = "failure"
+    DECISION = "decision"
+    CORRECTION = "correction"
+    PREFERENCE = "preference"
+    RATIONALE = "rationale"
+
+
 class BillingHistoryEntryCause(StrEnum):
     GRANT = "grant"
     HOLD = "hold"
@@ -70,6 +87,52 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_10 = "credits.10"
     CREDITS_25 = "credits.25"
     CREDITS_100 = "credits.100"
+
+
+class CreateHostedArtifactRequestKind(StrEnum):
+    HTML = "html"
+    REACT = "react"
+    SVG = "svg"
+    MERMAID = "mermaid"
+    MARKDOWN = "markdown"
+    CHART = "chart"
+
+
+class CreateHostedArtifactRequestOrigin(StrEnum):
+    AGENT = "agent"
+    HUMAN = "human"
+
+
+class HostedArtifactKind(StrEnum):
+    HTML = "html"
+    REACT = "react"
+    SVG = "svg"
+    MERMAID = "mermaid"
+    MARKDOWN = "markdown"
+    CHART = "chart"
+
+
+class HostedArtifactOrigin(StrEnum):
+    AGENT = "agent"
+    HUMAN = "human"
+
+
+class HostedArtifactRevisionAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class HostedArtifactRevisionByteState(StrEnum):
+    AVAILABLE = "available"
+    MISSING_BYTES = "missing_bytes"
+    ACCESS_DENIED = "access_denied"
+    PAYLOAD_TOO_LARGE = "payload_too_large"
+
+
+class HostedArtifactShareGrantScope(StrEnum):
+    ORG = "org"
+    LINK = "link"
 
 
 class LaunchChoiceExclusionCause(StrEnum):
@@ -272,6 +335,35 @@ class RefundDetailRefundCause(StrEnum):
     LAUNCH_FAILED = "launch_failed"
 
 
+class ResearchExactReferenceSource(StrEnum):
+    RESEARCH = "research"
+    ARTIFACT = "artifact"
+    RUN = "run"
+
+
+class ResearchLogEntryAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class ResearchLogEntryCategory(StrEnum):
+    HYPOTHESIS = "hypothesis"
+    ATTEMPT = "attempt"
+    OBSERVATION = "observation"
+    FAILURE = "failure"
+    DECISION = "decision"
+    CORRECTION = "correction"
+    PREFERENCE = "preference"
+    RATIONALE = "rationale"
+
+
+class ResearchLogEntrySyncState(StrEnum):
+    SYNCED = "synced"
+    LOCAL_PENDING = "local_pending"
+    MISSING_EVIDENCE = "missing_evidence"
+
+
 class ResolvedOptimizerReason(StrEnum):
     ENVIRONMENT_DEFAULT = "environment_default"
     EXPLICIT_PIN = "explicit_pin"
@@ -360,6 +452,13 @@ class RunGuidancePriority(StrEnum):
     MUST = "must"
     SHOULD = "should"
     NICE = "nice"
+
+
+class RunHorizonPacingPhase(StrEnum):
+    EXPLORE = "explore"
+    EXPLOIT = "exploit"
+    WIND_DOWN = "wind_down"
+    CLOSED = "closed"
 
 
 class RunInheritedArtifactKind(StrEnum):
@@ -665,6 +764,11 @@ class SelectionCandidateState(StrEnum):
     FAILED = "failed"
 
 
+class ShareHostedArtifactRequestScope(StrEnum):
+    ORG = "org"
+    LINK = "link"
+
+
 class SubscriptionChangeRequestPlanId(StrEnum):
     STANDARD_MONTHLY = "standard.monthly"
     MAX_MONTHLY = "max.monthly"
@@ -683,6 +787,12 @@ class TopologyCatalogEntryLabel(StrEnum):
 class TopologyCatalogEntryTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
+
+
+class UpdateHostedArtifactRequestAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
 
 
 class UploadState(StrEnum):
@@ -809,6 +919,42 @@ class ControlRef(WireModel):
     state: str
 
 
+class CreateHostedArtifactRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str
+    run_id: str | None = None
+    title: str
+    kind: Annotated[
+        CreateHostedArtifactRequestKind,
+        BeforeValidator(enum_value(CreateHostedArtifactRequestKind)),
+    ]
+    origin: (
+        Annotated[
+            CreateHostedArtifactRequestOrigin,
+            BeforeValidator(enum_value(CreateHostedArtifactRequestOrigin)),
+        ]
+        | None
+    ) = None
+    content: str
+    summary: str
+
+
+class CreateResearchExperimentRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str | None = None
+    run_id: str
+    title: str
+    specification: str
+    hypothesis: str | None = None
+    arms: list[str]
+    pinned_inputs: list[str] | None = None
+    stopping_criteria: str | None = None
+
+
 EvtId: TypeAlias = Annotated[str, Field(pattern="^evt_[A-Za-z0-9_-]{22}$")]
 
 
@@ -845,6 +991,28 @@ class File(WireModel):
     size_bytes: Annotated[int, Field(ge=0)]
     digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
     created_at: str
+
+
+class HostedArtifactShareGrant(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    share_id: str
+    scope: Annotated[
+        HostedArtifactShareGrantScope, BeforeValidator(enum_value(HostedArtifactShareGrantScope))
+    ]
+    url: str
+    revoked: bool
+    created_at: str
+
+
+class InitResearchLogRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str | None = None
+    title: str
+    summary: str | None = None
 
 
 class InputFile(WireModel):
@@ -1193,6 +1361,62 @@ class RefundDetailRunUsage1(WireModel):
     compute: dict[str, dict[str, JsonValue]] | None = None
 
 
+class ResearchExactReference(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    source: Annotated[
+        ResearchExactReferenceSource, BeforeValidator(enum_value(ResearchExactReferenceSource))
+    ]
+    kind: str
+    record_id: str
+    revision: str
+    digest_sha256: str
+
+
+class ResearchLogExport(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str
+    run_id: str | None
+    format: str
+    content: str
+    entry_count: Annotated[int, Field(ge=0)]
+
+
+class ResearchLogSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str
+    title: str
+    summary: str | None
+    entry_count: Annotated[int, Field(ge=0)]
+    created_at: str
+
+
+class ResearchTrialMeasurement(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    name: str
+    value: float | None
+    unit: str
+    uncertainty: float | None
+
+
+class ReviseResearchExperimentRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    title: str | None = None
+    specification: str | None = None
+    hypothesis: str | None = None
+    arms: list[str] | None = None
+    stopping_criteria: str | None = None
+
+
 class RoleAssignment(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1322,6 +1546,17 @@ class RunGuidanceMetric(WireModel):
         | Annotated[str, Field(pattern="^-?[0-9]{1,18}(\\.[0-9]{1,18})?$")]
     )
     source: Annotated[RunGuidanceMetricSource, BeforeValidator(enum_value(RunGuidanceMetricSource))]
+
+
+class RunHorizonPacing(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    phase: Annotated[RunHorizonPacingPhase, BeforeValidator(enum_value(RunHorizonPacingPhase))]
+    elapsed_seconds: int
+    wall_time_seconds: int
+    budget_spent_usd: str
+    budget_limit_usd: str
 
 
 RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
@@ -1596,6 +1831,16 @@ class SelectionScore(WireModel):
     denominator: Annotated[int, Field(ge=1)]
 
 
+class ShareHostedArtifactRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    scope: Annotated[
+        ShareHostedArtifactRequestScope,
+        BeforeValidator(enum_value(ShareHostedArtifactRequestScope)),
+    ]
+
+
 class SpecialFreeRequestInput(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1677,6 +1922,21 @@ class TopologyCatalogEntry(WireModel):
     ]
     definition_digest: str | None = None
     cause: str | None = None
+
+
+class UpdateHostedArtifactRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    content: str
+    summary: str
+    author_kind: (
+        Annotated[
+            UpdateHostedArtifactRequestAuthorKind,
+            BeforeValidator(enum_value(UpdateHostedArtifactRequestAuthorKind)),
+        ]
+        | None
+    ) = None
 
 
 class UploadCreateRequest(WireModel):
@@ -1780,6 +2040,30 @@ class ApiKey(WireModel):
     revoked_at: str | None = None
 
 
+class AppendResearchLogEntryRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    notebook_id: str | None = None
+    run_id: str | None = None
+    category: Annotated[
+        AppendResearchLogEntryRequestCategory,
+        BeforeValidator(enum_value(AppendResearchLogEntryRequestCategory)),
+    ]
+    author_kind: (
+        Annotated[
+            AppendResearchLogEntryRequestAuthorKind,
+            BeforeValidator(enum_value(AppendResearchLogEntryRequestAuthorKind)),
+        ]
+        | None
+    ) = None
+    author_label: str | None = None
+    text: str
+    correction_of: str | None = None
+    sources: list[ResearchExactReference] | None = None
+    artifact_ids: list[str] | None = None
+
+
 class AutoReloadLimits(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1880,6 +2164,16 @@ class CheckoutSession(WireModel):
     url: str
 
 
+class CorrectResearchLogEntryRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    run_id: str | None = None
+    text: str
+    sources: list[ResearchExactReference] | None = None
+    artifact_ids: list[str] | None = None
+
+
 class FilePage(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1887,6 +2181,28 @@ class FilePage(WireModel):
     items: list[File]
     has_more: bool
     next_cursor: str | None = None
+
+
+class HostedArtifactRevision(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    revision: Annotated[int, Field(ge=1)]
+    revision_id: str
+    digest_sha256: str
+    byte_size: Annotated[int, Field(ge=0)]
+    media_type: str
+    created_at: str
+    author_kind: Annotated[
+        HostedArtifactRevisionAuthorKind,
+        BeforeValidator(enum_value(HostedArtifactRevisionAuthorKind)),
+    ]
+    summary: str
+    byte_state: Annotated[
+        HostedArtifactRevisionByteState,
+        BeforeValidator(enum_value(HostedArtifactRevisionByteState)),
+    ]
+    provenance: ResearchExactReference
 
 
 class LaunchChoiceInference(WireModel):
@@ -2172,6 +2488,52 @@ class RefundDetail(WireModel):
     held: Money
     charged: Money
     refunded: Money
+
+
+class ResearchLogEntry(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    entry_id: str
+    notebook_id: str
+    run_id: str | None
+    category: Annotated[
+        ResearchLogEntryCategory, BeforeValidator(enum_value(ResearchLogEntryCategory))
+    ]
+    author_kind: Annotated[
+        ResearchLogEntryAuthorKind, BeforeValidator(enum_value(ResearchLogEntryAuthorKind))
+    ]
+    author_label: str
+    text: str
+    occurred_at: str
+    recorded_at: str
+    sync_state: Annotated[
+        ResearchLogEntrySyncState, BeforeValidator(enum_value(ResearchLogEntrySyncState))
+    ]
+    correction_of: str | None
+    sources: list[ResearchExactReference]
+    artifact_ids: list[str]
+    missing_evidence: list[str]
+
+
+class ResearchTrialCharge(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    amount: Money
+    final: bool
+
+
+class ResearchTrialScore(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    record: ResearchExactReference
+    outcome: str
+    verification: str
+    scorer_receipt: ResearchExactReference | None
+    measurements: list[ResearchTrialMeasurement]
+    missing_evidence: list[str]
 
 
 class ResolvedOptimizer(WireModel):
@@ -2870,6 +3232,22 @@ class FamilyList(WireModel):
     routing: RoutingCatalog | None = None
 
 
+class HostedArtifact(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    artifact_id: str
+    run_id: str | None
+    notebook_id: str
+    title: str
+    kind: Annotated[HostedArtifactKind, BeforeValidator(enum_value(HostedArtifactKind))]
+    origin: Annotated[HostedArtifactOrigin, BeforeValidator(enum_value(HostedArtifactOrigin))]
+    current_revision: Annotated[int, Field(ge=1)]
+    revisions: list[HostedArtifactRevision]
+    share: HostedArtifactShareGrant | None
+    pinned: bool
+
+
 class LaunchChoiceSandbox(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2917,6 +3295,31 @@ class PlanCatalog(WireModel):
     policy_version: str
     price_checked_at: str
     plans: list[Plan]
+
+
+class ResearchLogEntryList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: list[ResearchLogEntry]
+
+
+class ResearchTrialRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    trial_id: str
+    experiment_id: str
+    arm: str
+    parent_trial_id: str | None
+    depth: int
+    state: str
+    charge: ResearchTrialCharge | None
+    uplift_per_dollar: float | None
+    scores: list[ResearchTrialScore]
+    deviations: list[str]
+    artifact_ids: list[str]
+    note_ids: list[str]
 
 
 class RoutingReadback(WireModel):
@@ -3245,6 +3648,13 @@ class BillingHistoryPage(WireModel):
     items: list[BillingHistoryEntry]
 
 
+class HostedArtifactList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: list[HostedArtifact]
+
+
 class LaunchChoices(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3291,6 +3701,24 @@ class LaunchRequest(WireModel):
     routing: RoutingConstraints | None = None
     role_assignments: dict[str, RoleAssignment] | None = None
     launch_menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")] | None = None
+
+
+class ResearchExperimentRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    experiment_id: str
+    notebook_id: str
+    run_id: str
+    revision: Annotated[int, Field(ge=1)]
+    title: str
+    specification: str
+    hypothesis: str | None
+    arms: list[str]
+    pinned_inputs: list[str]
+    stopping_criteria: str | None
+    provenance: ResearchExactReference
+    trials: list[ResearchTrialRecord]
 
 
 class RunAllocation(WireModel):
@@ -3503,6 +3931,13 @@ class UsageSummary(WireModel):
     by_key: list[UsageKeyBucket]
 
 
+class ResearchExperimentList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: list[ResearchExperimentRecord]
+
+
 RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
 
 
@@ -3601,6 +4036,16 @@ class RunReport(WireModel):
     timings: RunTimings
 
 
+class RunReviewSurface(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    pacing: RunHorizonPacing | None
+    experiments: list[ResearchExperimentRecord]
+    research_log: list[ResearchLogEntry]
+    artifacts: list[HostedArtifact]
+
+
 class RunWait(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3663,9 +4108,13 @@ MODELS: dict[str, type[BaseModel]] = {
     "BudgetFloor": BudgetFloor,
     "ChargeUsageUnits": ChargeUsageUnits,
     "ControlRef": ControlRef,
+    "CreateHostedArtifactRequest": CreateHostedArtifactRequest,
+    "CreateResearchExperimentRequest": CreateResearchExperimentRequest,
     "Exclude": Exclude,
     "Family": Family,
     "File": File,
+    "HostedArtifactShareGrant": HostedArtifactShareGrant,
+    "InitResearchLogRequest": InitResearchLogRequest,
     "InputFile": InputFile,
     "LaunchBudget": LaunchBudget,
     "LaunchChoiceExclusion": LaunchChoiceExclusion,
@@ -3695,6 +4144,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "PromoRedeemRequest": PromoRedeemRequest,
     "PromoTrialGrant": PromoTrialGrant,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
+    "ResearchExactReference": ResearchExactReference,
+    "ResearchLogExport": ResearchLogExport,
+    "ResearchLogSummary": ResearchLogSummary,
+    "ResearchTrialMeasurement": ResearchTrialMeasurement,
+    "ReviseResearchExperimentRequest": ReviseResearchExperimentRequest,
     "RoleAssignment": RoleAssignment,
     "RoutingActor": RoutingActor,
     "RoutingCatalogRoute": RoutingCatalogRoute,
@@ -3705,6 +4159,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunControlReceipt": RunControlReceipt,
     "RunEvaluation": RunEvaluation,
     "RunGuidanceMetric": RunGuidanceMetric,
+    "RunHorizonPacing": RunHorizonPacing,
     "RunInheritedArtifact": RunInheritedArtifact,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
@@ -3726,6 +4181,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SandboxProfile": SandboxProfile,
     "SelectionFile": SelectionFile,
     "SelectionScore": SelectionScore,
+    "ShareHostedArtifactRequest": ShareHostedArtifactRequest,
     "SpecialFreeRequestInput": SpecialFreeRequestInput,
     "SpendAlertsLastNotified0": SpendAlertsLastNotified0,
     "Subscription": Subscription,
@@ -3734,6 +4190,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
     "TopologyCatalogEntry": TopologyCatalogEntry,
+    "UpdateHostedArtifactRequest": UpdateHostedArtifactRequest,
     "UploadCreateRequest": UploadCreateRequest,
     "UploadFileRequest": UploadFileRequest,
     "UploadGrant": UploadGrant,
@@ -3742,6 +4199,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageMeter": UsageMeter,
     "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
+    "AppendResearchLogEntryRequest": AppendResearchLogEntryRequest,
     "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
     "Balance": Balance,
@@ -3750,7 +4208,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
+    "CorrectResearchLogEntryRequest": CorrectResearchLogEntryRequest,
     "FilePage": FilePage,
+    "HostedArtifactRevision": HostedArtifactRevision,
     "LaunchChoiceInference": LaunchChoiceInference,
     "LaunchChoiceSandboxOptionsItem": LaunchChoiceSandboxOptionsItem,
     "LaunchChoicesAffordability": LaunchChoicesAffordability,
@@ -3770,6 +4230,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "PromoRedemption": PromoRedemption,
     "PromotionalGrant": PromotionalGrant,
     "RefundDetail": RefundDetail,
+    "ResearchLogEntry": ResearchLogEntry,
+    "ResearchTrialCharge": ResearchTrialCharge,
+    "ResearchTrialScore": ResearchTrialScore,
     "ResolvedOptimizer": ResolvedOptimizer,
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
@@ -3816,10 +4279,13 @@ MODELS: dict[str, type[BaseModel]] = {
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "FamilyList": FamilyList,
+    "HostedArtifact": HostedArtifact,
     "LaunchChoiceSandbox": LaunchChoiceSandbox,
     "LimitList": LimitList,
     "OutputPage": OutputPage,
     "PlanCatalog": PlanCatalog,
+    "ResearchLogEntryList": ResearchLogEntryList,
+    "ResearchTrialRecord": ResearchTrialRecord,
     "RoutingReadback": RoutingReadback,
     "RunAllocationActor": RunAllocationActor,
     "RunAttemptNode": RunAttemptNode,
@@ -3837,8 +4303,10 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageSummaryBySource": UsageSummaryBySource,
     "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
+    "HostedArtifactList": HostedArtifactList,
     "LaunchChoices": LaunchChoices,
     "LaunchRequest": LaunchRequest,
+    "ResearchExperimentRecord": ResearchExperimentRecord,
     "RunAllocation": RunAllocation,
     "RunAttemptTreeAvailable": RunAttemptTreeAvailable,
     "RunMessage": RunMessage,
@@ -3847,10 +4315,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
+    "ResearchExperimentList": ResearchExperimentList,
     "RunEvent": RunEvent,
     "RunMessagePage": RunMessagePage,
     "RunPage": RunPage,
     "RunReport": RunReport,
+    "RunReviewSurface": RunReviewSurface,
     "RunWait": RunWait,
     "EventPage": EventPage,
     "RunResult": RunResult,

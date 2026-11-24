@@ -96,7 +96,7 @@ def test_owner_mutations_are_covered_with_the_owner_positive_control(contract, t
     assert bodies["updateRunLabels"][1]["expected_revision"] == 9
     # Denominator: every ID-bearing contract operation passes on every driver.
     results = [row["result"] for row in result.evidence]
-    assert results.count("pass") == len(journeys.matrix_operations()) == 32, results
+    assert results.count("pass") == len(journeys.matrix_operations()) == 48, results
     assert result.verdict == Verdict.PASS, result.cause
 
 

@@ -35,6 +35,7 @@ from .models import (
     OptimizerPin,
     OptimizerRequest,
     RoutingConstraints,
+    RunReviewSurface,
     RunState,
     StreamCheckpoint,
 )
@@ -96,6 +97,7 @@ __all__ = [
     "RunMessageRateLimitedError",
     "RunNotAcceptingMessagesError",
     "RunPausedError",
+    "RunReviewSurface",
     "RunState",
     "SpendEntitlementExceededError",
     "StreamCheckpoint",

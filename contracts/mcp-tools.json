@@ -2732,6 +2732,775 @@
       "name": "swarms_run_message",
       "operationId": "getRunMessage",
       "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Create a versioned interactive artifact (revision 1).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "html",
+                  "react",
+                  "svg",
+                  "mermaid",
+                  "markdown",
+                  "chart"
+                ],
+                "type": "string"
+              },
+              "notebook_id": {
+                "type": "string"
+              },
+              "origin": {
+                "enum": [
+                  "agent",
+                  "human"
+                ],
+                "type": "string"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "summary": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "notebook_id",
+              "title",
+              "kind",
+              "content",
+              "summary"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_create",
+      "operationId": "createArtifact",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Read hosted artifact metadata and revision history.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_get",
+      "operationId": "getArtifact",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Append an immutable revision to an interactive artifact.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "author_kind": {
+                "enum": [
+                  "human",
+                  "local_agent",
+                  "swarm_actor"
+                ],
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "summary"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_update",
+      "operationId": "updateArtifact",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Download verified artifact revision bytes from object storage.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "digest_sha256": {
+            "type": "string"
+          },
+          "revision_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_content",
+      "operationId": "getArtifactContent",
+      "result": "McpOutputContent",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Mint an org-scoped or link-scoped share grant for an artifact.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          },
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "scope": {
+                "enum": [
+                  "org",
+                  "link"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_share",
+      "operationId": "shareArtifact",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Revoke an artifact share grant.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifact_share_revoke",
+      "operationId": "revokeArtifactShare",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "List hosted artifacts in a notebook, optionally filtered by run.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "notebook_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifacts_list",
+      "operationId": "listNotebookArtifacts",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Create a multi-arm experiment specification inside a notebook.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "arms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "hypothesis": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notebook_id": {
+                "type": "string"
+              },
+              "pinned_inputs": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "run_id": {
+                "type": "string"
+              },
+              "specification": {
+                "type": "string"
+              },
+              "stopping_criteria": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "run_id",
+              "title",
+              "specification",
+              "arms"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_experiment_create",
+      "operationId": "createExperiment",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "List experiments in a notebook, optionally filtered by run.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "notebook_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_experiments_list",
+      "operationId": "listNotebookExperiments",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Read an experiment record by id.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_experiment_get",
+      "operationId": "getExperiment",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Revise an experiment specification, hypothesis, arms, or stopping criteria.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "arms": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "hypothesis": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "specification": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stopping_criteria": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "experiment_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_experiment_revise",
+      "operationId": "reviseExperiment",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Initialize or update a notebook research log header.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "notebook_id": {
+                "type": "string"
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_research_log_init",
+      "operationId": "initResearchLog",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Append an entry to a notebook research log.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "artifact_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "author_kind": {
+                "enum": [
+                  "human",
+                  "local_agent",
+                  "swarm_actor"
+                ],
+                "type": "string"
+              },
+              "author_label": {
+                "type": "string"
+              },
+              "category": {
+                "enum": [
+                  "hypothesis",
+                  "attempt",
+                  "observation",
+                  "failure",
+                  "decision",
+                  "correction",
+                  "preference",
+                  "rationale"
+                ],
+                "type": "string"
+              },
+              "correction_of": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notebook_id": {
+                "type": "string"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sources": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "digest_sha256": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "record_id": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "enum": [
+                        "research",
+                        "artifact",
+                        "run"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "kind",
+                    "record_id",
+                    "revision",
+                    "digest_sha256"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "category",
+              "text"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_research_log_append",
+      "operationId": "appendResearchLogEntry",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Search and filter notebook research log entries.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "author_kind": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_research_log_search",
+      "operationId": "searchResearchLog",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Append a correction linked to an existing research log entry.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "properties": {
+              "artifact_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sources": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "digest_sha256": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "record_id": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "enum": [
+                        "research",
+                        "artifact",
+                        "run"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "kind",
+                    "record_id",
+                    "revision",
+                    "digest_sha256"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
+          "entry_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "entry_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_research_log_correct",
+      "operationId": "correctResearchLogEntry",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "Export notebook research log entries as markdown or JSON.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "enum": [
+              "markdown",
+              "json"
+            ],
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_research_log_export",
+      "operationId": "exportResearchLog",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Unified per-run review surface combining pacing, experiments, research log, and hosted artifacts.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "examples": [
+              "run_AAAAAAAAAAAAAAAAAAAAAA"
+            ],
+            "pattern": "^run_[A-Za-z0-9_-]{22}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_run_review",
+      "operationId": "getRunReview",
+      "scope": "swarms:read"
     }
   ]
 }

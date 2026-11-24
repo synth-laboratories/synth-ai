@@ -48,9 +48,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id", "title", "kind", "content", "summary"],
+            "required": ["notebook_id", "title", "kind", "content", "summary"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
                 "title": {"type": "string"},
                 "kind": {
@@ -85,9 +85,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id"],
+            "required": ["notebook_id"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
             },
         },
@@ -132,9 +132,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id", "run_id", "title", "specification", "arms"],
+            "required": ["notebook_id", "run_id", "title", "specification", "arms"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
                 "title": {"type": "string"},
                 "specification": {"type": "string"},
@@ -180,9 +180,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id"],
+            "required": ["notebook_id"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
             },
         },
@@ -193,9 +193,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id", "category", "text"],
+            "required": ["notebook_id", "category", "text"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
                 "category": {
                     "type": "string",
@@ -228,9 +228,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id", "entry_id", "text"],
+            "required": ["notebook_id", "entry_id", "text"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "entry_id": {"type": "string"},
                 "text": {"type": "string"},
                 "sources": {"type": "array", "items": _EXACT_REF_SCHEMA},
@@ -245,9 +245,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id"],
+            "required": ["notebook_id"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "query": {"type": "string"},
                 "category": {"type": "string"},
                 "run_id": {"type": "string"},
@@ -261,9 +261,9 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["project_id"],
+            "required": ["notebook_id"],
             "properties": {
-                "project_id": {"type": "string"},
+                "notebook_id": {"type": "string"},
                 "run_id": {"type": "string"},
                 "format": {"type": "string", "enum": ["markdown", "json"]},
             },
@@ -339,7 +339,7 @@ async def call_research_tool(
     match name:
         case "artifacts_create":
             result = await client.artifacts.create_artifact(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 _str(arguments, "title"),
                 _str(arguments, "kind"),
                 _str(arguments, "content"),
@@ -357,7 +357,7 @@ async def call_research_tool(
             )
         case "artifacts_list":
             result = await client.artifacts.list_artifacts(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 run_id=_opt_str(arguments, "run_id"),
             )
         case "artifacts_get":
@@ -372,7 +372,7 @@ async def call_research_tool(
             result = await client.artifacts.revoke_artifact_share(_str(arguments, "artifact_id"))
         case "experiments_create":
             result = await client.experiments.create_experiment(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 _str(arguments, "run_id"),
                 _str(arguments, "title"),
                 _str(arguments, "specification"),
@@ -397,12 +397,12 @@ async def call_research_tool(
             result = await client.experiments.get_experiment(_str(arguments, "experiment_id"))
         case "experiments_list":
             result = await client.experiments.list_experiments(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 run_id=_opt_str(arguments, "run_id"),
             )
         case "research_log_append":
             result = await client.research_logs.append_entry(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 _str(arguments, "category"),
                 _str(arguments, "text"),
                 run_id=_opt_str(arguments, "run_id"),
@@ -414,7 +414,7 @@ async def call_research_tool(
             )
         case "research_log_correct":
             result = await client.research_logs.correct_entry(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 _str(arguments, "entry_id"),
                 _str(arguments, "text"),
                 sources=_refs(arguments, "sources"),
@@ -423,7 +423,7 @@ async def call_research_tool(
             )
         case "research_log_search":
             result = await client.research_logs.search_entries(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 query=_opt_str(arguments, "query"),
                 category=_opt_str(arguments, "category"),
                 run_id=_opt_str(arguments, "run_id"),
@@ -431,7 +431,7 @@ async def call_research_tool(
             )
         case "research_log_export":
             result = await client.research_logs.export_log(
-                _str(arguments, "project_id"),
+                _str(arguments, "notebook_id"),
                 run_id=_opt_str(arguments, "run_id"),
                 fmt=_opt_str(arguments, "format") or "markdown",
             )

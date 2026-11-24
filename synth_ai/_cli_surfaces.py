@@ -127,7 +127,7 @@ def configure(
     inspect.add_argument("run_id")
     inspect.add_argument(
         "--view",
-        choices=("program", "configuration", "sandboxes", "output", "wait-update"),
+        choices=("program", "configuration", "sandboxes", "output", "wait-update", "review"),
         required=True,
     )
     inspect.add_argument("--output-id")
@@ -136,12 +136,17 @@ def configure(
 
     art = parsers["artifacts"].add_subparsers(dest="resource_action", required=True)
     art_list = art.add_parser("list", parents=[common])
-    art_list.add_argument("--project-id", required=True)
+    art_list.add_argument("--notebook-id", required=True)
     art_list.add_argument("--run-id")
     art_get = art.add_parser("get", parents=[common])
     art_get.add_argument("artifact_id")
+    art_content = art.add_parser("content", parents=[common])
+    art_content.add_argument("artifact_id")
+    art_content.add_argument("--revision")
+    art_content.add_argument("--sha256")
+    art_content.add_argument("--out")
     art_create = art.add_parser("create", parents=[common])
-    art_create.add_argument("--project-id", required=True)
+    art_create.add_argument("--notebook-id", required=True)
     art_create.add_argument("--run-id")
     art_create.add_argument("--title", required=True)
     art_create.add_argument("--kind", choices=[k.value for k in ArtifactKind], required=True)
@@ -163,22 +168,35 @@ def configure(
 
     exp = parsers["experiments"].add_subparsers(dest="resource_action", required=True)
     exp_list = exp.add_parser("list", parents=[common])
-    exp_list.add_argument("--project-id", required=True)
+    exp_list.add_argument("--notebook-id", required=True)
     exp_list.add_argument("--run-id")
     exp_get = exp.add_parser("get", parents=[common])
     exp_get.add_argument("experiment_id")
     exp_create = exp.add_parser("create", parents=[common])
-    exp_create.add_argument("--project-id", required=True)
+    exp_create.add_argument("--notebook-id", required=True)
     exp_create.add_argument("--run-id", required=True)
     exp_create.add_argument("--title", required=True)
     exp_create.add_argument("--specification", required=True)
     exp_create.add_argument("--hypothesis")
     exp_create.add_argument("--arm", action="append", required=True)
     exp_create.add_argument("--idempotency-key")
+    exp_revise = exp.add_parser("revise", parents=[common])
+    exp_revise.add_argument("experiment_id")
+    exp_revise.add_argument("--title")
+    exp_revise.add_argument("--specification")
+    exp_revise.add_argument("--hypothesis")
+    exp_revise.add_argument("--arm", action="append")
+    exp_revise.add_argument("--stopping-criteria")
+    exp_revise.add_argument("--idempotency-key")
 
     log = parsers["research-log"].add_subparsers(dest="resource_action", required=True)
+    log_init = log.add_parser("init", parents=[common])
+    log_init.add_argument("--notebook-id", required=True)
+    log_init.add_argument("--title", required=True)
+    log_init.add_argument("--summary")
+    log_init.add_argument("--idempotency-key")
     log_append = log.add_parser("append", parents=[common])
-    log_append.add_argument("--project-id", required=True)
+    log_append.add_argument("--notebook-id", required=True)
     log_append.add_argument("--run-id")
     log_append.add_argument("--category", choices=[c.value for c in LogCategory], required=True)
     log_append.add_argument("--text", required=True)
@@ -187,13 +205,19 @@ def configure(
     )
     log_append.add_argument("--author-label")
     log_append.add_argument("--idempotency-key")
+    log_correct = log.add_parser("correct", parents=[common])
+    log_correct.add_argument("entry_id")
+    log_correct.add_argument("--notebook-id", required=True)
+    log_correct.add_argument("--run-id")
+    log_correct.add_argument("--text", required=True)
+    log_correct.add_argument("--idempotency-key")
     log_search = log.add_parser("search", parents=[common])
-    log_search.add_argument("--project-id", required=True)
+    log_search.add_argument("--notebook-id", required=True)
     log_search.add_argument("--query")
     log_search.add_argument("--category", choices=[c.value for c in LogCategory])
     log_search.add_argument("--run-id")
     log_export = log.add_parser("export", parents=[common])
-    log_export.add_argument("--project-id", required=True)
+    log_export.add_argument("--notebook-id", required=True)
     log_export.add_argument("--run-id")
     log_export.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
@@ -241,6 +265,8 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                     if args.output_id is None:
                         raise ValueError("output view requires --output-id")
                     return await client.swarms.output(args.run_id, args.output_id)
+                case "review":
+                    return await client.swarms.review(args.run_id)
                 case _:
                     raise ValueError("unknown run view")
         case "files":
@@ -427,14 +453,26 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
             match args.resource_action:
                 case "list":
                     return await client.artifacts.list_artifacts(
-                        args.project_id, run_id=args.run_id
+                        args.notebook_id, run_id=args.run_id
                     )
                 case "get":
                     return await client.artifacts.get_artifact(args.artifact_id)
+                case "content":
+                    body = await client.artifacts.get_artifact_content(
+                        args.artifact_id,
+                        revision_id=args.revision,
+                        digest_sha256=args.sha256,
+                    )
+                    if args.out is not None:
+                        written = await asyncio.to_thread(
+                            _write_output_bytes, args.out, body.encode("utf-8")
+                        )
+                        return RootModel[str](written)
+                    return RootModel[str](body)
                 case "create":
                     content = (await asyncio.to_thread(_read_body_bytes, args.file)).decode("utf-8")
                     return await client.artifacts.create_artifact(
-                        args.project_id,
+                        args.notebook_id,
                         args.title,
                         args.kind,
                         content,
@@ -465,13 +503,13 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
             match args.resource_action:
                 case "list":
                     return await client.experiments.list_experiments(
-                        args.project_id, run_id=args.run_id
+                        args.notebook_id, run_id=args.run_id
                     )
                 case "get":
                     return await client.experiments.get_experiment(args.experiment_id)
                 case "create":
                     return await client.experiments.create_experiment(
-                        args.project_id,
+                        args.notebook_id,
                         args.run_id,
                         args.title,
                         args.specification,
@@ -479,13 +517,30 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                         hypothesis=args.hypothesis,
                         idempotency_key=args.idempotency_key,
                     )
+                case "revise":
+                    return await client.experiments.revise_experiment(
+                        args.experiment_id,
+                        title=args.title,
+                        specification=args.specification,
+                        hypothesis=args.hypothesis,
+                        arms=args.arm,
+                        stopping_criteria=args.stopping_criteria,
+                        idempotency_key=args.idempotency_key,
+                    )
                 case _:
                     raise ValueError("unknown experiments action")
         case "research-log":
             match args.resource_action:
+                case "init":
+                    return await client.research_logs.create_log(
+                        args.notebook_id,
+                        title=args.title,
+                        summary=args.summary,
+                        idempotency_key=args.idempotency_key,
+                    )
                 case "append":
                     return await client.research_logs.append_entry(
-                        args.project_id,
+                        args.notebook_id,
                         args.category,
                         args.text,
                         run_id=args.run_id,
@@ -493,16 +548,24 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                         author_label=args.author_label,
                         idempotency_key=args.idempotency_key,
                     )
+                case "correct":
+                    return await client.research_logs.correct_entry(
+                        args.notebook_id,
+                        args.entry_id,
+                        args.text,
+                        run_id=args.run_id,
+                        idempotency_key=args.idempotency_key,
+                    )
                 case "search":
                     return await client.research_logs.search_entries(
-                        args.project_id,
+                        args.notebook_id,
                         query=args.query,
                         category=args.category,
                         run_id=args.run_id,
                     )
                 case "export":
                     return await client.research_logs.export_log(
-                        args.project_id, run_id=args.run_id, fmt=args.format
+                        args.notebook_id, run_id=args.run_id, fmt=args.format
                     )
                 case _:
                     raise ValueError("unknown research-log action")

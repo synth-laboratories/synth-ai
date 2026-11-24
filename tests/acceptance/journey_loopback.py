@@ -162,6 +162,10 @@ def matrix_ids():
         "revision_id": "rev_" + "F" * 22,
         "key_id": "key_" + "F" * 22,
         "grant_id": "22222222-2222-4222-8222-222222222222",
+        "artifact_id": "art_" + "F" * 22,
+        "experiment_id": "exp_" + "F" * 22,
+        "notebook_id": "nb_" + "F" * 22,
+        "entry_id": "log_" + "F" * 22,
     }
 
 
