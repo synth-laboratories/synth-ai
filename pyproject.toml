@@ -14,6 +14,13 @@ dependencies = ["httpx>=0.27,<1", "pydantic>=2.11,<3", "typing-extensions>=4.12"
 [project.optional-dependencies]
 mcp = ["mcp>=1.30,<2"]
 
+[project.urls]
+Homepage = "https://www.usesynth.ai"
+Documentation = "https://www.usesynth.ai/docs"
+Repository = "https://github.com/synth-laboratories/synth-ai"
+Changelog = "https://github.com/synth-laboratories/synth-ai/blob/main/CHANGELOG.md"
+Issues = "https://github.com/synth-laboratories/synth-ai/issues"
+
 [project.scripts]
 synth = "synth_ai.cli:main"
 synth-ai = "synth_ai.cli:main"

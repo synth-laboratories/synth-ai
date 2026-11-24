@@ -1,11 +1,11 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. This checkout declares SDK 0.41.0; the exact Core contract pin is recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml). A source version does not attest PyPI publication or the deployed service revision.
+Typed Python 3.11+ client for the Synth public API v1. This checkout declares SDK 0.41.0; the exact Core contract pin is recorded in [contracts/SOURCE.toml](https://github.com/synth-laboratories/synth-ai/blob/main/contracts/SOURCE.toml). A source version does not attest PyPI publication or the deployed service revision.
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 
-Start with the [quickstart](docs/quickstart.md) (SDK, CLI and MCP) and the
-[error guide](docs/errors.md).
+Start with the [quickstart](https://github.com/synth-laboratories/synth-ai/blob/main/docs/quickstart.md) (SDK, CLI and MCP) and the
+[error guide](https://github.com/synth-laboratories/synth-ai/blob/main/docs/errors.md).
 
 1. Install the qualified package: `pip install synth-ai`.
 2. Sign in: `synth login`.
@@ -25,7 +25,7 @@ Set `SYNTH_API_KEY` and optionally `SYNTH_API_BASE_URL`.
 `AsyncSynthClient` provides the same methods with `await`.
 
 `pip install synth-ai[mcp]` adds the `synth-ai-mcp` stdio server.
-The `synth` command line is documented in [docs/cli.md](docs/cli.md).
+The `synth` command line is documented in [docs/cli.md](https://github.com/synth-laboratories/synth-ai/blob/main/docs/cli.md).
 
 Upload a task file and include its immutable reference at launch:
 
@@ -49,7 +49,7 @@ file and 64 MiB per launch, with at most 10,000 references. `upload_text` and MC
 accept up to 32 KiB inline. `synth upload task.md` uses
 the full upload protocol. Pool resources use the public selector `pool`.
 `upload_directory` preserves relative names through that same protocol; see
-[directory uploads](docs/swarms.md#directory-uploads) for snapshot and recovery semantics.
+[directory uploads](https://github.com/synth-laboratories/synth-ai/blob/main/docs/swarms.md#directory-uploads) for snapshot and recovery semantics.
 `update_labels(run_id, labels, expected_revision=...)` refuses stale revisions.
 
 
@@ -75,14 +75,14 @@ its approval. Every run retains its exact resolved profile in `run.profile`.
 New configurations are published profiles; arbitrary actor overrides are not
 part of the public API.
 
-See [Swarms](docs/swarms.md) for routing, lifecycle and transfer details.
+See [Swarms](https://github.com/synth-laboratories/synth-ai/blob/main/docs/swarms.md) for routing, lifecycle and transfer details.
 Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
 launch fields with `profile` and, for research profiles, `research_task`.
 
 Since 0.31.0, the SDK uses strict, frozen records, named nested models, and enum values.
 Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to
 inspect it, and `run.known_state` when a known state enum is useful. Unknown server
-states remain available as `run.state`. See [typing and protocol standards](docs/protocols.md)
+states remain available as `run.state`. See [typing and protocol standards](https://github.com/synth-laboratories/synth-ai/blob/main/docs/protocols.md)
 for migration details and the `ty`/Ruff checks.
 
 To check the documented SDK, CLI and stdio MCP examples locally, use a Python
@@ -109,4 +109,4 @@ after use. This opt-in smoke does not establish hosted MCP OAuth, provider-invoi
 finality, load or capacity acceptance, and must not run automatically in CI without
 shared budget admission.
 
-Runnable workflows are in [examples](examples/README.md); [protocol details](docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.
+Runnable workflows are in [examples](https://github.com/synth-laboratories/synth-ai/blob/main/examples/README.md); [protocol details](https://github.com/synth-laboratories/synth-ai/blob/main/docs/protocols.md) define compatibility, recovery, pagination and diagnostic guarantees.

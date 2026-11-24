@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -10,10 +11,33 @@ import tomllib
 import zipfile
 from pathlib import Path
 
+REQUIRED_PROJECT_URLS = ("Homepage", "Documentation", "Repository", "Changelog", "Issues")
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+
 
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
+
+
+def check_pypi_metadata(root: Path) -> None:
+    """Refuse missing [project.urls] or relative markdown links that break on PyPI."""
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    urls = pyproject.get("project", {}).get("urls", {})
+    missing = [
+        key
+        for key in REQUIRED_PROJECT_URLS
+        if not isinstance(urls.get(key), str) or not urls[key].startswith("https://")
+    ]
+    require(not missing, f"pyproject.toml [project.urls] missing required https URLs: {missing}")
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    relative = [
+        target
+        for target in _MARKDOWN_LINK_RE.findall(readme)
+        if not target.startswith(("https://", "http://", "mailto:", "#"))
+    ]
+    require(not relative, f"README.md contains relative links that break on PyPI: {relative}")
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +45,12 @@ version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["versi
 parser = argparse.ArgumentParser(description=__doc__)
 # An exact candidate (scripts/qualify_release.py); the default stays the checkout's dist wheel.
 parser.add_argument("--wheel", type=Path)
+parser.add_argument("--metadata-only", action="store_true")
 arguments = parser.parse_args()
+check_pypi_metadata(ROOT)
+if arguments.metadata_only:
+    print({"pypi_metadata": "passed"})
+    sys.exit(0)
 wheel = arguments.wheel or ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
 if arguments.wheel is None:
     source_bytes = sum(
