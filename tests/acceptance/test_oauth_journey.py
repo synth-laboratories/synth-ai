@@ -9,9 +9,11 @@ import json
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
+from typing_extensions import override
 
 from scripts.acceptance.journey_main import surface_factory
 from scripts.acceptance.journeys import JourneyContext, Secret, Step, Verdict, run_step
@@ -44,7 +46,8 @@ def serve(handler):
 
         do_GET = do_POST = do_DELETE = answer
 
-        def log_message(self, *_):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:

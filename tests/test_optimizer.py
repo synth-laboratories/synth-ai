@@ -4,7 +4,7 @@ import json
 
 import httpx
 import pytest
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 from test_cli import example
 
 from synth_ai import AsyncSynthClient, OptimizerPin, SynthClient
@@ -36,6 +36,7 @@ async def test_sdk_sends_explicit_auto_and_reads_immutable_resolution(contract):
         ) as client:
             run = await client.swarms.launch("task", budget="1.00", optimizer="auto")
     assert json.loads(requests[0].content)["optimizer"] == "auto"
+    assert run.optimizer is not None
     assert run.optimizer.topology == "swarms_v2"
     assert run.optimizer.definition_digest == RECEIPT["definition_digest"]
     assert RunSnapshot.model_validate_json(run.model_dump_json()).optimizer == run.optimizer
@@ -64,6 +65,7 @@ def test_catalog_availability_is_typed(contract):
         }
     ]
     catalog = FamilyList.model_validate(raw)
+    assert catalog.topologies is not None
     assert catalog.topologies[0].availability == "unavailable"
     assert catalog.topologies[0].cause == "not_served"
 
@@ -106,7 +108,7 @@ async def test_mcp_optimizer_round_trip_uses_public_sdk(contract):
         sent.append(json.loads(request.content))
         return httpx.Response(202, json=snapshot)
 
-    arguments = {
+    arguments: dict[str, JsonValue] = {
         "body": {
             "message": "task",
             "optimizer": "auto",

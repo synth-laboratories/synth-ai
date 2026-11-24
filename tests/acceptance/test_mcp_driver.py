@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from test_j1_drivers import RUN, fixture_api
+from typing_extensions import override
 
 pytest.importorskip("mcp")
 
@@ -242,10 +243,10 @@ def test_real_stdio_child_reads_same_models_as_sdk(contract, tmp_path):
     assert (
         project(ParityDriver.MCP_STDIO, mcp).charge_usd == project(ParityDriver.SDK, sdk).charge_usd
     )
+    from scripts.acceptance.mcp_driver import classify_failure
+
     assert unknown.is_error
     with pytest.raises(AdapterError) as failure:
-        from scripts.acceptance.mcp_driver import classify_failure
-
         raise classify_failure(Tool.GET, unknown, run_id=RUN)
     assert failure.value.code == MCPRefusal.TOOL_FAILED
     # SDK 4 reads + MCP child 4 reads, all against the fixture origin.
@@ -410,6 +411,7 @@ def test_mcp_recorded_launch_keeps_intent_after_transport_failure(tmp_path):
     from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
 
     class LostReply(FakeCaller):
+        @override
         def call(self, name, arguments):
             raise AdapterError("mcp_transport_failed", str(name), "reply lost", RUN)
 

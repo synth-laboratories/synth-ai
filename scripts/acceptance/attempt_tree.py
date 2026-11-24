@@ -8,9 +8,14 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit unavailable state at acceptance boundaries.
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from synth_ai.models import RunAttemptTreeAvailable, RunAttemptTreeUnavailable, RunRecordReference
+if TYPE_CHECKING:
+    from synth_ai.models import (
+        RunAttemptTreeAvailable,
+        RunAttemptTreeUnavailable,
+        RunRecordReference,
+    )
 
 __all__ = ["Attempt", "TreeError", "project_attempts"]
 

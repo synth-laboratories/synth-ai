@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import builtins
 import hashlib
 import math
-from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from ._generated.models import (
     EventPage,
@@ -84,6 +82,10 @@ from .errors import (
     check_upload_format,
     local_problem,
 )
+
+if TYPE_CHECKING:
+    import builtins
+    from collections.abc import AsyncGenerator
 
 
 class AsyncSwarms:
@@ -175,7 +177,7 @@ class AsyncSwarms:
                     raise ResponseContractError(
                         local_problem("run_message_event_invalid", "listRunEvents", status=502)
                     )
-                payload = cast(RunMessageEventPayload, event.payload)
+                payload = cast("RunMessageEventPayload", event.payload)
                 yield await self.message(run_id, payload.message_id)
 
     async def wait_for_reply(
@@ -281,7 +283,8 @@ class AsyncSwarms:
 
         The budget must be a decimal string or Decimal. Retain an explicit
         idempotency_key for uncertain retries. An acknowledgement does not prove
-        execution, accounting or cleanup has finished; use wait and report."""
+        execution, accounting or cleanup has finished; use wait and report.
+        """
         request = self.prepare_launch(
             message,
             budget=budget,
@@ -309,7 +312,8 @@ class AsyncSwarms:
     ) -> RunSnapshot:
         """Submit a typed launch request and return its initial run snapshot.
 
-        Reuse the same idempotency key and request after an uncertain response."""
+        Reuse the same idempotency key and request after an uncertain response.
+        """
         return await self._transport.request(
             "createRun", RunSnapshot, body=request, idempotency_key=idempotency_key
         )
@@ -345,7 +349,8 @@ class AsyncSwarms:
 
         Budget is a maximum charge in USD; timeout and poll_interval are seconds.
         A local wait timeout does not cancel the server run. Set raise_on_failure
-        to raise on a failed finished run."""
+        to raise on a failed finished run.
+        """
         validate_wait(timeout, poll_interval, until)
         created = await self.launch(
             message,
@@ -385,7 +390,8 @@ class AsyncSwarms:
     ) -> File:
         """Upload a local file and return its verified file record.
 
-        Use an explicit idempotency key to retain identity across uncertain retries."""
+        Use an explicit idempotency key to retain identity across uncertain retries.
+        """
         return await ArtifactUploads(self._transport).upload_file(
             filename, media_type=media_type, idempotency_key=idempotency_key
         )
@@ -510,7 +516,8 @@ class AsyncSwarms:
         Timeout and poll_interval are seconds. FINISHED requires execution closed,
         accounting final and cleanup complete; it does not imply success. Paused
         runs and local timeouts raise typed errors without cancelling the run.
-        Set raise_on_failure to raise on a failed finished run."""
+        Set raise_on_failure to raise on a failed finished run.
+        """
         return await RunObserver(self._transport).wait(
             run_id,
             timeout=timeout,
@@ -578,7 +585,8 @@ class AsyncSwarms:
 
         Budget is a positive USD decimal string or Decimal; time limits are
         seconds and maximum_tokens counts tokens. At least one limit is required.
-        The optional resume flag requests resume with the limit change."""
+        The optional resume flag requests resume with the limit change.
+        """
         if budget is not None and (
             not isinstance(budget, (str, Decimal))
             or not Decimal(budget).is_finite()
@@ -629,7 +637,8 @@ class AsyncSwarms:
 
         Teardown is complete only after execution closes and all sandboxes are verified
         gone. Unobserved means a record could not be established, never absent.
-        See docs/protocols.md."""
+        See docs/protocols.md.
+        """
         return await self._transport.request(
             "getRunSandboxes", RunSandboxes, path={"run_id": run_id}
         )
@@ -640,7 +649,8 @@ class AsyncSwarms:
         Includes rollouts and timings. Parts sum to the settled total; pending means
         empty breakdowns. Missing retained attribution is not_recorded. Metered
         rollout compute is settlement.rollout within maximum_charge; not_metered
-        means uncharged, not zero cost. See docs/protocols.md."""
+        means uncharged, not zero cost. See docs/protocols.md.
+        """
         return await self._transport.request("getRunReport", RunReport, path={"run_id": run_id})
 
     async def allocation(self, run_id: str) -> RunAllocation:
@@ -670,7 +680,8 @@ class AsyncSwarms:
         """Read one JSON page of retained native events.
 
         next_cursor paginates; resume_cursor permits later reads. Use follow() for
-        SSE; see docs/protocols.md for stream recovery and milestone semantics."""
+        SSE; see docs/protocols.md for stream recovery and milestone semantics.
+        """
         return await self._transport.request(
             "listRunEvents",
             EventPage,
@@ -700,7 +711,8 @@ class AsyncSwarms:
         """Stream run events, resuming from an event ID or mutable checkpoint.
 
         Timeout is seconds. Events do not establish run finality; use wait or get
-        for authoritative lifecycle state."""
+        for authoritative lifecycle state.
+        """
         async with aclosing(
             self._transport.stream_events(
                 run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
@@ -731,9 +743,10 @@ class AsyncSwarms:
     ) -> bytes:
         """Read the pinned output revision and verify its SHA-256 digest.
 
-        Raises DataIntegrityError if the received bytes differ from the reference."""
+        Raises DataIntegrityError if the received bytes differ from the reference.
+        """
         content = cast(
-            bytes,
+            "bytes",
             await self._transport.invoke(
                 "getRunOutputContent",
                 path={"run_id": run_id, "output_id": output_id},
@@ -751,7 +764,8 @@ class AsyncSwarms:
 
         Text when the media type is textual and the bytes are valid UTF-8, otherwise
         base64. Over MCP_OUTPUT_CONTENT_MAX_BYTES raises OutputContentTooLargeError
-        (output_content_too_large_for_mcp); use download_output for larger outputs."""
+        (output_content_too_large_for_mcp); use download_output for larger outputs.
+        """
         content, media_type = await self._transport.download(
             "getRunOutputContent",
             path={"run_id": run_id, "output_id": output_id},
@@ -774,7 +788,8 @@ class AsyncSwarms:
         """Download a pinned output revision to a local path with integrity checks.
 
         The default size limit is 64 MiB. max_bytes and expected_bytes are bytes.
-        Returns the destination path after the transfer succeeds."""
+        Returns the destination path after the transfer succeeds.
+        """
         destination = Path(filename)
         await self._transport.download_output(
             run_id,
@@ -792,7 +807,8 @@ class AsyncSwarms:
 
         Core chooses the latest available text output, then the latest objective-answer
         JSON. Absent answer fields remain None. An unfinished run raises
-        ResultUnavailableError with a fresh snapshot. See docs/protocols.md."""
+        ResultUnavailableError with a fresh snapshot. See docs/protocols.md.
+        """
         run_id = run if isinstance(run, str) else run.run_id
         try:
             return await self._transport.request("getRunResult", RunResult, path={"run_id": run_id})

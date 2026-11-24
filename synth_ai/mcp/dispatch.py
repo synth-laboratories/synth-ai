@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from .._generated.models import (
+from synth_ai._generated.models import (
     LaunchRequest,
     PromoRedeemRequest,
     RunLabelsRequest,
@@ -18,9 +18,10 @@ from .._generated.models import (
     SendRunMessage,
     UploadFileRequest,
 )
-from .._limits import SERVER_WAIT_SECONDS_DEFAULT
-from .._requests import DomicileRequirement
-from ..aclient import AsyncSynthClient
+from synth_ai._limits import SERVER_WAIT_SECONDS_DEFAULT
+from synth_ai._requests import DomicileRequirement
+from synth_ai.aclient import AsyncSynthClient
+
 from ._arguments import optional, page_limit, required
 from .resource_dispatch import dispatch_resource
 

@@ -1,11 +1,14 @@
 """Safety and surface checks for the opt-in quickstart qualification."""
 
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import jsonschema
 import pytest
+from typing_extensions import override
 
 from scripts import quickstart_smoke as smoke
 from synth_ai.mcp.tools import TOOLS
@@ -64,7 +67,8 @@ async def test_mcp_launch_arguments_match_real_tool_schemas(tmp_path, monkeypatc
         return {"run_id": "run_AAAAAAAAAAAAAAAAAAAAAA"}
 
     monkeypatch.setattr(smoke, "mcp_call", call)
-    run_id = await smoke.launch(None, None, arm, task, "Follow the uploaded task")
+    unused: Any = None
+    run_id = await smoke.launch(unused, unused, arm, task, "Follow the uploaded task")
     assert run_id == "run_AAAAAAAAAAAAAAAAAAAAAA"
     assert [name for name, _ in observed] == ["swarms_upload_file", "swarms_run_launch"]
     assert observed[0][1]["idempotency_key"] == arm.upload_key
@@ -203,14 +207,19 @@ async def test_verified_answer_requires_a_digest_checked_output(tmp_path):
             )
 
         async def download_output(self, _run_id, _output_id, filename, **_kwargs):
-            Path(filename).write_bytes(("answer: " + receipt.nonce).encode())
+            await asyncio.to_thread(
+                Path(filename).write_bytes, ("answer: " + receipt.nonce).encode()
+            )
 
-    client = SimpleNamespace(swarms=Swarms())
-    proof = await smoke.verify_surface(client, None, arm, receipt.nonce, tmp_path / "receipt.json")
+    client: Any = SimpleNamespace(swarms=Swarms())
+    session: Any = None
+    proof = await smoke.verify_surface(
+        client, session, arm, receipt.nonce, tmp_path / "receipt.json"
+    )
     assert proof[:2] == ("0.10", True)
     receipt.nonce = "different"
     with pytest.raises(ValueError, match="answer did not contain"):
-        await smoke.verify_surface(client, None, arm, receipt.nonce, tmp_path / "receipt.json")
+        await smoke.verify_surface(client, session, arm, receipt.nonce, tmp_path / "receipt.json")
 
 
 def test_no_execution_without_explicit_flag(tmp_path, monkeypatch):
@@ -250,7 +259,7 @@ async def test_cancel_reuses_retained_key_after_lost_response(tmp_path):
                 finished=done,
             )
 
-    client = SimpleNamespace(swarms=Swarms())
+    client: Any = SimpleNamespace(swarms=Swarms())
     with pytest.raises(RuntimeError, match="response lost"):
         await smoke.cancel_and_reconcile(client, receipt, arm, output)
     saved = smoke.Receipt.load(output)
@@ -387,7 +396,8 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
         }
 
     class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *_args):
+        @override
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
         def respond(self):
@@ -400,6 +410,7 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
                 account["org"]["id"] = "fixture-org"
                 return self.json_reply(200, account)
             if self.command == "POST" and path == "/v1/uploads":
+                assert payload is not None
                 assert payload["digest_sha256"] == hashlib.sha256(task_bytes).hexdigest()
                 mutations.append(("upload", key))
                 return self.json_reply(
@@ -411,10 +422,12 @@ async def test_three_surfaces_use_real_local_transports(tmp_path, monkeypatch, c
                     },
                 )
             if self.command == "POST" and path == "/v1/files":
+                assert payload is not None
                 assert payload["content"] == text
                 mutations.append(("mcp_upload", key))
                 return self.json_reply(201, manifest())
             if self.command == "POST" and path == "/v1/runs":
+                assert payload is not None
                 mutations.append(("launch", key))
                 assert payload["limits"]["maximum_charge"]["amount"] == "4.00"
                 assert (

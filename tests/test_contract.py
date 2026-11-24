@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from synth_ai._generated.models import MODELS
+from synth_ai._generated.models import MODELS, UsageKeyBucket
 from synth_ai._generated.operations import OPERATIONS
 from synth_ai._transport import Transport
 from synth_ai.mcp.tools import TOOLS
@@ -31,7 +31,7 @@ def test_generated_drift():
 
 def test_every_request_has_a_runtime_validator():
     assert {
-        op["request_model"] for op in OPERATIONS.values() if op["request_model"]
+        op["request_model"] for op in OPERATIONS.values() if op["request_model"] is not None
     } <= MODELS.keys()
 
 
@@ -57,7 +57,7 @@ def test_mcp_inventory(contract):
         if isinstance(op, dict) and "x-synth-mcp-name" in op
     }
     assert {tool["operationId"]: tool["name"] for tool in TOOLS} == declared
-    assert TOOLS == json.loads((ROOT / "contracts/mcp-tools.json").read_text())["tools"]
+    assert json.loads((ROOT / "contracts/mcp-tools.json").read_text())["tools"] == TOOLS
 
 
 @pytest.mark.parametrize("oid", OPERATIONS)
@@ -85,7 +85,7 @@ async def test_every_operation_on_wire(contract, oid):
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
         transport = Transport("https://example.test", "fixture", client=client)
         result = await transport.invoke(
-            oid, path={name: "fixture" for name in op["path_params"]}, idempotency_key="stable-key"
+            oid, path=dict.fromkeys(op["path_params"], "fixture"), idempotency_key="stable-key"
         )
         if expected is not None:
             assert isinstance(result, BaseModel)
@@ -126,7 +126,9 @@ def test_a_nullable_constrained_field_accepts_null():
         "output_tokens": 0,
         "records": 0,
     }
-    assert MODELS["UsageKeyBucket"].model_validate({**bucket, "key_id": None}).key_id is None
+    parsed = MODELS["UsageKeyBucket"].model_validate({**bucket, "key_id": None})
+    assert isinstance(parsed, UsageKeyBucket)
+    assert parsed.key_id is None
 
 
 def test_generated_models_never_constrain_null():

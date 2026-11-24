@@ -13,10 +13,14 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from synth_ai import SynthClient
 from synth_ai.models import RunLimitChanges, RunLimitsProgress, RunLimitUpdate
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from synth_ai import SynthClient
 
 __all__ = ["LimitTargets", "LiveLimitsError", "contract_maximum", "raise_live_limits"]
 
@@ -41,7 +45,8 @@ def contract_maximum(field: str) -> int:
 class LimitTargets:
     """Raise targets. A ``None`` seconds target means the cap already sits at the
     contract maximum: that dimension is not mutated, and every following budget
-    view must still show it unchanged."""
+    view must still show it unchanged.
+    """
 
     budget_usd: str
     maximum_tokens: int

@@ -40,7 +40,7 @@ def test_diagnostic_parser_counts_duplicate_errors():
 
 
 @pytest.mark.parametrize(
-    "value,method",
+    ("value", "method"),
     [
         ({"value": 1}, "text"),
         ({"value": 1}, "flag"),

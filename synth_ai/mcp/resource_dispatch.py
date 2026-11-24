@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, JsonValue
 
-from .._generated.models import (
+from synth_ai._generated.models import (
     AutoReloadRequest,
     CheckoutRequest,
     MintApiKeyRequest,
@@ -16,8 +16,9 @@ from .._generated.models import (
     UploadCreateRequest,
     UsageExportRequest,
 )
-from ..aclient import AsyncSynthClient
-from ..errors import ResponseContractError, local_problem
+from synth_ai.aclient import AsyncSynthClient
+from synth_ai.errors import ResponseContractError, local_problem
+
 from ._arguments import optional, page_limit, required
 
 __all__ = ["dispatch_resource"]

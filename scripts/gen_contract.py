@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import builtins
 import gzip
 import hashlib
 import io
@@ -13,11 +12,15 @@ import json
 import keyword
 import subprocess
 import tomllib
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import JsonValue, TypeAdapter
+
+if TYPE_CHECKING:
+    import builtins
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "contracts/synth-v1.openapi.yaml"
@@ -820,7 +823,7 @@ def generate() -> dict[Path, str | bytes]:
                 )
             )
     # The contract is the authority. The catalog is a generated consumer too.
-    tool_values: list[JsonValue] = [tool for tool in expected_tools]
+    tool_values: list[JsonValue] = list(expected_tools)
     catalog["tools"] = tool_values
     tool_payload = json.dumps(tool_values, sort_keys=True, separators=(",", ":")).encode()
     tools = (

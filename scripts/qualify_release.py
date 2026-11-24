@@ -36,9 +36,12 @@ import platform
 import subprocess
 import sys
 import time
-from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "synth-ai.release-qualification.v1"
@@ -61,6 +64,16 @@ GENERATION_CHECKS = (
     ("gen_contract", ["scripts/gen_contract.py", "--check"]),
     ("gen_sync", ["scripts/gen_sync.py", "--check"]),
     ("gen_file_limits", ["scripts/gen_file_limits.py", "--check"]),
+)
+QUALITY_CHECKS = (
+    ("ruff_check", ["ruff", "check", "synth_ai", "scripts", "tests", "examples", "typing_tests"]),
+    (
+        "ruff_format",
+        ["ruff", "format", "--check", "synth_ai", "scripts", "tests", "examples", "typing_tests"],
+    ),
+    ("ty_check", ["ty", "check"]),
+    ("lint_standards", [sys.executable, "scripts/lint_standards.py"]),
+    ("type_contracts", [sys.executable, "scripts/check_type_contracts.py"]),
 )
 
 
@@ -131,6 +144,14 @@ class Qualification:
             self.run(step, [sys.executable, *argv])
             step.detail[name] = "pass"
 
+    def quality(self, step: Step) -> None:
+        for name, argv in QUALITY_CHECKS:
+            executable = (
+                str(Path(sys.executable).parent / argv[0]) if argv[0] in {"ruff", "ty"} else argv[0]
+            )
+            self.run(step, [executable, *argv[1:]])
+            step.detail[name] = "pass"
+
     def cohort(self, step: Step) -> None:
         report = json.loads(
             self.run(
@@ -186,6 +207,7 @@ class Qualification:
         plan: list[tuple[str, Callable[[Step], None]]] = [
             ("artifact_identity", self.identity),
             ("generation_and_parity", self.generation),
+            ("quality_checks", self.quality),
             ("cohort", self.cohort),
             *((name, functools.partial(self.tests, files)) for name, files in RELEASE_TEST_STEPS),
             ("package", self.package),

@@ -158,15 +158,19 @@ async def test_non_retryable_in_stream_refusal_raises_at_once(contract, refusal,
     # A wait outlasts an unmarked gateway refusal (a deploy) until its own timeout,
     # then raises that refusal; follow and every other refusal raise at once.
     outlasted = method == "wait" and refusal["code"] == "refused"
+
+    async def _observe(api) -> None:
+        if method == "wait":
+            await api.swarms.wait(
+                state["run_id"], timeout=0.5 if outlasted else 600, poll_interval=0.001
+            )
+        else:
+            _ = [item async for item in api.swarms.follow(state["run_id"])]
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with client(http, attempts=3) as api:
             with pytest.raises(SwarmsAPIError) as caught:
-                if method == "wait":
-                    await api.swarms.wait(
-                        state["run_id"], timeout=0.5 if outlasted else 600, poll_interval=0.001
-                    )
-                else:
-                    [item async for item in api.swarms.follow(state["run_id"])]
+                await _observe(api)
     assert not isinstance(caught.value, TransportFailureError)
     assert caught.value.code == refusal["code"]
     assert subscriptions >= 2 if outlasted else subscriptions == 1
@@ -191,13 +195,16 @@ async def test_exhausted_reconnects_report_attempts_checkpoint_and_snapshot(cont
             return response(feed)
         return httpx.Response(200, json=state)
 
+    async def _observe(api) -> None:
+        if method == "wait":
+            await api.swarms.wait(state["run_id"], poll_interval=0.001)
+        else:
+            _ = [item async for item in api.swarms.follow(state["run_id"])]
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with client(http, attempts=2) as api:
             with pytest.raises(TransportFailureError) as caught:
-                if method == "wait":
-                    await api.swarms.wait(state["run_id"], poll_interval=0.001)
-                else:
-                    [item async for item in api.swarms.follow(state["run_id"])]
+                await _observe(api)
     error = caught.value
     assert error.code == "event_stream_interrupted"
     assert "2 connection attempts (1 reconnect)" in str(error)

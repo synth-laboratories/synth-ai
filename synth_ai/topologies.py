@@ -7,7 +7,10 @@ opt-in only, never the default, whatever a catalog entry's `auto` says.
 
 from __future__ import annotations
 
-from ._generated.models import TopologyCatalogEntry
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ._generated.models import TopologyCatalogEntry
 
 TOPOLOGY_NAMES: dict[str, str] = {"swarms_v2": "Swarms", "fork_flush": "Fork-and-Flush"}
 EXPERIMENTAL: frozenset[str] = frozenset({"fork_flush"})

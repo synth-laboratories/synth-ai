@@ -14,8 +14,10 @@ import re
 import subprocess
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from pydantic import JsonValue
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
 ROOT = Path(__file__).resolve().parents[1]
 

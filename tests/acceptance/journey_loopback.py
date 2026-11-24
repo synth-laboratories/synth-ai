@@ -15,7 +15,10 @@ from contextlib import contextmanager
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any, TypedDict
 from urllib.parse import parse_qs, urlsplit
+
+from typing_extensions import override
 
 from scripts.acceptance import journey_main, journeys
 from scripts.acceptance.journeys import (
@@ -28,7 +31,18 @@ from synth_ai.errors import local_problem
 
 ROOT = Path(__file__).parents[2]
 SURFACES = [SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO]
-Responder = Callable[[str, str, dict[str, str]], tuple[int, object, dict[str, str]]]
+Responder = Callable[[str, str, dict[str, Any]], tuple[int, object, dict[str, str]]]
+
+
+class LaunchWindowState(TypedDict):
+    count: int
+    reopens: float | None
+    posts: list[tuple[float, Any]]
+
+
+class CheckoutState(TypedDict):
+    closing_reads: int
+    history: list[dict[str, str]]
 
 
 def problem(code, status, **extra):
@@ -65,7 +79,8 @@ def api(responder: Responder):
 
         do_GET = do_POST = do_DELETE = do_PATCH = do_PUT = answer
 
-        def log_message(self, *_):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -181,19 +196,20 @@ def launch_window(cap, retry_after, *, then):
     """Core's org launch window: `cap` counted launches, then 429 until it reopens."""
     import time
 
-    state = {"count": 0, "reopens": None, "posts": []}
+    state: LaunchWindowState = {"count": 0, "reopens": None, "posts": []}
 
     def responder(method, path, request):
         if method != "POST" or path != "/v1/runs":
             raise AssertionError(f"unexpected {method} {path}")
         now = time.monotonic()
         state["posts"].append((now, request["body"]))
-        if state["reopens"] is not None and now >= state["reopens"]:
+        reopens = state["reopens"]
+        if reopens is not None and now >= reopens:
             return then
         state["count"] += 1
         if state["count"] <= cap:
             return 422, problem("invalid_launch_request", 422), {}
-        if state["reopens"] is None:
+        if reopens is None:
             state["reopens"] = now + retry_after
         return (
             429,
@@ -238,46 +254,53 @@ def checkout_responder(contract, completed, *, gain="10", entries=None, reads=No
     `page_size` items so pagination is always exercised.
     """
     url = "https://checkout.stripe.com/c/pay/cs_test_fixture"
-    entries = [PURCHASE_GRANT] if entries is None else entries
-    state = {"closing_reads": 0, "history": []}
+    resolved_entries = [PURCHASE_GRANT] if entries is None else entries
 
-    def current():
-        if reads is None:
-            return gain, entries
-        return reads[min(state["closing_reads"], len(reads)) - 1]
+    class CheckoutResponder:
+        def __init__(self) -> None:
+            self.state: CheckoutState = {"closing_reads": 0, "history": []}
 
-    def responder(method, path, _):
-        if path.startswith("/v1/billing/balance"):
-            balance = example(contract, "/v1/billing/balance")
-            if completed:
-                state["closing_reads"] += 1
-                amount = str(Decimal("300") + Decimal(current()[0]))
-            else:
-                amount = "300"
-            balance["ledger"] = {"amount": amount, "currency": "USD"}
-            return 200, balance, {}
-        if method == "POST" and path.startswith("/v1/billing/checkout"):
-            created = example(contract, "/v1/billing/checkout", "post", "201")
-            created.update(session_id="cs_test_fixture", url=url)
-            return 201, created, {}
-        if path.startswith("/v1/billing/checkouts/"):
-            view = example(contract, "/v1/billing/checkouts/{id}")
-            view.update(kind="credits", url=url, state="completed" if completed else "open")
-            view["amount"] = {"amount": "10.00", "currency": "USD"}
-            view["created_at"] = CHECKOUT_OPENED
-            view["completed_at"] = CHECKOUT_COMPLETED if completed else None
-            return 200, view, {}
-        if path.startswith("/v1/billing/history"):
-            query = parse_qs(urlsplit(path).query)
-            state["history"].append({name: values[0] for name, values in query.items()})
-            listed = current()[1]
-            start = int(query.get("cursor", ["0"])[0])
-            more = start + page_size < len(listed)
-            page = {"items": listed[start : start + page_size], "has_more": more}
-            if more:
-                page["next_cursor"] = str(start + page_size)
-            return 200, page, {}
-        return 404, problem("not_found", 404), {}
+        def _current(self):
+            if reads is None:
+                return gain, resolved_entries
+            return reads[min(self.state["closing_reads"], len(reads)) - 1]
 
-    responder.state = state
-    return responder, url
+        def __call__(
+            self, method: str, path: str, _request: dict[str, Any]
+        ) -> tuple[int, object, dict[str, str]]:
+            if path.startswith("/v1/billing/balance"):
+                balance = example(contract, "/v1/billing/balance")
+                if completed:
+                    self.state["closing_reads"] += 1
+                    amount = str(Decimal("300") + Decimal(self._current()[0]))
+                else:
+                    amount = "300"
+                balance["ledger"] = {"amount": amount, "currency": "USD"}
+                return 200, balance, {}
+            if method == "POST" and path.startswith("/v1/billing/checkout"):
+                created = example(contract, "/v1/billing/checkout", "post", "201")
+                created.update(session_id="cs_test_fixture", url=url)
+                return 201, created, {}
+            if path.startswith("/v1/billing/checkouts/"):
+                view = example(contract, "/v1/billing/checkouts/{id}")
+                view.update(kind="credits", url=url, state="completed" if completed else "open")
+                view["amount"] = {"amount": "10.00", "currency": "USD"}
+                view["created_at"] = CHECKOUT_OPENED
+                view["completed_at"] = CHECKOUT_COMPLETED if completed else None
+                return 200, view, {}
+            if path.startswith("/v1/billing/history"):
+                query = parse_qs(urlsplit(path).query)
+                self.state["history"].append({name: values[0] for name, values in query.items()})
+                listed = self._current()[1]
+                start = int(query.get("cursor", ["0"])[0])
+                more = start + page_size < len(listed)
+                page: dict[str, Any] = {
+                    "items": listed[start : start + page_size],
+                    "has_more": more,
+                }
+                if more:
+                    page["next_cursor"] = str(start + page_size)
+                return 200, page, {}
+            return 404, problem("not_found", 404), {}
+
+    return CheckoutResponder(), url

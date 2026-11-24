@@ -12,12 +12,15 @@ import ast
 import hashlib
 import json
 import subprocess
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = ["Finding", "audit", "main", "mcp_domain"]
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,11 +82,15 @@ def surface_calls(
     for node in ast.walk(tree):
         if isinstance(node, ast.arg) and isinstance(node.annotation, ast.Name):
             receivers[node.arg] = node.annotation.id
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Attribute):
-            if isinstance(node.value.value, ast.Name) and node.value.value.id == "client":
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        receivers[target.id] = "client." + node.value.attr
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Attribute)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "client"
+        ):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    receivers[target.id] = "client." + node.value.attr
     methods: set[str] = set()
     findings: list[Finding] = []
     for node in ast.walk(tree):
@@ -136,9 +143,13 @@ def composition(root: Path) -> dict[str, str]:
                 if not isinstance(node.value.func, ast.Name):
                     continue
                 for target in node.targets:
-                    if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-                        if target.value.id == "self" and not target.attr.startswith("_"):
-                            fields.append((target.attr, node.value.func.id))
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == "self"
+                        and not target.attr.startswith("_")
+                    ):
+                        fields.append((target.attr, node.value.func.id))
             children[owner.name] = tuple(fields)
     paths: dict[str, str] = {"AsyncSynthClient": "client"}
     pending = ["AsyncSynthClient"]

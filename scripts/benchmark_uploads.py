@@ -10,12 +10,15 @@ import tempfile
 import time
 import tracemalloc
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
-from pydantic import JsonValue
 from typing_extensions import override
 
 from synth_ai import AsyncSynthClient
+
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
 
 class Sink(httpx.AsyncBaseTransport):
@@ -84,13 +87,15 @@ async def measure(directory: Path, concurrency: int, size: int) -> dict[str, Jso
         started = time.monotonic()
         clock = asyncio.create_task(ticker())
         await asyncio.sleep(0)
-        async with httpx.AsyncClient(transport=sink) as http:
-            async with AsyncSynthClient(
+        async with (
+            httpx.AsyncClient(transport=sink) as http,
+            AsyncSynthClient(
                 "fixture", base_url="https://api.example.test", http_client=http
-            ) as client:
-                await asyncio.gather(
-                    *(client.swarms.upload_file(str(source)) for _ in range(concurrency))
-                )
+            ) as client,
+        ):
+            await asyncio.gather(
+                *(client.swarms.upload_file(str(source)) for _ in range(concurrency))
+            )
         running = False
         await clock
         _, peak = tracemalloc.get_traced_memory()

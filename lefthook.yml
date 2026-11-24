@@ -1,6 +1,6 @@
 # Local gates replace CI until the prod merge. Install once per clone: lefthook install.
-# Fails closed: a parity finding, a stale contract pin or a missing .venv exits non-zero
-# and blocks the push. The audit runs in about a second, so it has no path filter.
+# Fails closed: a parity finding, a stale contract pin, a lint/type violation, or a
+# missing .venv exits non-zero and blocks the push.
 pre-push:
   parallel: false
   commands:
@@ -8,3 +8,5 @@ pre-push:
       run: .venv/bin/python scripts/gen_contract.py --check
     surface-parity:
       run: PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py > /dev/null
+    check:
+      run: make check

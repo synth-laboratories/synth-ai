@@ -51,9 +51,10 @@ async def test_public_operations_through_typed_clients(contract, synchronous):
         return httpx.Response(int(code), json=payload)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
-        options = {"base_url": "https://example.test", "http_client": http}
         if synchronous:
-            with SynthClient("fixture", **options) as client:
+            with SynthClient(
+                "fixture", base_url="https://example.test", http_client=http
+            ) as client:
                 paused = client.swarms.pause(run_id, idempotency_key="pauseRun")
                 client.swarms.resume(run_id, idempotency_key="resumeRun")
                 client.swarms.program(run_id)
@@ -68,7 +69,9 @@ async def test_public_operations_through_typed_clients(contract, synchronous):
                 )
                 client.account.usage_export(export_id)
         else:
-            async with AsyncSynthClient("fixture", **options) as client:
+            async with AsyncSynthClient(
+                "fixture", base_url="https://example.test", http_client=http
+            ) as client:
                 paused = await client.swarms.pause(run_id, idempotency_key="pauseRun")
                 await client.swarms.resume(run_id, idempotency_key="resumeRun")
                 await client.swarms.program(run_id)

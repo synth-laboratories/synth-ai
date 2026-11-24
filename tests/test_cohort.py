@@ -7,6 +7,7 @@ import pytest
 
 MODULE = Path(__file__).parents[1] / "scripts/check_cohort.py"
 spec = importlib.util.spec_from_file_location("check_cohort", MODULE)
+assert spec is not None and spec.loader is not None
 cohort = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cohort)
 

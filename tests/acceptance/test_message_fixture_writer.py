@@ -8,9 +8,11 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
+from collections.abc import Sequence
 from contextlib import contextmanager
 
 import pytest
+from pydantic import JsonValue
 from test_message_journey_offline import (
     ANSWER,
     MESSAGE,
@@ -108,8 +110,9 @@ class RecordingSurface:
                 else int(str(call.query["cursor"]).split("-")[1]) + 1
             )
             last = page >= self.event_pages
-            body = {
-                "items": [{"kind": kind} for kind in self.replay_event_kinds],
+            items: list[JsonValue] = [{"kind": kind} for kind in self.replay_event_kinds]
+            body: dict[str, JsonValue] = {
+                "items": items,
                 "has_more": not last,
                 "next_cursor": None if last else f"cursor-{page}",
                 "resume_cursor": "replay-head-cursor" if last else None,
@@ -118,19 +121,33 @@ class RecordingSurface:
         raise AssertionError((call.operation, run))
 
 
-def seal_default(surface, path, **changes):
-    arguments = {
-        "record_run_id": RECORD_RUN,
-        "question": QUESTION,
-        "run_id": RUN,
-        "customer_thread_id": THREAD,
-        "recording_sha256": RECORDING,
-        "internal_message_ids": ["internal_fixture"],
-        "terminal_run_id": "run_terminal",
-        "rate_limited_run_id": "run_rate",
-        "absent_run_id": "run_absent",
-    }
-    return write_fixture(surface, path, **{**arguments, **changes})
+def seal_default(
+    surface,
+    path,
+    *,
+    record_run_id: str = RECORD_RUN,
+    question: str = QUESTION,
+    run_id: str = RUN,
+    customer_thread_id: str = THREAD,
+    recording_sha256: str = RECORDING,
+    internal_message_ids: Sequence[str] = ("internal_fixture",),
+    terminal_run_id: str | None = "run_terminal",
+    rate_limited_run_id: str | None = "run_rate",
+    absent_run_id: str | None = "run_absent",
+):
+    return write_fixture(
+        surface,
+        path,
+        record_run_id=record_run_id,
+        question=question,
+        run_id=run_id,
+        customer_thread_id=customer_thread_id,
+        recording_sha256=recording_sha256,
+        internal_message_ids=internal_message_ids,
+        terminal_run_id=terminal_run_id,
+        rate_limited_run_id=rate_limited_run_id,
+        absent_run_id=absent_run_id,
+    )
 
 
 def test_sealed_fixture_binds_the_recorded_exchange_and_the_journey_accepts_it(tmp_path):
@@ -177,7 +194,7 @@ def test_sealed_fixture_binds_the_recorded_exchange_and_the_journey_accepts_it(t
 
 
 @pytest.mark.parametrize(
-    "change,value,code",
+    ("change", "value", "code"),
     [
         ("disposition", "acknowledged", "message_recording_question_not_answered"),
         ("replies", 0, "message_recording_reply_missing_or_duplicated"),

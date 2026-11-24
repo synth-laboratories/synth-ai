@@ -34,14 +34,18 @@ async def test_launch_freezes_requested_domicile_without_an_implicit_override(
 
 
 async def test_invalid_domicile_is_refused_before_upload_or_launch():
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _: pytest.fail("request sent"))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as api:
-            with pytest.raises(ValueError):
-                await api.swarms.launch("task", budget="1", domicile_requirement="future")
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _: pytest.fail("request sent"))
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as api,
+    ):
+        with pytest.raises(ValueError):
+            await api.swarms.launch(
+                "task",
+                budget="1",
+                domicile_requirement="future",  # ty: ignore[invalid-argument-type]
+            )
 
 
 def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
@@ -100,6 +104,7 @@ def test_report_preserves_profile_charge_startup_and_emulated_basis(contract):
         }
     ]
     parsed = RunReport.model_validate_json(json.dumps(raw))
+    assert parsed.sandbox_performance is not None
     assert parsed.sandbox_performance[0].ready_p90_ms is None
     text = report(parsed)
     for expected in ("worker", "4vcpu-8gib", "local", "1450", "0.0363975"):

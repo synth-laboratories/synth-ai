@@ -19,5 +19,7 @@ def test_generated_delegates_preserve_public_method_documentation() -> None:
                 ):
                     continue
                 documentation = inspect.getdoc(method)
-                assert documentation, f"{name}.{method_name} lacks public documentation"
+                assert documentation is not None and documentation != "", (
+                    f"{name}.{method_name} lacks public documentation"
+                )
                 assert inspect.getdoc(getattr(target, method_name)) == documentation

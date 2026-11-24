@@ -7,10 +7,11 @@ import pytest
 from synth_ai import AsyncSynthClient
 from synth_ai.errors import InvalidRequestError, UploadFormatUnsupportedError
 from synth_ai.mcp.server import call_tool
+from synth_ai.models import InputFile, RunInputs
 
 
 @pytest.mark.parametrize(
-    "name,content,media_type",
+    ("name", "content", "media_type"),
     [
         ("task.md", b"# Task\nReturn done.\n", "text/markdown"),
         ("policy.bin", b"\x00\xff\x80policy", "application/octet-stream"),
@@ -78,18 +79,26 @@ async def test_upload_finalize_and_launch_keep_identity_and_custody(
         ]["example"]
         return httpx.Response(202, json=snapshot)
 
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handle),
-        headers={"Authorization": "must-not-leak", "Cookie": "must-not-leak"},
-    ) as http:
-        async with AsyncSynthClient(
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(handle),
+            headers={"Authorization": "must-not-leak", "Cookie": "must-not-leak"},
+        ) as http,
+        AsyncSynthClient(
             "fixture", base_url="https://api.example.test", http_client=http
-        ) as client:
-            file = await client.swarms.upload_file(str(filename), idempotency_key="upload-one")
-            reference = {
-                key: getattr(file, key) for key in ("file_id", "revision_id", "digest_sha256")
-            }
-            await client.swarms.launch("Task", budget="1.00", inputs={"files": [reference]})
+        ) as client,
+    ):
+        file = await client.swarms.upload_file(str(filename), idempotency_key="upload-one")
+        inputs = RunInputs(
+            files=[
+                InputFile(
+                    file_id=file.file_id,
+                    revision_id=file.revision_id,
+                    digest_sha256=file.digest_sha256,
+                )
+            ]
+        )
+        await client.swarms.launch("Task", budget="1.00", inputs=inputs)
     assert len(calls) == 4
 
 

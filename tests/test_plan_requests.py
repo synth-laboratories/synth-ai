@@ -9,6 +9,7 @@ import logging
 
 import httpx
 import pytest
+from pydantic import JsonValue
 from test_cli import api, example, invoke  # noqa: F401  (api is the CLI fixture)
 
 from synth_ai import AsyncSynthClient, RetryPolicy, SynthClient, cli
@@ -171,20 +172,22 @@ async def test_local_validation_refuses_without_echoing_input_or_calling(contrac
 
 def test_sync_client_delegates_plan_requests(contract):
     core = FakeCore(contract, refusal=("plan_request_cooldown", 429, COOLDOWN_SECONDS))
-    with SynthClient(
-        "fixture",
-        base_url="https://example.test",
-        http_client=httpx.AsyncClient(transport=httpx.MockTransport(core)),
-    ) as client:
-        with pytest.raises(RateLimitedError) as caught:
-            client.account.request_special_free(use_case=SENTINEL)
+    with (
+        SynthClient(
+            "fixture",
+            base_url="https://example.test",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(core)),
+        ) as client,
+        pytest.raises(RateLimitedError) as caught,
+    ):
+        client.account.request_special_free(use_case=SENTINEL)
     assert caught.value.retry_after_seconds == COOLDOWN_SECONDS and len(core.requests) == 1
 
 
 async def test_mcp_dispatch_reaches_plan_requests_through_the_sdk(contract):
     core = FakeCore(contract)
     async with client_for(core) as client:
-        body = {"use_case": SENTINEL, "links": [LINK]}
+        body: dict[str, JsonValue] = {"use_case": SENTINEL, "links": [LINK]}
         created = await dispatch(client, "requestSpecialFree", {"body": body})
         listed = await dispatch(client, "listPlanRequests", {})
         withdrawn = await dispatch(client, "withdrawPlanRequest", {"request_id": REQUEST_ID})

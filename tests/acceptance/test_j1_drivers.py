@@ -12,8 +12,10 @@ import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import pytest
+from typing_extensions import override
 
 from scripts.acceptance.j1 import AdapterError, CLIDriver, SDKDriver, observe
 from scripts.acceptance.launch_journal import LaunchJournal, LaunchJournalError
@@ -74,7 +76,8 @@ def fixture_api(contract, *, coherent=False, launch_resolution=False):
             self.end_headers()
             self.wfile.write(raw)
 
-        def log_message(self, *_):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -95,7 +98,9 @@ def test_sdk_reads_real_public_models(contract):
     ):
         driver = SDKDriver(client)
         assert driver.snapshot(RUN).run_id == RUN
-        assert driver.report(RUN).settlement.total.amount == "0.147061330000"
+        total = driver.report(RUN).settlement.total
+        assert total is not None
+        assert total.amount == "0.147061330000"
         assert driver.result(RUN).run.run_id == RUN
         assert driver.outputs(RUN) == ()
     assert len(requests) == 4
@@ -116,7 +121,9 @@ def test_real_cli_subprocess_reads_same_public_models(contract):
             working_directory=root,
         )
         assert driver.snapshot(RUN).run_id == RUN
-        assert driver.report(RUN).settlement.total.amount == "0.147061330000"
+        total = driver.report(RUN).settlement.total
+        assert total is not None
+        assert total.amount == "0.147061330000"
         assert driver.result(RUN).run.run_id == RUN
         assert driver.outputs(RUN) == ()
     assert len(requests) == 4
@@ -175,6 +182,7 @@ def test_sdk_launch_auto_preserves_wire_selection_and_mutation_identity(contract
             journal=LaunchJournal(tmp_path / "launch"),
             labels={"acceptance_watchdog": "sdk-fixture"},
         )
+    assert snapshot.optimizer is not None
     assert snapshot.optimizer.topology == "swarms_v2"
     assert len(requests) == 1
     assert requests[0][0] == "/v1/runs"
@@ -204,6 +212,7 @@ def test_cli_launch_auto_uses_real_subprocess_and_same_wire_selection(contract, 
             journal=LaunchJournal(tmp_path / "launch"),
             labels={"acceptance_watchdog": "cli-fixture"},
         )
+    assert snapshot.optimizer is not None
     assert snapshot.optimizer.topology == "swarms_v2"
     assert len(requests) == 1
     assert requests[0][1]["optimizer"] == "auto"
@@ -379,7 +388,7 @@ RECORDED_CRAFTAX_BODY = json.loads(
 )
 
 
-def public_launch(body: dict) -> dict:
+def public_launch(body: dict[str, Any]) -> dict[str, Any]:
     """What a public client sends: the recording minus operator cache wiring, plus auto."""
     return {**{k: v for k, v in body.items() if k != "local_cache"}, "optimizer": "auto"}
 

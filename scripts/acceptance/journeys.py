@@ -32,12 +32,11 @@ from decimal import Decimal
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 import httpx
 import yaml
-from pydantic import JsonValue
 
 from synth_ai import auth
 from synth_ai._auth_models import ClientRegistration, OAuthToken
@@ -62,6 +61,9 @@ from .surfaces import (
     comparable,
     obj,
 )
+
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
 __all__ = [
     "JourneyContext",
@@ -108,7 +110,7 @@ ID_PARAMETERS = frozenset(
 
 
 class Verdict(StrEnum):
-    PASS = "Pass"
+    PASS = "Pass"  # noqa: S105
     FAIL = "Fail"
     INCONCLUSIVE = "Inconclusive"
 
@@ -475,6 +477,9 @@ def reconcile_purchase(
     else:
         verdict, cause = Verdict.PASS, ""
     assert after is not None
+    interval_reads: list[JsonValue] = [dict(row) for row in reads]
+    entry_rows: list[JsonValue] = [dict(entry_row(entry)) for entry in entries]
+    grant_ids: list[JsonValue] = [str(entry.get("entry_id")) for entry in grants]
     return receipt(
         context,
         step,
@@ -489,9 +494,9 @@ def reconcile_purchase(
             "since": since,
             "ledger_before": str(ledger_before),
             "ledger_gain_usd": str(gain),
-            "interval_reads": list(reads),
-            "entries": [entry_row(entry) for entry in entries],
-            "purchase_grant_entry_ids": [str(entry.get("entry_id")) for entry in grants],
+            "interval_reads": interval_reads,
+            "entries": entry_rows,
+            "purchase_grant_entry_ids": grant_ids,
             "checkout_window": window,
             "purchase_usd": str(PURCHASE_USD),
         },
@@ -563,7 +568,8 @@ def raise_four(context: JourneyContext) -> StepReceipt:
         raise_live_limits,
     )
 
-    assert isinstance(context.surface, SDKSurface) and context.run_id is not None
+    assert isinstance(context.surface, SDKSurface)
+    assert context.run_id is not None
     client = context.surface.client
     try:
         current = caps(client.swarms.limits(context.run_id), context.run_id)
@@ -1320,7 +1326,8 @@ def admission_overload_refusal(context: JourneyContext) -> StepReceipt:
     """Hosted overload: the org's admission queue is full (running cap 0 and
     every waiting place taken), so a valid launch must be refused 429
     run_queue_full with retry advice and no accepted effect. The org launch
-    window's 429 rate_limit_exceeded is a different refusal and does not pass."""
+    window's 429 rate_limit_exceeded is a different refusal and does not pass.
+    """
     step = Step.OVERLOAD_REFUSAL
     # A valid budget (the J1 producer default) so Core reaches admission;
     # PROBE_CHARGE is refused run_budget_below_call_bound before the queue.

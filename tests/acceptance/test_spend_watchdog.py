@@ -8,9 +8,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 import httpx
 import pytest
+from typing_extensions import override
 
 from scripts.acceptance.spend_watchdog import (
     LABEL,
@@ -244,7 +246,8 @@ def test_budget_reserves_concurrently_and_reconciles_once(tmp_path, cap, previou
         try:
             budget.reserve(key, "0.20")
         except WatchdogError as error:
-            assert str(error) == "watchdog_budget_headroom_insufficient"
+            if str(error) != "watchdog_budget_headroom_insufficient":
+                raise
             return None
         return key
 
@@ -258,10 +261,13 @@ def test_budget_reserves_concurrently_and_reconciles_once(tmp_path, cap, previou
         outcome="accounting_final",
         run_id=RUN,
         final={
+            "state": "completed",
             "execution_closed": True,
             "accounting_final": True,
+            "cleanup_complete": True,
             "charge_final": True,
             "charge_usd": "0.12",
+            "charge": {"amount": {"currency": "USD", "amount": "0.12"}, "final": True},
         },
     )
     budget.reconcile(accepted[0], final)
@@ -381,7 +387,8 @@ def test_detached_worker_outlives_failed_driver_process(contract, tmp_path):
             cancelled.set()
             self.respond(202, observation(contract, amount="0.07"))
 
-        def log_message(self, *_args):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 
 from ._generated.models import McpOutputContent
@@ -35,10 +36,8 @@ def inline_content(content: bytes, media_type: str) -> McpOutputContent:
     """Text only for a textual media type with valid UTF-8; base64 otherwise."""
     encoding, text = "base64", base64.b64encode(content).decode("ascii")
     if textual_media(media_type):
-        try:
+        with contextlib.suppress(UnicodeDecodeError):
             encoding, text = "utf8", content.decode("utf-8", errors="strict")
-        except UnicodeDecodeError:
-            pass
     return McpOutputContent.model_validate(
         {
             "media_type": media_type,

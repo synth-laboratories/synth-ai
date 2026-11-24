@@ -1,0 +1,39 @@
+{
+  "languages": {
+    "Python": {
+      "language_servers": [
+        "ty",
+        "ruff",
+        "!basedpyright",
+        "!pyright",
+        "..."
+      ],
+      "format_on_save": "on",
+      "formatter": [
+        { "code_action": "source.organizeImports.ruff" },
+        { "code_action": "source.fixAll.ruff" },
+        { "language_server": { "name": "ruff" } }
+      ]
+    }
+  },
+  "lsp": {
+    "ty": {
+      "binary": {
+        "path": ".venv/bin/ty",
+        "arguments": ["server"]
+      }
+    },
+    "ruff": {
+      "binary": {
+        "path": ".venv/bin/ruff",
+        "arguments": ["server"]
+      },
+      "initialization_options": {
+        "settings": {
+          "configurationPreference": "filesystemFirst",
+          "lineLength": 100
+        }
+      }
+    }
+  }
+}

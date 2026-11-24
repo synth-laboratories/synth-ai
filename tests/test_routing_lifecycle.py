@@ -8,9 +8,17 @@ from decimal import Decimal
 import httpx
 import pytest
 from pydantic import ValidationError
+from typing_extensions import override
 
 from synth_ai import AsyncSynthClient, StreamCheckpoint
-from synth_ai._generated.models import LaunchRequest, RoutingConstraints, RunGuidance
+from synth_ai._generated.models import (
+    LaunchRequest,
+    Only,
+    RoutingConstraints,
+    RunGuidance,
+    RunGuidanceKind,
+    RunGuidancePriority,
+)
 from synth_ai._transport import RetryPolicy
 from synth_ai.errors import (
     ConflictError,
@@ -45,16 +53,18 @@ def client(http):
     "budget", [None, 1.0, 0, "0", "-1", "NaN", "Infinity", "0.0000001", "92233720369"]
 )
 async def test_budget_required_and_exact(budget):
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: pytest.fail("network called"))
-    ) as http:
-        async with client(http) as api:
-            with pytest.raises((ValueError, ValidationError)):
-                await api.swarms.launch("task", budget=budget)
-            with pytest.raises(TypeError):
-                await api.swarms.launch("task")
-            with pytest.raises(TypeError):
-                await api.swarms.launch("task", budget="1", maximum_tasks=1)
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: pytest.fail("network called"))
+        ) as http,
+        client(http) as api,
+    ):
+        with pytest.raises((ValueError, ValidationError)):
+            await api.swarms.launch("task", budget=budget)
+        with pytest.raises(TypeError):
+            await api.swarms.launch("task")
+        with pytest.raises(TypeError):
+            await api.swarms.launch("task", budget="1", maximum_tasks=1)
     with pytest.raises(ValidationError):
         LaunchRequest.model_validate({"limits": {}})
 
@@ -80,10 +90,13 @@ async def test_typed_launch_routes_guidance_and_omits_internal_limits(contract):
             await api.swarms.launch(
                 "task",
                 budget=Decimal("0.125000"),
-                routing=RoutingConstraints(providers={"only": ["openrouter", "azure"]}),
+                routing=RoutingConstraints(providers=Only(only=["openrouter", "azure"])),
                 guidance=[
                     RunGuidance(
-                        id="proof", kind="outcome", text="Include evidence", priority="must"
+                        id="proof",
+                        kind=RunGuidanceKind.OUTCOME,
+                        text="Include evidence",
+                        priority=RunGuidancePriority.MUST,
                     )
                 ],
             )
@@ -93,7 +106,7 @@ async def test_typed_launch_routes_guidance_and_omits_internal_limits(contract):
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    ("field", "value"),
     [
         ("text", " "),
         ("text", "a\0"),
@@ -103,10 +116,10 @@ async def test_typed_launch_routes_guidance_and_omits_internal_limits(contract):
     ],
 )
 def test_guidance_matches_core_byte_and_text_validation(field, value):
-    values = dict(id="proof", kind="outcome", text="valid", priority="must")
+    values = {"id": "proof", "kind": "outcome", "text": "valid", "priority": "must"}
     values[field] = value
     with pytest.raises(ValidationError):
-        RunGuidance(**values)
+        RunGuidance.model_validate(values)
 
 
 async def test_finished_waits_for_accounting_and_cleanup(contract):
@@ -160,25 +173,28 @@ async def test_failure_and_result_unavailable_preserve_snapshot(contract):
         cleanup_complete=True,
         result_available=False,
     )
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda r: (
-                httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=b"")
-                if r.headers.get("accept") == "text/event-stream"
-                else httpx.Response(200, json=state)
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda r: (
+                    httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=b"")
+                    if r.headers.get("accept") == "text/event-stream"
+                    else httpx.Response(200, json=state)
+                )
             )
-        )
-    ) as http:
-        async with client(http) as api:
-            assert (await api.swarms.wait(state["run_id"])).state == "failed"
-            for options, kind in [
-                ({"raise_on_failure": True}, RunFailedError),
-                ({"until": "result_available"}, ResultUnavailableError),
-            ]:
-                with pytest.raises(kind) as caught:
-                    await api.swarms.wait(state["run_id"], **options)
-                assert caught.value.snapshot.state == "failed"
-                assert caught.value.run_id == state["run_id"]
+        ) as http,
+        client(http) as api,
+    ):
+        assert (await api.swarms.wait(state["run_id"])).state == "failed"
+        for options, kind in [
+            ({"raise_on_failure": True}, RunFailedError),
+            ({"until": "result_available"}, ResultUnavailableError),
+        ]:
+            with pytest.raises(kind) as caught:
+                await api.swarms.wait(state["run_id"], **options)
+            assert caught.value.snapshot is not None
+            assert caught.value.snapshot.state == "failed"
+            assert caught.value.run_id == state["run_id"]
 
 
 async def test_wait_timeout_and_cancellation_never_cancel_run(contract):
@@ -199,6 +215,7 @@ async def test_wait_timeout_and_cancellation_never_cancel_run(contract):
         async with client(http) as api:
             with pytest.raises(WaitTimeoutError) as caught:
                 await api.swarms.wait(state["run_id"], timeout=0.015, poll_interval=0.1)
+            assert caught.value.snapshot is not None
             assert caught.value.snapshot.run_id == state["run_id"]
             pending = asyncio.create_task(api.swarms.wait(state["run_id"]))
             await asyncio.sleep(0.01)
@@ -209,36 +226,39 @@ async def test_wait_timeout_and_cancellation_never_cancel_run(contract):
 
 
 async def test_malformed_success_retains_mutation_identity():
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda r: httpx.Response(202, json={}, headers={"X-Request-Id": "server-request"})
-        )
-    ) as http:
-        async with client(http) as api:
-            with pytest.raises(ResponseContractError) as caught:
-                await api.swarms.launch("task", budget="1", idempotency_key="same-launch")
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(202, json={}, headers={"X-Request-Id": "server-request"})
+            )
+        ) as http,
+        client(http) as api,
+    ):
+        with pytest.raises(ResponseContractError) as caught:
+            await api.swarms.launch("task", budget="1", idempotency_key="same-launch")
     assert caught.value.idempotency_key == "same-launch"
     assert caught.value.outcome == "unknown"
     assert caught.value.request_id == "server-request"
 
 
 def event(run_id, suffix):
-    return dict(
-        event_id="evt_" + suffix * 22,
-        run_id=run_id,
-        sequence=8,
-        kind="progress",
-        original_kind="progress",
-        usage=None,
-        observed_at=None,
-        approval_id=None,
-    )
+    return {
+        "event_id": "evt_" + suffix * 22,
+        "run_id": run_id,
+        "sequence": 8,
+        "kind": "progress",
+        "original_kind": "progress",
+        "usage": None,
+        "observed_at": None,
+        "approval_id": None,
+    }
 
 
 class Interrupted(httpx.AsyncByteStream):
     def __init__(self, content):
         self.content = content
 
+    @override
     async def __aiter__(self):
         yield self.content
         raise httpx.RemoteProtocolError("interrupted frame group")
@@ -275,50 +295,54 @@ async def test_stream_reconnect_deduplicates_partial_expanded_sequence(contract)
 
 
 async def test_stream_error_frame_is_typed(contract):
-    problem = dict(
-        type="about:blank",
-        title="Lost history",
-        detail="Lost history",
-        status=409,
-        instance="urn:test",
-        code="event_cursor_expired",
-        service="synth-backend",
-        stage="events",
-        outcome="not_accepted",
-    )
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda r: httpx.Response(
-                200,
-                headers={"Content-Type": "text/event-stream"},
-                text="event: error\ndata: " + json.dumps(problem) + "\n\n",
+    problem = {
+        "type": "about:blank",
+        "title": "Lost history",
+        "detail": "Lost history",
+        "status": 409,
+        "instance": "urn:test",
+        "code": "event_cursor_expired",
+        "service": "synth-backend",
+        "stage": "events",
+        "outcome": "not_accepted",
+    }
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(
+                    200,
+                    headers={"Content-Type": "text/event-stream"},
+                    text="event: error\ndata: " + json.dumps(problem) + "\n\n",
+                )
             )
-        )
-    ) as http:
-        async with client(http) as api:
-            with pytest.raises(ConflictError, match="event_cursor_expired"):
-                _ = [item async for item in api.swarms.follow(snapshot(contract)["run_id"])]
+        ) as http,
+        client(http) as api,
+    ):
+        with pytest.raises(ConflictError, match="event_cursor_expired"):
+            _ = [item async for item in api.swarms.follow(snapshot(contract)["run_id"])]
 
 
-@pytest.mark.parametrize("payload,max_bytes", [(b"tampered", 100), (b"correct", 2)])
+@pytest.mark.parametrize(("payload", "max_bytes"), [(b"tampered", 100), (b"correct", 2)])
 async def test_download_failure_preserves_destination_and_removes_partial(
     tmp_path, payload, max_bytes
 ):
     target = tmp_path / "report.txt"
     target.write_bytes(b"existing")
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, content=payload))
-    ) as http:
-        async with client(http) as api:
-            with pytest.raises(ValueError):
-                await api.swarms.download_output(
-                    "run_a",
-                    "out_a",
-                    str(target),
-                    revision_id="rev_a",
-                    digest_sha256=hashlib.sha256(b"correct").hexdigest(),
-                    max_bytes=max_bytes,
-                )
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, content=payload))
+        ) as http,
+        client(http) as api,
+    ):
+        with pytest.raises(ValueError):
+            await api.swarms.download_output(
+                "run_a",
+                "out_a",
+                str(target),
+                revision_id="rev_a",
+                digest_sha256=hashlib.sha256(b"correct").hexdigest(),
+                max_bytes=max_bytes,
+            )
     assert target.read_bytes() == b"existing"
     assert list(tmp_path.iterdir()) == [target]
 
@@ -327,24 +351,26 @@ async def test_verified_download_and_memory_read(tmp_path):
     content = b"verified report"
     digest = hashlib.sha256(content).hexdigest()
     target = tmp_path / "report.txt"
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, content=content))
-    ) as http:
-        async with client(http) as api:
-            assert (
-                await api.swarms.output_content(
-                    "run_a", "out_a", revision_id="rev_a", digest_sha256=digest
-                )
-                == content
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, content=content))
+        ) as http,
+        client(http) as api,
+    ):
+        assert (
+            await api.swarms.output_content(
+                "run_a", "out_a", revision_id="rev_a", digest_sha256=digest
             )
-            await api.swarms.download_output(
-                "run_a",
-                "out_a",
-                str(target),
-                revision_id="rev_a",
-                digest_sha256=digest,
-                expected_bytes=len(content),
-            )
+            == content
+        )
+        await api.swarms.download_output(
+            "run_a",
+            "out_a",
+            str(target),
+            revision_id="rev_a",
+            digest_sha256=digest,
+            expected_bytes=len(content),
+        )
     assert target.read_bytes() == content
 
 
@@ -352,21 +378,25 @@ async def test_upload_failure_resumes_same_identity_with_fresh_grant(tmp_path):
     content = b"input"
     source = tmp_path / "task.txt"
     source.write_bytes(content)
-    file = dict(
-        file_id="file_a",
-        revision_id="rev_a",
-        name="task.txt",
-        media_type="text/plain",
-        size_bytes=5,
-        digest_sha256=hashlib.sha256(content).hexdigest(),
-        created_at="2026-11-08T00:00:00Z",
-    )
-    upload = dict(
-        upload_id="upl_a",
-        state="pending",
-        file=file,
-        put=dict(url="https://storage.test/fresh", headers={}, expires_at="2026-11-08T01:00:00Z"),
-    )
+    file = {
+        "file_id": "file_a",
+        "revision_id": "rev_a",
+        "name": "task.txt",
+        "media_type": "text/plain",
+        "size_bytes": 5,
+        "digest_sha256": hashlib.sha256(content).hexdigest(),
+        "created_at": "2026-11-08T00:00:00Z",
+    }
+    upload = {
+        "upload_id": "upl_a",
+        "state": "pending",
+        "file": file,
+        "put": {
+            "url": "https://storage.test/fresh",
+            "headers": {},
+            "expires_at": "2026-11-08T01:00:00Z",
+        },
+    }
     calls = []
 
     def handle(request):

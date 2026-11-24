@@ -24,15 +24,17 @@ import argparse
 import hashlib
 import json
 import os
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
-from pydantic import JsonValue
+from typing import TYPE_CHECKING, Optional
 
 from .message_fixture import FIXTURE_BYTES_MAX, MESSAGE_BYTES_MAX, MessageFixture, digest, sha256
 from .surfaces import Call, Surface, SurfaceName, obj
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from pydantic import JsonValue
 
 SCHEMA = "synth.journeys.message-fixture.v1"
 PAGES_MAX = 256

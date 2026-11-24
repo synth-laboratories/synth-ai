@@ -45,9 +45,8 @@ class RetryPolicy:
         if server_delay is None:
             return None
         backoff = min(self.backoff_max_seconds, self.backoff_seconds * float(2**attempt))
-        return max(server_delay if value is not None else 0, backoff) + random.uniform(
-            0, self.jitter_seconds
-        )
+        jitter = random.uniform(0, self.jitter_seconds)  # noqa: S311 -- non-cryptographic backoff jitter
+        return max(server_delay if value is not None else 0, backoff) + jitter
 
 
 def retry_delay(value: str | None, attempt: int) -> float | None:

@@ -34,12 +34,12 @@ async def test_get_and_mcp_read_carry_queue_standing():
     async def handle(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=QUEUED)
 
+    run_id = QUEUED["run_id"]
+    assert isinstance(run_id, str)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with _client(http) as client:
-            run = await client.swarms.get(QUEUED["run_id"])
-            served = json.loads(
-                await call_tool(client, "swarms_run_get", {"run_id": QUEUED["run_id"]})
-            )
+            run = await client.swarms.get(run_id)
+            served = json.loads(await call_tool(client, "swarms_run_get", {"run_id": run_id}))
     assert run.queue is not None
     assert (run.queue.position, run.queue.ahead) == (3, 2)
     assert run.queue.estimated_start_at is None

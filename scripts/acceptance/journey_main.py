@@ -17,10 +17,9 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from synth_ai import SynthClient
 
@@ -28,6 +27,9 @@ from .journeys import JourneyContext, Secret, Step, StepReceipt, Verdict, capabi
 from .live_limits import retain
 from .session_files import load_secrets
 from .surfaces import CLISurface, MCPSurface, SDKSurface, Surface, SurfaceName
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Mapping
 
 # Clerk sessions (about 60 s) may be named by `<NAME>_FILE` instead of a value.
 SESSION_FILE_SECRETS = (Secret.SESSION.value, Secret.FOREIGN_SESSION.value)
@@ -265,7 +267,7 @@ def run_all(
         for step in steps:
             try:
                 receipts.append(run_step(context, step))
-            except Exception as error:  # A transport or timeout leaves the outcome unknown.
+            except Exception as error:  # noqa: BLE001 -- A transport or timeout leaves the outcome unknown.
                 receipts.append(
                     StepReceipt(
                         step,

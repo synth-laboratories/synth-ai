@@ -9,7 +9,7 @@ from synth_ai import errors
 
 
 @pytest.mark.parametrize(
-    "code,status,error_name",
+    ("code", "status", "error_name"),
     [
         ("message_too_large", 422, "MessageTooLargeError"),
         ("run_message_rate_limited", 429, "RunMessageRateLimitedError"),

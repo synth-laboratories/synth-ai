@@ -10,6 +10,7 @@ import copy
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any, TypedDict
 
 import pytest
 from journey_loopback import (
@@ -42,9 +43,15 @@ def test_raise_limit_is_seen_in_the_next_budget_view(contract, tmp_path, surface
     assert [method for method, _, _ in requests] == ["GET", "POST", "GET"]
 
 
+class FourLimitsState(TypedDict):
+    revision: int
+    posts: list[str]
+    caps: dict[str, int]
+
+
 def four_limits_api(contract, retention_ms):
     """Staging P2 shape: retention already at the contract maximum (86400 s)."""
-    state = {
+    state: FourLimitsState = {
         "revision": 0,
         "posts": [],
         "caps": {
@@ -128,13 +135,23 @@ def test_raise_limit_on_an_ended_run_is_inconclusive_not_failed(contract, tmp_pa
 @pytest.mark.parametrize("surface", SURFACES)
 def test_current_month_statement_passes(contract, tmp_path, surface):
     month = datetime.now(UTC).strftime("%Y-%m")
-    item = {
-        name: MONEY
-        for name in (
-            "opening_ledger purchases allowance credits conversion charges refunds "
-            "adjustments expirations closing_ledger unspent_returned usage_charge"
-        ).split()
-    }
+    item: dict[str, Any] = dict.fromkeys(
+        [
+            "opening_ledger",
+            "purchases",
+            "allowance",
+            "credits",
+            "conversion",
+            "charges",
+            "refunds",
+            "adjustments",
+            "expirations",
+            "closing_ledger",
+            "unspent_returned",
+            "usage_charge",
+        ],
+        MONEY,
+    )
     item.update(
         month=month,
         period_start=month + "-01T00:00:00Z",

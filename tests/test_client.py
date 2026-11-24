@@ -7,6 +7,7 @@ from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai._transport import retry_delay
 from synth_ai.cli import UsageError, parser, read_task
 from synth_ai.errors import ConflictError, TransportFailureError, local_problem
+from synth_ai.models import OwnerResourceRequest, PoolSelection
 
 
 def snapshot(contract):
@@ -17,13 +18,21 @@ def snapshot(contract):
 
 async def test_launch_exact_money_and_retry_identity(contract):
     requests = []
-    resources = [
+    expected_resources = [
         {
             "plugin": "pool",
             "roles": ["worker"],
             "limits": {"spend_micros": 100000, "rollouts": 1},
             "selection": {"pool_ids": ["craftax-control"]},
         }
+    ]
+    resources = [
+        OwnerResourceRequest(
+            plugin="pool",
+            roles=["worker"],
+            limits={"spend_micros": 100000, "rollouts": 1},
+            selection=PoolSelection(pool_ids=["craftax-control"]),
+        )
     ]
 
     def handle(request):
@@ -57,7 +66,7 @@ async def test_launch_exact_money_and_retry_identity(contract):
     )
     assert requests[0].content == requests[1].content
     body = json.loads(requests[0].content)
-    assert body["resources"] == resources
+    assert body["resources"] == expected_resources
     assert body["profile"] == "swarms-v2"
     assert "profile_overrides" not in body
     assert json.loads(requests[0].content)["limits"]["maximum_charge"] == {
@@ -91,14 +100,14 @@ async def test_unknown_outcome_and_problem_fields():
         "upstream_status": 504,
         "cause": "timeout",
     }
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(409, json=body))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(ConflictError) as caught:
-                await client.swarms.cancel("run_AAAAAAAAAAAAAAAAAAAAAA")
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: httpx.Response(409, json=body))
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        with pytest.raises(ConflictError) as caught:
+            await client.swarms.cancel("run_AAAAAAAAAAAAAAAAAAAAAA")
     assert caught.value.problem.model_dump(exclude_unset=True) == body
     assert caught.value.outcome == "unknown"
 
@@ -107,12 +116,12 @@ async def test_transport_failure_never_claims_not_accepted():
     def fail(request):
         raise httpx.ReadTimeout("private downstream detail", request=request)
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(TransportFailureError) as caught:
-                await client.swarms.cancel("run_AAAAAAAAAAAAAAAAAAAAAA")
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(fail)) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        with pytest.raises(TransportFailureError) as caught:
+            await client.swarms.cancel("run_AAAAAAAAAAAAAAAAAAAAAA")
     assert caught.value.outcome == "unknown"
     assert "private downstream" not in str(caught.value)
 

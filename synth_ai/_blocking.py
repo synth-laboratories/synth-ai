@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, Coroutine, Iterator
-from concurrent.futures import Future
 from threading import Event, Thread
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from .errors import ClientClosedError
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Coroutine, Iterator
+    from concurrent.futures import Future
 
 T = TypeVar("T")
 

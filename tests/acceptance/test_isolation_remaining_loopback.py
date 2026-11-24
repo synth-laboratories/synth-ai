@@ -15,9 +15,11 @@ from collections import Counter
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock, Thread
+from typing import Any
 
 import pytest
 import yaml
+from typing_extensions import override
 
 from scripts.acceptance import isolation_remaining as remaining
 from scripts.acceptance.journeys import Secret
@@ -69,13 +71,13 @@ def example(document, path, method="get"):
     return copy.deepcopy(response["application/json"]["example"])
 
 
-def routes(document):
+def routes(document: dict[str, Any]) -> list[tuple[str, re.Pattern[str], str]]:
     """(method, compiled path template, operationId) for every contract operation."""
-    table = []
+    table: list[tuple[str, re.Pattern[str], str]] = []
     for path, methods in document["paths"].items():
         pattern = re.compile("^" + re.sub(r"\{[^}]+\}", "[^/]+", path) + "$")
         for method, operation in methods.items():
-            if isinstance(operation, dict) and "operationId" in operation:
+            if isinstance(operation, dict) and isinstance(operation.get("operationId"), str):
                 table.append((method.upper(), pattern, operation["operationId"]))
     return table
 
@@ -233,7 +235,8 @@ def loopback(core: LoopbackCore):
 
         do_GET = do_POST = do_PATCH = do_DELETE = do_PUT = handle_any
 
-        def log_message(self, *_args):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -306,9 +309,9 @@ def test_open_cells_reach_loopback_core_and_pass_on_every_driver(monkeypatch, tm
     }
     foreign = Counter(operation for side, operation, _, _ in core.requests if side == "b")
     # Each driver sends the foreign ID and an absent ID: the binding reached Core twice.
-    assert {operation: foreign[operation] for operation in OPEN_OPERATIONS} == {
-        operation: 6 for operation in OPEN_OPERATIONS
-    }
+    assert {operation: foreign[operation] for operation in OPEN_OPERATIONS} == dict.fromkeys(
+        OPEN_OPERATIONS, 6
+    )
     assert "unrouted" not in {operation for _, operation, _, _ in core.requests}
     # revokeOAuthGrant goes through each driver's own surface with B's API key (1.40.0).
     revoke = [row for row in rows if row["operation"] == "revokeOAuthGrant"]

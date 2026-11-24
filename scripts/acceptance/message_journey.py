@@ -9,11 +9,8 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Named Optional at acceptance boundaries.
 import time
-from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Optional
-
-from pydantic import JsonValue
+from typing import TYPE_CHECKING, Optional
 
 from .journeys import (
     POLL_SECONDS,
@@ -28,6 +25,11 @@ from .journeys import (
 )
 from .message_fixture import MessageFixture, sha256
 from .surfaces import Call, Outcome, Surface, comparable, obj
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
+    from pydantic import JsonValue
 
 WAIT_SECONDS_MAX = 120
 EVENT_PAGES_MAX = 256

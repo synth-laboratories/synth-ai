@@ -14,11 +14,12 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import re
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:  # Playwright is an acceptance-host install, not an SDK dependency.
+    from collections.abc import Callable
+
     from playwright.sync_api import Frame, Locator, Page
 
 __all__ = [
@@ -125,7 +126,7 @@ def browser_error_cause(error: BaseException, progress: Progress) -> str:
     if progress.page is not None:
         try:
             location = page_location(progress.page.url)
-        except Exception:  # A dead page has no readable URL.
+        except Exception:  # noqa: BLE001 -- A dead page has no readable URL.
             location = "unreadable"
     return ":".join(
         ("stripe_test_checkout_browser_error", failure_kind(error), progress.stage, location)

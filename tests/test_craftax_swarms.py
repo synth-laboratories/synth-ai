@@ -100,7 +100,7 @@ def test_credentials_and_nonlocal_plaintext_are_refused(url):
 
 
 @pytest.mark.parametrize(
-    "budget,cap", [("51", 1), ("0", 1), ("NaN", 1), ("1.0000001", 1), ("1", 1_000_001)]
+    ("budget", "cap"), [("51", 1), ("0", 1), ("NaN", 1), ("1.0000001", 1), ("1", 1_000_001)]
 )
 def test_invalid_charge_bounds_refuse_before_network(budget, cap):
     with pytest.raises(ValueError):

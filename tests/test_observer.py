@@ -4,6 +4,7 @@ import json
 import httpx
 import pytest
 from test_routing_lifecycle import event, snapshot
+from typing_extensions import override
 
 from synth_ai import AsyncSynthClient, _observer
 from synth_ai._transport import RetryPolicy
@@ -22,6 +23,7 @@ class Feed(httpx.AsyncByteStream):
         self.queue = asyncio.Queue()
         self.closed = False
 
+    @override
     async def __aiter__(self):
         while True:
             item = await self.queue.get()
@@ -31,6 +33,7 @@ class Feed(httpx.AsyncByteStream):
                 return
             yield item
 
+    @override
     async def aclose(self):
         self.closed = True
 
@@ -204,17 +207,17 @@ async def test_feed_refusals_do_not_silently_fallback(contract, status):
 def gateway_problem(status):
     return httpx.Response(
         status,
-        json=dict(
-            type="about:blank",
-            title="unavailable",
-            detail="Bad Gateway",
-            status=status,
-            instance="urn:test",
-            code="upstream_refused",
-            service="core",
-            stage="getRun",
-            outcome="not_accepted",
-        ),
+        json={
+            "type": "about:blank",
+            "title": "unavailable",
+            "detail": "Bad Gateway",
+            "status": status,
+            "instance": "urn:test",
+            "code": "upstream_refused",
+            "service": "core",
+            "stage": "getRun",
+            "outcome": "not_accepted",
+        },
     )
 
 
@@ -331,17 +334,17 @@ async def test_snapshot_refusal_cannot_be_mistaken_for_unavailable_feed(contract
             return response(feed)
         return httpx.Response(
             501,
-            json=dict(
-                type="about:blank",
-                title="refused",
-                detail="refused",
-                status=501,
-                instance="urn:test",
-                code="snapshot_unavailable",
-                service="core",
-                stage="getRun",
-                outcome="not_accepted",
-            ),
+            json={
+                "type": "about:blank",
+                "title": "refused",
+                "detail": "refused",
+                "status": 501,
+                "instance": "urn:test",
+                "code": "snapshot_unavailable",
+                "service": "core",
+                "stage": "getRun",
+                "outcome": "not_accepted",
+            },
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
@@ -394,22 +397,23 @@ async def test_paused_returns_explicitly_or_raises_with_snapshot(contract, until
             else:
                 with pytest.raises(RunPausedError) as caught:
                     await api.swarms.wait(state["run_id"])
+                assert caught.value.snapshot is not None
                 assert caught.value.snapshot.state == "paused"
     assert feed.closed
 
 
 def milestone(run_id, name, level, sequence=8, final=False, **flags):
-    data = dict(
-        milestone=name,
-        run_id=run_id,
-        state="completed",
-        execution_closed=True,
-        accounting_final=level >= 2,
-        cleanup_complete=level >= 3,
-        result_available=True,
-        failure=None,
-        final=final,
-    )
+    data = {
+        "milestone": name,
+        "run_id": run_id,
+        "state": "completed",
+        "execution_closed": True,
+        "accounting_final": level >= 2,
+        "cleanup_complete": level >= 3,
+        "result_available": True,
+        "failure": None,
+        "final": final,
+    }
     data.update(flags)
     return (
         "id: "

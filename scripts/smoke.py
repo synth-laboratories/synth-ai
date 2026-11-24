@@ -128,10 +128,10 @@ def require_successful_run(snapshot: RunStateView) -> None:
 async def run(output: Path, resume: bool = False) -> None:
     receipt = SmokeReceipt(base_url=os.environ["SYNTH_API_BASE_URL"])
     if resume:
-        receipt = SmokeReceipt.from_json(output.read_text())
+        receipt = SmokeReceipt.from_json(await asyncio.to_thread(output.read_text))
         if receipt.base_url != os.environ["SYNTH_API_BASE_URL"]:
             raise ValueError("cannot resume against a different API")
-    elif output.exists():
+    elif await asyncio.to_thread(output.exists):
         raise ValueError("receipt already exists; use --resume to preserve the run budget")
     receipt.failures.clear()
     receipt.output_verified = receipt.cancellation_requested = False

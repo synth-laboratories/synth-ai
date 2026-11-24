@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from synth_ai import AsyncSynthClient
+from typing import TYPE_CHECKING
+
 from synth_ai.models import MessageKind, RunMessage
+
+if TYPE_CHECKING:
+    from synth_ai import AsyncSynthClient
 
 __all__ = ["ask_during_run"]
 

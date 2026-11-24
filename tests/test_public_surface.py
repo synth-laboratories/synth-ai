@@ -32,7 +32,7 @@ async def test_swarms_only_public_surface(contract):
     assert not hasattr(client, "inference")
     with SynthClient("fixture", base_url="https://example.test") as client:
         assert not hasattr(client, "inference")
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: ASYNC221 -- sync CLI invocation in unit test
         [sys.executable, "-m", "synth_ai.cli", "inference", "session"], capture_output=True
     )
     assert result.returncode == 1

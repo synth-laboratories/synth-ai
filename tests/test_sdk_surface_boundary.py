@@ -22,7 +22,7 @@ def test_cancel_accepts_explicit_mutation_identity():
 
 
 @pytest.mark.parametrize(
-    "operation, namespace, method, name, arguments, model",
+    ("operation", "namespace", "method", "name", "arguments", "model"),
     [
         ("getAccount", "account", "get", "account_get", {}, Account),
         (

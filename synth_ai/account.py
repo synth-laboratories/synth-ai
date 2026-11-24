@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import builtins
-from collections.abc import AsyncGenerator, Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -32,6 +31,10 @@ from ._generated.models import (
 )
 from ._pagination import paginate
 from ._transport import Transport
+
+if TYPE_CHECKING:
+    import builtins
+    from collections.abc import AsyncGenerator, Sequence
 
 
 class AsyncApiKeys:
@@ -140,7 +143,8 @@ class AsyncAccount:
         unsettled holds at `observed_at`; it is not limited to the window. `by_source.sessions` is usage from
         sessions outside a run, and `by_source.unattributed` means attribution is unknown, not "not a run".
         Refusals: `invalid_filter` (422) on an unparsable time, `usage_window_invalid` (422) when `until` is not
-        after `since` or the window exceeds 366 days."""
+        after `since` or the window exceeds 366 days.
+        """
         return await self._transport.request(
             "getUsageSummary", UsageSummary, query={"since": since, "until": until}
         )
@@ -156,7 +160,8 @@ class AsyncAccount:
     ) -> UsageRecordPage:
         """The same rows and window as `GET /v1/usage/summary`. Resend the same filters with `next_cursor`.
         `run_id` is null when the record has no run. Refusals: `invalid_filter`, `usage_window_invalid` and
-        `invalid_cursor` (422)."""
+        `invalid_cursor` (422).
+        """
         return await self._transport.request(
             "listUsageRecords",
             UsageRecordPage,
@@ -189,7 +194,8 @@ class AsyncAccount:
     async def limits(self) -> LimitList:
         """Plan limits, the concurrent Swarms run cap and the public API rate limit. `cap` is null when the limit is
         unbounded. `current` is null when core has no exact measure for that row. `reset_at` is null when core defines
-        no reset for that row, such as concurrency."""
+        no reset for that row, such as concurrency.
+        """
         return await self._transport.request("listLimits", LimitList)
 
     async def request_special_free(
@@ -199,7 +205,8 @@ class AsyncAccount:
         `links` (at most 5) are customer content: stored for review, never returned by the API and never logged by
         this SDK. Refusals: `plan_request_pending_exists` (409), `plan_request_not_needed` (409, already on
         Special Free or a paid plan), `plan_request_cooldown` (429 after a denial; never retried, the wait is
-        `retry_after_seconds` on the error), `plan_request_too_large` (422)."""
+        `retry_after_seconds` on the error), `plan_request_too_large` (422).
+        """
         try:
             body = SpecialFreeRequestInput(use_case=use_case, links=list(links))
         except ValidationError:
@@ -212,12 +219,13 @@ class AsyncAccount:
         )
 
     async def plan_requests(self) -> PlanRequestList:
-        """This org's plan requests, newest first (at most 100), as status projections without the use case."""
+        """List this org's plan requests, newest first (at most 100), as status projections without the use case."""
         return await self._transport.request("listPlanRequests", PlanRequestList)
 
     async def withdraw_plan_request(self, request_id: str) -> PlanRequest:
         """Withdraw this org's pending plan request. Refusals: `plan_request_not_pending` (409),
-        `plan_request_unknown` (404)."""
+        `plan_request_unknown` (404).
+        """
         return await self._transport.request(
             "withdrawPlanRequest", PlanRequest, path={"request_id": request_id}
         )
@@ -225,7 +233,8 @@ class AsyncAccount:
     async def revoke_oauth_grant(self, grant_id: str) -> OAuthGrantRevoked:
         """Revoke one of your own MCP OAuth grants (connected apps); needs `account:write`.
         Another user's, another org's or an absent grant is `oauth_grant_not_found` (404);
-        revoking an already revoked grant answers `outcome: already_revoked`."""
+        revoking an already revoked grant answers `outcome: already_revoked`.
+        """
         return await self._transport.request(
             "revokeOAuthGrant", OAuthGrantRevoked, path={"grant_id": grant_id}
         )

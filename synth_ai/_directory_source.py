@@ -7,11 +7,9 @@ import os
 import re
 import stat
 import tempfile
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 from ._file_source import CHUNK_BYTES, FileIdentity, FileIO
 from ._generated.file_limits import (
@@ -23,6 +21,10 @@ from ._generated.file_limits import (
     NAME_SEGMENT_MAX_BYTES,
 )
 from .errors import DataIntegrityError
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+    from pathlib import Path
 
 _NAME = re.compile(NAME_PATTERN)
 
@@ -149,7 +151,7 @@ class DirectorySnapshot:
             raise NotImplementedError("directory uploads require POSIX descriptor-relative I/O")
         if isinstance(path, bool):
             raise ValueError("directory descriptor must be an integer, not a boolean")
-        stream = tempfile.TemporaryFile(mode="w+b")
+        stream = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115
         try:
             descriptor = (
                 os.open(".", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=path)

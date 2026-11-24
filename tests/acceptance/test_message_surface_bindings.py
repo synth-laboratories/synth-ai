@@ -6,6 +6,9 @@ import json
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from typing import Any
+
+from typing_extensions import override
 
 from scripts.acceptance.surfaces import Call, CLISurface, SDKSurface, accepted
 from synth_ai import SynthClient
@@ -42,7 +45,8 @@ def fake_http():
         def do_POST(self):
             self.reply()
 
-        def log_message(self, *_args):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             # Fixture HTTP access logs would otherwise expose paths; retain only
             # the structured in-memory assertions below.
             return
@@ -157,7 +161,12 @@ def test_sdk_message_page_preserves_missing_posted_state_fields():
         }
     )
     outcome = accepted("listRunMessages", page)
-    assert outcome.value["items"][0]["state"] == {"kind": "posted"}
+    assert isinstance(outcome.value, dict)
+    items = outcome.value["items"]
+    assert isinstance(items, list)
+    first = items[0]
+    assert isinstance(first, dict)
+    assert first["state"] == {"kind": "posted"}
 
 
 def test_cli_message_bindings_reach_real_child_http_methods(tmp_path):

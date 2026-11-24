@@ -12,16 +12,14 @@ import hashlib
 import json
 import logging
 import subprocess
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
-from typing import Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
 
 from pydantic import TypeAdapter
 
-from synth_ai import SynthClient
 from synth_ai.cli import EXIT_RUN_UNSUCCESSFUL as CLI_EXIT_RUN_UNSUCCESSFUL
 from synth_ai.cli import UNSUCCESSFUL_STATES as CLI_UNSUCCESSFUL_STATES
 from synth_ai.models import (
@@ -38,6 +36,11 @@ from synth_ai.models import (
 from .attempt_tree import TreeError, project_attempts
 from .launch_journal import InputIdentity, LaunchIntent, LaunchJournal
 from .limits import COMMAND_SECONDS, OUTPUT_BYTES_MAX, OUTPUT_PAGES_MAX, PAGE_ITEMS, WAIT_SECONDS
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from synth_ai import SynthClient
 
 __all__ = [
     "AdapterError",
@@ -101,7 +104,7 @@ class RecordedLaunch:
     @classmethod
     def from_body(cls, body: Mapping[str, object]) -> RecordedLaunch:
         unknown = set(body) - PUBLIC_LAUNCH_FIELDS - OPERATOR_LAUNCH_FIELDS
-        if unknown or not PUBLIC_LAUNCH_FIELDS <= set(body):
+        if unknown or not set(body) >= PUBLIC_LAUNCH_FIELDS:
             raise refusal(
                 "recorded_launch_shape_unsupported",
                 stage="recording",

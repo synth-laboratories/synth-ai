@@ -12,7 +12,6 @@ import sys
 import tempfile
 import time
 import uuid
-from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -26,6 +25,8 @@ from synth_ai import SynthClient
 from .launch_journal import LaunchIntent, LaunchJournal
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from synth_ai._sync import SwarmsClient
     from synth_ai.models import RunSnapshot
 
@@ -365,7 +366,7 @@ def supervise(
                     state.run_id = (
                         accepted.run_id if accepted is not None else _discover(swarms, intent)
                     )
-                except Exception as error:
+                except Exception as error:  # noqa: BLE001 -- Watchdog records discovery failure in durable receipt.
                     state.last_error = _error("discover", error)
                 persist()
             if state.run_id is None:
@@ -389,7 +390,7 @@ def supervise(
             ):
                 state.max_seen_usd = amount
             state.final = current
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 -- Watchdog counts consecutive read failures before stop.
             failures += 1
             state.last_error = _error("get_run", error)
         last = current if current is not None else state.final
@@ -432,7 +433,7 @@ def supervise(
                 if response.run_id != state.run_id:
                     raise WatchdogError("cancel_run_identity_mismatch")
                 state.cancel_acknowledged = True
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 -- Watchdog retains cancel error and retries with same key.
                 state.last_error = _error("cancel", error)
         persist()
         sleep(POLL_SECONDS)

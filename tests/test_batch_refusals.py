@@ -12,7 +12,7 @@ from synth_ai.errors import InvalidRequestError
 
 
 @pytest.mark.parametrize(
-    "message,optimizer",
+    ("message", "optimizer"),
     [
         ("x" * (MESSAGE_MAX_BYTES + 1), None),
         ("safe", {"topology": "no_such_topology", "version": 1}),

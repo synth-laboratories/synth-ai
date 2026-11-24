@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING
 
 from ._generated.models import (
     AutoReload,
@@ -29,6 +29,9 @@ from ._pagination import paginate
 from ._transport import Transport
 from .errors import SynthError
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 
 class AsyncBilling:
     def __init__(self, transport: Transport) -> None:
@@ -41,7 +44,8 @@ class AsyncBilling:
     async def plans(self) -> PlanCatalog:
         """price_state is read from Stripe by lookup key (cached 60 s; a failed lookup is not cached).
         checkout_available is true only when POST /v1/billing/checkout can succeed for that plan:
-        consoles grey out checkout otherwise."""
+        consoles grey out checkout otherwise.
+        """
         return await self._transport.request("listPlans", PlanCatalog)
 
     async def history(
@@ -57,7 +61,8 @@ class AsyncBilling:
         """Each item is one append-only ledger entry: grants (weekly included usage, purchases,
         promotions, operator credits), holds and releases, settlements, refunds, clawbacks and
         restores. `delta_microcents` moves the ledger; `held_delta_microcents` moves held value.
-        Refusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail names the parameter)."""
+        Refusals: `invalid_cursor` (422), `invalid_limit` (422), `invalid_history_filter` (422, detail names the parameter).
+        """
         return await self._transport.request(
             "listBillingHistory",
             BillingHistoryPage,
@@ -80,7 +85,8 @@ class AsyncBilling:
         and clawbacks), adjustments and expirations. `closing_ledger_microcents` = opening + the month's deltas;
         the latest closing equals the balance's `ledger_microcents`. `unspent_returned_microcents` is held value
         returned to available by cancel/failure refunds (it moves held, not the ledger). Usage columns sum the
-        month's charged usage lines. Refusal: `invalid_limit` (422) when `months` is outside 1..36."""
+        month's charged usage lines. Refusal: `invalid_limit` (422) when `months` is outside 1..36.
+        """
         return await self._transport.request(
             "listStatements",
             BillingStatementPage,
@@ -91,7 +97,8 @@ class AsyncBilling:
         """The attempt row is recorded before Stripe is called, and its id is the Stripe idempotency key, so a checkout
         that lost its response stays readable. `state` is `pending` until Stripe answers, then `open`, then `completed`
         or `expired` from the Stripe webhook; `failed` means Stripe refused the session. Credits appear in the balance
-        only from the webhook. Refusals: `invalid_id` (422), `checkout_not_found` (404)."""
+        only from the webhook. Refusals: `invalid_id` (422), `checkout_not_found` (404).
+        """
         return await self._transport.request(
             "getCheckout", CheckoutAttempt, path={"id": checkout_id}
         )
@@ -108,7 +115,8 @@ class AsyncBilling:
         `pack_id` (a credit pack: `credits.10` $10, `credits.25` $25, `credits.100` $100; priced inline)
         or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),
         `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable), `stripe_price_missing` (503, names the lookup key),
-        `stripe_checkout_failed` (502, `upstream_kind: stripe`)."""
+        `stripe_checkout_failed` (502, `upstream_kind: stripe`).
+        """
         body = CheckoutRequest(plan_id=plan_id, pack_id=pack_id, credit=credit)
         body = CheckoutRequest.model_validate(body.model_dump(exclude_none=True))
         return await self._transport.request(
@@ -133,7 +141,8 @@ class AsyncBilling:
         `subscription_not_cancelable` (409, `incomplete` or `incomplete_expired`), `subscription_binding_conflict` (409),
         `idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),
         `stripe_subscription_cancel_failed` (502, `upstream_status` and Stripe's code as `cause`),
-        `config_missing` (503)."""
+        `config_missing` (503).
+        """
         return await self._transport.request(
             "cancelSubscription", Subscription, idempotency_key=idempotency_key
         )
@@ -145,7 +154,8 @@ class AsyncBilling:
         Refusals: `billing_admin_required` (403), `subscription_not_found` (404), `subscription_not_self_serve` (409), `subscription_not_resumable` (409, no
         cancel pending or the subscription already ended), `subscription_binding_conflict` (409),
         `idempotency_in_progress` (409, `Retry-After: 1`), `stripe_subscription_read_failed` (502),
-        `stripe_subscription_resume_failed` (502, `upstream_status` and Stripe's code as `cause`), `config_missing` (503)."""
+        `stripe_subscription_resume_failed` (502, `upstream_status` and Stripe's code as `cause`), `config_missing` (503).
+        """
         return await self._transport.request(
             "resumeSubscription", Subscription, idempotency_key=idempotency_key
         )
@@ -159,7 +169,8 @@ class AsyncBilling:
         `subscription_cancel_pending` (409), `subscription_not_changeable` (409, `past_due`, `unpaid`, `paused` or
         `incomplete`), `subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),
         `subscription_binding_conflict` (409), `stripe_subscription_read_failed` (502),
-        `stripe_invoice_preview_failed` (502), `stripe_price_missing` (503), `config_missing` (503)."""
+        `stripe_invoice_preview_failed` (502), `stripe_price_missing` (503), `config_missing` (503).
+        """
         return await self._transport.request(
             "previewSubscriptionChange", SubscriptionChangePreview, query={"plan_id": plan_id}
         )
@@ -182,7 +193,8 @@ class AsyncBilling:
         `subscription_plan_unchanged` (409), `subscription_not_self_serve` (409),
         `subscription_binding_conflict` (409), `idempotency_in_progress` (409, `Retry-After: 1`),
         `stripe_subscription_read_failed` (502), `stripe_subscription_change_failed` (502, `upstream_status` and
-        Stripe's code as `cause`), `stripe_price_missing` (503), `config_missing` (503)."""
+        Stripe's code as `cause`), `stripe_price_missing` (503), `config_missing` (503).
+        """
         body = SubscriptionChangeRequest.model_validate({"plan_id": plan_id})
         return await self._transport.request(
             "changeSubscriptionPlan", Subscription, body=body, idempotency_key=idempotency_key
@@ -200,7 +212,8 @@ class AsyncBilling:
         `billing_admin_required` (403), `billing_customer_not_found` (404, the org has no Stripe customer),
         `portal_configuration_unsafe` (503, Core's tagged configuration allows more than payment methods and invoices),
         `stripe_portal_configuration_read_failed`, `stripe_portal_configuration_create_failed`,
-        `stripe_portal_session_failed` (502, `upstream_kind: stripe`), `config_missing` (503)."""
+        `stripe_portal_session_failed` (502, `upstream_kind: stripe`), `config_missing` (503).
+        """
         return await self._transport.request(
             "createPaymentMethodSession", PaymentMethodSession, idempotency_key=idempotency_key
         )
@@ -220,7 +233,8 @@ class AsyncBilling:
         reads the Stripe customer's saved card; `disclosure` is what an admin must be shown before turning it on, with
         the card a reload would charge now (a card change does not turn it off). Any member with
         `account:billing:read` may read it. Refusals: `stripe_customer_read_failed` (502),
-        `stripe_payment_method_read_failed` (502), `config_missing` (503)."""
+        `stripe_payment_method_read_failed` (502), `config_missing` (503).
+        """
         return await self._transport.request("getAutoReload", AutoReload)
 
     async def set_auto_reload(
@@ -256,7 +270,8 @@ class AsyncBilling:
         reaches 50, 75, 90 and 100 percent of `monthly_amount`, once per threshold per month. `monthly_amount` is
         null until the org sets one, and no alert fires then. `last_notified` is the most recent recorded alert,
         or null. No email is sent; this field and the console are the notice.
-        Any member with `account:billing:read` may read it."""
+        Any member with `account:billing:read` may read it.
+        """
         return await self._transport.request("getSpendAlerts", SpendAlerts)
 
     async def set_spend_alerts(

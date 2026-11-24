@@ -2,6 +2,7 @@
 
 import httpx
 import pytest
+from pydantic import JsonValue
 from test_cli import example
 
 from synth_ai import AsyncSynthClient, cli
@@ -77,7 +78,7 @@ RESOURCE_OPERATIONS = [
     "getSpendAlerts",
     "setSpendAlerts",
 ]
-REQUESTS = {
+REQUESTS: dict[str, dict[str, JsonValue]] = {
     "acceptTerms": {"version": "2026-11-04", "accepted_at": "2026-11-16T18:00:00Z"},
     "createUsageExport": {
         "since": "2026-11-01T00:00:00Z",
@@ -108,7 +109,7 @@ async def test_resource_dispatch_uses_existing_wire_contract(contract, operation
     status = next(code for code in route["responses"] if code.startswith("2"))
     content = route["responses"][status].get("content")
     response_body = None if content is None else content["application/json"]["example"]
-    arguments = {name: "fixture_id" for name in op["path_params"]}
+    arguments: dict[str, JsonValue] = dict.fromkeys(op["path_params"], "fixture_id")
     arguments["idempotency_key"] = "resource-once"
     if operation == "previewSubscriptionChange":
         arguments["plan_id"] = "max.monthly"
@@ -120,7 +121,9 @@ async def test_resource_dispatch_uses_existing_wire_contract(contract, operation
         calls.append(request)
         expected_path = op["path"]
         for name in op["path_params"]:
-            expected_path = expected_path.replace("{" + name + "}", arguments[name])
+            value = arguments[name]
+            assert isinstance(value, str)
+            expected_path = expected_path.replace("{" + name + "}", value)
         assert request.url.path == expected_path
         assert request.method == op["method"]
         if operation in REQUESTS:
@@ -145,7 +148,7 @@ async def test_resource_dispatch_uses_existing_wire_contract(contract, operation
 
 
 @pytest.mark.parametrize(
-    "argv,operation",
+    ("argv", "operation"),
     [
         (["files", "list"], "listFiles"),
         (["uploads", "get", "fixture_id"], "getUpload"),

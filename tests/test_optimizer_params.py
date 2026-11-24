@@ -4,11 +4,11 @@ import json
 
 import httpx
 import pytest
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 from test_cli import Api, example, invoke
 
 from synth_ai import AsyncSynthClient, OptimizerParams, OptimizerPin, SynthClient, topology_name
-from synth_ai._generated.models import FamilyList, LaunchRequest
+from synth_ai._generated.models import FamilyList, LaunchRequest, OptimizerPinTopology
 from synth_ai.cli import EXIT_CLIENT_ERROR, EXIT_OK, parse_optimizer
 from synth_ai.mcp.server import call_tool
 from synth_ai.mcp.tools import TOOLS
@@ -26,7 +26,9 @@ def api(contract, monkeypatch, tmp_path):
 
 
 def test_pin_carries_both_controls_and_round_trips():
-    pin = OptimizerPin(topology="swarms_v2", version=2, params=OptimizerParams(**PARAMS))
+    pin = OptimizerPin(
+        topology=OptimizerPinTopology.SWARMS_V2, version=2, params=OptimizerParams(**PARAMS)
+    )
     request = {
         "message": "task",
         "limits": {"maximum_charge": {"amount": "1.00", "currency": "USD"}},
@@ -79,13 +81,16 @@ async def test_sdk_sends_params_and_reads_the_echo(contract):
         sent.append(json.loads(request.content))
         return httpx.Response(202, json=snapshot)
 
-    pin = OptimizerPin(topology="swarms_v2", version=2, params=OptimizerParams(**PARAMS))
+    pin = OptimizerPin(
+        topology=OptimizerPinTopology.SWARMS_V2, version=2, params=OptimizerParams(**PARAMS)
+    )
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         async with AsyncSynthClient(
             "fixture", base_url="https://example.test", http_client=http
         ) as client:
             run = await client.swarms.launch("task", budget="1.00", optimizer=pin)
     assert sent[0]["optimizer"]["params"] == PARAMS
+    assert run.optimizer is not None
     assert run.optimizer.params.max_tasks == 8
     assert run.optimizer.params.max_repairs_per_task == 3
 
@@ -112,8 +117,23 @@ def test_cli_flags_require_an_explicit_swarms_pin(api, capsys, optimizer):
 
 async def test_mcp_launch_schema_and_call_carry_both_controls(contract):
     launch = next(tool for tool in TOOLS if tool["name"] == "swarms_run_launch")
-    pin = launch["inputSchema"]["properties"]["body"]["properties"]["optimizer"]["oneOf"][1]
-    assert set(pin["properties"]["params"]["properties"]) == set(PARAMS)
+    body_schema = launch["inputSchema"]["properties"]["body"]
+    assert isinstance(body_schema, dict)
+    body_props = body_schema["properties"]
+    assert isinstance(body_props, dict)
+    optimizer_schema = body_props["optimizer"]
+    assert isinstance(optimizer_schema, dict)
+    one_of = optimizer_schema["oneOf"]
+    assert isinstance(one_of, list)
+    pin = one_of[1]
+    assert isinstance(pin, dict)
+    pin_props = pin["properties"]
+    assert isinstance(pin_props, dict)
+    params_schema = pin_props["params"]
+    assert isinstance(params_schema, dict)
+    params_props = params_schema["properties"]
+    assert isinstance(params_props, dict)
+    assert set(params_props) == set(PARAMS)
     sent = []
     _, snapshot = example(contract, "getRun")
 
@@ -121,9 +141,9 @@ async def test_mcp_launch_schema_and_call_carry_both_controls(contract):
         sent.append(json.loads(request.content))
         return httpx.Response(202, json=snapshot)
 
-    body = {
+    body: dict[str, JsonValue] = {
         "message": "task",
-        "optimizer": {"topology": "swarms_v2", "version": 2, "params": PARAMS},
+        "optimizer": {"topology": "swarms_v2", "version": 2, "params": dict(PARAMS)},
         "limits": {"maximum_charge": {"amount": "1.00", "currency": "USD"}},
     }
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
@@ -154,7 +174,9 @@ def test_public_names_mark_experimental_and_never_default(contract):
             "availability": "unavailable",
         },
     ]
-    swarms, fork = FamilyList.model_validate(raw).topologies
+    topologies = FamilyList.model_validate(raw).topologies
+    assert topologies is not None
+    swarms, fork = topologies
     assert topology_name(swarms) == "Swarms (default)"
     assert topology_name(fork) == "Fork-and-Flush (experimental, unavailable)"
     # A misconfigured catalog cannot promote an experimental topology to default.

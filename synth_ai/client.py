@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from types import TracebackType
-
-import httpx
+from typing import TYPE_CHECKING
 
 from ._blocking import Runner
 from ._sync import AccountClient, BillingClient, SwarmsClient
-from ._transport import RetryPolicy
 from .aclient import AsyncSynthClient
-from .diagnostics import DiagnosticHook
-from .environments import Environment
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    import httpx
+
+    from ._transport import RetryPolicy
+    from .diagnostics import DiagnosticHook
+    from .environments import Environment
 
 
 class SynthClient:

@@ -6,7 +6,7 @@ from typing import Optional, TypeVar
 
 from pydantic import JsonValue, TypeAdapter
 
-from .._limits import MCP_PAGE_LIMIT_DEFAULT
+from synth_ai._limits import MCP_PAGE_LIMIT_DEFAULT
 
 __all__ = ["optional", "page_limit", "required"]
 

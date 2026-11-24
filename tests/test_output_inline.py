@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -83,6 +84,6 @@ async def test_digest_mismatch_is_refused() -> None:
 
 
 def test_cap_is_the_contract_maximum() -> None:
-    document = yaml.safe_load(open("contracts/synth-v1.openapi.yaml").read())
+    document = yaml.safe_load(Path("contracts/synth-v1.openapi.yaml").read_text())
     schema = document["components"]["schemas"]["McpOutputContent"]
     assert schema["properties"]["byte_size"]["maximum"] == MCP_OUTPUT_CONTENT_MAX_BYTES

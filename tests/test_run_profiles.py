@@ -18,14 +18,14 @@ def test_old_selection_fields_are_removed_from_public_request(field):
 
 @pytest.mark.parametrize("options", [{"timeout": 0}, {"poll_interval": 0}, {"until": "unknown"}])
 async def test_invalid_wait_options_never_launch(options):
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: pytest.fail("launch sent"))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as api:
-            with pytest.raises(ValueError):
-                await api.swarms.run("task", budget="1", **options)
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: pytest.fail("launch sent"))
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as api,
+    ):
+        with pytest.raises(ValueError):
+            await api.swarms.run("task", budget="1", **options)
 
 
 async def test_named_profile_and_research_task_reach_launch(contract):

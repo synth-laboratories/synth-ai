@@ -6,14 +6,16 @@ import asyncio
 import hashlib
 import os
 import stat
-from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
-from typing import BinaryIO, TypeVar
+from typing import TYPE_CHECKING, BinaryIO, TypeVar
 
 from ._limits import UPLOAD_MAX_BYTES
 from .errors import DataIntegrityError, upload_size_exceeded
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Callable
+    from pathlib import Path
 
 T = TypeVar("T")
 CHUNK_BYTES = 64 << 10

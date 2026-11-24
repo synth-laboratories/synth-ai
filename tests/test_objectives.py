@@ -1,7 +1,11 @@
 from synth_ai._generated.models import (
+    ActorParkedPayload,
+    ActorUnparkedPayload,
     ObjectiveClaimedPayload,
     ObjectiveProgressPayload,
     RunEvent,
+    RunLimitStatePayload,
+    RunLimitWarningPayload,
     RunSnapshot,
 )
 
@@ -82,10 +86,14 @@ def test_filled_snapshot_reads_the_objective_shape():
     snapshot = RunSnapshot.model_validate(
         {**SNAPSHOT, "objectives": [OBJECTIVE], "objectives_read": "ok"}
     )
+    assert snapshot.objectives is not None
     objective = snapshot.objectives[0]
     assert snapshot.objectives_read == "ok"
+    assert objective.metric is not None
     assert objective.metric.target == 0.5
+    assert objective.metric_state is not None
     assert objective.metric_state.best == 0.25
+    assert objective.metric_state.best_receipt is not None
     assert objective.metric_state.best_receipt.record_id == "rollout_a"
     assert objective.claims[0].percent_complete == 50
     assert objective.verdict is None
@@ -213,11 +221,17 @@ def test_limit_events_read_their_declared_payloads():
             "resume_cursor": None,
         }
     )
-    assert page.items[0].payload.revision == 1 and page.items[0].payload.pause is None
-    assert page.items[1].payload.pause.mode == "warm"
-    assert page.items[2].payload.cap == 1000
-    assert page.items[3].payload.actor_id == "worker"
-    assert page.items[4].payload.assignment is None
+    first, second, third, fourth, fifth = (item.payload for item in page.items)
+    assert isinstance(first, RunLimitStatePayload)
+    assert first.revision == 1 and first.pause is None
+    assert isinstance(second, RunLimitStatePayload)
+    assert second.pause is not None and second.pause.mode == "warm"
+    assert isinstance(third, RunLimitWarningPayload)
+    assert third.cap == 1000
+    assert isinstance(fourth, ActorParkedPayload)
+    assert fourth.actor_id == "worker"
+    assert isinstance(fifth, ActorUnparkedPayload)
+    assert fifth.assignment is None
 
 
 def test_a_payload_on_a_kind_that_declares_none_is_still_refused():

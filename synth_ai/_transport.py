@@ -5,17 +5,8 @@ from __future__ import annotations
 import asyncio
 import math
 import time
-from collections.abc import (
-    AsyncGenerator,
-    AsyncIterable,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Mapping,
-)
 from contextlib import aclosing, asynccontextmanager
-from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -34,7 +25,6 @@ from ._retry import stream_refusal_retryable
 from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
 from ._version import __version__
-from .diagnostics import DiagnosticHook
 from .errors import (
     ClientClosedError,
     ResponseContractError,
@@ -44,6 +34,19 @@ from .errors import (
     local_problem,
     stream_interrupted,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import (
+        AsyncGenerator,
+        AsyncIterable,
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Mapping,
+    )
+    from pathlib import Path
+
+    from .diagnostics import DiagnosticHook
 
 T = TypeVar("T", bound=BaseModel)
 

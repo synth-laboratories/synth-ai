@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import argparse
 import ast
-from collections.abc import Iterator
+import contextlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from typing_extensions import override
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @dataclass(frozen=True, order=True)
@@ -91,10 +95,8 @@ class Checker(ast.NodeVisitor):
         self, node: ast.AST, seen: frozenset[str] = frozenset()
     ) -> Iterator[ast.AST]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            try:
+            with contextlib.suppress(SyntaxError):  # Python and ty report invalid annotations.
                 yield from self.annotation_nodes(ast.parse(node.value, mode="eval").body, seen)
-            except SyntaxError:
-                pass  # Python and ty report invalid annotations.
             return
         if isinstance(node, ast.Name) and node.id in self.aliases and node.id not in seen:
             yield from self.annotation_nodes(self.aliases[node.id], seen | {node.id})
@@ -125,16 +127,19 @@ class Checker(ast.NodeVisitor):
                 continue
             if name.split(".")[-1] in CONTAINERS and id(item) not in subscript_bases:
                 self.report(node, "SYN003", "boundary collections must declare their element types")
-            if isinstance(item, ast.Subscript) and self.name(item.value).split(".")[-1] in MAPPINGS:
-                if any(
+            if (
+                isinstance(item, ast.Subscript)
+                and self.name(item.value).split(".")[-1] in MAPPINGS
+                and any(
                     self.name(child) in {"object", "builtins.object"}
                     for child in self.annotation_nodes(item.slice)
-                ):
-                    self.report(
-                        node,
-                        "SYN003",
-                        "unstructured object maps are forbidden at domain boundaries; use a record or JsonValue",
-                    )
+                )
+            ):
+                self.report(
+                    node,
+                    "SYN003",
+                    "unstructured object maps are forbidden at domain boundaries; use a record or JsonValue",
+                )
 
     @override
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -201,12 +206,13 @@ class Checker(ast.NodeVisitor):
         if config is not None:
             for statement in node.body:
                 value = None
-                if isinstance(statement, ast.Assign) and any(
-                    isinstance(target, ast.Name) and target.id == "model_config"
-                    for target in statement.targets
-                ):
-                    value = statement.value
-                elif (
+                if (
+                    isinstance(statement, ast.Assign)
+                    and any(
+                        isinstance(target, ast.Name) and target.id == "model_config"
+                        for target in statement.targets
+                    )
+                ) or (
                     isinstance(statement, ast.AnnAssign)
                     and isinstance(statement.target, ast.Name)
                     and statement.target.id == "model_config"
