@@ -133,7 +133,7 @@ async def test_mcp_launch_schema_and_call_carry_both_controls(contract):
     assert isinstance(params_schema, dict)
     params_props = params_schema["properties"]
     assert isinstance(params_props, dict)
-    assert set(params_props) == set(PARAMS)
+    assert set(params_props) == set(PARAMS) | {"branches", "rounds", "exploit_bps"}
     sent = []
     _, snapshot = example(contract, "getRun")
 
