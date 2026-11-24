@@ -17,9 +17,9 @@ from synth_ai._generated.models import (
     UsageExportRequest,
 )
 from synth_ai.aclient import AsyncSynthClient
-from synth_ai.errors import ResponseContractError, local_problem
 
 from ._arguments import optional, page_limit, required
+from .research_dispatch import dispatch_research
 
 __all__ = ["dispatch_resource"]
 
@@ -191,6 +191,4 @@ async def dispatch_resource(
                 idempotency_key=optional(arguments, "idempotency_key", str),
             )
         case _:
-            raise ResponseContractError(
-                local_problem("mcp_operation_unbound", "mcp_dispatch", detail=operation)
-            )
+            return await dispatch_research(client, operation, arguments)

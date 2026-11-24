@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.42.0
+  version: 1.43.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -5711,6 +5711,803 @@ paths:
                   kind: queued
                 created_at: '2026-11-17T20:00:00Z'
                 updated_at: '2026-11-17T20:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifacts:
+    post:
+      tags:
+      - runs
+      operationId: createArtifact
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_artifact_create
+      summary: Create a versioned interactive artifact (revision 1).
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHostedArtifactRequest'
+      responses:
+        '201':
+          description: Created interactive artifact.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifact'
+              example:
+                artifact_id: art_0123456789abcdef0123
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                notebook_id: default
+                title: PutnamBench Pareto Frontier
+                kind: chart
+                origin: agent
+                current_revision: 1
+                revisions:
+                - revision: 1
+                  revision_id: rev_0123456789abcdef0123
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  byte_size: 42
+                  media_type: application/json
+                  created_at: '2026-11-24T18:00:00Z'
+                  author_kind: local_agent
+                  summary: Initial revision
+                  byte_state: available
+                  provenance:
+                    source: artifact
+                    kind: artifact_revision
+                    record_id: art_0123456789abcdef0123
+                    revision: '1'
+                    digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                share: null
+                pinned: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifacts/{artifact_id}:
+    get:
+      tags:
+      - runs
+      operationId: getArtifact
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifact_get
+      summary: Read hosted artifact metadata and revision history.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Hosted artifact metadata.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifact'
+              example:
+                artifact_id: art_0123456789abcdef0123
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                notebook_id: default
+                title: PutnamBench Pareto Frontier
+                kind: chart
+                origin: agent
+                current_revision: 1
+                revisions: []
+                share: null
+                pinned: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifacts/{artifact_id}/revisions:
+    post:
+      tags:
+      - runs
+      operationId: updateArtifact
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_artifact_update
+      summary: Append an immutable revision to an interactive artifact.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHostedArtifactRequest'
+      responses:
+        '200':
+          description: Updated hosted artifact metadata.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifact'
+              example:
+                artifact_id: art_0123456789abcdef0123
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                notebook_id: default
+                title: PutnamBench Pareto Frontier
+                kind: chart
+                origin: agent
+                current_revision: 2
+                revisions: []
+                share: null
+                pinned: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifacts/{artifact_id}/content:
+    get:
+      tags:
+      - runs
+      operationId: getArtifactContent
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifact_content
+      x-synth-mcp-result: McpOutputContent
+      summary: Download verified artifact revision bytes from object storage.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: revision_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: digest_sha256
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Verified artifact revision bytes.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifacts/{artifact_id}/share:
+    post:
+      tags:
+      - runs
+      operationId: shareArtifact
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_artifact_share
+      summary: Mint an org-scoped or link-scoped share grant for an artifact.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareHostedArtifactRequest'
+      responses:
+        '200':
+          description: Active share grant.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifactShareGrant'
+              example:
+                share_id: shr_0123456789abcdef0123
+                scope: org
+                url: https://artifacts.usesynth.ai/s/shr_0123456789abcdef0123
+                revoked: false
+                created_at: '2026-11-24T18:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags:
+      - runs
+      operationId: revokeArtifactShare
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "none"
+      x-synth-idempotency: "none"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifact_share_revoke
+      summary: Revoke an artifact share grant.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Revoked share grant.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifactShareGrant'
+              example:
+                share_id: shr_0123456789abcdef0123
+                scope: org
+                url: https://artifacts.usesynth.ai/s/shr_0123456789abcdef0123
+                revoked: true
+                created_at: '2026-11-24T18:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/artifacts:
+    get:
+      tags:
+      - runs
+      operationId: listNotebookArtifacts
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifacts_list
+      summary: List hosted artifacts in a notebook, optionally filtered by run.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Notebook hosted artifacts.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedArtifactList'
+              example:
+                items: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/experiments:
+    post:
+      tags:
+      - runs
+      operationId: createExperiment
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_experiment_create
+      summary: Create a multi-arm experiment specification inside a notebook.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResearchExperimentRequest'
+      responses:
+        '201':
+          description: Created experiment record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchExperimentRecord'
+              example:
+                experiment_id: exp_0123456789abcdef0123
+                notebook_id: default
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                revision: 1
+                title: CISPO vs GRPO
+                specification: Evaluate pass@1 per USD across 8 seeds
+                hypothesis: CISPO lifts pass@1/$ by 20%
+                arms:
+                - baseline
+                - cispo
+                pinned_inputs: []
+                stopping_criteria: Stop at p < 0.01
+                provenance:
+                  source: research
+                  kind: experiment
+                  record_id: exp_0123456789abcdef0123
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                trials: []
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags:
+      - runs
+      operationId: listNotebookExperiments
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_experiments_list
+      summary: List experiments in a notebook, optionally filtered by run.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Notebook experiments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchExperimentList'
+              example:
+                items: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/experiments/{experiment_id}:
+    get:
+      tags:
+      - runs
+      operationId: getExperiment
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_experiment_get
+      summary: Read an experiment record by id.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Experiment record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchExperimentRecord'
+              example:
+                experiment_id: exp_0123456789abcdef0123
+                notebook_id: default
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                revision: 1
+                title: CISPO vs GRPO
+                specification: Evaluate pass@1 per USD across 8 seeds
+                hypothesis: null
+                arms:
+                - baseline
+                pinned_inputs: []
+                stopping_criteria: null
+                provenance:
+                  source: research
+                  kind: experiment
+                  record_id: exp_0123456789abcdef0123
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                trials: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/experiments/{experiment_id}/revisions:
+    post:
+      tags:
+      - runs
+      operationId: reviseExperiment
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_experiment_revise
+      summary: Revise an experiment specification, hypothesis, arms, or stopping criteria.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviseResearchExperimentRequest'
+      responses:
+        '200':
+          description: Revised experiment record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchExperimentRecord'
+              example:
+                experiment_id: exp_0123456789abcdef0123
+                notebook_id: default
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                revision: 2
+                title: CISPO vs GRPO
+                specification: Updated specification
+                hypothesis: null
+                arms:
+                - baseline
+                - cispo
+                pinned_inputs: []
+                stopping_criteria: null
+                provenance:
+                  source: research
+                  kind: experiment
+                  record_id: exp_0123456789abcdef0123
+                  revision: '2'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                trials: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/research-log/init:
+    post:
+      tags:
+      - runs
+      operationId: initResearchLog
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_research_log_init
+      summary: Initialize or update a notebook research log header.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitResearchLogRequest'
+      responses:
+        '201':
+          description: Research Log summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchLogSummary'
+              example:
+                notebook_id: default
+                title: PutnamBench Research Log
+                summary: Cross-run hypotheses and findings
+                entry_count: 0
+                created_at: '2026-11-24T18:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/research-log:
+    post:
+      tags:
+      - runs
+      operationId: appendResearchLogEntry
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_research_log_append
+      summary: Append an entry to a notebook research log.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppendResearchLogEntryRequest'
+      responses:
+        '201':
+          description: Created research log entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchLogEntry'
+              example:
+                entry_id: log_0123456789abcdef0123
+                notebook_id: default
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                category: observation
+                author_kind: swarm_actor
+                author_label: verifier-01
+                text: Verified CISPO-v2 uplift.
+                occurred_at: '2026-11-24T18:00:00Z'
+                recorded_at: '2026-11-24T18:00:01Z'
+                sync_state: synced
+                correction_of: null
+                sources: []
+                artifact_ids: []
+                missing_evidence: []
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags:
+      - runs
+      operationId: searchResearchLog
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_research_log_search
+      summary: Search and filter notebook research log entries.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: author_kind
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Matching research log entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchLogEntryList'
+              example:
+                items: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/research-log/{entry_id}/corrections:
+    post:
+      tags:
+      - runs
+      operationId: correctResearchLogEntry
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_research_log_correct
+      summary: Append a correction linked to an existing research log entry.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: entry_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectResearchLogEntryRequest'
+      responses:
+        '201':
+          description: Created correction entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchLogEntry'
+              example:
+                entry_id: log_0123456789abcdef0124
+                notebook_id: default
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                category: correction
+                author_kind: human
+                author_label: josh
+                text: Batch packing accounted for half the gain.
+                occurred_at: '2026-11-24T18:05:00Z'
+                recorded_at: '2026-11-24T18:05:01Z'
+                sync_state: synced
+                correction_of: log_0123456789abcdef0123
+                sources: []
+                artifact_ids: []
+                missing_evidence: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/research-log/export:
+    get:
+      tags:
+      - runs
+      operationId: exportResearchLog
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_research_log_export
+      summary: Export notebook research log entries as markdown or JSON.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - markdown
+          - json
+      responses:
+        '200':
+          description: Exported research log document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchLogExport'
+              example:
+                notebook_id: default
+                run_id: null
+                format: markdown
+                content: '# Research Log'
+                entry_count: 1
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/review:
+    get:
+      tags:
+      - runs
+      operationId: getRunReview
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_run_review
+      summary: Unified per-run review surface combining pacing, experiments, research log, and hosted artifacts.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Unified run review surface.
+          headers:
+            X-Artifact-Sandbox-Origin:
+              $ref: '#/components/headers/X-Artifact-Sandbox-Origin'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunReviewSurface'
+              example:
+                pacing:
+                  phase: closed
+                  elapsed_seconds: 900
+                  wall_time_seconds: 3600
+                  budget_spent_usd: '1.25'
+                  budget_limit_usd: '10.00'
+                experiments: []
+                research_log: []
+                artifacts: []
         default:
           $ref: '#/components/responses/Problem'
 components:
@@ -12146,6 +12943,555 @@ components:
       - accounting_final
       - cleanup_complete
 
+    ResearchExactReference:
+      type: object
+      additionalProperties: false
+      properties:
+        source:
+          type: string
+          enum: [research, artifact, run]
+        kind:
+          type: string
+        record_id:
+          type: string
+        revision:
+          type: string
+        digest_sha256:
+          type: string
+      required: [source, kind, record_id, revision, digest_sha256]
+    HostedArtifactRevision:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          minimum: 1
+        revision_id:
+          type: string
+        digest_sha256:
+          type: string
+        byte_size:
+          type: integer
+          minimum: 0
+        media_type:
+          type: string
+        created_at:
+          type: string
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        summary:
+          type: string
+        byte_state:
+          type: string
+          enum: [available, missing_bytes, access_denied, payload_too_large]
+        provenance:
+          $ref: '#/components/schemas/ResearchExactReference'
+      required:
+      - revision
+      - revision_id
+      - digest_sha256
+      - byte_size
+      - media_type
+      - created_at
+      - author_kind
+      - summary
+      - byte_state
+      - provenance
+    HostedArtifactShareGrant:
+      type: object
+      additionalProperties: false
+      properties:
+        share_id:
+          type: string
+        scope:
+          type: string
+          enum: [org, link]
+        url:
+          type: string
+        revoked:
+          type: boolean
+        created_at:
+          type: string
+      required: [share_id, scope, url, revoked, created_at]
+    HostedArtifact:
+      type: object
+      additionalProperties: false
+      properties:
+        artifact_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        notebook_id:
+          type: string
+        title:
+          type: string
+        kind:
+          type: string
+          enum: [html, react, svg, mermaid, markdown, chart]
+        origin:
+          type: string
+          enum: [agent, human]
+        current_revision:
+          type: integer
+          minimum: 1
+        revisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostedArtifactRevision'
+        share:
+          anyOf:
+          - $ref: '#/components/schemas/HostedArtifactShareGrant'
+          - type: 'null'
+        pinned:
+          type: boolean
+      required:
+      - artifact_id
+      - run_id
+      - notebook_id
+      - title
+      - kind
+      - origin
+      - current_revision
+      - revisions
+      - share
+      - pinned
+    HostedArtifactList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostedArtifact'
+      required: [items]
+    CreateHostedArtifactRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        title:
+          type: string
+        kind:
+          type: string
+          enum: [html, react, svg, mermaid, markdown, chart]
+        origin:
+          type: string
+          enum: [agent, human]
+        content:
+          type: string
+        summary:
+          type: string
+      required: [notebook_id, title, kind, content, summary]
+    UpdateHostedArtifactRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+        summary:
+          type: string
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+      required: [content, summary]
+    ShareHostedArtifactRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        scope:
+          type: string
+          enum: [org, link]
+      required: [scope]
+    ResearchTrialCharge:
+      type: object
+      additionalProperties: false
+      properties:
+        amount:
+          $ref: '#/components/schemas/Money'
+        final:
+          type: boolean
+      required: [amount, final]
+    ResearchTrialMeasurement:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        value:
+          type: [number, 'null']
+        unit:
+          type: string
+        uncertainty:
+          type: [number, 'null']
+      required: [name, value, unit, uncertainty]
+    ResearchTrialScore:
+      type: object
+      additionalProperties: false
+      properties:
+        record:
+          $ref: '#/components/schemas/ResearchExactReference'
+        outcome:
+          type: string
+        verification:
+          type: string
+        scorer_receipt:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchExactReference'
+          - type: 'null'
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchTrialMeasurement'
+        missing_evidence:
+          type: array
+          items:
+            type: string
+      required: [record, outcome, verification, scorer_receipt, measurements, missing_evidence]
+    ResearchTrialRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        trial_id:
+          type: string
+        experiment_id:
+          type: string
+        arm:
+          type: string
+        parent_trial_id:
+          type: [string, 'null']
+        depth:
+          type: integer
+        state:
+          type: string
+        charge:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchTrialCharge'
+          - type: 'null'
+        uplift_per_dollar:
+          type: [number, 'null']
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchTrialScore'
+        deviations:
+          type: array
+          items:
+            type: string
+        artifact_ids:
+          type: array
+          items:
+            type: string
+        note_ids:
+          type: array
+          items:
+            type: string
+      required:
+      - trial_id
+      - experiment_id
+      - arm
+      - parent_trial_id
+      - depth
+      - state
+      - charge
+      - uplift_per_dollar
+      - scores
+      - deviations
+      - artifact_ids
+      - note_ids
+    ResearchExperimentRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        experiment_id:
+          type: string
+        notebook_id:
+          type: string
+        run_id:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        specification:
+          type: string
+        hypothesis:
+          type: [string, 'null']
+        arms:
+          type: array
+          items:
+            type: string
+        pinned_inputs:
+          type: array
+          items:
+            type: string
+        stopping_criteria:
+          type: [string, 'null']
+        provenance:
+          $ref: '#/components/schemas/ResearchExactReference'
+        trials:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchTrialRecord'
+      required:
+      - experiment_id
+      - notebook_id
+      - run_id
+      - revision
+      - title
+      - specification
+      - hypothesis
+      - arms
+      - pinned_inputs
+      - stopping_criteria
+      - provenance
+      - trials
+    ResearchExperimentList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchExperimentRecord'
+      required: [items]
+    CreateResearchExperimentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        run_id:
+          type: string
+        title:
+          type: string
+        specification:
+          type: string
+        hypothesis:
+          type: [string, 'null']
+        arms:
+          type: array
+          items:
+            type: string
+        pinned_inputs:
+          type: array
+          items:
+            type: string
+        stopping_criteria:
+          type: [string, 'null']
+      required: [run_id, title, specification, arms]
+    ReviseResearchExperimentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: [string, 'null']
+        specification:
+          type: [string, 'null']
+        hypothesis:
+          type: [string, 'null']
+        arms:
+          type: [array, 'null']
+          items:
+            type: string
+        stopping_criteria:
+          type: [string, 'null']
+    ResearchLogSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: [string, 'null']
+        entry_count:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+      required: [notebook_id, title, summary, entry_count, created_at]
+    ResearchLogEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        entry_id:
+          type: string
+        notebook_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        category:
+          type: string
+          enum: [hypothesis, attempt, observation, failure, decision, correction, preference, rationale]
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        author_label:
+          type: string
+        text:
+          type: string
+        occurred_at:
+          type: string
+        recorded_at:
+          type: string
+        sync_state:
+          type: string
+          enum: [synced, local_pending, missing_evidence]
+        correction_of:
+          type: [string, 'null']
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchExactReference'
+        artifact_ids:
+          type: array
+          items:
+            type: string
+        missing_evidence:
+          type: array
+          items:
+            type: string
+      required:
+      - entry_id
+      - notebook_id
+      - run_id
+      - category
+      - author_kind
+      - author_label
+      - text
+      - occurred_at
+      - recorded_at
+      - sync_state
+      - correction_of
+      - sources
+      - artifact_ids
+      - missing_evidence
+    ResearchLogEntryList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchLogEntry'
+      required: [items]
+    ResearchLogExport:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        format:
+          type: string
+        content:
+          type: string
+        entry_count:
+          type: integer
+          minimum: 0
+      required: [notebook_id, run_id, format, content, entry_count]
+    InitResearchLogRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: [string, 'null']
+      required: [title]
+    AppendResearchLogEntryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        run_id:
+          type: [string, 'null']
+        category:
+          type: string
+          enum: [hypothesis, attempt, observation, failure, decision, correction, preference, rationale]
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        author_label:
+          type: string
+        text:
+          type: string
+        correction_of:
+          type: [string, 'null']
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchExactReference'
+        artifact_ids:
+          type: array
+          items:
+            type: string
+      required: [category, text]
+    CorrectResearchLogEntryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        run_id:
+          type: [string, 'null']
+        text:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchExactReference'
+        artifact_ids:
+          type: array
+          items:
+            type: string
+      required: [text]
+    RunHorizonPacing:
+      type: object
+      additionalProperties: false
+      properties:
+        phase:
+          type: string
+          enum: [explore, exploit, wind_down, closed]
+        elapsed_seconds:
+          type: integer
+        wall_time_seconds:
+          type: integer
+        budget_spent_usd:
+          type: string
+        budget_limit_usd:
+          type: string
+      required: [phase, elapsed_seconds, wall_time_seconds, budget_spent_usd, budget_limit_usd]
+    RunReviewSurface:
+      type: object
+      additionalProperties: false
+      properties:
+        pacing:
+          anyOf:
+          - $ref: '#/components/schemas/RunHorizonPacing'
+          - type: 'null'
+        experiments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchExperimentRecord'
+        research_log:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchLogEntry'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HostedArtifact'
+      required: [pacing, experiments, research_log, artifacts]
+
   headers:
     Cache-Control:
       schema:
@@ -12182,6 +13528,10 @@ components:
         type: integer
         minimum: 1
     Content-Disposition:
+      schema:
+        type: string
+    X-Artifact-Sandbox-Origin:
+      description: Isolated cross-origin sandbox host used to render untrusted interactive artifacts.
       schema:
         type: string
 

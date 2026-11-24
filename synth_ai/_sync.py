@@ -63,6 +63,7 @@ from ._generated.models import (
     RunProgram,
     RunReport,
     RunResult,
+    RunReviewSurface,
     RunSandboxes,
     RunSnapshot,
     RunTask,
@@ -536,6 +537,9 @@ class SwarmsClient:
 
     def result(self, run: RunSnapshot | str) -> RunResult:
         return self._runner.call(self._async.result(run))
+
+    def review(self, run_id: str) -> RunReviewSurface:
+        return self._runner.call(self._async.review(run_id))
 
     def families(self) -> FamilyList:
         return self._runner.call(self._async.families())

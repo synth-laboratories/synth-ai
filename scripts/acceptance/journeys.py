@@ -1620,6 +1620,21 @@ MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
     "sendRunMessage": {"kind": "guidance", "text": "Tenant-isolation fixture probe."},
     "updateRunLabels": {"expected_revision": 1, "labels": {}},
     "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
+    "updateArtifact": {"content": "<p>probe</p>", "summary": "Tenant-isolation fixture probe."},
+    "shareArtifact": {"scope": "org"},
+    "createExperiment": {
+        "run_id": "run_" + "F" * 22,
+        "title": "Tenant-isolation probe",
+        "specification": "Tenant-isolation fixture probe.",
+        "arms": ["baseline"],
+    },
+    "reviseExperiment": {"title": "Tenant-isolation revised probe"},
+    "initResearchLog": {"title": "Tenant-isolation probe log"},
+    "appendResearchLogEntry": {
+        "category": "observation",
+        "text": "Tenant-isolation fixture probe.",
+    },
+    "correctResearchLogEntry": {"text": "Tenant-isolation correction probe."},
 }
 
 

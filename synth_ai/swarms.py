@@ -49,6 +49,7 @@ from ._generated.models import (
     RunProgram,
     RunReport,
     RunResult,
+    RunReviewSurface,
     RunSandboxes,
     RunSnapshot,
     RunTask,
@@ -819,6 +820,12 @@ class AsyncSwarms:
             raise ResultUnavailableError(
                 "Run " + run_id + " has not finished; wait() for it first", snapshot=snapshot
             ) from refusal
+
+    async def review(self, run_id: str) -> RunReviewSurface:
+        """Read the consolidated run review surface (pacing, experiments, log, artifacts)."""
+        return await self._transport.request(
+            "getRunReview", RunReviewSurface, path={"run_id": run_id}
+        )
 
     async def families(self) -> FamilyList:
         """The launchable program families (GA set, swarms.general@1)."""
