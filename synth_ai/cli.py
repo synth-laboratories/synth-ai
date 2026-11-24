@@ -103,6 +103,9 @@ COMMANDS: dict[str, str] = {
     "plan": "Special Free plan requests",
     "grants": "MCP OAuth grants (connected apps)",
     "promo": "Promotional credit",
+    "artifacts": "Interactive artifacts",
+    "experiments": "Multi-experiment plans",
+    "research-log": "Project research log",
 }
 
 EPILOG = """exit codes:
@@ -487,6 +490,9 @@ async def execute(
             "inspect",
             "content",
             "labels",
+            "artifacts",
+            "experiments",
+            "research-log",
         } or (command == "billing" and args.resource_action is not None):
             value = await execute_resource(client, args)
             print(

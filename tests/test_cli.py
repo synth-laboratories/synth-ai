@@ -54,6 +54,9 @@ EXPECTED_COMMANDS = [
     "plan",
     "grants",
     "promo",
+    "artifacts",
+    "experiments",
+    "research-log",
 ]
 
 
