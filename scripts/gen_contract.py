@@ -580,7 +580,14 @@ def generate() -> dict[Path, str | bytes]:
                 else literal
             )
         if "enum" in s:
-            if name and all(isinstance(value, str) for value in s.array("enum")):
+            # A property that was a single literal stays one when it gains values, so
+            # typed callers passing the string keep type-checking.
+            literal_names = {"OwnerResourceRequestPlugin"}
+            if (
+                name
+                and name not in literal_names
+                and all(isinstance(value, str) for value in s.array("enum"))
+            ):
                 enums[name] = s.strings("enum")
                 return "Annotated[" + name + ", BeforeValidator(enum_value(" + name + "))]"
             return "Literal[" + ", ".join(repr(v) for v in s.array("enum")) + "]"

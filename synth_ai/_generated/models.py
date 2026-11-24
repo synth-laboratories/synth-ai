@@ -188,11 +188,6 @@ class OverloadCode(StrEnum):
     QUEUEFULL = "QueueFull"
 
 
-class OwnerResourceRequestPlugin(StrEnum):
-    POOL = "pool"
-    INDEX = "index"
-
-
 class PlanKind(StrEnum):
     FREE = "free"
     GRANTED = "granted"
@@ -2065,9 +2060,7 @@ class OwnerResourceRequest(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    plugin: Annotated[
-        OwnerResourceRequestPlugin, BeforeValidator(enum_value(OwnerResourceRequestPlugin))
-    ]
+    plugin: Literal["pool", "index"]
     version: Annotated[Literal[1], BeforeValidator(strict_int)] | None = None
     roles: Annotated[
         list[Literal["planner", "worker", "reviewer", "run_assessor"]],
