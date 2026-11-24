@@ -30,41 +30,41 @@ def snapshot(contract, **changes):
 
 
 def output(run_id, suffix, media_type):
-    return dict(
-        run_id=run_id,
-        output_id="out_" + suffix * 22,
-        state="available",
-        filename=suffix + ".out",
-        reference=dict(
-            run_id=run_id,
-            output_id="out_" + suffix * 22,
-            revision_id="rev_" + suffix,
-            digest_sha256="0" * 64,
-            byte_size="18",
-            media_type=media_type,
-        ),
-    )
+    return {
+        "run_id": run_id,
+        "output_id": "out_" + suffix * 22,
+        "state": "available",
+        "filename": suffix + ".out",
+        "reference": {
+            "run_id": run_id,
+            "output_id": "out_" + suffix * 22,
+            "revision_id": "rev_" + suffix,
+            "digest_sha256": "0" * 64,
+            "byte_size": "18",
+            "media_type": media_type,
+        },
+    }
 
 
 def unavailable_tree(run_id):
-    return dict(
-        state="unavailable",
-        run_id=run_id,
-        code="run_records_projection_unavailable",
-        stage="run_result",
-        cause="Canonical research record projection is unavailable for this cohort.",
-    )
+    return {
+        "state": "unavailable",
+        "run_id": run_id,
+        "code": "run_records_projection_unavailable",
+        "stage": "run_result",
+        "cause": "Canonical research record projection is unavailable for this cohort.",
+    }
 
 
 def record(kind):
     """Schema control only; not a retained record or run receipt."""
-    return dict(
-        source="research",
-        kind=kind,
-        record_id="contract-control-" + kind,
-        revision="1",
-        digest_sha256="a" * 64,
-    )
+    return {
+        "source": "research",
+        "kind": kind,
+        "record_id": "contract-control-" + kind,
+        "revision": "1",
+        "digest_sha256": "a" * 64,
+    }
 
 
 TERMINAL = {"completed", "partial", "failed", "cancelled"}
@@ -79,33 +79,33 @@ def body(
     attempt_tree=None,
     result_file=None,
 ):
-    return dict(
-        run_id=state["run_id"],
-        status=state["state"] if state["state"] in TERMINAL else "completed",
-        accounting=None,
-        run=state,
-        state=state["state"],
-        answer=answer,
-        answer_output=answer_output,
-        objective_answer=objective_answer,
-        charge=state.get("charge"),
-        attempt_tree=attempt_tree or unavailable_tree(state["run_id"]),
-        result_file=result_file,
-    )
+    return {
+        "run_id": state["run_id"],
+        "status": state["state"] if state["state"] in TERMINAL else "completed",
+        "accounting": None,
+        "run": state,
+        "state": state["state"],
+        "answer": answer,
+        "answer_output": answer_output,
+        "objective_answer": objective_answer,
+        "charge": state.get("charge"),
+        "attempt_tree": attempt_tree or unavailable_tree(state["run_id"]),
+        "result_file": result_file,
+    }
 
 
 def problem(code, status=409):
-    return dict(
-        type="about:blank",
-        title="refused",
-        detail=code,
-        status=status,
-        instance="urn:test",
-        code=code,
-        service="core",
-        stage="getRunResult",
-        outcome="not_accepted",
-    )
+    return {
+        "type": "about:blank",
+        "title": "refused",
+        "detail": code,
+        "status": status,
+        "instance": "urn:test",
+        "code": code,
+        "service": "core",
+        "stage": "getRunResult",
+        "outcome": "not_accepted",
+    }
 
 
 def handler(state, result, calls):
@@ -121,13 +121,11 @@ def handler(state, result, calls):
 
 
 async def read(state, result, calls, run=None):
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, result, calls))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            return await client.swarms.result(run or state["run_id"])
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handler(state, result, calls))) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        return await client.swarms.result(run or state["run_id"])
 
 
 async def test_result_is_one_read_of_core_choice(contract):
@@ -161,12 +159,12 @@ def test_sync_result_accepts_a_snapshot_and_reports_no_answer(contract):
 
 async def test_result_reads_an_objective_answer(contract):
     state = snapshot(contract)
-    objective = dict(
-        schema_version="synth.objective-answer.v1",
-        objective_id="codename",
-        definition_revision=1,
-        answer=dict(text="nonce-6b98", by="planner", revision=1, sources=[]),
-    )
+    objective = {
+        "schema_version": "synth.objective-answer.v1",
+        "objective_id": "codename",
+        "definition_revision": 1,
+        "answer": {"text": "nonce-6b98", "by": "planner", "revision": 1, "sources": []},
+    }
     result = await read(
         state,
         body(
@@ -217,24 +215,24 @@ async def test_result_carries_the_run_charge(contract):
 
 
 async def test_result_carries_the_resolved_optimizer_and_attempt_tree(contract):
-    optimizer = dict(
-        topology="swarms_v2",
-        version=1,
-        params={},
-        reason="environment_default",
-        definition_digest="b" * 64,
-    )
+    optimizer = {
+        "topology": "swarms_v2",
+        "version": 1,
+        "params": {},
+        "reason": "environment_default",
+        "definition_digest": "b" * 64,
+    }
     state = snapshot(contract, optimizer=optimizer)
-    tree = dict(
-        state="available",
-        run_id=state["run_id"],
-        protocol=record("protocol"),
-        experiment=record("experiment"),
-        research_log=record("research_log"),
-        report=record("report"),
-        attempts=[],
-        notes=[],
-    )
+    tree = {
+        "state": "available",
+        "run_id": state["run_id"],
+        "protocol": record("protocol"),
+        "experiment": record("experiment"),
+        "research_log": record("research_log"),
+        "report": record("report"),
+        "attempts": [],
+        "notes": [],
+    }
     result_md = dict(output(state["run_id"], "R", "text/markdown"), filename="result.md")
     result = await read(state, body(state, attempt_tree=tree, result_file=result_md), [])
     assert result.result_file is not None
@@ -264,13 +262,13 @@ async def test_mcp_result_tool_carries_result_md(contract):
 
     state = snapshot(contract)
     result_md = dict(output(state["run_id"], "R", "text/markdown"), filename="result.md")
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(state, body(state, result_file=result_md), []))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            model = await dispatch(client, "getRunResult", {"run_id": state["run_id"]})
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(handler(state, body(state, result_file=result_md), []))
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        model = await dispatch(client, "getRunResult", {"run_id": state["run_id"]})
     assert model is not None
     document = model.model_dump(mode="json")
     assert document["result_file"]["filename"] == "result.md"
@@ -358,13 +356,13 @@ async def test_mcp_result_tool_carries_the_result_envelope():
     from synth_ai.mcp.dispatch import dispatch
 
     fixture = envelope()
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handler(fixture["run"], fixture, []))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            model = await dispatch(client, "getRunResult", {"run_id": fixture["run_id"]})
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(handler(fixture["run"], fixture, []))
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        model = await dispatch(client, "getRunResult", {"run_id": fixture["run_id"]})
     assert model is not None
     document = model.model_dump(mode="json", exclude_unset=True)
     assert document == fixture

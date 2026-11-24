@@ -9,6 +9,7 @@ live proof is the staging checkout recorded in the SYN-5696 evidence.
 from __future__ import annotations
 
 import pytest
+from typing_extensions import override
 
 from scripts.acceptance import stripe_checkout as sc
 
@@ -88,6 +89,7 @@ class Page:
 
     def __init__(self, link_checked=True, redirect=True, captcha_box=None):
         self.log, self.redirect = [], redirect
+        self.url = ""
         self.dom = {
             "#linkAuthentication-emailInput": [Element(self, "email")],
             "role:card": [Element(self, "card", expanded="false")],
@@ -140,7 +142,7 @@ URL = "https://checkout.stripe.com/c/pay/cs_test_fixture"
 
 def test_card_is_chosen_first_then_fields_filled_link_unticked_and_submitted():
     page = Page()
-    assert sc._pay(page, URL) is None
+    assert sc._pay(page, URL) is None  # ty: ignore[invalid-argument-type]
     actions = [entry for entry in page.log if entry[0] != "goto"]
     assert actions[0] == ("click", "card")
     assert ("fill", "number") in actions and ("fill", "decoy") not in actions
@@ -152,17 +154,26 @@ def test_card_is_chosen_first_then_fields_filled_link_unticked_and_submitted():
 def test_no_card_method_is_a_typed_cause():
     page = Page()
     page.dom["role:card"] = []
-    assert sc._pay(page, URL) == "stripe_test_checkout_field_absent:card_method"
+    assert (
+        sc._pay(page, URL)  # ty: ignore[invalid-argument-type]
+        == "stripe_test_checkout_field_absent:card_method"
+    )
 
 
 def test_visible_challenge_is_reported_never_solved():
     page = Page(redirect=False, captcha_box={"x": 0, "y": 0, "width": 400, "height": 580})
-    assert sc._pay(page, URL) == "stripe_test_checkout_captcha_challenge"
+    assert (
+        sc._pay(page, URL)  # ty: ignore[invalid-argument-type]
+        == "stripe_test_checkout_captcha_challenge"
+    )
 
 
 def test_invisible_hcaptcha_frame_is_not_a_challenge():
     page = Page(redirect=False, captcha_box={"x": 0, "y": 0, "width": 0, "height": 0})
-    assert sc._pay(page, URL) == "stripe_test_checkout_not_redirected"
+    assert (
+        sc._pay(page, URL)  # ty: ignore[invalid-argument-type]
+        == "stripe_test_checkout_not_redirected"
+    )
 
 
 SECRET_URL = "https://checkout.stripe.com/c/pay/cs_test_a1B2c3D4e5?x=q#fragmentsecret"
@@ -174,7 +185,7 @@ def test_browser_error_cause_names_kind_stage_and_redacted_location():
     page = Page()
     page.url = SECRET_URL
     progress = sc.Progress()
-    progress.page = page
+    progress.page = page  # ty: ignore[invalid-assignment]
     progress.at("card_number")
     cause = sc.browser_error_cause(TimeoutError("Timeout 20000ms " + SECRET_URL), progress)
     assert cause == (
@@ -193,25 +204,27 @@ def test_pay_records_the_step_it_failed_on():
 
     page = Page()
 
-    def broken(_value):
+    def broken(value):
         raise Error("element is not attached")
 
     page.reveal_card()
     page.dom["#payment-numberInput"][0].fill = broken
     progress = sc.Progress()
     with pytest.raises(Error):
-        sc._pay(page, URL, progress)
+        sc._pay(page, URL, progress)  # ty: ignore[invalid-argument-type]
     assert progress.stage == "card_number"
 
 
 class DetachedFrame(Frame):
     """A frame Stripe replaced after page.frames was enumerated."""
 
+    @override
     def locator(self, selector):
         from playwright.sync_api import Error
 
         raise Error("Frame was detached")
 
+    @override
     def get_by_role(self, role, name):
         from playwright.sync_api import Error
 
@@ -228,18 +241,20 @@ class ReloadingPage(Page):
         self.live = Frame(self)
 
     @property
+    @override
     def frames(self):
         self.enumerations += 1
         return [self.stale] if self.enumerations == 1 else [self.stale, self.live]
 
     @frames.setter
+    @override
     def frames(self, value):
         pass
 
 
 def test_card_method_is_found_after_frames_reload_mid_walk():
     page = ReloadingPage()
-    assert sc._pay(page, URL) is None
+    assert sc._pay(page, URL) is None  # ty: ignore[invalid-argument-type]
     assert page.enumerations >= 2
     assert ("click", "card") in page.log
 
@@ -247,7 +262,10 @@ def test_card_method_is_found_after_frames_reload_mid_walk():
 def test_detached_frames_with_no_card_method_still_fail_typed():
     page = ReloadingPage()
     page.dom["role:card"] = []
-    assert sc._pay(page, URL) == "stripe_test_checkout_field_absent:card_method"
+    assert (
+        sc._pay(page, URL)  # ty: ignore[invalid-argument-type]
+        == "stripe_test_checkout_field_absent:card_method"
+    )
 
 
 def test_a_non_detach_browser_error_still_propagates():
@@ -256,9 +274,10 @@ def test_a_non_detach_browser_error_still_propagates():
     page = Page()
 
     class Broken(Frame):
+        @override
         def get_by_role(self, role, name):
             raise Error("Protocol error: something else")
 
     page.frames = [Broken(page)]
     with pytest.raises(Error):
-        sc._card_method(page)
+        sc._card_method(page)  # ty: ignore[invalid-argument-type]

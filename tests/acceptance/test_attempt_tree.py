@@ -101,7 +101,7 @@ def test_run_scope_checked_even_for_unavailable_projection():
 
 
 @pytest.mark.parametrize(
-    "mutation,code",
+    ("mutation", "code"),
     [
         ("duplicate", "duplicate_trial"),
         ("orphan", "parent_reference_mismatch"),
@@ -199,7 +199,9 @@ def test_score_may_cite_the_earlier_trial_revision_it_scored():
 
 
 @pytest.mark.parametrize(
-    "revision, digest", [("3", "c" * 64), ("1", "c" * 64)], ids=["newer", "same-rev-other-digest"]
+    ("revision", "digest"),
+    [("3", "c" * 64), ("1", "c" * 64)],
+    ids=["newer", "same-rev-other-digest"],
 )
 def test_score_cannot_cite_a_newer_or_divergent_trial_revision(revision, digest):
     payload = tree_payload()

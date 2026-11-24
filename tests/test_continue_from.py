@@ -40,28 +40,31 @@ async def test_launch_forwards_parent_without_rewriting_limits_or_retrying(synch
         requests.append(request)
         return httpx.Response(409, json=refusal("continue_from_inputs_unavailable", 409))
 
+    async def _launch() -> None:
+        if synchronous:
+            with SynthClient(
+                "fixture", base_url="https://example.test", http_client=http
+            ) as client:
+                client.swarms.launch(
+                    "fixture",
+                    budget="1.00",
+                    continue_from=PARENT,
+                    idempotency_key="continue-once",
+                )
+        else:
+            async with AsyncSynthClient(
+                "fixture", base_url="https://example.test", http_client=http
+            ) as client:
+                await client.swarms.launch(
+                    "fixture",
+                    budget="1.00",
+                    continue_from=PARENT,
+                    idempotency_key="continue-once",
+                )
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         with pytest.raises(errors.SwarmsAPIError) as caught:
-            if synchronous:
-                with SynthClient(
-                    "fixture", base_url="https://example.test", http_client=http
-                ) as client:
-                    client.swarms.launch(
-                        "fixture",
-                        budget="1.00",
-                        continue_from=PARENT,
-                        idempotency_key="continue-once",
-                    )
-            else:
-                async with AsyncSynthClient(
-                    "fixture", base_url="https://example.test", http_client=http
-                ) as client:
-                    await client.swarms.launch(
-                        "fixture",
-                        budget="1.00",
-                        continue_from=PARENT,
-                        idempotency_key="continue-once",
-                    )
+            await _launch()
     assert caught.value.code == "continue_from_inputs_unavailable"
     assert caught.value.outcome == "not_accepted"
     assert len(requests) == 1
@@ -72,7 +75,7 @@ async def test_launch_forwards_parent_without_rewriting_limits_or_retrying(synch
 
 
 @pytest.mark.parametrize(
-    "code,status,error_name",
+    ("code", "status", "error_name"),
     [
         ("continue_from_not_found", 404, "ContinueFromNotFoundError"),
         ("continue_from_not_terminal", 409, "ContinueFromNotTerminalError"),
@@ -94,14 +97,17 @@ def test_continuation_refusals_have_domain_error_types(code, status, error_name)
 @pytest.mark.parametrize("parent", ["", "run_short", "00000000-0000-0000-0000-000000000000"])
 async def test_invalid_parent_identity_refuses_before_network(parent):
     requests = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: requests.append(request))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(errors.LaunchValidationError) as caught:
-                await client.swarms.launch("fixture", budget="1.00", continue_from=parent)
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(500)
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        with pytest.raises(errors.LaunchValidationError) as caught:
+            await client.swarms.launch("fixture", budget="1.00", continue_from=parent)
     assert caught.value.code == "invalid_launch_request"
     assert not requests
 
@@ -169,6 +175,7 @@ async def test_mcp_launch_argument_uses_the_generated_body_and_same_refusal():
 
 async def test_mcp_tools_call_advertises_parent_and_retains_typed_refusal():
     from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
 
     from synth_ai.mcp.server import build_server
 
@@ -199,6 +206,8 @@ async def test_mcp_tools_call_advertises_parent_and_retains_typed_refusal():
                     },
                 )
     assert result.isError
-    assert json.loads(result.content[0].text)["code"] == "continue_from_inputs_unavailable"
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    assert json.loads(content.text)["code"] == "continue_from_inputs_unavailable"
     assert len(requests) == 1
     assert json.loads(requests[0].content)["continue_from"] == PARENT

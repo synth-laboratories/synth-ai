@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
     "qualify_release", ROOT / "scripts/qualify_release.py"
 )
+assert spec is not None and spec.loader is not None
 qualify = importlib.util.module_from_spec(spec)
 sys.modules["qualify_release"] = qualify  # dataclasses resolve their module
 spec.loader.exec_module(qualify)
@@ -39,6 +40,7 @@ def test_substituted_wheel_fails_at_identity_and_skips_the_rest(tmp_path):
     assert [(s["name"], s["status"]) for s in receipt["steps"]] == [
         ("artifact_identity", "fail"),
         ("generation_and_parity", "skipped"),
+        ("quality_checks", "skipped"),
         ("cohort", "skipped"),
         *((name, "skipped") for name, _ in qualify.RELEASE_TEST_STEPS),
         ("package", "skipped"),

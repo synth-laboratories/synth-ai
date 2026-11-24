@@ -21,16 +21,18 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
-from typing import Optional, Protocol, cast
+from typing import TYPE_CHECKING, Optional, Protocol, cast
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
 from synth_ai import SynthClient
-from synth_ai._generated.models import CheckoutRequestPackId, MintApiKeyRequestPurpose, Scope
 from synth_ai.errors import SwarmsAPIError, SynthError
 from synth_ai.models import MessageKind, Money, OptimizerRequest, RunLimitUpdate
 
 from .mcp_driver import HostedFailure, ToolCaller
+
+if TYPE_CHECKING:
+    from synth_ai._generated.models import CheckoutRequestPackId, MintApiKeyRequestPurpose, Scope
 
 __all__ = [
     "CLI_ARGV",
@@ -180,7 +182,7 @@ def launch(client: SynthClient, call: Call) -> object:
     limits = obj(body.get("limits"))
     charge = obj(limits.get("maximum_charge"))
     # Unvalidated on purpose: the SDK's own launch validation must judge it.
-    optimizer = cast(Optional[OptimizerRequest], body.get("optimizer"))
+    optimizer = cast("Optional[OptimizerRequest]", body.get("optimizer"))
     return client.swarms.launch(
         str(body.get("message")),
         budget=str(charge.get("amount")),
@@ -204,7 +206,7 @@ def checkout(client: SynthClient, call: Call) -> object:
     credit = body.get("credit")
     return client.billing.checkout(
         plan_id=text(body, "plan_id"),
-        pack_id=cast(Optional[CheckoutRequestPackId], text(body, "pack_id")),
+        pack_id=cast("Optional[CheckoutRequestPackId]", text(body, "pack_id")),
         credit=None if credit is None else Money.model_validate(credit),
         idempotency_key=call.idempotency_key,
     )
@@ -213,9 +215,9 @@ def checkout(client: SynthClient, call: Call) -> object:
 def mint(client: SynthClient, call: Call) -> object:
     body = dict(call.body or {})
     return client.account.api_keys.mint(
-        purpose=cast(Optional[MintApiKeyRequestPurpose], text(body, "purpose")),
+        purpose=cast("Optional[MintApiKeyRequestPurpose]", text(body, "purpose")),
         name=text(body, "name"),
-        scopes=cast(Optional[list[Scope]], body.get("scopes")),
+        scopes=cast("Optional[list[Scope]]", body.get("scopes")),
         expires_at=text(body, "expires_at"),
         request_id=text(body, "request_id"),
         idempotency_key=call.idempotency_key,
@@ -263,8 +265,8 @@ def update_key(client: SynthClient, call: Call) -> object:
     body = dict(call.body or {})
     return client.account.api_keys.update_grants(
         call.path["key_id"],
-        scopes=cast(list[Scope], body["scopes"]),
-        expected_version=cast(int, body["expected_version"]),
+        scopes=cast("list[Scope]", body["scopes"]),
+        expected_version=cast("int", body["expected_version"]),
     )
 
 
@@ -272,8 +274,8 @@ def update_labels(client: SynthClient, call: Call) -> object:
     body = dict(call.body or {})
     return client.swarms.update_labels(
         run_id(call),
-        labels=cast(dict[str, str], body["labels"]),
-        expected_revision=cast(int, body["expected_revision"]),
+        labels=cast("dict[str, str]", body["labels"]),
+        expected_revision=cast("int", body["expected_revision"]),
     )
 
 
@@ -281,8 +283,8 @@ def output_content(client: SynthClient, call: Call) -> str:
     content = client.swarms.output_content(
         run_id(call),
         call.path["output_id"],
-        revision_id=cast(str, call.query["revision_id"]),
-        digest_sha256=cast(str, call.query["digest_sha256"]),
+        revision_id=cast("str", call.query["revision_id"]),
+        digest_sha256=cast("str", call.query["digest_sha256"]),
     )
     return hashlib.sha256(content).hexdigest()
 
@@ -293,10 +295,10 @@ SDK_CALLS: Mapping[str, SdkCall] = {
     "getBalance": lambda c, a: c.billing.balance(),
     "listStatements": lambda c, a: c.billing.statements(),
     "listBillingHistory": lambda c, a: c.billing.history(
-        cursor=cast(Optional[str], a.query.get("cursor")),
-        limit=cast(int, a.query.get("limit", 20)),
-        since=cast(Optional[str], a.query.get("since")),
-        until=cast(Optional[str], a.query.get("until")),
+        cursor=cast("Optional[str]", a.query.get("cursor")),
+        limit=cast("int", a.query.get("limit", 20)),
+        since=cast("Optional[str]", a.query.get("since")),
+        until=cast("Optional[str]", a.query.get("until")),
     ),
     "createCheckout": checkout,
     "getCheckout": lambda c, a: c.billing.checkout_status(a.path["id"]),
@@ -474,7 +476,7 @@ def message_argv(call: Call, _directory: Path) -> Sequence[str]:
 
 
 def history_page_argv(call: Call, _directory: Path) -> Sequence[str]:
-    argv = ["billing", "history", "--limit", str(call.query.get("limit", 20))]
+    argv: list[str] = ["billing", "history", "--limit", str(call.query.get("limit", 20))]
     for name in ("since", "until", "cursor"):
         value = call.query.get(name)
         if isinstance(value, str):
@@ -597,7 +599,7 @@ def cli_problem(text: str) -> Optional[dict[str, JsonValue]]:
         except ValueError:
             continue
         if isinstance(document, dict) and isinstance(document.get("code"), str):
-            return cast(dict[str, JsonValue], document)
+            return cast("dict[str, JsonValue]", document)
     return None
 
 

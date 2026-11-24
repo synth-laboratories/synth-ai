@@ -26,7 +26,7 @@ def test_schema_selection_preserves_transitive_models_and_public_enum_owners():
 
 
 @pytest.mark.parametrize(
-    "schemas,roots",
+    ("schemas", "roots"),
     [
         ({"Known": JSONObject()}, {"Unknown"}),
         ({"Known": JSONObject({"$ref": "#/components/schemas/Missing"})}, {"Known"}),

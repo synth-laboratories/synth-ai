@@ -14,8 +14,10 @@ import time
 from contextlib import ExitStack, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import pytest
+from typing_extensions import override
 
 from scripts.acceptance.j1 import AdapterError, CLIDriver, RecordedLaunch, SDKDriver
 from scripts.acceptance.launch_journal import LaunchJournal
@@ -82,7 +84,8 @@ def pressure_api(contract, *, status, retryable):
             self.end_headers()
             self.wfile.write(raw)
 
-        def log_message(self, *_):
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -117,11 +120,11 @@ def driver_for(surface, origin, tmp_path):
 
 
 def launch(driver, tmp_path):
-    arguments = dict(
-        recording=RECORDING,
-        idempotency_key="fixture-queue-retry",
-        journal=LaunchJournal(tmp_path / "launch"),
-    )
+    arguments = {
+        "recording": RECORDING,
+        "idempotency_key": "fixture-queue-retry",
+        "journal": LaunchJournal(tmp_path / "launch"),
+    }
     if isinstance(driver, CLIDriver):
         return driver.launch_recorded(**arguments, work_directory=tmp_path)
     return driver.launch_recorded(**arguments)

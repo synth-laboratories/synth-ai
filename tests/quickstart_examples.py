@@ -17,6 +17,7 @@ from mcp.client.stdio import stdio_client
 from mcp.types import TextContent
 from test_journey import ANSWER, RUN_ID, TASK, FakeApi, route
 from test_messages import message, page
+from typing_extensions import override
 
 from synth_ai.cli import parser
 
@@ -37,6 +38,7 @@ def fixture_server(contract, directory):
 
     class Handler(BaseHTTPRequestHandler):
         def handle_request(self):
+            assert isinstance(self.server, ThreadingHTTPServer)
             request = httpx.Request(
                 self.command,
                 f"http://127.0.0.1:{self.server.server_port}{self.path}",
@@ -59,7 +61,8 @@ def fixture_server(contract, directory):
 
         do_GET = do_POST = do_PUT = handle_request
 
-        def log_message(self, *_):
+        @override
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:

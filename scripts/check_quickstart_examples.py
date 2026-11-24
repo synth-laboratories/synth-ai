@@ -87,7 +87,7 @@ def main() -> None:
             check=True,
             timeout=120,
         )
-        cases = ElementTree.parse(report).findall(".//testcase")
+        cases = ElementTree.parse(report).findall(".//testcase")  # noqa: S314 -- local pytest junitxml report
         if not cases or any(case.find("skipped") is not None for case in cases):
             raise SystemExit("quickstart check requires a nonempty suite with no skips")
     sources = ("docs/quickstart.md", "docs/errors.md", "docs/cli-migration-0.31-0.32.md")

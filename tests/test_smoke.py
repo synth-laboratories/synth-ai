@@ -1,11 +1,19 @@
 import hashlib
 import json
 from types import SimpleNamespace
+from typing import TypedDict
 
 import httpx
 import pytest
 
 from scripts import smoke
+
+
+class SmokeState(TypedDict):
+    content: bytes
+    launch_count: int
+    cancel_keys: list[str]
+    pending_flag: str | None
 
 
 @pytest.mark.parametrize("state", ["failed", "cancelled", "partial", "running"])
@@ -72,7 +80,12 @@ def smoke_api(contract, monkeypatch, tmp_path):
     snapshot = contract["paths"]["/v1/runs/{run_id}"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["example"]
-    state = {"content": content, "launch_count": 0, "cancel_keys": [], "pending_flag": None}
+    state: SmokeState = {
+        "content": content,
+        "launch_count": 0,
+        "cancel_keys": [],
+        "pending_flag": None,
+    }
 
     def handler(request):
         requests.append(request)

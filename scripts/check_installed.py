@@ -43,13 +43,13 @@ async def sdk_smoke() -> None:
         calls.append("read")
         return httpx.Response(200, content=snapshot.model_dump_json())
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            observed = await client.swarms.wait(snapshot.run_id, timeout=1)
-            if not observed.finished or calls != ["subscribe", "read"]:
-                raise ValueError("installed observation smoke failed")
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        observed = await client.swarms.wait(snapshot.run_id, timeout=1)
+        if not observed.finished or calls != ["subscribe", "read"]:
+            raise ValueError("installed observation smoke failed")
     checkpoint = StreamCheckpoint(run_id=snapshot.run_id, last_event_id="7")
     if StreamCheckpoint.from_dict(checkpoint.to_dict()) != checkpoint:
         raise ValueError("installed checkpoint smoke failed")
@@ -70,16 +70,18 @@ async def mcp_smoke() -> None:
             "SYNTH_AUTH_FILE": str(Path.cwd() / "absent-auth.json"),
         },
     )
-    async with stdio_client(params) as (reader, writer):
-        async with ClientSession(reader, writer) as session:
-            await session.initialize()
-            catalog = await session.list_tools()
-            if {tool.name: tool.inputSchema for tool in catalog.tools} != {
-                tool["name"]: tool["inputSchema"] for tool in TOOLS
-            }:
-                raise ValueError("installed MCP catalog drift")
-            if not (await session.call_tool("unknown_tool", {})).isError:
-                raise ValueError("installed MCP error signal missing")
+    async with (
+        stdio_client(params) as (reader, writer),
+        ClientSession(reader, writer) as session,
+    ):
+        await session.initialize()
+        catalog = await session.list_tools()
+        if {tool.name: tool.inputSchema for tool in catalog.tools} != {
+            tool["name"]: tool["inputSchema"] for tool in TOOLS
+        }:
+            raise ValueError("installed MCP catalog drift")
+        if not (await session.call_tool("unknown_tool", {})).isError:
+            raise ValueError("installed MCP error signal missing")
 
 
 def main() -> None:

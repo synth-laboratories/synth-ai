@@ -109,7 +109,7 @@ def test_validation_bypasses_are_refused(call):
 
 
 @pytest.mark.parametrize(
-    "source,filename",
+    ("source", "filename"),
     [
         ("from pydantic import JsonValue\ndef read() -> dict[str, JsonValue]: ...", "api.py"),
         ("class Client:\n def _private(self, **kwargs: str) -> None: ...", "api.py"),
@@ -174,7 +174,7 @@ def test_annotation_metadata_and_literal_values_are_not_forward_types(annotation
 
 
 @pytest.mark.parametrize(
-    "source,rule",
+    ("source", "rule"),
     [
         ("def f(value): ...", "ANN001"),
         ("def f(value: str): ...", "ANN201"),

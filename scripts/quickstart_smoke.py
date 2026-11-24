@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import fcntl
 import hashlib
 import json
@@ -298,17 +299,13 @@ async def cli(*args: str) -> dict[str, JsonValue]:
         stdout, _stderr = await process.communicate()
     except asyncio.CancelledError:
         if process.returncode is None:
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 process.terminate()
-            except ProcessLookupError:
-                pass
             try:
                 await asyncio.wait_for(process.wait(), timeout=5)
             except TimeoutError:
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     process.kill()
-                except ProcessLookupError:
-                    pass
                 await process.wait()
         raise
     if process.returncode != 0:
@@ -385,7 +382,11 @@ async def launch(
         session,
         "swarms_upload_file",
         {
-            "body": {"name": task.name, "media_type": "text/markdown", "content": task.read_text()},
+            "body": {
+                "name": task.name,
+                "media_type": "text/markdown",
+                "content": await asyncio.to_thread(task.read_text),
+            },
             "idempotency_key": arm.upload_key,
         },
     )
@@ -539,7 +540,7 @@ async def execute(receipt: Receipt, path: Path) -> None:
     server = StdioServerParameters(
         command=str(Path(sys.executable).with_name("synth-ai-mcp")), env=child_environment()
     )
-    with open(os.devnull, "w") as errors:
+    with open(os.devnull, "w") as errors:  # noqa: ASYNC230 -- child stderr sink for stdio_client
         async with (
             AsyncSynthClient() as client,
             stdio_client(server, errlog=errors) as (reader, writer),
@@ -630,7 +631,7 @@ async def execute(receipt: Receipt, path: Path) -> None:
                     ):
                         try:
                             await cancel_and_reconcile(client, receipt, arm, path)
-                        except Exception:
+                        except Exception:  # noqa: BLE001 -- preserve retained cancel receipt before re-raising
                             # The retained cancel intent must be reconciled before another admission.
                             receipt.save(path)
                     raise
@@ -704,7 +705,7 @@ def main() -> None:
         print("quickstart maximum: $12.00; expected actual: unknown until runs settle", flush=True)
         try:
             asyncio.run(run_with_signals(receipt, args.output, args.cancel_outstanding))
-        except (Exception, KeyboardInterrupt, asyncio.CancelledError) as error:
+        except (Exception, KeyboardInterrupt, asyncio.CancelledError) as error:  # noqa: BLE001 -- top-level redacting exit barrier
             # Do not print response bodies, credentials, URLs or task content.
             print(
                 f"quickstart incomplete: {type(error).__name__}; retain and resume receipt",

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from pydantic import JsonValue
 
 from synth_ai import auth
-from synth_ai._auth_models import OAuthMetadata
+
+if TYPE_CHECKING:
+    from pydantic import JsonValue
+
+    from synth_ai._auth_models import OAuthMetadata
 
 PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource/mcp"
 SAFE_ERROR_CODES = frozenset(
@@ -72,7 +75,7 @@ def response_object(
         )
     if not isinstance(value, dict):
         raise OAuthJourneyError(stage, "oauth_response_invalid")
-    return cast(dict[str, JsonValue], value)
+    return cast("dict[str, JsonValue]", value)
 
 
 def approve(

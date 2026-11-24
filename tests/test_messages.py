@@ -9,6 +9,7 @@ from enum import StrEnum
 import httpx
 import pytest
 from pydantic import ValidationError
+from typing_extensions import override
 
 from synth_ai import AsyncSynthClient, RetryPolicy, SynthClient
 from synth_ai.errors import (
@@ -191,14 +192,17 @@ async def test_false_retryable_refusal_is_never_retried():
 
 async def test_byte_limit_refuses_before_transport():
     requests = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: requests.append(request))
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(ValidationError):
-                await client.swarms.send_message(RUN, "é" * 4097, idempotency_key="large")
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(500)
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        with pytest.raises(ValidationError):
+            await client.swarms.send_message(RUN, "é" * 4097, idempotency_key="large")
     assert requests == []
 
 
@@ -227,16 +231,16 @@ async def test_pagination_and_single_read_use_the_public_routes():
 
 
 async def test_iterator_does_not_silently_turn_unavailable_history_into_no_messages():
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(200, json=page([], available=False))
-        )
-    ) as http:
-        async with AsyncSynthClient(
-            "fixture", base_url="https://example.test", http_client=http
-        ) as client:
-            with pytest.raises(MessagingUnavailableError):
-                await anext(client.swarms.iter_messages(RUN))
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json=page([], available=False))
+            )
+        ) as http,
+        AsyncSynthClient("fixture", base_url="https://example.test", http_client=http) as client,
+    ):
+        with pytest.raises(MessagingUnavailableError):
+            await anext(client.swarms.iter_messages(RUN))
 
 
 async def test_reply_wait_opens_feed_before_history_then_reads_only_on_message_wake():
@@ -272,10 +276,12 @@ async def test_reply_timeout_closes_feed_without_cancelling_message():
     class WaitingFeed(httpx.AsyncByteStream):
         closed = False
 
+        @override
         async def __aiter__(self):
             await asyncio.sleep(3600)
             yield b""
 
+        @override
         async def aclose(self):
             self.closed = True
 

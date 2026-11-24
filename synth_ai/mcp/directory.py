@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..errors import (
+from synth_ai.errors import (
     DirectoryUploadCancelledError,
     DirectoryUploadError,
     InvalidRequestError,
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from pydantic import JsonValue
 
-    from ..aclient import AsyncSynthClient
+    from synth_ai.aclient import AsyncSynthClient
 
 NAME = "swarms_upload_directory"
 DESCRIPTION = (

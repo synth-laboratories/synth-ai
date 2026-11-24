@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from synth_ai import AsyncSynthClient, CompletionMilestone, RunState
 from synth_ai._generated.models import (
     LaunchRequest,
+    ObjectiveClaimedPayload,
     OwnerResourceRequest,
     RunEvent,
     RunSnapshot,
@@ -34,26 +35,26 @@ EVENT_ID = "evt_AAAAAAAAAAAAAAAAAAAAAA"
 
 
 def snapshot():
-    return dict(
-        run_id=RUN_ID,
-        metadata={},
-        labels={},
-        labels_revision=1,
-        objectives=[],
-        guidance_coverage=[],
-        state="running",
-        model="test",
-        provider="test",
-        result_available=False,
-        execution_closed=False,
-        accounting_final=False,
-        cleanup_complete=False,
-        problems=[],
-        problems_observed=True,
-        created_at="2026-11-08T00:00:00Z",
-        started_at=None,
-        closed_at=None,
-    )
+    return {
+        "run_id": RUN_ID,
+        "metadata": {},
+        "labels": {},
+        "labels_revision": 1,
+        "objectives": [],
+        "guidance_coverage": [],
+        "state": "running",
+        "model": "test",
+        "provider": "test",
+        "result_available": False,
+        "execution_closed": False,
+        "accounting_final": False,
+        "cleanup_complete": False,
+        "problems": [],
+        "problems_observed": True,
+        "created_at": "2026-11-08T00:00:00Z",
+        "started_at": None,
+        "closed_at": None,
+    }
 
 
 def launch(**fields):
@@ -92,28 +93,38 @@ def test_run_version_metadata_is_typed_and_absent_on_older_servers():
 @pytest.mark.parametrize("value", [True, "60", 60.5])
 async def test_wrong_wall_time_type_is_rejected_before_any_request(value):
     sent = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: sent.append(request))
-    ) as transport:
-        async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(LaunchValidationError) as caught:
-                await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
-            assert caught.value.code == "invalid_launch_request"
-            assert caught.value.outcome == "not_accepted"
+
+    def handle(request):
+        sent.append(request)
+        return httpx.Response(500)
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as transport,
+        AsyncSynthClient("test", http_client=transport) as client,
+    ):
+        with pytest.raises(LaunchValidationError) as caught:
+            await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
+        assert caught.value.code == "invalid_launch_request"
+        assert caught.value.outcome == "not_accepted"
     assert not sent
 
 
 @pytest.mark.parametrize("value", [0, 86401, -1])
 async def test_wall_time_outside_twenty_four_hours_is_rejected_before_any_request(value):
     sent = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: sent.append(request))
-    ) as transport:
-        async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(LaunchValidationError) as caught:
-                await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
-            assert caught.value.code == "invalid_launch_request"
-            assert caught.value.outcome == "not_accepted"
+
+    def handle(request):
+        sent.append(request)
+        return httpx.Response(500)
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as transport,
+        AsyncSynthClient("test", http_client=transport) as client,
+    ):
+        with pytest.raises(LaunchValidationError) as caught:
+            await client.swarms.launch("hello", budget="1", wall_time_seconds=value)
+        assert caught.value.code == "invalid_launch_request"
+        assert caught.value.outcome == "not_accepted"
     assert not sent
 
 
@@ -133,14 +144,19 @@ def test_wall_time_admits_twenty_four_hours(value):
 @pytest.mark.parametrize("value", [0, 11, -1])
 async def test_parallel_workers_outside_one_to_ten_is_rejected_before_any_request(value):
     sent = []
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: sent.append(request))
-    ) as transport:
-        async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(LaunchValidationError) as caught:
-                await client.swarms.launch("hello", budget="1", parallel_workers=value)
-            assert caught.value.code == "invalid_launch_request"
-            assert caught.value.outcome == "not_accepted"
+
+    def handle(request):
+        sent.append(request)
+        return httpx.Response(500)
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle)) as transport,
+        AsyncSynthClient("test", http_client=transport) as client,
+    ):
+        with pytest.raises(LaunchValidationError) as caught:
+            await client.swarms.launch("hello", budget="1", parallel_workers=value)
+        assert caught.value.code == "invalid_launch_request"
+        assert caught.value.outcome == "not_accepted"
     assert not sent
 
 
@@ -163,26 +179,30 @@ async def test_parallel_workers_reaches_the_wire_and_omitted_stays_absent(value)
 
 
 def budget_floor_problem():
-    return dict(
-        type="about:blank",
-        title="launch_budget_below_actor_floor",
-        detail="maximum_charge must be at least 3000000 micro-USD",
-        status=422,
-        instance="urn:test",
-        code="launch_budget_below_actor_floor",
-        service="core",
-        stage="launch",
-        outcome="not_accepted",
-    )
+    return {
+        "type": "about:blank",
+        "title": "launch_budget_below_actor_floor",
+        "detail": "maximum_charge must be at least 3000000 micro-USD",
+        "status": 422,
+        "instance": "urn:test",
+        "code": "launch_budget_below_actor_floor",
+        "service": "core",
+        "stage": "launch",
+        "outcome": "not_accepted",
+    }
 
 
 async def test_budget_below_actor_floor_is_a_typed_invalid_request():
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _: httpx.Response(422, json=budget_floor_problem()))
-    ) as transport:
-        async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(LaunchBudgetBelowActorFloorError) as caught:
-                await client.swarms.launch("hello", budget="0.01", parallel_workers=10)
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(422, json=budget_floor_problem())
+            )
+        ) as transport,
+        AsyncSynthClient("test", http_client=transport) as client,
+    ):
+        with pytest.raises(LaunchBudgetBelowActorFloorError) as caught:
+            await client.swarms.launch("hello", budget="0.01", parallel_workers=10)
     assert isinstance(caught.value, InvalidRequestError)
     assert caught.value.code == "launch_budget_below_actor_floor"
     assert caught.value.status == 422
@@ -203,13 +223,17 @@ def test_named_inputs_tasks_and_upload_grants_are_records():
         )
     )
     assert isinstance(request.inputs, RunInputs)
+    assert request.inputs.files is not None
     assert isinstance(request.inputs.files[0], InputFile)
     assert isinstance(
-        RunTaskPage(items=[{"task_id": "t", "state": "running"}], has_more=False).items[0], RunTask
+        RunTaskPage.model_validate(
+            {"items": [{"task_id": "t", "state": "running"}], "has_more": False}
+        ).items[0],
+        RunTask,
     )
     assert Upload.model_fields["put"].annotation == UploadGrant | None
     with pytest.raises(ValidationError):
-        request.message = "mutated"
+        request.message = "mutated"  # ty: ignore[invalid-assignment]
     with pytest.raises(ValidationError):
         LaunchRequest.model_validate(launch(labels={"count": 3}))
 
@@ -244,7 +268,7 @@ def test_finished_requires_all_three_authoritative_flags(flags):
     assert record.reached(CompletionMilestone.FINISHED) == all(flags)
     assert record.reached(CompletionMilestone.EXECUTION_CLOSED) == flags[0]
     with pytest.raises(ValueError):
-        record.reached("typo")
+        record.reached("typo")  # ty: ignore[invalid-argument-type]
 
 
 def event(**fields):
@@ -273,21 +297,27 @@ def test_event_kind_selects_payload_instead_of_guessing_from_shape():
         RunEvent.model_validate(event(payload=claim))
     valid = event(payload=claim)
     valid["kind"] = "objective.claimed"
-    assert RunEvent.model_validate(valid).payload.claim_id == "claim"
+    claimed = RunEvent.model_validate(valid)
+    assert isinstance(claimed.payload, ObjectiveClaimedPayload)
+    assert claimed.payload.claim_id == "claim"
     valid["kind"] = "unknown.future_event"
     valid["payload"] = None
     assert RunEvent.model_validate(valid).kind == "unknown.future_event"
 
 
 async def test_malformed_success_preserves_request_identity_and_error_category():
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(200, json={**snapshot(), "execution_closed": "false"})
-        )
-    ) as transport:
-        async with AsyncSynthClient("test", http_client=transport) as client:
-            with pytest.raises(ResponseContractError) as caught:
-                await client.swarms.launch("hello", budget="1", idempotency_key="same-request")
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200, json={**snapshot(), "execution_closed": "false"}
+                )
+            )
+        ) as transport,
+        AsyncSynthClient("test", http_client=transport) as client,
+    ):
+        with pytest.raises(ResponseContractError) as caught:
+            await client.swarms.launch("hello", budget="1", idempotency_key="same-request")
     assert caught.value.kind is ErrorKind.CONTRACT
     assert caught.value.code == "response_contract_invalid"
     assert caught.value.idempotency_key == "same-request"

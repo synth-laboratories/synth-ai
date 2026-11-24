@@ -8,8 +8,10 @@ from __future__ import annotations
 
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import json
-from collections.abc import Mapping
-from typing import Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __all__ = ["classify"]
 

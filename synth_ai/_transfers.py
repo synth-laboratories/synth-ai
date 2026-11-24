@@ -84,7 +84,8 @@ class ArtifactTransfer:
     ) -> tuple[bytes, str]:
         """Read a pinned output revision into memory, refusing past max_bytes.
 
-        Returns the bytes and the served Content-Type. Stops reading at the bound."""
+        Returns the bytes and the served Content-Type. Stops reading at the bound.
+        """
         route = (
             OPERATIONS["getRunOutputContent"]["path"]
             .replace("{run_id}", quote(run_id, safe=""))

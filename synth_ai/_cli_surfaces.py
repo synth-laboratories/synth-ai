@@ -1,6 +1,7 @@
 """Resource CLI commands over public SDK methods; see docs/cli.md."""
 
 import argparse
+import asyncio
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -133,10 +134,22 @@ def configure(
     parsers["families"].set_defaults(resource_action="list")
 
 
+def _read_body_bytes(path: str) -> bytes:
+    return Path(path).read_bytes()
+
+
+def _write_output_bytes(path: str, content: bytes) -> str:
+    destination = Path(path)
+    destination.write_bytes(content)
+    return str(destination)
+
+
 async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -> BaseModel | None:
     match args.command:
         case "labels":
-            labels = RunLabelsRequest.model_validate_json(Path(args.body).read_bytes())
+            labels = RunLabelsRequest.model_validate_json(
+                await asyncio.to_thread(_read_body_bytes, args.body)
+            )
             return await client.swarms.update_labels(
                 args.run_id, labels.labels, expected_revision=labels.expected_revision
             )
@@ -144,9 +157,8 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
             content = await client.swarms.output_content(
                 args.run_id, args.output_id, revision_id=args.revision, digest_sha256=args.sha256
             )
-            destination = Path(args.out)
-            destination.write_bytes(content)
-            return RootModel[str](str(destination))
+            written = await asyncio.to_thread(_write_output_bytes, args.out, content)
+            return RootModel[str](written)
         case "families":
             return await client.swarms.families()
         case "inspect":
@@ -191,7 +203,9 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                         args.identifier, idempotency_key=args.idempotency_key
                     )
                 case "prepare":
-                    body = UploadCreateRequest.model_validate_json(Path(args.body).read_bytes())
+                    body = UploadCreateRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.swarms.prepare_upload(
                         name=body.name,
                         media_type=body.media_type,
@@ -214,7 +228,9 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                 case "revoke":
                     return await client.account.api_keys.revoke(args.identifier)
                 case "mint":
-                    key = MintApiKeyRequest.model_validate_json(Path(args.body).read_bytes())
+                    key = MintApiKeyRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.account.api_keys.mint(
                         purpose=key.purpose,
                         name=key.name,
@@ -224,7 +240,9 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                         idempotency_key=args.idempotency_key,
                     )
                 case "update":
-                    grants = UpdateApiKeyRequest.model_validate_json(Path(args.body).read_bytes())
+                    grants = UpdateApiKeyRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.account.api_keys.update_grants(
                         args.identifier,
                         scopes=grants.scopes,
@@ -305,7 +323,9 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                 case "spend-alerts":
                     return await client.billing.spend_alerts()
                 case "checkout":
-                    checkout = CheckoutRequest.model_validate_json(Path(args.body).read_bytes())
+                    checkout = CheckoutRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.billing.checkout(
                         plan_id=checkout.plan_id,
                         pack_id=checkout.pack_id,
@@ -314,13 +334,15 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                     )
                 case "change-plan":
                     plan = SubscriptionChangeRequest.model_validate_json(
-                        Path(args.body).read_bytes()
+                        await asyncio.to_thread(_read_body_bytes, args.body)
                     )
                     return await client.billing.change_subscription_plan(
                         plan.plan_id, idempotency_key=args.idempotency_key
                     )
                 case "set-auto-reload":
-                    reload = AutoReloadRequest.model_validate_json(Path(args.body).read_bytes())
+                    reload = AutoReloadRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.billing.set_auto_reload(
                         enabled=reload.enabled,
                         threshold=reload.threshold,
@@ -329,7 +351,9 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                         idempotency_key=args.idempotency_key,
                     )
                 case "set-spend-alerts":
-                    alerts = SetSpendAlertsRequest.model_validate_json(Path(args.body).read_bytes())
+                    alerts = SetSpendAlertsRequest.model_validate_json(
+                        await asyncio.to_thread(_read_body_bytes, args.body)
+                    )
                     return await client.billing.set_spend_alerts_request(
                         alerts, idempotency_key=args.idempotency_key
                     )

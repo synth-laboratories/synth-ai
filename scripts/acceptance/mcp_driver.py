@@ -16,12 +16,10 @@ import hashlib
 # ruff: noqa: UP045 -- Explicit Optional at acceptance contract boundaries.
 import json
 from base64 import b64decode
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
-from pathlib import Path
-from typing import Optional, Protocol, TypeVar
+from typing import TYPE_CHECKING, Optional, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
@@ -54,6 +52,10 @@ from .limits import (
     OUTPUT_PAGES_MAX,
     PAGE_ITEMS,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from pathlib import Path
 
 __all__ = [
     "MCPDriver",

@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 import httpx
 import pytest
 from test_journey import ANSWER, OUTPUT_ID, RUN_ID, FakeApi, frame
+from typing_extensions import override
 
 TIMEOUT_SECONDS = 15
 RUN_PATH = f"/v1/runs/{RUN_ID}"
@@ -106,6 +107,7 @@ def loopback_run(contract, barrier):
                 blocked.set()
 
         def answer(self):
+            assert isinstance(self.server, ThreadingHTTPServer)
             length = int(self.headers.get("Content-Length", "0"))
             request = httpx.Request(
                 self.command,
@@ -126,7 +128,8 @@ def loopback_run(contract, barrier):
             self.wfile.write(response.content)
             self.wfile.flush()
 
-        def log_message(self, *_args):
+        @override
+        def log_message(self, format: str, *args: object) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)

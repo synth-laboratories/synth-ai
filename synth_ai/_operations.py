@@ -158,9 +158,9 @@ class OperationExecutor:
         )
         try:
             self.diagnostic_hook(event)
-        except Exception:
+        except Exception:  # noqa: BLE001
             # A diagnostic sink is observational; it cannot change an operation.
-            pass
+            return
 
     async def _invoke(
         self,

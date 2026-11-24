@@ -16,9 +16,12 @@ import stat
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import AbstractContextManager, ExitStack
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from .surfaces import Call, Outcome, Surface
+from typing_extensions import override
+
+if TYPE_CHECKING:
+    from .surfaces import Call, Outcome, Surface
 
 __all__ = [
     "FILE_SUFFIX",
@@ -67,21 +70,25 @@ class LiveSecrets(Mapping[str, str]):
         self._values = dict(values)
         self._files = dict(files)
 
+    @override
     def __getitem__(self, name: str) -> str:
         if name in self._files:
             return read_token_file(name, self._files[name])
         return self._values[name]
 
+    @override
     def __iter__(self) -> Iterator[str]:
         yield from self._values
         yield from self._files
 
+    @override
     def __len__(self) -> int:
         return len(self._values) + len(self._files)
 
     def file_backed(self, name: str) -> bool:
         return name in self._files
 
+    @override
     def __repr__(self) -> str:  # Never the values.
         return f"LiveSecrets(names={sorted(self)})"
 

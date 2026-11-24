@@ -13,9 +13,9 @@ import secrets
 import tempfile
 import time
 import webbrowser
-from collections.abc import Callable, Mapping
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
@@ -33,6 +33,9 @@ from ._auth_models import (
 )
 from ._generated.policy import SDK_OAUTH_SCOPES
 from .errors import SynthError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 DEFAULT_BASE_URL = "https://api.usesynth.ai"
 DEFAULT_OAUTH_BASE_URL = "https://mcp.usesynth.ai"
@@ -86,7 +89,8 @@ def save_tokens(records: Mapping[str, CredentialRecord | dict[str, JsonValue]]) 
 
 def oauth_base(base: str) -> str:
     """The OAuth origin for an API base. Production signs in on the MCP host; every
-    other stack serves both from one origin. Tokens stay stored under the API base."""
+    other stack serves both from one origin. Tokens stay stored under the API base.
+    """
     override = os.getenv("SYNTH_OAUTH_BASE_URL")
     if override is not None and override != "":
         return override.rstrip("/")

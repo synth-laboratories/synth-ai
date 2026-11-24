@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, field_validator
 
 from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH, SSE_FRAME_MAX_BYTES
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Mapping
 
 
 class StreamCheckpointData(BaseModel):
@@ -131,7 +133,7 @@ async def frames(lines: AsyncIterator[str]) -> AsyncIterator[Frame]:
         if line == "":
             if data or event_id is not None:
                 yield Frame(event, "\n".join(data), event_id)
-            event, event_id, data, size = "message", None, cast(list[str], []), 0
+            event, event_id, data, size = "message", None, cast("list[str]", []), 0
             continue
         if line.startswith(":"):
             continue

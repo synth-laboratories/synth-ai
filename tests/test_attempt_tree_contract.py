@@ -111,7 +111,7 @@ def test_measured_and_unverified_scores_round_trip_without_field_loss():
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    ("field", "value"),
     [
         ("evaluator", None),
         ("evidence", []),

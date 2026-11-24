@@ -16,6 +16,7 @@ def test_grant_pins_root_through_parent_replacement(tmp_path):
     root.mkdir(parents=True)
     (root / "allowed.bin").write_bytes(b"\0\xff")
     with directory.grant_root(str(root)) as fd:
+        assert fd is not None
         (tmp_path / "parent").rename(tmp_path / "original")
         root.mkdir(parents=True)
         (root / "secret.bin").write_bytes(b"secret")
@@ -27,6 +28,7 @@ def test_grant_pins_root_through_parent_replacement(tmp_path):
             os.fstat(fd)  # Snapshot borrows rather than consumes the capability.
         finally:
             snapshot.stream.close()
+    assert fd is not None
     with pytest.raises(OSError):
         os.fstat(fd)
 
@@ -44,9 +46,8 @@ def test_grant_refuses_links_and_ambiguous_paths(tmp_path, kind):
         "parent_traversal": str(root / ".." / "real"),
         "relative": "real",
     }[kind]
-    with pytest.raises((OSError, ValueError)):
-        with directory.grant_root(path):
-            pytest.fail("unsafe grant accepted")
+    with pytest.raises((OSError, ValueError)), directory.grant_root(path):
+        pytest.fail("unsafe grant accepted")
 
 
 async def test_no_ambient_directory_tool(tmp_path):
@@ -101,9 +102,11 @@ def test_parallel_snapshots_have_independent_directory_cursors(tmp_path):
     for name in names:
         (tmp_path / name).write_bytes(b"data")
     with directory.grant_root(str(tmp_path)) as fd:
+        assert fd is not None
+        root_fd = fd
 
         def snapshot_names(_):
-            snapshot = DirectorySnapshot.prepare(fd)
+            snapshot = DirectorySnapshot.prepare(root_fd)
             try:
                 return [f.name for f in snapshot.files]
             finally:

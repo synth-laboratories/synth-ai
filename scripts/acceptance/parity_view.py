@@ -13,10 +13,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .attempt_tree import Attempt, project_attempts
-from .j1 import J1Observation
+
+if TYPE_CHECKING:
+    from .j1 import J1Observation
 
 __all__ = ["SCHEMA", "ParityDriver", "ParityView", "project"]
 SCHEMA = "synth.j1.parity_view.v1"

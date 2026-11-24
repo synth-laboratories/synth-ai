@@ -6,11 +6,13 @@ import argparse
 import hashlib
 import json
 from collections import Counter
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .isolation import RESOURCE_NOT_FOUND
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 DRIVERS = {"sdk", "cli", "mcp_stdio"}
 

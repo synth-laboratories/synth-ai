@@ -39,7 +39,9 @@ def test_capabilities_name_only_contract_operations(contract):
     assert set(SDK_CALLS) <= operations
     assert set(CLI_ARGV) <= operations
     document = capabilities()
-    assert set(document["steps"]) == {step.value for step in Step}
+    steps = document["steps"]
+    assert isinstance(steps, dict)
+    assert set(steps) == {step.value for step in Step}
     matrix = {row[0] for row in matrix_operations()}
     assert {"getRun", "getFile", "revokeApiKey", "getCheckout"} <= matrix
     assert "getAccount" not in matrix
@@ -68,8 +70,8 @@ def test_accepted_probe_is_cancelled_and_fails(contract, tmp_path, surface):
     assert any(path.endswith("/cancel") for _, path, _ in requests)
 
 
-# The SDK refuses a contract-invalid launch with a raw pydantic error that has
-# no public code (reported on SYN-5695/SYN-5666). CLI and MCP refuse it typed.
+# SDK, CLI, and MCP all refuse contract-invalid launches with typed codes
+# before reaching Core (SYN-5942).
 
 
 CLIENT_SIDE = {
@@ -244,7 +246,10 @@ def test_rate_limit_refusal_waits_retry_after_then_ends_on_pre_effect_refusal(tm
     result, _ = run(surface, responder, tmp_path, Step.RATE_LIMIT_REFUSAL)
     assert (result.verdict, result.cause) == (Verdict.PASS, ""), result
     probes = [at for at, body in state["posts"] if body != {}]
-    assert len(probes) >= 2 and probes[-1] >= state["reopens"]  # retried only after reopening
+    reopens = state["reopens"]
+    assert (
+        reopens is not None and len(probes) >= 2 and probes[-1] >= reopens
+    )  # retried only after reopening
     assert result.evidence[-1]["fill_statuses"] == [422, 422, 422, 429]
 
 

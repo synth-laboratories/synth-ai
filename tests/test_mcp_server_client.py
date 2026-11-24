@@ -20,6 +20,7 @@ RUN = "run_AAAAAAAAAAAAAAAAAAAAAA"
 async def test_server_over_injected_client_launches_queued_run(contract):
     pytest.importorskip("mcp")
     from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
 
     from synth_ai.mcp.server import build_server
 
@@ -68,8 +69,10 @@ async def test_server_over_injected_client_launches_queued_run(contract):
             result = await session.call_tool(
                 create, {"body": body, "idempotency_key": "fixture-mcp-queued"}
             )
-    assert not result.isError, result.content[0].text
-    launched = json.loads(result.content[0].text)
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    assert not result.isError, content.text
+    launched = json.loads(content.text)
     assert launched["run_id"] == RUN and launched["state"] == "queued"
     assert launched["queue"]["position"] == 2
     assert [(r.method, r.url.path, r.headers.get("Idempotency-Key")) for r in seen] == [

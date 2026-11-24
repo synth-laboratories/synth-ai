@@ -8,7 +8,7 @@ from synth_ai import errors
 
 
 @pytest.mark.parametrize(
-    "code,status,kind",
+    ("code", "status", "kind"),
     re.findall(
         r"\| `([^`]+)` \| (\d+) \| `([^`]+)` \|",
         (Path(__file__).parents[1] / "docs/errors.md").read_text(),

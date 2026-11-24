@@ -142,7 +142,7 @@ def test_help_lists_exactly_the_task_verbs():
 
 
 @pytest.mark.parametrize(
-    "argv,oid,human",
+    ("argv", "oid", "human"),
     [
         (["status", RUN_ID], "getRun", "state"),
         (["tasks", RUN_ID], "listRunTasks", "TASK"),
@@ -364,7 +364,7 @@ def test_upload_is_one_step(api, capsys, contract, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "state,expected",
+    ("state", "expected"),
     [("completed", cli.EXIT_OK), ("failed", cli.EXIT_RUN_UNSUCCESSFUL), ("cancelled", 3)],
 )
 def test_wait_exit_codes(api, capsys, contract, state, expected):

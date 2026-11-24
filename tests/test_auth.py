@@ -45,11 +45,13 @@ def test_private_atomic_store_and_environment_precedence(tokens, monkeypatch):
     ],
 )
 def test_discovery_rejects_mismatched_issuer_and_weak_pkce(metadata):
-    with httpx.Client(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=metadata))
-    ) as client:
-        with pytest.raises(SynthError):
-            auth.discover(client, BASE)
+    with (
+        httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=metadata))
+        ) as client,
+        pytest.raises(SynthError),
+    ):
+        auth.discover(client, BASE)
 
 
 @pytest.mark.parametrize(
@@ -117,6 +119,7 @@ def test_production_signs_in_on_the_mcp_host_and_stores_under_the_api_base(token
     seen = {}
 
     def post(self, url, data=None, **_):
+        assert data is not None
         seen.update(url=url, resource=data["resource"])
         return httpx.Response(
             200,

@@ -8,9 +8,10 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
+    import httpx
+
     from ._stream import StreamCheckpoint
 
-import httpx
 from pydantic import ValidationError
 
 from ._generated.models import File, Problem, ProblemOutcome, RunSnapshot

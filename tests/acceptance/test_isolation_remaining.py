@@ -85,7 +85,7 @@ def test_remaining_cells_pin_the_current_contract():
     from scripts.acceptance import isolation_remaining as remaining
 
     source = tomllib.loads((Path(__file__).parents[2] / "contracts/SOURCE.toml").read_text())
-    assert remaining.CONTRACT_SHA256 == source["sha256"]
+    assert source["sha256"] == remaining.CONTRACT_SHA256
     assert remaining.RELEASE == "1.40.0"
     # Run messages shipped after the retained 1.35.1 receipt: they are open cells now.
     cell = remaining.Cell(remaining.SurfaceName.SDK, "sendRunMessage", "not_in_release:1.35.1")

@@ -2,6 +2,7 @@ import json
 
 import httpx
 import pytest
+from pydantic import JsonValue
 
 from synth_ai._generated.models import RunLabelsRequest
 from synth_ai._transport import RetryPolicy, Transport
@@ -14,7 +15,7 @@ from synth_ai.errors import (
 
 
 @pytest.mark.parametrize(
-    "operation,path",
+    ("operation", "path"),
     [
         ("updateRunLabels", {"run_id": "run_one"}),
         ("updateApiKey", {"key_id": "key_one"}),
@@ -34,11 +35,11 @@ async def test_malformed_mutation_success_never_claims_no_effect(operation, path
         with pytest.raises(ResponseContractError) as caught:
             await transport.invoke(operation, path=path, idempotency_key="retained")
     assert caught.value.outcome == "unknown"
-    assert caught.value.request_id
+    assert caught.value.request_id is not None and caught.value.request_id != ""
 
 
 @pytest.mark.parametrize(
-    "fault,unknown",
+    ("fault", "unknown"),
     [
         (httpx.ConnectError, False),
         (httpx.ConnectTimeout, False),
@@ -87,17 +88,20 @@ async def test_unverified_mutation_refusal_is_not_retried(body):
                 "cancelRun", path={"run_id": "run_one"}, idempotency_key="retained"
             )
     assert len(calls) == 1
-    assert caught.value.idempotency_key == "retained" and caught.value.request_id
+    assert caught.value.idempotency_key == "retained"
+    assert caught.value.request_id is not None and caught.value.request_id != ""
 
 
 async def test_retry_freezes_nested_payload_and_identity():
     # Use an open generated-independent payload to exercise the serialization boundary.
-    body = {"metadata": {"tags": ["original"]}}
+    tags: list[JsonValue] = ["original"]
+    metadata: dict[str, JsonValue] = {"tags": tags}
+    body: dict[str, JsonValue] = {"metadata": metadata}
     calls = []
 
     def handle(request):
         calls.append(request)
-        body["metadata"]["tags"].append("changed")
+        tags.append("changed")
         return httpx.Response(
             503,
             json=local_problem("busy", "admission")

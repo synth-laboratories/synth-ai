@@ -12,12 +12,13 @@ if TYPE_CHECKING:
     from mcp.server import Server
     from mcp.types import CallToolResult, TextContent, Tool
 
+    from synth_ai._retry import RetryPolicy
+
 from pydantic import BaseModel, JsonValue
 
-from .._retry import RetryPolicy
-from ..aclient import AsyncSynthClient
-from ..environments import Environment
-from ..errors import (
+from synth_ai.aclient import AsyncSynthClient
+from synth_ai.environments import Environment
+from synth_ai.errors import (
     DirectoryUploadCancelledError,
     DirectoryUploadError,
     InvalidRequestError,
@@ -25,6 +26,7 @@ from ..errors import (
     check_upload_format,
     local_problem,
 )
+
 from . import directory
 from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema

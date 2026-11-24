@@ -6,8 +6,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 FIXTURE_BYTES_MAX = 65536
 MESSAGE_BYTES_MAX = 8192

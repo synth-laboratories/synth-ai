@@ -54,11 +54,13 @@ async def asynchronous(client: AsyncSynthClient) -> None:
 async def managed_observation() -> None:
     checkpoint = StreamCheckpoint()
     assert_type(StreamCheckpoint.from_dict(checkpoint.to_dict()), StreamCheckpoint)
-    async with AsyncSynthClient("fixture") as client:
-        async with aclosing(client.swarms.follow("run", checkpoint=StreamCheckpoint())) as events:
-            async for event in events:
-                assert_type(event, RunEvent)
-                break
+    async with (
+        AsyncSynthClient("fixture") as client,
+        aclosing(client.swarms.follow("run", checkpoint=StreamCheckpoint())) as events,
+    ):
+        async for event in events:
+            assert_type(event, RunEvent)
+            break
 
 
 def managed_sync_client() -> None:

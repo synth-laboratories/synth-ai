@@ -11,6 +11,7 @@ import os
 from contextlib import contextmanager
 
 import pytest
+from pydantic import JsonValue
 
 from scripts.acceptance import message_journey as messages
 from scripts.acceptance.journeys import JourneyContext, Secret, Step, Verdict, run_step
@@ -34,14 +35,14 @@ class ScriptedSurface:
         self.sends = 0
         self.changed_id = False
         self.position = 17
-        self.reply_body = {"kind": "available", "text": ANSWER}
+        self.reply_body: JsonValue = {"kind": "available", "text": ANSWER}
         self.leak_internal = False
         self.leak_existence = False
         self.retry_after = 120
         self.rate_limit = "run_messages_per_hour"
         self.refusal_outcome = "not_accepted"
         self.preexisting_question = False
-        self.history_availability = {"kind": "available"}
+        self.history_availability: JsonValue = {"kind": "available"}
 
     def problem(self, operation, code, status, run_id, **extra):
         body = {
@@ -61,7 +62,7 @@ class ScriptedSurface:
             retry_after=self.retry_after,
         )
 
-    def message(self, *, queued=False):
+    def message(self, *, queued=False) -> dict[str, JsonValue]:
         return {
             "message_id": MESSAGE,
             "run_id": RUN,
@@ -143,7 +144,7 @@ class ScriptedSurface:
                     True,
                     {"items": [], "has_more": False, "availability": self.history_availability},
                 )
-            items = [
+            items: list[JsonValue] = [
                 self.message(),
                 {
                     "message_id": "reply_fixture",
@@ -223,7 +224,7 @@ def test_recorded_question_checks_position_idempotency_reply_and_redacts_text(co
 
 
 @pytest.mark.parametrize(
-    "change,cause",
+    ("change", "cause"),
     [
         ("position", "message_delivery_position_changed"),
         ("changed_id", "message_idempotency_changed"),
@@ -237,7 +238,7 @@ def test_changed_recording_position_or_idempotency_cannot_pass(context, change, 
 
 
 @pytest.mark.parametrize(
-    "body,verdict",
+    ("body", "verdict"),
     [(None, Verdict.FAIL), ({"kind": "unavailable", "reason": "retention"}, Verdict.INCONCLUSIVE)],
 )
 def test_missing_body_never_becomes_an_empty_successful_answer(context, body, verdict):
@@ -317,7 +318,7 @@ def test_cross_org_is_compared_to_absence_and_internal_threads_never_leak(contex
     assert messages.message_isolation(ctx).cause == "internal_thread_message_leaked"
 
 
-def test_event_surface_adapters_keep_cursor_and_limit():
+def test_event_surface_adapters_keep_cursor_and_limit(tmp_path):
     calls = []
 
     class Client:
@@ -329,9 +330,9 @@ def test_event_surface_adapters_keep_cursor_and_limit():
             calls.append((run_id, query))
 
     call = Call("listRunEvents", path={"run_id": RUN}, query={"cursor": "checkpoint", "limit": 100})
-    SDK_CALLS["listRunEvents"](Client(), call)
+    SDK_CALLS["listRunEvents"](Client(), call)  # ty: ignore[invalid-argument-type]
     assert calls == [(RUN, {"cursor": "checkpoint", "limit": 100})]
-    assert CLI_ARGV["listRunEvents"](call, None) == [
+    assert CLI_ARGV["listRunEvents"](call, tmp_path) == [
         "logs",
         RUN,
         "--limit",
@@ -398,7 +399,7 @@ def test_reply_must_be_posted_manager_output(context):
 
 
 @pytest.mark.parametrize(
-    "availability,verdict",
+    ("availability", "verdict"),
     [
         ({"kind": "unavailable", "reason": "messaging_unavailable"}, Verdict.INCONCLUSIVE),
         (None, Verdict.FAIL),

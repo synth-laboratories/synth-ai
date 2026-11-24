@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from synth_ai import __version__
-from synth_ai._generated.models import LaunchRequest
+from synth_ai._generated.models import LaunchBudget, LaunchRequest, Limits
 from synth_ai._transport import RetryPolicy, Transport
 from synth_ai.cli import read_task
 from synth_ai.errors import SwarmsAPIError, TransportFailureError
@@ -23,23 +23,15 @@ def test_shared_utf8_boundaries(row, tmp_path):
     text = row["text"] if "text" in row else row["unit"] * row["repeat"]
     path = tmp_path / "task.txt"
     path.write_text(text)
+    limits = Limits(
+        maximum_charge=LaunchBudget(amount="1.00", currency="USD"),
+        wall_time_seconds=60,
+    )
     if row["accepted"]:
-        assert LaunchRequest(
-            message=text,
-            limits={
-                "maximum_charge": {"amount": "1.00", "currency": "USD"},
-                "wall_time_seconds": 60,
-            },
-        ).message == read_task(str(path))
+        assert LaunchRequest(message=text, limits=limits).message == read_task(str(path))
     else:
         with pytest.raises(ValidationError) as error:
-            LaunchRequest(
-                message=text,
-                limits={
-                    "maximum_charge": {"amount": "1.00", "currency": "USD"},
-                    "wall_time_seconds": 60,
-                },
-            )
+            LaunchRequest(message=text, limits=limits)
         assert any(item["loc"] == ("message",) for item in error.value.errors())
         with pytest.raises(ValueError):
             read_task(str(path))
@@ -53,7 +45,7 @@ def test_user_agent_tracks_package_metadata():
 
 
 @pytest.mark.parametrize(
-    "operation,body", [("updateApiKey", {}), ("createRun", {"outcome": "unknown"})]
+    ("operation", "body"), [("updateApiKey", {}), ("createRun", {"outcome": "unknown"})]
 )
 async def test_unverified_or_ambiguous_mutations_are_not_replayed(operation, body):
     calls = []

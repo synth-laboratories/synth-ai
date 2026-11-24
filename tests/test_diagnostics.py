@@ -71,25 +71,26 @@ async def test_injected_redirect_policy_cannot_forward_credentials(operation, tm
         assert request.url.host == "example.test"
         return httpx.Response(307, headers={"Location": "https://unrelated.example.test/private"})
 
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(handle), follow_redirects=True
-    ) as http:
-        async with AsyncSynthClient(
-            "secret", base_url="https://example.test", http_client=http
-        ) as api:
-            with pytest.raises(MalformedErrorResponseError) as caught:
-                if operation == "get":
-                    await api.swarms.get("run")
-                elif operation == "follow":
-                    await anext(api.swarms.follow("run"))
-                else:
-                    await api.swarms.download_output(
-                        "run",
-                        "out",
-                        str(tmp_path / "download"),
-                        revision_id="rev",
-                        digest_sha256="0" * 64,
-                    )
+    async def _invoke(api: AsyncSynthClient) -> None:
+        if operation == "get":
+            await api.swarms.get("run")
+        elif operation == "follow":
+            await anext(api.swarms.follow("run"))
+        else:
+            await api.swarms.download_output(
+                "run",
+                "out",
+                str(tmp_path / "download"),
+                revision_id="rev",
+                digest_sha256="0" * 64,
+            )
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handle), follow_redirects=True) as http,
+        AsyncSynthClient("secret", base_url="https://example.test", http_client=http) as api,
+    ):
+        with pytest.raises(MalformedErrorResponseError) as caught:
+            await _invoke(api)
     assert caught.value.problem.upstream_status == 307 and len(calls) == 1
 
 

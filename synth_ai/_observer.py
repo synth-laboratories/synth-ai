@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import AsyncIterator
-from contextlib import AbstractAsyncContextManager
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import httpx
 
@@ -31,6 +29,10 @@ from .errors import (
     local_problem,
     stream_interrupted,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
 # Reconcile lost wakes on an open feed; milestones drive normal progress.
 _RECONCILE_SECONDS = 30.0

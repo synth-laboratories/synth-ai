@@ -74,7 +74,7 @@ class Clock:
         self.now += seconds
 
 
-def script(*responses):
+def script(*responses: httpx.Response):
     requests: list[httpx.Request] = []
     queue = list(responses)
 
@@ -120,7 +120,7 @@ async def test_two_pending_then_accepted_generates_one_key_when_caller_gave_none
 
 
 @pytest.mark.parametrize(
-    "header,wait",
+    ("header", "wait"),
     [("7", 7.0), ("600", 60.0), (None, 1.0), ("soon", 1.0), ("0", 0.0)],
 )
 async def test_retry_after_is_honoured_capped_and_defaulted(header, wait):

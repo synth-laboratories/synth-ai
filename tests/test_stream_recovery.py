@@ -44,7 +44,7 @@ async def test_restart_partial_expansion_and_committed_duplicate(contract):
     state = snapshot(contract, execution_closed=True)
     one, two = event(state["run_id"], "A"), event(state["run_id"], "B")
     checkpoint = StreamCheckpoint.from_dict(
-        dict(run_id=state["run_id"], last_event_id="7", pending_event_ids=[one["event_id"]])
+        {"run_id": state["run_id"], "last_event_id": "7", "pending_event_ids": [one["event_id"]]}
     )
     transcript = frame(one) + frame(two, "8") + frame(two, "8")
 
@@ -83,18 +83,18 @@ async def test_checkpoint_overflow_leaves_recoverable_prior_state(contract):
         pending_event_ids={f"received-{i}" for i in range(CHECKPOINT_MAX_EVENTS)},
     )
     prior = checkpoint.to_dict()
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda r: httpx.Response(
-                200,
-                headers={"Content-Type": "text/event-stream"},
-                content=frame(event(state["run_id"], "A")),
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(
+                    200,
+                    headers={"Content-Type": "text/event-stream"},
+                    content=frame(event(state["run_id"], "A")),
+                )
             )
-        )
-    ) as http:
-        async with AsyncSynthClient(
-            "token", base_url="https://example.test", http_client=http
-        ) as api:
-            with pytest.raises(ResponseContractError):
-                await anext(api.swarms.follow(state["run_id"], checkpoint=checkpoint))
+        ) as http,
+        AsyncSynthClient("token", base_url="https://example.test", http_client=http) as api,
+    ):
+        with pytest.raises(ResponseContractError):
+            await anext(api.swarms.follow(state["run_id"], checkpoint=checkpoint))
     assert checkpoint.to_dict() == prior

@@ -27,7 +27,7 @@ def method(api, resource, name):
     return getattr(api, name)
 
 
-@pytest.mark.parametrize("resource,name,path,args", CASES)
+@pytest.mark.parametrize(("resource", "name", "path", "args"), CASES)
 @pytest.mark.parametrize("sync", [False, True])
 async def test_lazy_page_iterators_preserve_filters_and_types(
     contract, resource, name, path, args, sync
@@ -69,7 +69,7 @@ async def test_bad_or_cyclic_cursor_refused_before_repeated_fetch(contract, curs
     def handle(request):
         calls.append(request)
         return httpx.Response(
-            200, json=dict(items=[], has_more=True, next_cursor=cursors[len(calls) - 1])
+            200, json={"items": [], "has_more": True, "next_cursor": cursors[len(calls) - 1]}
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:

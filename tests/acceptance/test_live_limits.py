@@ -113,7 +113,7 @@ def test_all_four_fields_round_trip_with_next_views(contract, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "defect,code",
+    ("defect", "code"),
     [
         ("noop", "limit_update_not_observed"),
         ("other_cap", "limit_update_not_observed"),

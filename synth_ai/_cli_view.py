@@ -6,12 +6,11 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
-from ._auth_models import AuthStatus
 from ._generated.models import (
     Account,
     Balance,
@@ -44,6 +43,11 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._stream import StreamCheckpoint, StreamCheckpointData
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ._auth_models import AuthStatus
 
 
 class SavedOutput(BaseModel):

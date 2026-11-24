@@ -14,6 +14,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -60,9 +61,9 @@ def route(request: httpx.Request) -> str:
     raise AssertionError("unrouted " + request.method + " " + request.url.path)
 
 
-def frame(event: str | None, body: dict, event_id: str | None = None) -> str:
-    head = ("event: " + event + "\n" if event else "") + (
-        "id: " + event_id + "\n" if event_id else ""
+def frame(event: str | None, body: dict[str, Any], event_id: str | None = None) -> str:
+    head = ("event: " + event + "\n" if event is not None and event else "") + (
+        "id: " + event_id + "\n" if event_id is not None and event_id else ""
     )
     return head + "data: " + json.dumps(body) + "\n\n"
 
@@ -73,7 +74,7 @@ class FakeApi:
     def __init__(self, contract):
         self.contract = contract
         self.calls: list[str] = []
-        self.launches: list[dict] = []
+        self.launches: list[dict[str, Any]] = []
         self.state = "queued"
         self.stream_opens: list[str | None] = []
         self.waits = 0
@@ -91,7 +92,7 @@ class FakeApi:
             },
         }
 
-    def snapshot(self) -> dict:
+    def snapshot(self) -> dict[str, Any]:
         _, body = example(self.contract, "getRun")
         done = self.state == "completed"
         body.update(
@@ -103,7 +104,7 @@ class FakeApi:
         )
         return body
 
-    def event(self, sequence: int) -> dict:
+    def event(self, sequence: int) -> dict[str, Any]:
         return {
             "event_id": "evt_" + str(sequence).rjust(22, "A"),
             "run_id": RUN_ID,
@@ -226,12 +227,12 @@ class FakeApi:
         status, body = example(self.contract, oid)
         return httpx.Response(status, json=body)
 
-    def manifest(self) -> dict:
+    def manifest(self) -> dict[str, Any]:
         _, manifest = example(self.contract, "uploadFile")
         manifest.update(size_bytes=len(TASK), digest_sha256=hashlib.sha256(TASK).hexdigest())
         return manifest
 
-    def upload(self, state: str) -> dict:
+    def upload(self, state: str) -> dict[str, Any]:
         return {"upload_id": "upl_AAAAAAAAAAAAAAAAAAAAAA", "state": state, "file": self.manifest()}
 
 
@@ -248,7 +249,7 @@ class Facts:
 Step = Callable[[], Awaitable[None]]
 
 
-def sdk_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step], Callable]:
+def sdk_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step], Step]:
     http = httpx.AsyncClient(transport=httpx.MockTransport(api))
     client = AsyncSynthClient("fixture", base_url="https://api.example.test", http_client=http)
     swarms = client.swarms
@@ -285,7 +286,7 @@ def sdk_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
     async def outputs():
         page = await swarms.outputs(RUN_ID)
         facts.verified_outputs = [
-            o.output_id for o in page.items if (o.reference or {}).get("digest_sha256")
+            o.output_id for o in page.items if (o.reference or {}).get("digest_sha256") is not None
         ]
 
     async def answer():
@@ -294,22 +295,22 @@ def sdk_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
     async def usage():
         facts.usage_records = len((await client.account.usage_records(run_id=RUN_ID)).items)
 
-    steps = dict(
-        discover_profiles=discover_profiles,
-        upload_file=upload_file,
-        launch=launch,
-        pause=pause,
-        resume=resume,
-        watch=watch,
-        outputs=outputs,
-        answer=answer,
-        usage=usage,
-    )
+    steps = {
+        "discover_profiles": discover_profiles,
+        "upload_file": upload_file,
+        "launch": launch,
+        "pause": pause,
+        "resume": resume,
+        "watch": watch,
+        "outputs": outputs,
+        "answer": answer,
+        "usage": usage,
+    }
     return steps, client.close
 
 
 def cli_surface(api: FakeApi, task: Path, facts: Facts, capsys) -> dict[str, Step]:
-    async def synth(*argv: str) -> dict | list:
+    async def synth(*argv: str) -> dict[str, Any] | list[Any]:
         # The CLI owns its event loop (asyncio.run), so it runs on a worker thread here.
         code = await asyncio.to_thread(
             lambda: cli.main(
@@ -327,7 +328,9 @@ def cli_surface(api: FakeApi, task: Path, facts: Facts, capsys) -> dict[str, Ste
         await synth("profiles")
 
     async def upload_file():
-        file_ids.extend(f["file_id"] for f in await synth("upload", str(task)))
+        uploaded = await synth("upload", str(task))
+        assert isinstance(uploaded, list)
+        file_ids.extend(f["file_id"] for f in uploaded)
 
     async def launch():
         await synth("run", "Find the fault", "--budget", BUDGET, "--file", str(task))
@@ -339,41 +342,48 @@ def cli_surface(api: FakeApi, task: Path, facts: Facts, capsys) -> dict[str, Ste
         await synth("resume", RUN_ID)
 
     async def watch():
-        facts.state = (await synth("wait", RUN_ID, "--timeout", "30"))["state"]
+        waited = await synth("wait", RUN_ID, "--timeout", "30")
+        assert isinstance(waited, dict)
+        facts.state = waited["state"]
 
     async def outputs():
         page = await synth("outputs", RUN_ID)
+        assert isinstance(page, dict)
         facts.verified_outputs = [
             o["output_id"] for o in page["items"] if o["reference"].get("digest_sha256")
         ]
 
     async def answer():
-        facts.answer = (await synth("result", RUN_ID))["answer"]
+        result = await synth("result", RUN_ID)
+        assert isinstance(result, dict)
+        facts.answer = result["answer"]
 
     async def usage():
-        facts.usage_records = len((await synth("usage", RUN_ID))["items"])
+        usage_page = await synth("usage", RUN_ID)
+        assert isinstance(usage_page, dict)
+        facts.usage_records = len(usage_page["items"])
 
-    return dict(
-        discover_profiles=discover_profiles,
-        upload_file=upload_file,
-        launch=launch,
-        pause=pause,
-        resume=resume,
-        watch=watch,
-        outputs=outputs,
-        answer=answer,
-        usage=usage,
-    )
+    return {
+        "discover_profiles": discover_profiles,
+        "upload_file": upload_file,
+        "launch": launch,
+        "pause": pause,
+        "resume": resume,
+        "watch": watch,
+        "outputs": outputs,
+        "answer": answer,
+        "usage": usage,
+    }
 
 
-def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step], Callable]:
+def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step], Step]:
     http = httpx.AsyncClient(transport=httpx.MockTransport(api))
     client = AsyncSynthClient("fixture", base_url="https://api.example.test", http_client=http)
     listed = {tool["name"] for tool in TOOLS}
     keys = iter(range(1000))
-    files: list[dict] = []
+    files: list[dict[str, Any]] = []
 
-    async def tool(name: str, **arguments) -> dict:
+    async def tool(name: str, **arguments: Any) -> dict[str, Any]:
         assert name in listed, "stdio MCP server does not list " + name
         return json.loads(await call_tool(client, name, arguments))
 
@@ -384,7 +394,8 @@ def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
         await tool("swarms_profiles_list")
 
     async def upload_file():
-        body = {"name": task.name, "media_type": "text/markdown", "content": task.read_text()}
+        content = await asyncio.to_thread(task.read_text)
+        body = {"name": task.name, "media_type": "text/markdown", "content": content}
         files.append(await tool("swarms_upload_file", body=body, idempotency_key=key()))
 
     async def launch():
@@ -425,17 +436,17 @@ def mcp_surface(api: FakeApi, task: Path, facts: Facts) -> tuple[dict[str, Step]
     async def usage():
         facts.usage_records = len((await tool("account_usage_for_run", run_id=RUN_ID))["items"])
 
-    steps = dict(
-        discover_profiles=discover_profiles,
-        upload_file=upload_file,
-        launch=launch,
-        pause=pause,
-        resume=resume,
-        watch=watch,
-        outputs=outputs,
-        answer=answer,
-        usage=usage,
-    )
+    steps = {
+        "discover_profiles": discover_profiles,
+        "upload_file": upload_file,
+        "launch": launch,
+        "pause": pause,
+        "resume": resume,
+        "watch": watch,
+        "outputs": outputs,
+        "answer": answer,
+        "usage": usage,
+    }
     return steps, client.close
 
 

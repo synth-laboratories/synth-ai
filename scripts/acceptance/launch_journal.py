@@ -11,9 +11,12 @@ import json
 import logging
 import os
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from synth_ai.models import RunSnapshot
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 __all__ = ["InputIdentity", "LaunchIntent", "LaunchJournal", "LaunchJournalError"]
 _LOGGER = logging.getLogger(__name__)
