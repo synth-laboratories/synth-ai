@@ -117,7 +117,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     # An exact candidate (scripts/qualify_release.py); the default stays the checkout's dist wheel.
     parser.add_argument("--wheel", type=Path)
+    parser.add_argument("--metadata-only", action="store_true")
     arguments = parser.parse_args(argv)
+    if arguments.metadata_only:
+        check_project_urls(pyproject)
+        check_readme_links((ROOT / "README.md").read_text())
+        print({"pypi_metadata": "passed"})
+        return 0
     wheel = arguments.wheel or ROOT / "dist" / f"synth_ai-{version}-py3-none-any.whl"
     if arguments.wheel is None:
         check_project_urls(pyproject)
