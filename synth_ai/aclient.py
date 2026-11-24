@@ -9,6 +9,7 @@ from .account import AsyncAccount
 from .auth import credentials
 from .billing import AsyncBilling
 from .environments import Environment, resolve_base_url
+from .research import AsyncArtifacts, AsyncExperiments, AsyncResearchLogs
 from .swarms import AsyncSwarms
 
 if TYPE_CHECKING:
@@ -52,6 +53,9 @@ class AsyncSynthClient:
         self.swarms = AsyncSwarms(self._transport)
         self.account = AsyncAccount(self._transport)
         self.billing = AsyncBilling(self._transport)
+        self.artifacts = AsyncArtifacts(self._transport)
+        self.experiments = AsyncExperiments(self._transport)
+        self.research_logs = AsyncResearchLogs(self._transport)
 
     async def close(self) -> None:
         """Close the client transport and owned network resources."""

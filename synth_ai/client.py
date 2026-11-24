@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from ._blocking import Runner
 from ._sync import AccountClient, BillingClient, SwarmsClient
 from .aclient import AsyncSynthClient
+from .research import ArtifactsClient, ExperimentsClient, ResearchLogsClient
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -52,6 +53,9 @@ class SynthClient:
         self.swarms = SwarmsClient(self._runner, self._async.swarms)
         self.account = AccountClient(self._runner, self._async.account)
         self.billing = BillingClient(self._runner, self._async.billing)
+        self.artifacts = ArtifactsClient(self._runner, self._async.artifacts)
+        self.experiments = ExperimentsClient(self._runner, self._async.experiments)
+        self.research_logs = ResearchLogsClient(self._runner, self._async.research_logs)
 
     def close(self) -> None:
         """Close the client transport and owned network resources."""

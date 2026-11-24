@@ -18,6 +18,7 @@ from ._generated.models import (
     UploadCreateRequest,
 )
 from .aclient import AsyncSynthClient
+from .research import ArtifactKind, ArtifactOrigin, ArtifactShareScope, AuthorKind, LogCategory
 
 __all__ = ["configure", "execute_resource"]
 
@@ -132,6 +133,69 @@ def configure(
     inspect.add_argument("--output-id")
     inspect.add_argument("--timeout-seconds", type=int, default=30)
     parsers["families"].set_defaults(resource_action="list")
+
+    art = parsers["artifacts"].add_subparsers(dest="resource_action", required=True)
+    art_list = art.add_parser("list", parents=[common])
+    art_list.add_argument("--project-id", required=True)
+    art_list.add_argument("--run-id")
+    art_get = art.add_parser("get", parents=[common])
+    art_get.add_argument("artifact_id")
+    art_create = art.add_parser("create", parents=[common])
+    art_create.add_argument("--project-id", required=True)
+    art_create.add_argument("--run-id")
+    art_create.add_argument("--title", required=True)
+    art_create.add_argument("--kind", choices=[k.value for k in ArtifactKind], required=True)
+    art_create.add_argument("--origin", choices=[o.value for o in ArtifactOrigin], default="human")
+    art_create.add_argument("--summary", required=True)
+    art_create.add_argument("--file", required=True, metavar="PATH")
+    art_create.add_argument("--idempotency-key")
+    art_update = art.add_parser("update", parents=[common])
+    art_update.add_argument("artifact_id")
+    art_update.add_argument("--summary", required=True)
+    art_update.add_argument("--file", required=True, metavar="PATH")
+    art_update.add_argument("--idempotency-key")
+    art_share = art.add_parser("share", parents=[common])
+    art_share.add_argument("artifact_id")
+    art_share.add_argument("--scope", choices=[s.value for s in ArtifactShareScope], default="org")
+    art_share.add_argument("--idempotency-key")
+    art_revoke = art.add_parser("revoke-share", parents=[common])
+    art_revoke.add_argument("artifact_id")
+
+    exp = parsers["experiments"].add_subparsers(dest="resource_action", required=True)
+    exp_list = exp.add_parser("list", parents=[common])
+    exp_list.add_argument("--project-id", required=True)
+    exp_list.add_argument("--run-id")
+    exp_get = exp.add_parser("get", parents=[common])
+    exp_get.add_argument("experiment_id")
+    exp_create = exp.add_parser("create", parents=[common])
+    exp_create.add_argument("--project-id", required=True)
+    exp_create.add_argument("--run-id", required=True)
+    exp_create.add_argument("--title", required=True)
+    exp_create.add_argument("--specification", required=True)
+    exp_create.add_argument("--hypothesis")
+    exp_create.add_argument("--arm", action="append", required=True)
+    exp_create.add_argument("--idempotency-key")
+
+    log = parsers["research-log"].add_subparsers(dest="resource_action", required=True)
+    log_append = log.add_parser("append", parents=[common])
+    log_append.add_argument("--project-id", required=True)
+    log_append.add_argument("--run-id")
+    log_append.add_argument("--category", choices=[c.value for c in LogCategory], required=True)
+    log_append.add_argument("--text", required=True)
+    log_append.add_argument(
+        "--author-kind", choices=[a.value for a in AuthorKind], default="local_agent"
+    )
+    log_append.add_argument("--author-label")
+    log_append.add_argument("--idempotency-key")
+    log_search = log.add_parser("search", parents=[common])
+    log_search.add_argument("--project-id", required=True)
+    log_search.add_argument("--query")
+    log_search.add_argument("--category", choices=[c.value for c in LogCategory])
+    log_search.add_argument("--run-id")
+    log_export = log.add_parser("export", parents=[common])
+    log_export.add_argument("--project-id", required=True)
+    log_export.add_argument("--run-id")
+    log_export.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
 
 def _read_body_bytes(path: str) -> bytes:
@@ -359,5 +423,88 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
                     )
                 case _:
                     raise ValueError("unknown billing action")
+        case "artifacts":
+            match args.resource_action:
+                case "list":
+                    return await client.artifacts.list_artifacts(
+                        args.project_id, run_id=args.run_id
+                    )
+                case "get":
+                    return await client.artifacts.get_artifact(args.artifact_id)
+                case "create":
+                    content = (await asyncio.to_thread(_read_body_bytes, args.file)).decode("utf-8")
+                    return await client.artifacts.create_artifact(
+                        args.project_id,
+                        args.title,
+                        args.kind,
+                        content,
+                        args.summary,
+                        origin=args.origin,
+                        run_id=args.run_id,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case "update":
+                    content = (await asyncio.to_thread(_read_body_bytes, args.file)).decode("utf-8")
+                    return await client.artifacts.update_artifact(
+                        args.artifact_id,
+                        content,
+                        args.summary,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case "share":
+                    return await client.artifacts.share_artifact(
+                        args.artifact_id,
+                        scope=args.scope,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case "revoke-share":
+                    return await client.artifacts.revoke_artifact_share(args.artifact_id)
+                case _:
+                    raise ValueError("unknown artifacts action")
+        case "experiments":
+            match args.resource_action:
+                case "list":
+                    return await client.experiments.list_experiments(
+                        args.project_id, run_id=args.run_id
+                    )
+                case "get":
+                    return await client.experiments.get_experiment(args.experiment_id)
+                case "create":
+                    return await client.experiments.create_experiment(
+                        args.project_id,
+                        args.run_id,
+                        args.title,
+                        args.specification,
+                        args.arm,
+                        hypothesis=args.hypothesis,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case _:
+                    raise ValueError("unknown experiments action")
+        case "research-log":
+            match args.resource_action:
+                case "append":
+                    return await client.research_logs.append_entry(
+                        args.project_id,
+                        args.category,
+                        args.text,
+                        run_id=args.run_id,
+                        author_kind=args.author_kind,
+                        author_label=args.author_label,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case "search":
+                    return await client.research_logs.search_entries(
+                        args.project_id,
+                        query=args.query,
+                        category=args.category,
+                        run_id=args.run_id,
+                    )
+                case "export":
+                    return await client.research_logs.export_log(
+                        args.project_id, run_id=args.run_id, fmt=args.format
+                    )
+                case _:
+                    raise ValueError("unknown research-log action")
         case _:
             raise ValueError("unknown resource command")
