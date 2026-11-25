@@ -8349,7 +8349,7 @@ components:
       properties:
         cause:
           type: string
-          enum: [customer, limit, platform]
+          enum: [customer, limit, platform, planner_give_up]
         operation_id:
           type: string
         limit:
@@ -9912,6 +9912,21 @@ components:
         attestation_digest:
           type: [string, 'null']
       additionalProperties: false
+    RunIndexUsage:
+      description: What the run's Index calls used and were charged so far, before and after settlement.
+        A completed call counts whether or not it has a price. Once settled, spend is part of
+        settlement.other. Absent when the usage could not be read, which is not a zero.
+      type: object
+      required: [searches, source_reads, spend]
+      properties:
+        searches:
+          type: integer
+          format: int64
+        source_reads:
+          type: integer
+          format: int64
+        spend:
+          $ref: '#/components/schemas/Money'
     RunReport:
       type: object
       required:
@@ -9957,6 +9972,8 @@ components:
           description: What the run's cleanup_complete waits on; empty when nothing is open.
           items:
             $ref: '#/components/schemas/RunBlocker'
+        index:
+          $ref: '#/components/schemas/RunIndexUsage'
         attribution:
           type: string
           description: pending waits for settlement. not_recorded means complete sandbox attribution was not retained

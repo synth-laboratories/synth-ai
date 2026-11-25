@@ -490,6 +490,7 @@ class RunPauseCause(StrEnum):
     CUSTOMER = "customer"
     LIMIT = "limit"
     PLATFORM = "platform"
+    PLANNER_GIVE_UP = "planner_give_up"
 
 
 class RunPauseLimitScope(StrEnum):
@@ -2770,6 +2771,15 @@ class RunGuidance(WireModel):
     metric: RunGuidanceMetric | None = None
 
 
+class RunIndexUsage(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    searches: int
+    source_reads: int
+    spend: Money
+
+
 class RunInputs(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -4018,6 +4028,7 @@ class RunReport(WireModel):
     settlement: RunSettlementSummary
     settlement_blockers: Annotated[list[RunBlocker], Field(max_length=1)] | None = None
     cleanup_blockers: Annotated[list[RunBlocker], Field(max_length=66)] | None = None
+    index: RunIndexUsage | None = None
     attribution: Annotated[RunReportAttribution, BeforeValidator(enum_value(RunReportAttribution))]
     by_model: list[RunModelUsage]
     by_role: list[RunRoleUsage]
@@ -4244,6 +4255,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunCompute": RunCompute,
     "RunConfiguration": RunConfiguration,
     "RunGuidance": RunGuidance,
+    "RunIndexUsage": RunIndexUsage,
     "RunInputs": RunInputs,
     "RunLimitChanges": RunLimitChanges,
     "RunLineage": RunLineage,
