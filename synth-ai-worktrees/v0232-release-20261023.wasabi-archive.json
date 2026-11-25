@@ -1,0 +1,33 @@
+{
+  "schema": "workspace.verified-wasabi-archive.v1",
+  "kind": "worktree-archive",
+  "source": "synth-ai/synth-ai-worktrees/v0232-release-20261023",
+  "bucket": "synth-evals",
+  "key": "workspace-worktrees/synth-ai/synth-ai-worktrees/v0232-release-20261023.tar.zst",
+  "endpoint": "https://s3.us-east-1.wasabisys.com",
+  "sha256": "40fb8985e4eb964c594870e8584e355ad92f9d895a2046cec3bfc0f0e910cf08",
+  "archive_size_bytes": 261277,
+  "entries": 200,
+  "compression": "zstd -9 --long=27",
+  "full_download_verified": true,
+  "manifest": {
+    "schema": "workspace.worktree-archive.v1",
+    "unit": "synth-ai/synth-ai-worktrees/v0232-release-20261023",
+    "archived_at": "2026-10-28T18:43:35Z",
+    "members": [
+      {
+        "name": "worktree",
+        "path": "synth-ai/synth-ai-worktrees/v0232-release-20261023",
+        "main_repo": "synth-ai",
+        "branch": "HEAD",
+        "head": "5b75bba4f34defb8fbab6e3cf338e13bb2b5be3c",
+        "head_on_remote": true,
+        "bundle": null,
+        "saved_files": 199,
+        "deleted_tracked": []
+      }
+    ],
+    "side_files": 0,
+    "restore": "Download and `zstd -dc --long=27 <file> | tar -x -C /Users/joshuapurtell/GitHub`; then per member: `git -C <main_repo> fetch <stage>/<bundle> HEAD` when a bundle exists, `git -C <main_repo> worktree add <path> <head>` (the extracted saved files are already at <path>; add into a temp path and move .git if <path> exists), and re-delete deleted_tracked."
+  }
+}
