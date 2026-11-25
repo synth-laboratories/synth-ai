@@ -1,6 +1,6 @@
 # synth-ai
 
-Typed Python 3.11+ client for the Synth public API v1. This checkout declares SDK 0.42.0; the exact Core contract pin is recorded in [contracts/SOURCE.toml](https://github.com/synth-laboratories/synth-ai/blob/main/contracts/SOURCE.toml). A source version does not attest PyPI publication or the deployed service revision.
+Typed Python 3.11+ client for the Synth public API v1. This checkout declares SDK 0.42.0 (matching PyPI `synth-ai 0.42.0`); the exact Core contract pin is recorded in [contracts/SOURCE.toml](https://github.com/synth-laboratories/synth-ai/blob/main/contracts/SOURCE.toml). A source checkout alone does not attest publication of unreleased commits or a specific deployed service revision.
 
 Only the latest release is supported; upgrade with `pip install -U synth-ai`.
 

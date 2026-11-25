@@ -10999,6 +10999,12 @@ components:
           type:
           - string
           - 'null'
+        checkout_id:
+          description: Checkout attempt that funded this purchase grant; null for non-purchase
+            entries or historical imports predating checkout tracking.
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/CheckoutId'
         expires_at:
           type:
           - string

@@ -3216,6 +3216,7 @@ class BillingHistoryEntry(WireModel):
     ]
     funding_class: Literal["included", "purchased", "promotional", "operator", None]
     hold_kind: str | None
+    checkout_id: CheckoutId | None = None
     expires_at: str | None
     created_at: str
     refund: RefundDetail | None = None

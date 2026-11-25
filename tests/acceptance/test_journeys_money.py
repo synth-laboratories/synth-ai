@@ -341,11 +341,43 @@ def test_same_gain_without_the_debit_entry_fails(contract, tmp_path):
 
 def test_purchase_grant_of_9_99_fails(contract, tmp_path):
     grant = ledger_entry(
-        "led_short", "grant", "9.99", "2026-11-19T08:06:09Z", funding_class="purchased"
+        "led_short",
+        "grant",
+        "9.99",
+        "2026-11-19T08:06:09Z",
+        funding_class="purchased",
+        checkout_id=PURCHASE_GRANT["checkout_id"],
     )
     result, _ = buy(contract, tmp_path, gain="9.99", entries=[grant])
     assert result.verdict == Verdict.FAIL
     assert result.cause == "balance_not_credited"
+
+
+def test_foreign_or_unlinked_checkout_id_does_not_match_purchase(contract, tmp_path):
+    other_grant = dict(
+        PURCHASE_GRANT,
+        entry_id="led_other_checkout",
+        checkout_id="chk_" + "B" * 22,
+    )
+    result, _ = buy(contract, tmp_path, gain="10", entries=[other_grant])
+    assert result.verdict == Verdict.FAIL
+    assert result.cause == "balance_not_credited"
+
+    null_grant = dict(PURCHASE_GRANT, entry_id="led_null_checkout", checkout_id=None)
+    result_null, _ = buy(contract, tmp_path, gain="10", entries=[null_grant])
+    assert result_null.verdict == Verdict.FAIL
+    assert result_null.cause == "balance_not_credited"
+
+    # With another checkout's $10 grant AND a concurrent settlement alongside ours, only ours matches.
+    result_both, _ = buy(
+        contract,
+        tmp_path,
+        gain="19.93573177",
+        entries=[PURCHASE_GRANT, other_grant, SETTLEMENT],
+    )
+    assert result_both.verdict == Verdict.PASS, result_both
+    assert notes_of(result_both)["purchase_grant_entry_ids"] == ["led_purchase"]
+    assert notes_of(result_both)["checkout_id"] == PURCHASE_GRANT["checkout_id"]
 
 
 def test_two_purchase_grants_in_the_window_fail(contract, tmp_path):

@@ -8,12 +8,13 @@
   sanitize validation errors with `hide_input_in_errors=True`, and align
   `synth-backend@1e3d493b` / `9b9a2f7d` (`1.43.0`) acceptance pins.
 
-## 0.42.0 — source candidate
+This checkout tracks trunk changes since the last published release; it does not attest publication of unreleased changes or installed service acceptance. The pinned Core contract revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
 
-This checkout does not attest publication or installed acceptance. The exact Core
-revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
+## 0.42.0 — 2026-11-24
 
-Changes here describe the new Swarms product. Historical releases remain in Git history.
+Published to PyPI as `synth-ai==0.42.0` (pinned to Core contract 1.43.0 in [contracts/SOURCE.toml](contracts/SOURCE.toml)).
+
+Changes below describe the Swarms release through `0.42.0`. Historical releases remain in Git history.
 
 - Contract 1.43.0 (Core `0a0d61d3`): Track B Research & Artifacts across SDK, CLI,
   and MCP (83 MCP tools, 82 public OpenAPI operations):

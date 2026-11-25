@@ -102,6 +102,7 @@ def entry_row(entry: Mapping[str, JsonValue]) -> dict[str, JsonValue]:
         "entry_id": entry.get("entry_id"),
         "cause": entry.get("cause"),
         "funding_class": entry.get("funding_class"),
+        "checkout_id": entry.get("checkout_id"),
         "delta": entry.get("delta"),
         "created_at": entry.get("created_at"),
     }
@@ -205,11 +206,17 @@ def reconcile_purchase(
         )
         if gain == interval:
             break
+    checkout_id = obj(created.value).get("checkout_id")
+    if not isinstance(checkout_id, str) or not checkout_id:
+        return receipt(
+            context, step, Verdict.FAIL, "checkout_id_unavailable", before, created, status
+        )
     grants = [
         entry
         for entry in entries
         if entry.get("cause") == "grant"
         and entry.get("funding_class") == "purchased"
+        and entry.get("checkout_id") == checkout_id
         and usd(entry.get("delta")) == PURCHASE_USD
         and (stamp := instant(entry.get("created_at"))) is not None
         and opened <= stamp <= closed
@@ -237,6 +244,7 @@ def reconcile_purchase(
         after,
         notes={
             "ledger_field": "Balance.ledger vs BillingHistoryEntry.delta (held_delta excluded)",
+            "checkout_id": checkout_id,
             "since": since,
             "ledger_before": str(ledger_before),
             "ledger_gain_usd": str(gain),

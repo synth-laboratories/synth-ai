@@ -228,13 +228,14 @@ CHECKOUT_OPENED = "2026-11-19T08:05:00Z"
 CHECKOUT_COMPLETED = "2026-11-19T08:06:10Z"
 
 
-def ledger_entry(entry_id, cause, delta, created_at, funding_class=None):
+def ledger_entry(entry_id, cause, delta, created_at, funding_class=None, checkout_id=None):
     """One BillingHistoryEntry; deltas are exact decimal strings."""
     return {
         "entry_id": entry_id,
         "cause": cause,
         "funding_class": funding_class,
         "hold_kind": None,
+        "checkout_id": checkout_id,
         "expires_at": None,
         "created_at": created_at,
         "refund": None,
@@ -244,8 +245,14 @@ def ledger_entry(entry_id, cause, delta, created_at, funding_class=None):
     }
 
 
+DEFAULT_CHECKOUT_ID = "chk_AAAAAAAAQACAAAAAAAAAAQ"
 PURCHASE_GRANT = ledger_entry(
-    "led_purchase", "grant", "10", "2026-11-19T08:06:09Z", funding_class="purchased"
+    "led_purchase",
+    "grant",
+    "10",
+    "2026-11-19T08:06:09Z",
+    funding_class="purchased",
+    checkout_id=DEFAULT_CHECKOUT_ID,
 )
 
 
