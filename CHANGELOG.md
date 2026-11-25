@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Synth Style compliance and modularization across SDK (`synth_ai`), CLI, and MCP:
+  split large CLI and helper modules below 800 lines, validate HTTP origins,
+  idempotency keys, non-empty path IDs, and `--wait --timeout` before file uploads,
+  sanitize validation errors with `hide_input_in_errors=True`, and align
+  `synth-backend@1e3d493b` / `9b9a2f7d` (`1.43.0`) acceptance pins.
+
 ## 0.42.0 — source candidate
 
 This checkout does not attest publication or installed acceptance. The exact Core

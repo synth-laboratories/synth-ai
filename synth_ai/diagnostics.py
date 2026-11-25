@@ -1,8 +1,18 @@
 """Opt-in operation diagnostics containing no request or response payloads."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+
+__all__ = [
+    "DiagnosticHook",
+    "DiagnosticPhase",
+    "OperationDiagnostic",
+    "RetrySuppressed",
+    "RetrySuppressedReason",
+]
 
 
 class DiagnosticPhase(StrEnum):

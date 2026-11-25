@@ -3,12 +3,6 @@
   "repos": {
     "synth-ai": {
       "rules": {
-        "python-no-except-pass": {
-          "count": 1,
-          "files": {
-            "scripts/acceptance/journeys.py": 1
-          }
-        },
         "test-no-fixed-sleep": {
           "count": 18,
           "files": {
@@ -31,17 +25,11 @@
           }
         },
         "universal-max-file-lines": {
-          "count": 9,
+          "count": 3,
           "files": {
-            "scripts/acceptance/journeys.py": 1,
-            "scripts/acceptance/surfaces.py": 1,
-            "scripts/gen_contract.py": 1,
             "synth_ai/_generated/models.py": 1,
             "synth_ai/_generated/operations.py": 1,
-            "synth_ai/_sync.py": 1,
-            "synth_ai/cli.py": 1,
-            "synth_ai/swarms.py": 1,
-            "tests/test_cli.py": 1
+            "synth_ai/_sync.py": 1
           }
         }
       }

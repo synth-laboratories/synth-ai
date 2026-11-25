@@ -1,12 +1,16 @@
 """Bounded retry policy shared by operations and run observation."""
 
+from __future__ import annotations
+
 import math
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from typing import TYPE_CHECKING
 
-from ._generated.models import Problem
+if TYPE_CHECKING:
+    from ._generated.models import Problem
 
 # Servers that predate contract 1.4.0's typed `retryable` Problem member still mark an event
 # owner handoff (for example during a deploy) only by this code and status.

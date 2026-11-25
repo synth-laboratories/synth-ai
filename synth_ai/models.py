@@ -1,5 +1,7 @@
 """Public request, routing and lifecycle types derived from the Core contract."""
 
+from __future__ import annotations
+
 from ._generated.models import (
     BodyAvailable,
     BodyUnavailable,

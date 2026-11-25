@@ -23,6 +23,7 @@ from synth_ai.errors import (
     DirectoryUploadError,
     InvalidRequestError,
     SwarmsAPIError,
+    SynthError,
     check_upload_format,
     local_problem,
 )
@@ -30,6 +31,16 @@ from synth_ai.errors import (
 from . import directory
 from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
+
+__all__ = [
+    "UPLOAD_OPERATIONS",
+    "build_server",
+    "call_tool",
+    "main",
+    "refusal",
+    "serve",
+    "validate_arguments",
+]
 
 UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
 
@@ -171,6 +182,17 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
         except SwarmsAPIError as error:
             return CallToolResult(
                 isError=True, content=[TextContent(type="text", text=refusal(error))]
+            )
+        except SynthError as error:
+            detail = " ".join(str(error).split())
+            return CallToolResult(
+                isError=True,
+                content=[
+                    TextContent(
+                        type="text",
+                        text=json.dumps({"code": error.code, "detail": detail}),
+                    )
+                ],
             )
         return [TextContent(type="text", text=content)]
 

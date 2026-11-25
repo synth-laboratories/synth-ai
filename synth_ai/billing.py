@@ -32,6 +32,8 @@ from .errors import SynthError
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
+__all__ = ["AsyncBilling"]
+
 
 class AsyncBilling:
     def __init__(self, transport: Transport) -> None:

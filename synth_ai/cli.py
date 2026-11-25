@@ -2,37 +2,92 @@
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import io
 import json
 import sys
-import uuid
-from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
-from typing_extensions import override
+import httpx
+from pydantic import BaseModel, TypeAdapter
 
 from . import _cli_view as view
-from . import auth
-from ._cli_surfaces import configure, execute_resource
-from ._generated.models import (
-    InputFile,
-    LaunchRequest,
-    MessageKind,
-    OptimizerPin,
-    OptimizerRequest,
-    OwnerResourceRequest,
-    RoleAssignment,
-    RunInputs,
-    RunSnapshot,
+from ._cli_parser import (
+    COMMANDS as COMMANDS,
 )
-from ._generated.policy import MESSAGE_MAX_BYTES
-from ._validation import message_text
+from ._cli_parser import (
+    DEFAULT_WAIT_SECONDS as DEFAULT_WAIT_SECONDS,
+)
+from ._cli_parser import (
+    EPILOG as EPILOG,
+)
+from ._cli_parser import (
+    ROOT_VALUE_OPTIONS as ROOT_VALUE_OPTIONS,
+)
+from ._cli_parser import (
+    Parser as Parser,
+)
+from ._cli_parser import (
+    UsageError as UsageError,
+)
+from ._cli_parser import (
+    index_requested as index_requested,
+)
+from ._cli_parser import (
+    parser as parser,
+)
+from ._cli_run import (
+    EXIT_OK as EXIT_OK,
+)
+from ._cli_run import (
+    EXIT_RUN_UNSUCCESSFUL as EXIT_RUN_UNSUCCESSFUL,
+)
+from ._cli_run import (
+    UNSUCCESSFUL_STATES as UNSUCCESSFUL_STATES,
+)
+from ._cli_run import (
+    download as download,
+)
+from ._cli_run import (
+    execute_run,
+)
+from ._cli_run import (
+    finished_code as finished_code,
+)
+from ._cli_run import (
+    follow as follow,
+)
+from ._cli_run import (
+    mutation_key as mutation_key,
+)
+from ._cli_run import (
+    parse_labels as parse_labels,
+)
+from ._cli_run import (
+    parse_optimizer as parse_optimizer,
+)
+from ._cli_run import (
+    parse_resources as parse_resources,
+)
+from ._cli_run import (
+    parse_role_assignments as parse_role_assignments,
+)
+from ._cli_run import (
+    paste_redirect as paste_redirect,
+)
+from ._cli_run import (
+    read_task as read_task,
+)
+from ._cli_run import (
+    run_auth as _run_auth_impl,
+)
+from ._cli_run import (
+    show_device_code as show_device_code,
+)
+from ._cli_surfaces import execute_resource
+from ._generated.models import MessageKind
 from ._version import __version__
 from .aclient import AsyncSynthClient
-from .environments import Environment, resolve_base_url
 from .errors import (
     DirectoryUploadError,
     LaunchValidationError,
@@ -48,404 +103,78 @@ from .errors import (
 from .topologies import topology_name
 
 if TYPE_CHECKING:
+    import argparse
     from collections.abc import Callable, Sequence
 
-    import httpx
-
-    from ._auth_models import DeviceAuthorization
     from ._retry import RetryPolicy
-    from .swarms import AsyncSwarms
 
-EXIT_OK = 0
 EXIT_CLIENT_ERROR = 1
 EXIT_WAIT_TIMEOUT = 2
-EXIT_RUN_UNSUCCESSFUL = 3
 EXIT_SERVER_REFUSAL = 4
 EXIT_RUN_PAUSED = 5
-UNSUCCESSFUL_STATES = frozenset({"failed", "cancelled"})
-DEFAULT_WAIT_SECONDS = 3600.0
-
-COMMANDS: dict[str, str] = {
-    "content": "Save output content",
-    "labels": "Update run labels",
-    "files": "Files",
-    "uploads": "Upload records",
-    "keys": "API keys",
-    "organization": "Organization",
-    "inspect": "Run details",
-    "families": "Topology catalog",
-    "runs": "List runs",
-    "login": "Sign in",
-    "whoami": "Signed-in account",
-    "logout": "Sign out",
-    "profiles": "Run profiles",
-    "choices": "Per-role launch choices",
-    "upload": "Upload files",
-    "run": "Launch a run",
-    "status": "Run state",
-    "wait": "Wait for a run to finish",
-    "logs": "Run events",
-    "message": "Send a run message",
-    "messages": "Run messages",
-    "tasks": "Run tasks",
-    "ls": "Recent runs",
-    "pause": "Pause a run",
-    "resume": "Resume a run",
-    "cancel": "Cancel a run",
-    "outputs": "Run outputs",
-    "download": "Download run outputs",
-    "report": "Run report",
-    "allocation": "Per-actor allocation",
-    "result": "Run answer",
-    "usage": "Usage",
-    "billing": "Balance",
-    "limits": "Limits",
-    "plan": "Special Free plan requests",
-    "grants": "MCP OAuth grants (connected apps)",
-    "promo": "Promotional credit",
-    "artifacts": "Interactive artifacts",
-    "experiments": "Multi-experiment plans",
-    "research-log": "Project research log",
-}
-
-EPILOG = """exit codes:
-  0  success
-  1  client or usage error
-  2  wait timeout; the run is still running
-  3  run finished failed or cancelled
-  4  server refusal
-  5  run paused
-
---json prints the SDK record as one JSON document on stdout."""
-
-
-class UsageError(Exception):
-    pass
-
-
-class Parser(argparse.ArgumentParser):
-    @override
-    def error(self, message: str) -> NoReturn:
-        raise UsageError(message)
-
-
-def parse_optimizer(
-    value: str | None, *, max_tasks: int | None = None, max_repairs_per_task: int | None = None
-) -> OptimizerRequest | None:
-    """Parse the public optimizer selector; Core owns resolution and availability.
-
-    The two Swarms controls ride only on an explicit `swarms_v2@VERSION` pin, as Core
-    requires; `auto`, an omitted selector or another topology refuses them locally.
-    """
-    controls = {
-        name: number
-        for name, number in (
-            ("max_tasks", max_tasks),
-            ("max_repairs_per_task", max_repairs_per_task),
-        )
-        if number is not None
+INDEX_NOT_AVAILABLE = (
+    "Index is not available on the Swarms API; launch a run with files and a message."
+)
+_RESOURCE_COMMANDS = frozenset(
+    {
+        "files",
+        "uploads",
+        "keys",
+        "organization",
+        "inspect",
+        "content",
+        "labels",
+        "artifacts",
+        "experiments",
+        "research-log",
     }
-    if value is None or value == "auto":
-        if controls:
-            raise UsageError(
-                "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
-            )
-        # Omitted selection uses Core's declared environment default.
-        return None if value is None else "auto"
-    topology, separator, version = value.partition("@")
-    if separator == "" or not version.isascii() or not version.isdecimal():
-        raise UsageError("optimizer must be auto or TOPOLOGY@VERSION")
-    if controls and topology != "swarms_v2":
-        raise UsageError(
-            "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
-        )
-    pin: dict[str, object] = {"topology": topology, "version": int(version)}
-    if controls:
-        pin["params"] = controls
-    try:
-        return OptimizerPin.model_validate(pin)
-    except ValidationError as error:
-        first = error.errors()[0]
-        where = ".".join(str(part) for part in first["loc"])
-        raise UsageError("--optimizer " + value + ": " + where + ": " + first["msg"]) from error
+)
+M = TypeVar("M", bound=BaseModel)
 
-
-RESOURCES = TypeAdapter(list[OwnerResourceRequest])
-
-
-def parse_resources(path: str | None) -> list[OwnerResourceRequest] | None:
-    """Read the public owner resource requests (the launch body's `resources` array)."""
-    if path is None:
-        return None
-    try:
-        document = Path(path).read_bytes()
-    except OSError as error:
-        raise UsageError(
-            "--resources file unreadable: " + path + ": " + error.__class__.__name__
-        ) from error
-    try:
-        resources = RESOURCES.validate_json(document)
-    except ValidationError as error:
-        first = error.errors()[0]
-        where = ".".join(str(part) for part in first["loc"]) or "document"
-        raise UsageError(
-            "--resources must be a JSON array of resource requests: " + where + ": " + first["msg"]
-        ) from error
-    return resources
-
-
-def mutation_key(action: str, run_id: str, values: dict[str, JsonValue] | None = None) -> str:
-    return str(
-        uuid.uuid5(
-            uuid.NAMESPACE_URL,
-            json.dumps(
-                ["synth-cli", action, run_id, values], sort_keys=True, separators=(",", ":")
-            ),
-        )
-    )
+__all__ = [
+    "COMMANDS",
+    "DEFAULT_WAIT_SECONDS",
+    "EPILOG",
+    "EXIT_CLIENT_ERROR",
+    "EXIT_OK",
+    "EXIT_RUN_PAUSED",
+    "EXIT_RUN_UNSUCCESSFUL",
+    "EXIT_SERVER_REFUSAL",
+    "EXIT_WAIT_TIMEOUT",
+    "INDEX_NOT_AVAILABLE",
+    "ROOT_VALUE_OPTIONS",
+    "UNSUCCESSFUL_STATES",
+    "Output",
+    "Parser",
+    "UsageError",
+    "download",
+    "execute",
+    "fail",
+    "finished_code",
+    "follow",
+    "index_requested",
+    "main",
+    "mutation_key",
+    "parse_labels",
+    "parse_optimizer",
+    "parse_resources",
+    "parse_role_assignments",
+    "parser",
+    "paste_redirect",
+    "read_task",
+    "run_auth",
+    "show_device_code",
+    "upgrade_hint",
+]
 
 
 def _stdin_has_pipe() -> bool:
     return isinstance(sys.stdin, io.TextIOBase) and not sys.stdin.isatty()
 
 
-def parser(*, stdin_piped: bool = False) -> argparse.ArgumentParser:
-    root = Parser(prog="synth", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
-    root.add_argument("--base-url")
-    root.add_argument("--env", dest="environment", type=Environment, choices=tuple(Environment))
-    common = Parser(add_help=False)
-    common.add_argument("--json", action="store_true", help="print the SDK record as JSON")
-    verbs = root.add_subparsers(dest="command", required=True, metavar="COMMAND")
-
-    created = {
-        name: verbs.add_parser(name, help=label, parents=[common])
-        for name, label in COMMANDS.items()
-    }
-
-    def add(name: str) -> argparse.ArgumentParser:
-        return created[name]
-
-    runs = add("runs").add_subparsers(dest="runs_action", required=True)
-    runs_list = runs.add_parser("list", parents=[common])
-    runs_list.add_argument("--limit", type=int, default=20)
-    runs_list.add_argument("--cursor")
-    runs_list.add_argument("--state")
-    login = add("login").add_mutually_exclusive_group()
-    login.add_argument("--no-browser", action="store_true")
-    login.add_argument("--device", action="store_true")
-    add("whoami")
-    promo = add("promo").add_subparsers(dest="promo_action", required=True)
-    redeem = promo.add_parser("redeem", parents=[common])
-    redeem.add_argument("code")
-    redeem.add_argument("--idempotency-key")
-    add("logout")
-    add("profiles").add_argument("--research-task")
-    choices = add("choices")
-    choices.add_argument("--profile")
-    choices.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
-    choices.add_argument("--parallel-workers", type=int, metavar="N")
-    choices.add_argument("--wall", type=int, metavar="SECONDS")
-    choices.add_argument("--budget", help="list choices this maximum charge cannot afford")
-    upload = add("upload")
-    upload.add_argument("paths", nargs="+", metavar="PATH")
-    upload.add_argument("--directory", action="store_true")
-    upload.add_argument("--idempotency-key")
-    run = add("run")
-    task = run.add_mutually_exclusive_group(required=not stdin_piped)
-    task.add_argument("goal", nargs="?")
-    task.add_argument(
-        "--goal-file",
-        "--task-file",
-        dest="task_file",
-        metavar="PATH",
-        help="read goal from UTF-8 file PATH, or '-' for stdin",
-    )
-    run.add_argument("--budget", required=True)
-    run.add_argument("--idempotency-key")
-    run.add_argument("--profile")
-    run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
-    run.add_argument(
-        "--max-tasks",
-        type=int,
-        metavar="N",
-        help="Swarms work-plan tasks, 1..4096, at least --parallel-workers (needs swarms_v2 pin)",
-    )
-    run.add_argument(
-        "--max-repairs-per-task",
-        type=int,
-        metavar="N",
-        help="Swarms repairs per rejected task, 0..32 (needs swarms_v2 pin)",
-    )
-    run.add_argument("--continue-from", metavar="RUN")
-    run.add_argument("--research-task")
-    run.add_argument("--domicile", choices=("us_only", "us_or_europe", "unrestricted"))
-    run.add_argument("--file", action="append", default=[], metavar="PATH")
-    run.add_argument(
-        "--wall", type=int, metavar="SECONDS", help="unpaused run time, 1..86400 seconds"
-    )
-    run.add_argument(
-        "--parallel-workers",
-        type=int,
-        metavar="N",
-        help="workers the planner may run at once, 1..32 (default 1); the budget must fund all N",
-    )
-    run.add_argument("--tokens", type=int)
-    run.add_argument("--pause-retention", type=int, metavar="SECONDS")
-    run.add_argument("--label", action="append", default=[], metavar="KEY=VALUE")
-    run.add_argument(
-        "--resources",
-        metavar="PATH",
-        help="JSON array of resource requests, sent as the launch's resources",
-    )
-    run.add_argument(
-        "--assign",
-        action="append",
-        default=[],
-        metavar="ACTOR.DIMENSION=ID",
-        help="role choice from `synth choices`; DIMENSION is inference, sandbox or option",
-    )
-    run.add_argument(
-        "--planner-decides",
-        action="append",
-        default=[],
-        metavar="ACTOR.DIMENSION",
-        help="leave this worker's inference or sandbox to the planner",
-    )
-    run.add_argument("--menu-revision", help="menu_revision of the `synth choices` read")
-    run.add_argument("--wait", action="store_true")
-    run.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
-    for name in ("status", "pause", "resume", "cancel", "report", "allocation", "result"):
-        add(name).add_argument("run_id", metavar="RUN")
-    wait = add("wait")
-    wait.add_argument("run_id", metavar="RUN")
-    wait.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
-    logs = add("logs")
-    logs.add_argument("run_id", metavar="RUN")
-    logs.add_argument("-f", "--follow", action="store_true")
-    for name in ("tasks", "outputs"):
-        command = add(name)
-        command.add_argument("run_id", metavar="RUN")
-        command.add_argument("--limit", type=int, default=20)
-        command.add_argument("--cursor")
-    logs.add_argument("--limit", type=int, default=100)
-    logs.add_argument("--cursor")
-    message = add("message")
-    message.add_argument("run_id", metavar="RUN")
-    message.add_argument("text", metavar="TEXT")
-    message.add_argument("--kind", choices=tuple(MessageKind), default=MessageKind.GUIDANCE)
-    message.add_argument("--idempotency-key")
-    messages = add("messages")
-    messages.add_argument("run_id", metavar="RUN")
-    messages.add_argument("--cursor")
-    messages.add_argument("--limit", type=int, default=20)
-    message_mode = messages.add_mutually_exclusive_group()
-    message_mode.add_argument("--follow", action="store_true")
-    message_mode.add_argument("--message", dest="message_id", metavar="MESSAGE")
-    ls = add("ls")
-    ls.add_argument("--limit", type=int, default=20)
-    ls.add_argument("--cursor")
-    ls.add_argument("--state")
-    download = add("download")
-    download.add_argument("run_id", metavar="RUN")
-    download.add_argument("output_id", nargs="?", metavar="OUTPUT")
-    download.add_argument("-o", "--out", default=".", metavar="DIR")
-    add("usage").add_argument("run_id", nargs="?", metavar="RUN")
-    configure(created, common)
-    limits = add("limits")
-    limits.add_argument("run_id", nargs="?", metavar="RUN|set")
-    limits.add_argument("set_run_id", nargs="?", metavar="RUN")
-    limits.add_argument("--expected-revision", type=int)
-    limits.add_argument("--budget")
-    limits.add_argument("--wall", type=int)
-    limits.add_argument("--tokens", type=int)
-    limits.add_argument("--pause-retention", type=int)
-    limits.add_argument("--resume", action="store_true")
-    limits.add_argument("--reason")
-    limits.add_argument("--idempotency-key")
-    for name in ("pause", "resume", "cancel"):
-        add(name).add_argument("--idempotency-key")
-    plan_common = Parser(add_help=False)
-    plan_common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
-    plan = add("plan").add_subparsers(dest="plan_action", required=True)
-    plan_request = plan.add_parser("request", parents=[plan_common])
-    plan_request.add_argument("--use-case", required=True)
-    plan_request.add_argument("--link", action="append", default=[], dest="links")
-    plan_request.add_argument("--idempotency-key")
-    plan.add_parser("requests", parents=[plan_common])
-    plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
-    grants = add("grants").add_subparsers(dest="grants_action", required=True)
-    grants.add_parser("revoke", parents=[plan_common]).add_argument("grant_id", metavar="GRANT")
-    return root
-
-
-def read_task(path: str) -> str:
-    """Read a task text file, '-' (stdin), or a bundle directory holding one task file."""
-    if path == "-":
-        buffer = getattr(sys.stdin, "buffer", None)
-        if buffer is not None:
-            raw = bytes(buffer.read(MESSAGE_MAX_BYTES + 1))
-        else:
-            raw = sys.stdin.read(MESSAGE_MAX_BYTES + 1).encode("utf-8")
-    else:
-        source = Path(path)
-        if source.is_dir():
-            found = [p for p in source.iterdir() if not p.name.startswith(".")]
-            if len(found) != 1 or found[0].name not in {"task.md", "TASK.md", "task.txt"}:
-                raise ValueError("task bundle must contain exactly one task text file")
-            source = found[0]
-        with source.open("rb") as stream:
-            raw = stream.read(MESSAGE_MAX_BYTES + 1)
-    if not raw.strip() or len(raw) > MESSAGE_MAX_BYTES:
-        raise ValueError(f"task must contain 1..{MESSAGE_MAX_BYTES} bytes")
-    return message_text(raw.decode("utf-8"))
-
-
-ASSIGN_FIELDS = {
-    "inference": "inference_profile",
-    "sandbox": "sandbox_profile",
-    "option": "sandbox_option",
-}
-
-
-def parse_role_assignments(
-    assign: Sequence[str], planner_decides: Sequence[str]
-) -> dict[str, RoleAssignment] | None:
-    """--assign worker.inference=luna-high and --planner-decides worker_2.sandbox."""
-    roles: dict[str, dict[str, JsonValue]] = {}
-    for value in assign:
-        target, sep, choice = value.partition("=")
-        actor, dot, dimension = target.partition(".")
-        if not sep or not dot or not actor or not choice or dimension not in ASSIGN_FIELDS:
-            raise ValueError("--assign must be ACTOR.inference|sandbox|option=ID: " + value)
-        fields = roles.setdefault(actor, {})
-        if ASSIGN_FIELDS[dimension] in fields:
-            raise ValueError("--assign names " + target + " twice")
-        fields[ASSIGN_FIELDS[dimension]] = choice
-    for value in planner_decides:
-        actor, dot, dimension = value.partition(".")
-        if not dot or not actor or dimension not in ("inference", "sandbox"):
-            raise ValueError("--planner-decides must be ACTOR.inference|sandbox: " + value)
-        decided = roles.setdefault(actor, {}).setdefault("planner_decides", [])
-        if not isinstance(decided, list) or dimension in decided:
-            raise ValueError("--planner-decides names " + value + " twice")
-        decided.append(dimension)
-    return {actor: RoleAssignment.model_validate(fields) for actor, fields in roles.items()} or None
-
-
-def parse_labels(values: Sequence[str]) -> dict[str, str] | None:
-    labels: dict[str, str] = {}
-    for value in values:
-        key, sep, item = value.partition("=")
-        if not sep or not key:
-            raise ValueError("label must be KEY=VALUE: " + value)
-        labels[key] = item
-    return labels or None
-
-
-M = TypeVar("M", bound=BaseModel)
-
-
 class Output:
+    """Format SDK models as single-line JSON or human tables on stdout."""
+
     def __init__(self, as_json: bool) -> None:
         self.as_json = as_json
 
@@ -464,8 +193,9 @@ class Output:
             print(render(values), flush=True)
 
 
-def finished_code(snapshot: RunSnapshot) -> int:
-    return EXIT_RUN_UNSUCCESSFUL if snapshot.state in UNSUCCESSFUL_STATES else EXIT_OK
+def run_auth(args: argparse.Namespace) -> int:
+    """Execute login/logout auth command."""
+    return _run_auth_impl(args, Output(args.json))
 
 
 async def execute(
@@ -473,6 +203,7 @@ async def execute(
     http_client: httpx.AsyncClient | None,
     retry_policy: RetryPolicy | None = None,
 ) -> int:
+    """Dispatch one parsed CLI invocation against AsyncSynthClient."""
     out = Output(args.json)
     async with AsyncSynthClient(
         base_url=args.base_url,
@@ -482,18 +213,9 @@ async def execute(
     ) as client:
         swarms = client.swarms
         command = str(args.command)
-        if command in {
-            "files",
-            "uploads",
-            "keys",
-            "organization",
-            "inspect",
-            "content",
-            "labels",
-            "artifacts",
-            "experiments",
-            "research-log",
-        } or (command == "billing" and args.resource_action is not None):
+        if command in _RESOURCE_COMMANDS or (
+            command == "billing" and args.resource_action is not None
+        ):
             value = await execute_resource(client, args)
             print(
                 "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
@@ -505,15 +227,14 @@ async def execute(
             else:
                 for entry in catalog.topologies or []:
                     print(
-                        f"{topology_name(entry)}\t{entry.topology}@{entry.version}"
-                        f"\t{entry.availability}",
+                        f"{topology_name(entry)}\t{entry.topology}@{entry.version}\t{entry.availability}",
                         flush=True,
                     )
         elif command == "promo":
-            value = await client.account.redeem_promo(
+            redeemed = await client.account.redeem_promo(
                 args.code, idempotency_key=args.idempotency_key
             )
-            print(value.model_dump_json(), flush=True)
+            print(redeemed.model_dump_json(), flush=True)
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
@@ -542,92 +263,7 @@ async def execute(
                 files = [await swarms.upload_file(path) for path in args.paths]
             out.records(files, view.files)
         elif command == "run":
-            if args.idempotency_key is not None and not 1 <= len(args.idempotency_key) <= 128:
-                raise UsageError("idempotency key must contain 1 to 128 characters")
-            # Every flag is validated before any upload: a refused limit or label must
-            # not leave uploaded files behind. Files join the validated request after.
-            if args.goal is not None and args.task_file is not None:
-                raise UsageError("provide a goal or --goal-file, not both")
-            if args.task_file is not None:
-                goal = read_task(args.task_file)
-            elif args.goal is not None:
-                goal = args.goal
-            elif _stdin_has_pipe():
-                goal = read_task("-")
-            else:
-                raise UsageError("provide a goal, --goal-file PATH, or pipe stdin")
-            request = swarms.prepare_launch(
-                goal,
-                budget=args.budget,
-                profile=args.profile,
-                research_task=args.research_task,
-                domicile_requirement=args.domicile,
-                wall_time_seconds=args.wall,
-                maximum_tokens=args.tokens,
-                pause_retention_seconds=args.pause_retention,
-                parallel_workers=args.parallel_workers,
-                inputs=None,
-                labels=parse_labels(args.label),
-                resources=parse_resources(args.resources),
-                routing=None,
-                guidance=None,
-                role_assignments=parse_role_assignments(args.assign, args.planner_decides),
-                launch_menu_revision=args.menu_revision,
-                optimizer=parse_optimizer(
-                    args.optimizer,
-                    max_tasks=args.max_tasks,
-                    max_repairs_per_task=args.max_repairs_per_task,
-                ),
-                continue_from=args.continue_from,
-            )
-            uploaded = [
-                await swarms.upload_file(
-                    path,
-                    idempotency_key=(
-                        mutation_key("run-upload", args.idempotency_key, {"index": index})
-                        if args.idempotency_key
-                        else None
-                    ),
-                )
-                for index, path in enumerate(args.file)
-            ]
-            inputs = (
-                RunInputs(
-                    files=[
-                        InputFile(
-                            file_id=f.file_id,
-                            revision_id=f.revision_id,
-                            digest_sha256=f.digest_sha256,
-                        )
-                        for f in uploaded
-                    ]
-                )
-                if uploaded
-                else None
-            )
-            if inputs is not None:
-                request = LaunchRequest.model_validate(
-                    {
-                        **request.model_dump(exclude_none=True),
-                        "inputs": inputs.model_dump(exclude_none=True),
-                    }
-                )
-            created = await swarms.launch_request(request, idempotency_key=args.idempotency_key)
-            if not args.wait:
-                out.record(created, lambda s: s.run_id)
-                return EXIT_OK
-            if not args.json:
-                print(created.run_id, flush=True)
-            final = await swarms.wait(created.run_id, timeout=args.timeout)
-            out.record(final, lambda s: "state  " + s.state)
-            if not args.json:
-                finished = await swarms.result(final)
-                if finished.answer is not None:
-                    print(finished.answer, flush=True)
-                closing = view.charge_line(finished.charge)
-                if closing is not None:
-                    print(closing, file=sys.stderr, flush=True)
-            return finished_code(final)
+            return await execute_run(swarms, args, out, stdin_piped=_stdin_has_pipe())
         elif command == "status":
             out.record(await swarms.get(args.run_id), view.snapshot)
         elif command == "wait":
@@ -638,11 +274,14 @@ async def execute(
             if args.follow:
                 await follow(swarms, args.run_id, args.json)
             else:
-                page = await swarms.events(args.run_id, cursor=args.cursor, limit=args.limit)
-                out.record(page, view.events)
+                out.record(
+                    await swarms.events(args.run_id, cursor=args.cursor, limit=args.limit),
+                    view.events,
+                )
         elif command == "tasks":
-            page = await swarms.tasks(args.run_id, cursor=args.cursor, limit=args.limit)
-            out.record(page, view.tasks)
+            out.record(
+                await swarms.tasks(args.run_id, cursor=args.cursor, limit=args.limit), view.tasks
+            )
         elif command == "message":
             out.record(
                 await swarms.send_message(
@@ -665,8 +304,9 @@ async def execute(
                     view.messages,
                 )
         elif command in {"ls", "runs"}:
-            page = await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state)
-            out.record(page, view.runs)
+            out.record(
+                await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state), view.runs
+            )
         elif command == "pause":
             out.record(
                 await swarms.pause(
@@ -689,8 +329,10 @@ async def execute(
                 view.snapshot,
             )
         elif command == "outputs":
-            page = await swarms.outputs(args.run_id, cursor=args.cursor, limit=args.limit)
-            out.record(page, view.outputs)
+            out.record(
+                await swarms.outputs(args.run_id, cursor=args.cursor, limit=args.limit),
+                view.outputs,
+            )
         elif command == "download":
             out.records(await download(swarms, args.run_id, args.output_id, args.out), view.saved)
         elif command == "report":
@@ -701,20 +343,21 @@ async def execute(
             finished = await swarms.result(args.run_id)
             print(view.result_json(finished) if args.json else view.result(finished), flush=True)
             if not args.json:
-                print(view.status_line(finished), file=sys.stderr, flush=True)
-                print(view.accounting_line(finished), file=sys.stderr, flush=True)
-            closing = view.charge_line(finished.charge)
-            if closing is not None and not args.json:
-                print(closing, file=sys.stderr, flush=True)
-            markdown = view.result_file_line(finished)
-            if markdown is not None and not args.json:
-                print(markdown, file=sys.stderr, flush=True)
+                for line in (
+                    view.status_line(finished),
+                    view.accounting_line(finished),
+                    view.charge_line(finished.charge),
+                    view.result_file_line(finished),
+                ):
+                    if line is not None:
+                        print(line, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
                 out.record(await client.account.usage_summary(), view.usage_summary)
             else:
-                page = await client.account.usage_records(run_id=args.run_id)
-                out.record(page, view.usage_records)
+                out.record(
+                    await client.account.usage_records(run_id=args.run_id), view.usage_records
+                )
         elif command == "billing":
             out.record(await client.billing.balance(), view.balance)
         elif command == "limits":
@@ -743,89 +386,22 @@ async def execute(
                 out.record(await swarms.limits(args.run_id), view.run_limits)
         elif command == "plan":
             if args.plan_action == "request":
-                # The use case is customer content: it goes to the SDK and nowhere else.
-                request = await client.account.request_special_free(
+                req = await client.account.request_special_free(
                     use_case=args.use_case, links=args.links, idempotency_key=args.idempotency_key
                 )
-                out.record(request, view.plan_request)
+                out.record(req, view.plan_request)
             elif args.plan_action == "requests":
                 out.record(await client.account.plan_requests(), view.plan_requests)
             else:
-                withdrawn = await client.account.withdraw_plan_request(args.request_id)
-                out.record(withdrawn, view.plan_request)
+                out.record(
+                    await client.account.withdraw_plan_request(args.request_id), view.plan_request
+                )
         elif command == "grants":
-            revoked = await client.account.revoke_oauth_grant(args.grant_id)
-            out.record(revoked, view.oauth_grant_revoked)
+            out.record(
+                await client.account.revoke_oauth_grant(args.grant_id), view.oauth_grant_revoked
+            )
         else:
             raise UsageError("unknown command " + command)
-    return EXIT_OK
-
-
-async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
-    """Stream events; the stored checkpoint advances only after a line is written."""
-    checkpoint = view.load_checkpoint(run_id)
-    async for item in swarms.follow(run_id, checkpoint=checkpoint):
-        print(item.model_dump_json(exclude_unset=True) if as_json else view.event(item), flush=True)
-        view.save_checkpoint(checkpoint)
-    view.save_checkpoint(checkpoint)
-
-
-async def download(
-    swarms: AsyncSwarms, run_id: str, output_id: str | None, directory: str
-) -> list[view.SavedOutput]:
-    target = Path(directory)
-    await asyncio.to_thread(target.mkdir, parents=True, exist_ok=True)
-    saved: list[view.SavedOutput] = []
-    async for item in swarms.iter_outputs(run_id):
-        if output_id is not None and item.output_id != output_id:
-            continue
-        reference = item.reference or {}
-        revision, digest = reference.get("revision_id"), reference.get("digest_sha256")
-        if revision is None or digest is None:
-            if output_id is not None:
-                raise ValueError("output " + item.output_id + " has no content yet")
-            continue
-        name = Path(item.filename).name
-        if name in {"", ".", ".."}:
-            raise ValueError("output " + item.output_id + " has no usable filename")
-        path = await swarms.download_output(
-            run_id, item.output_id, str(target / name), revision_id=revision, digest_sha256=digest
-        )
-        saved.append(view.SavedOutput(output=item, path=str(path)))
-    if output_id is not None and not saved:
-        raise ValueError("output not found: " + output_id)
-    return saved
-
-
-def paste_redirect(authorization: str) -> str:
-    print(authorization, file=sys.stderr, flush=True)
-    return str(sys.stdin.readline())
-
-
-def show_device_code(device: DeviceAuthorization) -> None:
-    print(
-        f"Open {device.verification_uri} and enter {device.user_code}",
-        file=sys.stderr,
-        flush=True,
-    )
-    if device.verification_uri_complete is not None:
-        print(device.verification_uri_complete, file=sys.stderr, flush=True)
-
-
-def run_auth(args: argparse.Namespace) -> int:
-    out = Output(args.json)
-    base_url = resolve_base_url(args.base_url, args.environment)
-    if args.command == "login" and args.device:
-        auth.login_device(base_url, show=show_device_code)
-    elif args.command == "login":
-        auth.login(
-            base_url,
-            open_browser=not args.no_browser,
-            redirect_source=paste_redirect if args.no_browser else None,
-        )
-    else:
-        auth.logout(base_url)
-    out.record(auth.status(base_url), view.auth_status)
     return EXIT_OK
 
 
@@ -842,27 +418,6 @@ def fail(code: str, detail: str, as_json: bool, problem: BaseModel | None = None
         print(code + ": " + detail, file=sys.stderr, flush=True)
 
 
-# Core answers /v1/index/* with 404 index_not_available; the CLI names the same code
-# locally, before any request, since it has no Index command (SYN-5666).
-INDEX_NOT_AVAILABLE = (
-    "Index is not available on the Swarms API; launch a run with files and a message."
-)
-
-
-# Root options that take a value; the command is the first token after them.
-ROOT_VALUE_OPTIONS = frozenset({"--base-url", "--env"})
-
-
-def index_requested(raw: Sequence[str]) -> bool:
-    tokens = iter(raw)
-    for item in tokens:
-        if item in ROOT_VALUE_OPTIONS:
-            next(tokens, None)
-        elif not item.startswith("-"):
-            return item == "index"
-    return False
-
-
 def upgrade_hint(error: UpgradeRequiredError) -> str:
     minimum = "" if error.minimum_version is None else f" (minimum {error.minimum_version})"
     return f"synth-ai {__version__} is no longer supported{minimum}; run: {error.UPGRADE_HINT}"
@@ -874,9 +429,7 @@ def main(
     http_client: httpx.AsyncClient | None = None,
     retry_policy: RetryPolicy | None = None,
 ) -> int:
-    """Run one CLI command. `retry_policy` lets a harness that owns retries (one attempt per
-    delivery) replace the SDK's per-operation retry loop; `None` keeps the customer default.
-    """
+    """Run one CLI command."""
     raw = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in raw
     try:
@@ -909,7 +462,6 @@ def main(
         if error.retry_after_seconds is None:
             fail(error.problem.code, error.problem.detail, as_json, error.problem)
         elif as_json:
-            # The wait arrives as a header; carry it beside the problem's own members.
             document = error.problem.model_dump(mode="json")
             document["retry_after_seconds"] = error.retry_after_seconds
             print(json.dumps(document), file=sys.stderr, flush=True)
@@ -927,33 +479,28 @@ def main(
             "file_idempotency_key": error.file_idempotency_key,
             "completed_files": [file.model_dump(mode="json") for file in error.completed_files],
         }
-        # A partial upload is not rolled back. Keep the committed identities and
-        # caller's retry key on stderr in either output mode.
         print(json.dumps(receipt), file=sys.stderr, flush=True)
         return EXIT_CLIENT_ERROR
     except UploadTransferError as error:
         if as_json:
-            print(
-                json.dumps(
-                    {
-                        "code": error.code,
-                        "detail": str(error),
-                        "upload_id": error.upload_id,
-                        "idempotency_key": error.idempotency_key,
-                    }
-                ),
-                file=sys.stderr,
-                flush=True,
-            )
+            payload = {
+                "code": error.code,
+                "detail": str(error),
+                "upload_id": error.upload_id,
+                "idempotency_key": error.idempotency_key,
+            }
+            print(json.dumps(payload), file=sys.stderr, flush=True)
         else:
-            fail(
-                error.code,
-                f"{error} (upload_id={error.upload_id}, idempotency_key={error.idempotency_key})",
-                False,
+            detail = (
+                f"{error} (upload_id={error.upload_id}, idempotency_key={error.idempotency_key})"
             )
+            fail(error.code, detail, False)
         return EXIT_CLIENT_ERROR
     except SynthError as error:
         fail(error.code, str(error), as_json)
+        return EXIT_CLIENT_ERROR
+    except httpx.HTTPError as error:
+        fail("network_error", f"HTTP transport error ({type(error).__name__})", as_json)
         return EXIT_CLIENT_ERROR
     except (ValueError, OSError, UsageError) as error:
         fail("client_error", str(error), as_json)

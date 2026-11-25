@@ -7,7 +7,6 @@ SYN-5974 (Multi-Experiment & Notebook Research Logs) over the generated OpenAPI
 
 from __future__ import annotations
 
-import hashlib
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -38,6 +37,7 @@ from ._generated.models import (
     ResearchTrialScore,
 )
 from ._inline_content import inline_content
+from ._validation import verify_sha256
 from .errors import DataIntegrityError, SynthError
 
 if TYPE_CHECKING:
@@ -202,6 +202,13 @@ class AsyncArtifacts:
             path={"artifact_id": artifact_id},
         )
 
+    def _verified_artifact_bytes(self, raw: object, digest_sha256: str | None) -> bytes:
+        if not isinstance(raw, bytes):
+            raise SynthError("Unexpected response model for getArtifactContent")
+        if digest_sha256 is not None:
+            verify_sha256(raw, digest_sha256, label="artifact")
+        return raw
+
     async def get_artifact_content(
         self,
         artifact_id: str,
@@ -210,16 +217,18 @@ class AsyncArtifacts:
         digest_sha256: str | None = None,
     ) -> str:
         """Fetch the verified UTF-8 source payload for an artifact revision."""
-        raw = await self._transport.invoke(
-            "getArtifactContent",
-            path={"artifact_id": artifact_id},
-            query={"revision_id": revision_id, "digest_sha256": digest_sha256},
+        raw = self._verified_artifact_bytes(
+            await self._transport.invoke(
+                "getArtifactContent",
+                path={"artifact_id": artifact_id},
+                query={"revision_id": revision_id, "digest_sha256": digest_sha256},
+            ),
+            digest_sha256,
         )
-        if not isinstance(raw, bytes):
-            raise SynthError("Unexpected response model for getArtifactContent")
-        if digest_sha256 is not None and hashlib.sha256(raw).hexdigest() != digest_sha256:
-            raise DataIntegrityError("artifact digest does not match the pinned reference")
-        return raw.decode("utf-8")
+        try:
+            return raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as error:
+            raise DataIntegrityError("artifact content is not valid UTF-8") from error
 
     async def get_artifact_content_inline(
         self,
@@ -229,15 +238,14 @@ class AsyncArtifacts:
         digest_sha256: str | None = None,
     ) -> McpOutputContent:
         """Fetch an artifact revision payload as the contract's McpOutputContent."""
-        raw = await self._transport.invoke(
-            "getArtifactContent",
-            path={"artifact_id": artifact_id},
-            query={"revision_id": revision_id, "digest_sha256": digest_sha256},
+        raw = self._verified_artifact_bytes(
+            await self._transport.invoke(
+                "getArtifactContent",
+                path={"artifact_id": artifact_id},
+                query={"revision_id": revision_id, "digest_sha256": digest_sha256},
+            ),
+            digest_sha256,
         )
-        if not isinstance(raw, bytes):
-            raise SynthError("Unexpected response model for getArtifactContent")
-        if digest_sha256 is not None and hashlib.sha256(raw).hexdigest() != digest_sha256:
-            raise DataIntegrityError("artifact digest does not match the pinned reference")
         return inline_content(raw, "text/plain; charset=utf-8")
 
     async def share_artifact(
@@ -473,6 +481,8 @@ class AsyncResearchLogs:
         self, notebook_id: str, *, run_id: str | None = None, fmt: str = "markdown"
     ) -> ResearchLogExport:
         """Export a notebook or run research log in markdown or JSON format."""
+        if fmt not in {"markdown", "json"}:
+            raise ValueError("fmt must be 'markdown' or 'json'")
         return await self._transport.request(
             "exportResearchLog",
             ResearchLogExport,

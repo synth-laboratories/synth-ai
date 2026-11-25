@@ -1,5 +1,7 @@
 """Client observation milestones; distinct from the server's open run state."""
 
+from __future__ import annotations
+
 from enum import StrEnum
 
 

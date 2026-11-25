@@ -178,7 +178,7 @@ def test_mcp_isolation_output_content_preserves_the_output_pin(tmp_path):
 
     def responder(method, path, _):
         url = urlsplit(path)
-        if method == "GET" and url.path.endswith("/content"):
+        if method == "GET" and url.path.startswith("/v1/runs/") and url.path.endswith("/content"):
             calls.append((url.path, parse_qs(url.query)))
         return 404, problem("resource_not_found", 404), {}
 

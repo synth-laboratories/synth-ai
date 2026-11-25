@@ -13,6 +13,7 @@ from ._directory_source import DirectorySource, open_directory
 from ._file_source import FileSource, open_source
 from ._generated.models import File, Upload
 from ._limits import UPLOAD_BINARY_MEDIA_TYPE
+from ._validation import require_non_empty, validate_idempotency_key
 from .errors import (
     DataIntegrityError,
     DirectoryUploadCancelledError,
@@ -31,7 +32,8 @@ class ArtifactUploads:
         self._transport = transport
 
     async def upload_directory(self, directory: str | int, *, idempotency_key: str) -> list[File]:
-        if not idempotency_key.strip() or len(idempotency_key.encode("utf-8")) > 255:
+        validated_key = validate_idempotency_key(idempotency_key, max_bytes=255)
+        if validated_key is None:
             raise ValueError("directory idempotency key must be nonempty and at most 255 bytes")
         completed: list[File] = []
         current: tuple[str, str] | None = None
@@ -43,7 +45,7 @@ class ArtifactUploads:
                 for file in snapshot.files:
                     key = hashlib.sha256(
                         b"synth-directory.v1\0"
-                        + idempotency_key.encode("utf-8")
+                        + validated_key.encode("utf-8")
                         + b"\0"
                         + file.name.encode("ascii")
                     ).hexdigest()
@@ -108,7 +110,7 @@ class ArtifactUploads:
             if media_type is not None
             else formats.get(path.suffix.lower(), UPLOAD_BINARY_MEDIA_TYPE)
         )
-        key = idempotency_key or str(uuid4())
+        key = validate_idempotency_key(idempotency_key) or str(uuid4())
         async with open_source(path, self._transport.file_io) as source:
             upload = await self._transport.request(
                 "createUpload",
@@ -137,7 +139,13 @@ class ArtifactUploads:
         return current
 
     async def resume(self, upload_id: str, filename: str, *, idempotency_key: str) -> File:
-        upload = await self._transport.request("getUpload", Upload, path={"upload_id": upload_id})
+        validated_id = require_non_empty("upload_id", upload_id)
+        validated_key = validate_idempotency_key(idempotency_key)
+        if validated_key is None:
+            raise ValueError("idempotency_key is required to resume an upload")
+        upload = await self._transport.request(
+            "getUpload", Upload, path={"upload_id": validated_id}
+        )
         if upload.state == "committed":
             return upload.file
         async with open_source(Path(filename), self._transport.file_io) as source:
@@ -146,7 +154,7 @@ class ArtifactUploads:
                 or source.digest_sha256 != upload.file.digest_sha256
             ):
                 raise DataIntegrityError("resume content differs from the retained upload")
-            return await self._finish(upload, source, idempotency_key)
+            return await self._finish(upload, source, validated_key)
 
     async def _finish(self, upload: Upload, source: FileSource | DirectorySource, key: str) -> File:
         try:

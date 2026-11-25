@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ._generated.models import TopologyCatalogEntry
 
+__all__ = ["EXPERIMENTAL", "TOPOLOGY_NAMES", "topology_name"]
+
 TOPOLOGY_NAMES: dict[str, str] = {"swarms_v2": "Swarms", "fork_flush": "Fork-and-Flush"}
 EXPERIMENTAL: frozenset[str] = frozenset({"fork_flush"})
 

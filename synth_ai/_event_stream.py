@@ -4,14 +4,71 @@ Checkpoints describe receipt, not durable application processing. Updating the
 checkpoint before yield makes cancellation at generator suspension explicit.
 """
 
-from collections.abc import AsyncGenerator
+from __future__ import annotations
 
-import httpx
+from typing import TYPE_CHECKING, cast
 
-from ._generated.models import Problem, RunEvent, RunMilestone
+from ._generated.models import (
+    ManagerMessageState,
+    PostedMessageKind,
+    Problem,
+    RunEvent,
+    RunMessage,
+    RunMessageEventPayload,
+    RunMessagePage,
+    RunMilestone,
+)
 from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH
 from ._stream import StreamCheckpoint, bounded_lines, frames
-from .errors import raise_problem
+from .errors import (
+    MessagingUnavailableError,
+    ResponseContractError,
+    local_problem,
+    raise_problem,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    import httpx
+
+MESSAGE_EVENT_KINDS = frozenset(
+    {
+        "run.message.accepted",
+        "run.message.delivered",
+        "run.message.disposed",
+        "run.message.expired",
+        "run.message.posted",
+    }
+)
+
+
+def require_available_messages(page: RunMessagePage) -> RunMessagePage:
+    """Fail with MessagingUnavailableError when Core marks message history unavailable."""
+    if page.availability.kind == "unavailable":
+        raise MessagingUnavailableError(
+            local_problem("messaging_unavailable", "listRunMessages", status=503)
+        )
+    return page
+
+
+def extract_message_event_id(event: RunEvent) -> str:
+    """Validate and return the message_id carried by a run.message.* event."""
+    if event.payload is None:
+        raise ResponseContractError(
+            local_problem("run_message_event_invalid", "listRunEvents", status=502)
+        )
+    return cast("RunMessageEventPayload", event.payload).message_id
+
+
+def is_correlated_reply(message: RunMessage, message_id: str) -> bool:
+    """Return True when `message` is a non-customer posted reply to `message_id`."""
+    return (
+        message.reply_to_message_id == message_id
+        and message.kind == PostedMessageKind.REPLY
+        and message.state.kind == ManagerMessageState.POSTED
+        and message.author != "customer"
+    )
 
 
 async def decode_events(

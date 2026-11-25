@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from .diagnostics import DiagnosticHook
     from .environments import Environment
 
+__all__ = ["SynthClient"]
+
 
 class SynthClient:
     """Access Swarms, account and billing through the public API.

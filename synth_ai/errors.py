@@ -7,16 +7,80 @@ import math
 from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 
-if TYPE_CHECKING:
-    import httpx
-
-    from ._stream import StreamCheckpoint
-
 from pydantic import ValidationError
 
 from ._generated.models import File, Problem, ProblemOutcome, RunSnapshot
 from ._limits import UPLOAD_MEDIA_TYPE_MAX_BYTES
 from ._retry import retry_delay
+
+if TYPE_CHECKING:
+    import httpx
+
+    from ._stream import StreamCheckpoint
+
+
+__all__ = [
+    "ClientClosedError",
+    "ConflictError",
+    "ContinueFromInputsUnavailableError",
+    "ContinueFromNotFoundError",
+    "ContinueFromNotTerminalError",
+    "DataIntegrityError",
+    "DirectoryUploadCancelledError",
+    "DirectoryUploadError",
+    "ErrorKind",
+    "ForbiddenError",
+    "InvalidRequestError",
+    "LaunchBudgetBelowActorFloorError",
+    "LaunchValidationError",
+    "LimitAboveCeilingError",
+    "LimitStillReachedError",
+    "LimitsRevisionConflictError",
+    "MalformedErrorResponseError",
+    "MessageReplyTimeoutError",
+    "MessageReplyUnavailableError",
+    "MessageTooLargeError",
+    "MessagingUnavailableError",
+    "NotFoundError",
+    "OutputContentTooLargeError",
+    "PaginationError",
+    "PaymentRequiredError",
+    "ProviderPolicyError",
+    "ProviderPresetNotAllowedError",
+    "RateLimitedError",
+    "ResourceAdmissionError",
+    "ResponseContractError",
+    "ResultUnavailableError",
+    "RunExpiredError",
+    "RunFailedError",
+    "RunHistoryUnavailableError",
+    "RunMessageQueueFullError",
+    "RunMessageRateLimitedError",
+    "RunNotAcceptingMessagesError",
+    "RunObservationError",
+    "RunPausedError",
+    "ServerError",
+    "SpendEntitlementExceededError",
+    "SwarmsAPIError",
+    "SynthError",
+    "TransportFailureError",
+    "UnauthenticatedError",
+    "UpgradeRequiredError",
+    "UploadFormatUnsupportedError",
+    "UploadSizeExceededError",
+    "UploadTransferError",
+    "UpstreamUnavailableError",
+    "WaitTimeoutError",
+    "check_upload_format",
+    "local_problem",
+    "output_content_too_large",
+    "raise_for_response",
+    "raise_problem",
+    "retry_after_seconds",
+    "stream_interrupted",
+    "upload_format_unsupported",
+    "upload_size_exceeded",
+]
 
 
 class ErrorKind(StrEnum):
@@ -118,8 +182,14 @@ class ContinueFromInputsUnavailableError(ConflictError):
 class LimitsRevisionConflictError(ConflictError):
     @property
     def current_revision(self) -> int | None:
+        if self.problem.current_revision is not None:
+            return self.problem.current_revision
         value = (self.problem.model_extra or {}).get("current_revision")
-        return int(value) if isinstance(value, (int, str)) and str(value).isdigit() else None
+        if type(value) is int and value >= 0:
+            return value
+        if isinstance(value, str) and value.isascii() and value.isdigit():
+            return int(value)
+        return None
 
 
 class LimitAboveCeilingError(InvalidRequestError):

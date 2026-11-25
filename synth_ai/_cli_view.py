@@ -53,7 +53,7 @@ if TYPE_CHECKING:
 class SavedOutput(BaseModel):
     """One downloaded run output and where it was written."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
 
     output: RunOutput
     path: str

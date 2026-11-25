@@ -1,20 +1,19 @@
 """Bounded artifact HTTP transfers and atomic verified downloads."""
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 import os
 import tempfile
-from collections.abc import AsyncIterable, Callable
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 import httpx
 
-from ._file_source import FileIO
-from ._generated.models import UploadGrant
 from ._generated.operations import OPERATIONS
 from ._http_errors import raise_stream_error
-from ._retry import RetryPolicy
+from ._validation import require_non_empty, validate_idempotency_key, verify_sha256
 from .errors import (
     DataIntegrityError,
     SynthError,
@@ -22,6 +21,34 @@ from .errors import (
     local_problem,
     output_content_too_large,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterable, Callable
+    from pathlib import Path
+
+    from ._file_source import FileIO
+    from ._generated.models import UploadGrant
+    from ._retry import RetryPolicy
+
+_ALLOWED_UPLOAD_HEADERS = frozenset(
+    {"content-type", "x-amz-content-sha256", "if-none-match", "content-length"}
+)
+_CONTROL_CHARS = ("\r", "\n", "\0")
+
+
+def _output_route(run_id: str, output_id: str) -> str:
+    validated_run = require_non_empty("run_id", run_id)
+    validated_output = require_non_empty("output_id", output_id)
+    return (
+        OPERATIONS["getRunOutputContent"]["path"]
+        .replace("{run_id}", quote(validated_run, safe=""))
+        .replace("{output_id}", quote(validated_output, safe=""))
+    )
+
+
+def _validate_pin(revision_id: str, digest_sha256: str) -> None:
+    require_non_empty("revision_id", revision_id)
+    require_non_empty("digest_sha256", digest_sha256)
 
 
 class ArtifactTransfer:
@@ -44,20 +71,22 @@ class ArtifactTransfer:
     async def put_upload(
         self, grant: UploadGrant, content: bytes | AsyncIterable[bytes], *, idempotency_key: str
     ) -> None:
+        validate_idempotency_key(idempotency_key, max_bytes=255)
         target = httpx.URL(grant.url)
         if (
             target.username
             or target.password
             or target.fragment
+            or not target.host
             or target.scheme not in {"https", "http"}
             or (target.scheme == "http" and target.host not in {"localhost", "127.0.0.1", "::1"})
         ):
             raise SynthError("Upload grant has an invalid URL")
         headers = grant.headers
         if any(
-            name.lower()
-            not in {"content-type", "x-amz-content-sha256", "if-none-match", "content-length"}
-            for name in headers
+            name.lower() not in _ALLOWED_UPLOAD_HEADERS
+            or any(c in name or c in value for c in _CONTROL_CHARS)
+            for name, value in headers.items()
         ):
             raise SynthError("Upload grant has unsupported headers")
         # Construct the request directly: never merge API/client headers, cookies
@@ -86,11 +115,10 @@ class ArtifactTransfer:
 
         Returns the bytes and the served Content-Type. Stops reading at the bound.
         """
-        route = (
-            OPERATIONS["getRunOutputContent"]["path"]
-            .replace("{run_id}", quote(run_id, safe=""))
-            .replace("{output_id}", quote(output_id, safe=""))
-        )
+        if type(max_bytes) is not int or max_bytes <= 0:
+            raise ValueError("invalid read size bound")
+        _validate_pin(revision_id, digest_sha256)
+        route = _output_route(run_id, output_id)
         try:
             async with asyncio.timeout(self.retry_policy.deadline_seconds):
                 async with self.client.stream(
@@ -124,9 +152,9 @@ class ArtifactTransfer:
             raise TransportFailureError(
                 local_problem("output_transfer_failed", "getRunOutputContent")
             ) from cause
-        if hashlib.sha256(content).hexdigest() != digest_sha256:
-            raise DataIntegrityError("output digest does not match the pinned reference")
-        return bytes(content), media_type
+        data = bytes(content)
+        verify_sha256(data, digest_sha256, label="output")
+        return data, media_type
 
     async def download_output(
         self,
@@ -148,11 +176,8 @@ class ArtifactTransfer:
             )
         ):
             raise ValueError("invalid download size bound")
-        route = (
-            OPERATIONS["getRunOutputContent"]["path"]
-            .replace("{run_id}", quote(run_id, safe=""))
-            .replace("{output_id}", quote(output_id, safe=""))
-        )
+        _validate_pin(revision_id, digest_sha256)
+        route = _output_route(run_id, output_id)
         temporary: str | None = None
         try:
             async with asyncio.timeout(self.retry_policy.deadline_seconds):

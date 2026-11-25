@@ -10,7 +10,9 @@ JSON_VALUE = TypeAdapter(JsonValue, config=ConfigDict(allow_inf_nan=False))
 
 
 class WireModel(BaseModel):
-    model_config = ConfigDict(strict=True, frozen=True, allow_inf_nan=False)
+    model_config = ConfigDict(
+        strict=True, frozen=True, allow_inf_nan=False, hide_input_in_errors=True
+    )
 
     @model_validator(mode="after")
     def validate_extensions(self) -> Self:

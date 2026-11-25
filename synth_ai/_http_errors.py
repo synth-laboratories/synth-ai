@@ -1,5 +1,7 @@
 """Bounded decoding of refused streaming HTTP responses."""
 
+from __future__ import annotations
+
 import httpx
 
 from ._limits import ERROR_RESPONSE_MAX_BYTES

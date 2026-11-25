@@ -1,12 +1,20 @@
 """Boundary validators generated schemas can reuse without duplicating policy."""
 
-from collections.abc import Callable, Mapping
-from enum import StrEnum
-from typing import TypeVar
+from __future__ import annotations
 
-from pydantic import BaseModel, ValidationInfo
+import hashlib
+from typing import TYPE_CHECKING, TypeVar
+from urllib.parse import urlsplit
 
-E = TypeVar("E", bound=StrEnum)
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from enum import StrEnum
+
+    from pydantic import BaseModel, ValidationError, ValidationInfo
+
+E = TypeVar("E", bound="StrEnum")
+_CONTROL_CHARS = ("\r", "\n", "\0")
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 def enum_value(enum: type[E]) -> Callable[[object], E]:
@@ -81,3 +89,71 @@ def strict_int(value: object) -> int:
     if type(value) is not int:
         raise ValueError("expected an integer")
     return value
+
+
+def require_non_empty(name: str, value: str, *, allow_dot_segments: bool = False) -> str:
+    """Require a non-blank string without control characters or path dot segments."""
+    if not isinstance(value, str) or not value.strip() or any(c in value for c in _CONTROL_CHARS):
+        raise ValueError(f"{name} must be a non-empty string without control characters")
+    if not allow_dot_segments and value.strip() in {".", ".."}:
+        raise ValueError(f"{name} must not be '.' or '..'")
+    return value
+
+
+def validate_idempotency_key(value: str | None, *, max_bytes: int = 128) -> str | None:
+    """Require None or a bounded, non-blank idempotency key without control characters."""
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or any(c in value for c in _CONTROL_CHARS)
+        or len(value.encode("utf-8")) > max_bytes
+    ):
+        raise ValueError(
+            f"idempotency_key must be 1..{max_bytes} UTF-8 bytes without blank text or control characters"
+        )
+    return value
+
+
+def verify_sha256(content: bytes, expected: str, *, label: str) -> None:
+    """Raise DataIntegrityError when received bytes differ from the pinned SHA-256 hex digest."""
+    if hashlib.sha256(content).hexdigest() != expected:
+        from .errors import DataIntegrityError
+
+        raise DataIntegrityError(f"{label} digest does not match the pinned reference")
+
+
+def validate_http_origin(value: str, *, allow_http_loopback: bool = True) -> str:
+    """Validate an explicit HTTP(S) origin with no credentials, path, query, or fragment."""
+    if not isinstance(value, str) or not value or any(c in value for c in _CONTROL_CHARS):
+        raise ValueError("base_url must be an HTTP origin")
+    stripped = value.strip()
+    if stripped != value:
+        raise ValueError("base_url must be an HTTP origin")
+    origin = stripped.rstrip("/")
+    parsed = urlsplit(origin)
+    host = parsed.hostname
+    if (
+        parsed.scheme not in {"https", "http"}
+        or host is None
+        or host == ""
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query != ""
+        or parsed.fragment != ""
+    ):
+        raise ValueError("base_url must be an HTTP origin")
+    if parsed.scheme == "http" and not (allow_http_loopback and host in _LOOPBACK_HOSTS):
+        raise ValueError("credentials require HTTPS outside loopback")
+    return origin
+
+
+def safe_validation_detail(error: ValidationError) -> str:
+    """Format validation error locations without echoing caller-supplied input values."""
+    parts = [
+        f"{'.'.join(str(p) for p in item['loc']) or 'body'}: {item['msg']}"
+        for item in error.errors(include_input=False)[:3]
+    ]
+    return "; ".join(parts) if parts else "validation failed"

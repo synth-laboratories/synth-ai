@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import secrets
 import tempfile
@@ -19,7 +20,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from typing_extensions import override
 
 from ._auth_models import (
@@ -32,16 +33,50 @@ from ._auth_models import (
     OAuthToken,
 )
 from ._generated.policy import SDK_OAUTH_SCOPES
+from ._validation import validate_http_origin
 from .errors import SynthError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
+
+__all__ = [
+    "DEFAULT_BASE_URL",
+    "DEFAULT_OAUTH_BASE_URL",
+    "DEVICE_CLIENT_ID",
+    "DEVICE_GRANT_TYPE",
+    "callback_result",
+    "credentials",
+    "discover",
+    "endpoint",
+    "login",
+    "login_device",
+    "logout",
+    "oauth_base",
+    "read_tokens",
+    "save_tokens",
+    "status",
+    "token_path",
+]
 
 DEFAULT_BASE_URL = "https://api.usesynth.ai"
 DEFAULT_OAUTH_BASE_URL = "https://mcp.usesynth.ai"
 # The server's verified first-party client: the only one it lets start a device sign-in.
 DEVICE_CLIENT_ID = "synth-ai-cli"
 DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
+
+
+def _resolve_origin(raw: str) -> str:
+    try:
+        return validate_http_origin(raw, allow_http_loopback=True)
+    except ValueError as error:
+        raise SynthError(str(error)) from error
+
+
+def _resolve_base(base_url: str | None) -> str:
+    if base_url is not None:
+        return _resolve_origin(base_url)
+    env_url = os.getenv("SYNTH_API_BASE_URL")
+    return _resolve_origin(env_url) if env_url is not None and env_url != "" else DEFAULT_BASE_URL
 
 
 def token_path() -> Path:
@@ -93,12 +128,12 @@ def oauth_base(base: str) -> str:
     """
     override = os.getenv("SYNTH_OAUTH_BASE_URL")
     if override is not None and override != "":
-        return override.rstrip("/")
+        return _resolve_origin(override)
     return DEFAULT_OAUTH_BASE_URL if base == DEFAULT_BASE_URL else base
 
 
 def credentials(base_url: str | None = None, api_key: str | None = None) -> tuple[str, str | None]:
-    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    base = _resolve_base(base_url)
     key = api_key or os.getenv("SYNTH_API_KEY")
     if key is not None and key != "":
         return base, key
@@ -111,18 +146,24 @@ def credentials(base_url: str | None = None, api_key: str | None = None) -> tupl
         with httpx.Client(timeout=30, follow_redirects=False) as client:
             oauth = oauth_base(base)
             metadata = discover(client, oauth)
-            response = client.post(
-                endpoint(metadata, "token_endpoint", oauth),
-                data={
-                    "grant_type": "refresh_token",
-                    "client_id": record.client_id,
-                    "refresh_token": record.refresh_token,
-                    "resource": oauth + "/mcp",
-                },
-            )
+            try:
+                response = client.post(
+                    endpoint(metadata, "token_endpoint", oauth),
+                    data={
+                        "grant_type": "refresh_token",
+                        "client_id": record.client_id,
+                        "refresh_token": record.refresh_token,
+                        "resource": oauth + "/mcp",
+                    },
+                )
+            except httpx.TransportError as error:
+                raise SynthError("OAuth refresh failed; check network connectivity") from error
             if not response.is_success:
                 raise SynthError("OAuth refresh refused; sign in again")
-            token = OAuthToken.model_validate_json(response.content)
+            try:
+                token = OAuthToken.model_validate_json(response.content)
+            except ValidationError as error:
+                raise SynthError("OAuth refresh response invalid") from error
             record = CredentialRecord(
                 access_token=token.access_token,
                 refresh_token=token.refresh_token or record.refresh_token,
@@ -153,14 +194,17 @@ def endpoint(metadata: OAuthMetadata | Mapping[str, JsonValue], name: str, base:
 
 
 def discover(client: httpx.Client, base: str) -> OAuthMetadata:
-    parsed = urlparse(base)
-    if parsed.scheme != "https" and not (
-        parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
-    ):
-        raise SynthError("OAuth requires HTTPS outside loopback")
-    response = client.get(base + "/.well-known/oauth-authorization-server")
-    response.raise_for_status()
-    value = OAuthMetadata.model_validate_json(response.content)
+    base = _resolve_origin(base)
+    try:
+        response = client.get(base + "/.well-known/oauth-authorization-server")
+    except httpx.TransportError as error:
+        raise SynthError("OAuth discovery request failed") from error
+    if not response.is_success:
+        raise SynthError(f"OAuth discovery refused: HTTP {response.status_code}")
+    try:
+        value = OAuthMetadata.model_validate_json(response.content)
+    except ValidationError as error:
+        raise SynthError("OAuth metadata response is invalid") from error
     if value.issuer is None or value.issuer.rstrip("/") != base:
         raise SynthError("OAuth issuer mismatch")
     if "S256" not in value.code_challenge_methods_supported:
@@ -202,9 +246,16 @@ def login(
     With ``open_browser=False`` the authorization URL goes to ``redirect_source``,
     which returns the redirect URL the browser reached; no new server route is used.
     """
+    if (
+        type(timeout) not in (int, float)
+        or isinstance(timeout, bool)
+        or not math.isfinite(timeout)
+        or timeout <= 0
+    ):
+        raise ValueError("timeout must be finite and positive")
     if not open_browser and redirect_source is None:
         raise ValueError("open_browser=False requires redirect_source")
-    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    base = _resolve_base(base_url)
     oauth = oauth_base(base)
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)
@@ -236,18 +287,25 @@ def login(
     ):
         redirect = f"http://127.0.0.1:{server.server_port}/callback"
         metadata = discover(client, oauth)
-        response = client.post(
-            endpoint(metadata, "registration_endpoint", oauth),
-            json={
-                "client_name": "Synth CLI",
-                "redirect_uris": [redirect],
-                "grant_types": ["authorization_code", "refresh_token"],
-                "response_types": ["code"],
-                "token_endpoint_auth_method": "none",
-            },
-        )
-        response.raise_for_status()
-        client_id = ClientRegistration.model_validate_json(response.content).client_id
+        try:
+            response = client.post(
+                endpoint(metadata, "registration_endpoint", oauth),
+                json={
+                    "client_name": "Synth CLI",
+                    "redirect_uris": [redirect],
+                    "grant_types": ["authorization_code", "refresh_token"],
+                    "response_types": ["code"],
+                    "token_endpoint_auth_method": "none",
+                },
+            )
+        except httpx.TransportError as error:
+            raise SynthError("OAuth client registration failed") from error
+        if not response.is_success:
+            raise SynthError("OAuth client registration refused: " + _oauth_error(response))
+        try:
+            client_id = ClientRegistration.model_validate_json(response.content).client_id
+        except ValidationError as error:
+            raise SynthError("OAuth client registration response invalid") from error
         authorization = (
             endpoint(metadata, "authorization_endpoint", oauth)
             + "?"
@@ -276,21 +334,30 @@ def login(
             server.timeout = 1
             while not result and time.monotonic() < deadline:
                 server.handle_request()
+        if "error" in result:
+            raise SynthError("OAuth authorization refused: " + result["error"])
         if "code" not in result:
             raise SynthError("OAuth authorization denied or timed out")
-        response = client.post(
-            endpoint(metadata, "token_endpoint", oauth),
-            data={
-                "grant_type": "authorization_code",
-                "client_id": client_id,
-                "code": result["code"],
-                "code_verifier": verifier,
-                "redirect_uri": redirect,
-                "resource": oauth + "/mcp",
-            },
-        )
-        response.raise_for_status()
-        response_token = OAuthToken.model_validate_json(response.content)
+        try:
+            response = client.post(
+                endpoint(metadata, "token_endpoint", oauth),
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": client_id,
+                    "code": result["code"],
+                    "code_verifier": verifier,
+                    "redirect_uri": redirect,
+                    "resource": oauth + "/mcp",
+                },
+            )
+        except httpx.TransportError as error:
+            raise SynthError("OAuth token exchange failed") from error
+        if not response.is_success:
+            raise SynthError("OAuth token exchange refused: " + _oauth_error(response))
+        try:
+            response_token = OAuthToken.model_validate_json(response.content)
+        except ValidationError as error:
+            raise SynthError("OAuth token response invalid") from error
         token = CredentialRecord(
             access_token=response_token.access_token,
             refresh_token=response_token.refresh_token,
@@ -314,40 +381,50 @@ def login_device(
     the person; this polls the token endpoint until they approve, deny or the code
     expires. The device code is never shown.
     """
-    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    base = _resolve_base(base_url)
     oauth = oauth_base(base)
     with httpx.Client(timeout=30, follow_redirects=False) as client:
         metadata = discover(client, oauth)
         if metadata.device_authorization_endpoint is None:
             raise SynthError("This server does not offer device sign-in; use synth login")
-        response = client.post(
-            endpoint(metadata, "device_authorization_endpoint", oauth),
-            data={
-                "client_id": DEVICE_CLIENT_ID,
-                "scope": " ".join(SDK_OAUTH_SCOPES),
-                "resource": oauth + "/mcp",
-            },
-        )
+        try:
+            response = client.post(
+                endpoint(metadata, "device_authorization_endpoint", oauth),
+                data={
+                    "client_id": DEVICE_CLIENT_ID,
+                    "scope": " ".join(SDK_OAUTH_SCOPES),
+                    "resource": oauth + "/mcp",
+                },
+            )
+        except httpx.TransportError as error:
+            raise SynthError("Device sign-in request failed") from error
         if not response.is_success:
             raise SynthError("Device sign-in refused: " + _oauth_error(response))
-        device = DeviceAuthorization.model_validate_json(response.content)
+        try:
+            device = DeviceAuthorization.model_validate_json(response.content)
+        except ValidationError as error:
+            raise SynthError("Device sign-in response invalid") from error
         show(device)
         token_url = endpoint(metadata, "token_endpoint", oauth)
         interval = float(device.interval)
         deadline = clock() + device.expires_in
-        while True:
+        max_polls = max(256, math.ceil(device.expires_in / max(interval, 0.001)) + 16)
+        for _ in range(max_polls):
             sleep(interval)
             if clock() >= deadline:
                 raise SynthError("Device sign-in code expired; run synth login --device again")
-            response = client.post(
-                token_url,
-                data={
-                    "grant_type": DEVICE_GRANT_TYPE,
-                    "client_id": DEVICE_CLIENT_ID,
-                    "device_code": device.device_code,
-                    "resource": oauth + "/mcp",
-                },
-            )
+            try:
+                response = client.post(
+                    token_url,
+                    data={
+                        "grant_type": DEVICE_GRANT_TYPE,
+                        "client_id": DEVICE_CLIENT_ID,
+                        "device_code": device.device_code,
+                        "resource": oauth + "/mcp",
+                    },
+                )
+            except httpx.TransportError as error:
+                raise SynthError("Device sign-in poll failed") from error
             if response.is_success:
                 break
             error = _oauth_error(response)
@@ -361,7 +438,12 @@ def login_device(
             if error == "expired_token":
                 raise SynthError("Device sign-in code expired; run synth login --device again")
             raise SynthError("Device sign-in failed: " + error)
-        response_token = OAuthToken.model_validate_json(response.content)
+        else:
+            raise SynthError("Device sign-in exceeded maximum poll attempts")
+        try:
+            response_token = OAuthToken.model_validate_json(response.content)
+        except ValidationError as error:
+            raise SynthError("Device token response invalid") from error
         records = read_tokens()
         records[base] = CredentialRecord(
             access_token=response_token.access_token,
@@ -383,27 +465,31 @@ def _oauth_error(response: httpx.Response) -> str:
 
 
 def logout(base_url: str | None = None) -> None:
-    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    base = _resolve_base(base_url)
     records = read_tokens()
     record = records.get(base)
     if record:
         with httpx.Client(timeout=30, follow_redirects=False) as client:
             oauth = oauth_base(base)
             metadata = discover(client, oauth)
-            response = client.post(
-                endpoint(metadata, "revocation_endpoint", oauth),
-                data={
-                    "token": record.refresh_token or record.access_token,
-                    "client_id": record.client_id,
-                },
-            )
-            response.raise_for_status()
+            try:
+                response = client.post(
+                    endpoint(metadata, "revocation_endpoint", oauth),
+                    data={
+                        "token": record.refresh_token or record.access_token,
+                        "client_id": record.client_id,
+                    },
+                )
+            except httpx.TransportError as error:
+                raise SynthError("OAuth logout request failed") from error
+            if not response.is_success:
+                raise SynthError(f"OAuth revocation refused: HTTP {response.status_code}")
         records.pop(base)
         save_tokens(records)
 
 
 def status(base_url: str | None = None) -> AuthStatus:
-    base = (base_url or os.getenv("SYNTH_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+    base = _resolve_base(base_url)
     record = read_tokens().get(base)
     environment = bool(os.getenv("SYNTH_API_KEY"))
     return AuthStatus(

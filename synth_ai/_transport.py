@@ -24,6 +24,7 @@ from ._retry import retry_delay as retry_delay
 from ._retry import stream_refusal_retryable
 from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
+from ._validation import require_non_empty, validate_http_origin
 from ._version import __version__
 from .errors import (
     ClientClosedError,
@@ -65,22 +66,10 @@ class Transport:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        url = httpx.URL(self.base_url)
-        if (
-            url.scheme not in {"https", "http"}
-            or not url.host
-            or url.username
-            or url.password
-            or url.query
-            or url.fragment
-        ):
-            raise ValueError("base_url must be an HTTP origin")
-        if url.scheme == "http" and url.host not in {"localhost", "127.0.0.1", "::1"}:
-            raise ValueError("credentials require HTTPS outside loopback")
-        if retries < 0 or retries > 5:
+        self.base_url = validate_http_origin(base_url, allow_http_loopback=True)
+        if type(retries) is not int or retries < 0 or retries > 5:
             raise ValueError("retries must be between 0 and 5")
-        if not math.isfinite(timeout) or timeout <= 0:
+        if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be finite and positive")
         self.diagnostic_hook = diagnostic_hook
         # The admission-pending send retry waits through these; tests inject fakes.
@@ -112,7 +101,11 @@ class Transport:
             "X-Request-Id": str(uuid4()),
         }
         if auth:
-            if self.token is None or self.token == "":
+            if (
+                self.token is None
+                or not self.token.strip()
+                or any(c in self.token for c in "\r\n\0")
+            ):
                 raise SynthError("Set SYNTH_API_KEY or run synth login")
             headers["Authorization"] = "Bearer " + self.token
         return headers
@@ -235,6 +228,7 @@ class Transport:
         self, run_id: str, state: StreamCheckpoint
     ) -> AsyncGenerator[AsyncIterator[RunEvent | RunMilestone], None]:
         """Open the durable feed before an observer performs its authoritative read."""
+        run_id = require_non_empty("run_id", run_id)
         state.bind(run_id)
         state.__post_init__()
         headers = self.headers()
@@ -272,8 +266,11 @@ class Transport:
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
     ) -> AsyncGenerator[RunEvent, None]:
-        if timeout is not None and (not math.isfinite(timeout) or timeout <= 0):
+        if timeout is not None and (
+            type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0
+        ):
             raise ValueError("stream timeout must be finite and positive")
+        run_id = require_non_empty("run_id", run_id)
         state = checkpoint if checkpoint is not None else StreamCheckpoint()
         state.bind(run_id)
         if last_event_id is not None:
@@ -310,7 +307,10 @@ class Transport:
                             return
                     if attempt + 1 < attempts:
                         delay = self.retry_policy.delay(None, attempt)
-                        await asyncio.sleep(delay or 0)
+                        if self.sleep is asyncio.sleep:
+                            await asyncio.sleep(delay or 0)
+                        else:
+                            await self.sleep(delay or 0)
                 raise stream_interrupted(attempts, state, snapshot) from cause
         except SwarmsAPIError as api_error:
             api_error.checkpoint = state

@@ -4,9 +4,7 @@ The JSON mapping exists only at this serialization boundary. Each operation
 parses its contract body before invoking a typed SDK method.
 """
 
-# ruff: noqa: UP045 -- Public boundary optionals use Synth Style's Optional vocabulary.
 from collections.abc import Mapping
-from typing import Optional
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
@@ -22,7 +20,7 @@ from synth_ai._limits import SERVER_WAIT_SECONDS_DEFAULT
 from synth_ai._requests import DomicileRequirement
 from synth_ai.aclient import AsyncSynthClient
 
-from ._arguments import optional, page_limit, required
+from ._arguments import optional, page_limit, required, validate_with
 from .resource_dispatch import dispatch_resource
 
 __all__ = ["dispatch"]
@@ -137,9 +135,9 @@ async def dispatch(
         case "getLaunchChoices":
             return await client.swarms.launch_choices(
                 profile=optional(arguments, "profile", str),
-                domicile_requirement=TypeAdapter(Optional[DomicileRequirement]).validate_python(
+                domicile_requirement=validate_with(
+                    TypeAdapter(DomicileRequirement | None),
                     arguments.get("domicile_requirement"),
-                    strict=True,
                 ),
                 parallel_workers=optional(arguments, "parallel_workers", int),
                 wall_time_seconds=optional(arguments, "wall_time_seconds", int),

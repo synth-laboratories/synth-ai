@@ -1,5 +1,7 @@
 """Local transfer and recovery bounds; admission limits come from the contract."""
 
+from __future__ import annotations
+
 from ._generated.file_limits import FILE_MAX_BYTES, MEDIA_TYPE_MAX_BYTES
 
 UPLOAD_MAX_BYTES = FILE_MAX_BYTES

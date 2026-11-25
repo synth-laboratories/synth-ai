@@ -1,9 +1,13 @@
 """Lazy cursor traversal with bounded cycle detection and no prefetch."""
 
-from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
-from typing import Protocol, TypeVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from .errors import PaginationError
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 
 T = TypeVar("T", covariant=True)
 

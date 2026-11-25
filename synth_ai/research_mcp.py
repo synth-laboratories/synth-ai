@@ -9,6 +9,9 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, TypedDict
 
+from pydantic import ValidationError
+
+from ._validation import require_non_empty, safe_validation_detail, validate_idempotency_key
 from .errors import InvalidRequestError, local_problem
 from .research import ExactReference, ReferenceSource
 
@@ -274,11 +277,24 @@ RESEARCH_MCP_TOOLS: tuple[ResearchToolSchema, ...] = (
 _BY_NAME: dict[str, ResearchToolSchema] = {tool["name"]: tool for tool in RESEARCH_MCP_TOOLS}
 
 
+def _invalid_input(detail: str) -> InvalidRequestError:
+    return InvalidRequestError(
+        local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=detail)
+    )
+
+
 def _str(arguments: dict[str, JsonValue], key: str) -> str:
     value = arguments[key]
     if not isinstance(value, str):
-        raise ValueError(f"{key} must be a string")
+        raise _invalid_input(f"{key} must be a string")
     return value
+
+
+def _id_str(arguments: dict[str, JsonValue], key: str) -> str:
+    try:
+        return require_non_empty(key, _str(arguments, key))
+    except ValueError as error:
+        raise _invalid_input(str(error)) from None
 
 
 def _opt_str(arguments: dict[str, JsonValue], key: str) -> str | None:
@@ -286,8 +302,25 @@ def _opt_str(arguments: dict[str, JsonValue], key: str) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError(f"{key} must be a string")
+        raise _invalid_input(f"{key} must be a string")
     return value
+
+
+def _opt_id_str(arguments: dict[str, JsonValue], key: str) -> str | None:
+    value = _opt_str(arguments, key)
+    if value is None:
+        return None
+    try:
+        return require_non_empty(key, value)
+    except ValueError as error:
+        raise _invalid_input(str(error)) from None
+
+
+def _opt_key(arguments: dict[str, JsonValue]) -> str | None:
+    try:
+        return validate_idempotency_key(_opt_str(arguments, "idempotency_key"))
+    except ValueError as error:
+        raise _invalid_input(str(error)) from None
 
 
 def _str_list(arguments: dict[str, JsonValue], key: str) -> list[str]:
@@ -295,7 +328,7 @@ def _str_list(arguments: dict[str, JsonValue], key: str) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"{key} must be a list of strings")
+        raise _invalid_input(f"{key} must be a list of strings")
     return [item for item in value if isinstance(item, str)]
 
 
@@ -304,20 +337,25 @@ def _refs(arguments: dict[str, JsonValue], key: str) -> list[ExactReference]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ValueError(f"{key} must be a list")
+        raise _invalid_input(f"{key} must be a list")
     refs: list[ExactReference] = []
     for item in value:
         if not isinstance(item, dict):
-            raise ValueError(f"{key} entries must be objects")
-        refs.append(
-            ExactReference(
-                source=ReferenceSource(_str(item, "source")),
-                kind=_str(item, "kind"),
-                record_id=_str(item, "record_id"),
-                revision=_str(item, "revision"),
-                digest_sha256=_str(item, "digest_sha256"),
+            raise _invalid_input(f"{key} entries must be objects")
+        try:
+            refs.append(
+                ExactReference(
+                    source=ReferenceSource(_str(item, "source")),
+                    kind=_str(item, "kind"),
+                    record_id=_id_str(item, "record_id"),
+                    revision=_id_str(item, "revision"),
+                    digest_sha256=_id_str(item, "digest_sha256"),
+                )
             )
-        )
+        except ValidationError as error:
+            raise _invalid_input(safe_validation_detail(error)) from None
+        except ValueError as error:
+            raise _invalid_input(str(error)) from None
     return refs
 
 
@@ -332,107 +370,105 @@ async def call_research_tool(
 
     error = next(iter(Draft202012Validator(tool["inputSchema"]).iter_errors(arguments)), None)
     if error is not None:
-        raise InvalidRequestError(
-            local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=error.message)
-        )
+        raise _invalid_input(error.message)
     result: BaseModel
     match name:
         case "artifacts_create":
             result = await client.artifacts.create_artifact(
-                _str(arguments, "notebook_id"),
+                _id_str(arguments, "notebook_id"),
                 _str(arguments, "title"),
                 _str(arguments, "kind"),
                 _str(arguments, "content"),
                 _str(arguments, "summary"),
                 origin=_opt_str(arguments, "origin") or "agent",
-                run_id=_opt_str(arguments, "run_id"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                run_id=_opt_id_str(arguments, "run_id"),
+                idempotency_key=_opt_key(arguments),
             )
         case "artifacts_update":
             result = await client.artifacts.update_artifact(
-                _str(arguments, "artifact_id"),
+                _id_str(arguments, "artifact_id"),
                 _str(arguments, "content"),
                 _str(arguments, "summary"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "artifacts_list":
             result = await client.artifacts.list_artifacts(
-                _str(arguments, "notebook_id"),
-                run_id=_opt_str(arguments, "run_id"),
+                _id_str(arguments, "notebook_id"),
+                run_id=_opt_id_str(arguments, "run_id"),
             )
         case "artifacts_get":
-            result = await client.artifacts.get_artifact(_str(arguments, "artifact_id"))
+            result = await client.artifacts.get_artifact(_id_str(arguments, "artifact_id"))
         case "artifacts_share":
             result = await client.artifacts.share_artifact(
-                _str(arguments, "artifact_id"),
+                _id_str(arguments, "artifact_id"),
                 scope=_opt_str(arguments, "scope") or "org",
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "artifacts_revoke_share":
-            result = await client.artifacts.revoke_artifact_share(_str(arguments, "artifact_id"))
+            result = await client.artifacts.revoke_artifact_share(_id_str(arguments, "artifact_id"))
         case "experiments_create":
             result = await client.experiments.create_experiment(
-                _str(arguments, "notebook_id"),
-                _str(arguments, "run_id"),
+                _id_str(arguments, "notebook_id"),
+                _id_str(arguments, "run_id"),
                 _str(arguments, "title"),
                 _str(arguments, "specification"),
                 _str_list(arguments, "arms"),
                 hypothesis=_opt_str(arguments, "hypothesis"),
                 pinned_inputs=_str_list(arguments, "pinned_inputs"),
                 stopping_criteria=_opt_str(arguments, "stopping_criteria"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "experiments_revise":
             arms = _str_list(arguments, "arms") if "arms" in arguments else None
             result = await client.experiments.revise_experiment(
-                _str(arguments, "experiment_id"),
+                _id_str(arguments, "experiment_id"),
                 title=_opt_str(arguments, "title"),
                 specification=_opt_str(arguments, "specification"),
                 hypothesis=_opt_str(arguments, "hypothesis"),
                 arms=arms,
                 stopping_criteria=_opt_str(arguments, "stopping_criteria"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "experiments_get":
-            result = await client.experiments.get_experiment(_str(arguments, "experiment_id"))
+            result = await client.experiments.get_experiment(_id_str(arguments, "experiment_id"))
         case "experiments_list":
             result = await client.experiments.list_experiments(
-                _str(arguments, "notebook_id"),
-                run_id=_opt_str(arguments, "run_id"),
+                _id_str(arguments, "notebook_id"),
+                run_id=_opt_id_str(arguments, "run_id"),
             )
         case "research_log_append":
             result = await client.research_logs.append_entry(
-                _str(arguments, "notebook_id"),
+                _id_str(arguments, "notebook_id"),
                 _str(arguments, "category"),
                 _str(arguments, "text"),
-                run_id=_opt_str(arguments, "run_id"),
+                run_id=_opt_id_str(arguments, "run_id"),
                 author_kind=_opt_str(arguments, "author_kind") or "local_agent",
                 author_label=_opt_str(arguments, "author_label"),
                 sources=_refs(arguments, "sources"),
                 artifact_ids=_str_list(arguments, "artifact_ids"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "research_log_correct":
             result = await client.research_logs.correct_entry(
-                _str(arguments, "notebook_id"),
-                _str(arguments, "entry_id"),
+                _id_str(arguments, "notebook_id"),
+                _id_str(arguments, "entry_id"),
                 _str(arguments, "text"),
                 sources=_refs(arguments, "sources"),
                 artifact_ids=_str_list(arguments, "artifact_ids"),
-                idempotency_key=_opt_str(arguments, "idempotency_key"),
+                idempotency_key=_opt_key(arguments),
             )
         case "research_log_search":
             result = await client.research_logs.search_entries(
-                _str(arguments, "notebook_id"),
+                _id_str(arguments, "notebook_id"),
                 query=_opt_str(arguments, "query"),
                 category=_opt_str(arguments, "category"),
-                run_id=_opt_str(arguments, "run_id"),
+                run_id=_opt_id_str(arguments, "run_id"),
                 author_kind=_opt_str(arguments, "author_kind"),
             )
         case "research_log_export":
             result = await client.research_logs.export_log(
-                _str(arguments, "notebook_id"),
-                run_id=_opt_str(arguments, "run_id"),
+                _id_str(arguments, "notebook_id"),
+                run_id=_opt_id_str(arguments, "run_id"),
                 fmt=_opt_str(arguments, "format") or "markdown",
             )
         case _:

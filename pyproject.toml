@@ -100,6 +100,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "synth_ai/cli.py" = ["T20"]
+"synth_ai/_cli_run.py" = ["T20"]
 "synth_ai/_cli_view.py" = ["TC001"]  # SavedOutput(WireModel) evaluates model fields at runtime.
 "synth_ai/swarms.py" = ["TC001"]  # gen_sync.py parses top-level _generated.models imports.
 "synth_ai/account.py" = ["TC001"]

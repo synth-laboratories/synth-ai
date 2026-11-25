@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
     from .diagnostics import DiagnosticHook
 
+__all__ = ["AsyncSynthClient"]
+
 
 class AsyncSynthClient:
     """Access Swarms, account and billing through the public API.

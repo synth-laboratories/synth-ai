@@ -1,5 +1,7 @@
 """Synth public API v1."""
 
+from __future__ import annotations
+
 from ._transport import RetryPolicy
 from ._version import __version__
 from .aclient import AsyncSynthClient

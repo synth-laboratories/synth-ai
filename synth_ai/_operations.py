@@ -1,11 +1,13 @@
 """Execute generated operations under one identity, payload snapshot and deadline."""
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 import json
 import time
-from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -16,12 +18,11 @@ from ._generated.models import MODELS, Problem
 from ._generated.operations import OPERATIONS
 from ._retry import (
     ADMISSION_RETRY_BUDGET_SECONDS,
-    RetryPolicy,
     admission_pending,
     admission_wait,
 )
+from ._validation import require_non_empty, validate_idempotency_key
 from .diagnostics import (
-    DiagnosticHook,
     DiagnosticPhase,
     OperationDiagnostic,
     RetrySuppressed,
@@ -34,6 +35,12 @@ from .errors import (
     local_problem,
     raise_for_response,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Mapping
+
+    from ._retry import RetryPolicy
+    from .diagnostics import DiagnosticHook
 
 
 def ambiguous_response(response: httpx.Response) -> bool:
@@ -115,7 +122,7 @@ class OperationExecutor:
         body: BaseModel | Mapping[str, JsonValue] | None = None,
         idempotency_key: str | None = None,
     ) -> OperationResult:
-        started = time.monotonic()
+        started = self.clock()
         progress = _Progress()
         try:
             result = await self._invoke(
@@ -151,7 +158,7 @@ class OperationExecutor:
             operation,
             phase,
             progress.attempts,
-            max(0.0, time.monotonic() - started),
+            max(0.0, self.clock() - started),
             correlation(progress.request_id),
             correlation(progress.idempotency_key),
             retry_suppressed,
@@ -178,10 +185,12 @@ class OperationExecutor:
         if set(path or {}) != set(op["path_params"]):
             raise ValueError("path parameters do not match operation")
         for name, value in (path or {}).items():
-            route = route.replace("{" + name + "}", quote(value, safe=""))
+            validated = require_non_empty(f"path parameter {name!r}", value)
+            route = route.replace("{" + name + "}", quote(validated, safe=""))
         params = {k: v for k, v in (query or {}).items() if v is not None}
         if set(params) - set(op["query_params"]):
             raise ValueError("query parameters do not match operation")
+        validated_key = validate_idempotency_key(idempotency_key)
         payload = (
             body.model_dump(mode="json", exclude_unset=True)
             if isinstance(body, BaseModel)
@@ -198,12 +207,14 @@ class OperationExecutor:
         content = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
         headers = self.headers(op["auth"])
         if op["idempotency"] in {"durable_key", "owner_key", "mq_owner_key"}:
-            headers["Idempotency-Key"] = idempotency_key or str(uuid4())
+            headers["Idempotency-Key"] = (
+                validated_key if validated_key is not None else str(uuid4())
+            )
         if content is not None:
             headers["Content-Type"] = "application/json"
         progress.request_id = headers["X-Request-Id"]
         progress.idempotency_key = headers.get("Idempotency-Key")
-        deadline = time.monotonic() + self.retry_policy.deadline_seconds
+        deadline = self.clock() + self.retry_policy.deadline_seconds
         response: httpx.Response | None = None
         admission_started = self.clock()
         admission_retries = 0
@@ -211,7 +222,7 @@ class OperationExecutor:
         while attempt < self.retry_policy.attempts:
             progress.attempts = attempt + admission_retries + 1
             try:
-                remaining = deadline - time.monotonic()
+                remaining = deadline - self.clock()
                 async with asyncio.timeout(max(0, remaining)):
                     response = await self.client.request(
                         op["method"],
@@ -247,7 +258,7 @@ class OperationExecutor:
                 self._emit(operation_id, DiagnosticPhase.RETRY, progress, started)
                 await self.sleep(wait)
                 admission_retries += 1
-                deadline = time.monotonic() + self.retry_policy.deadline_seconds
+                deadline = self.clock() + self.retry_policy.deadline_seconds
                 continue
             if (
                 response.status_code not in {429, 503}
@@ -259,7 +270,7 @@ class OperationExecutor:
                 break
             retry_after = response.headers.get("Retry-After")
             delay = self.retry_policy.delay(retry_after, attempt)
-            remaining = deadline - time.monotonic()
+            remaining = deadline - self.clock()
             if delay is None or delay >= remaining:
                 # The caller sees only the last refusal; say why no further attempt was sent.
                 self._emit(

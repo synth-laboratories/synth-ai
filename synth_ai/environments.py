@@ -1,5 +1,7 @@
 """Named API targets. See docs/protocols.md for origin and credential precedence."""
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from enum import StrEnum
@@ -26,7 +28,7 @@ class EnvironmentProfile:
     api_base_url: str
 
     @classmethod
-    def load(cls, environment: Environment) -> "EnvironmentProfile":
+    def load(cls, environment: Environment) -> EnvironmentProfile:
         selected = Environment(environment)
         match selected:
             case Environment.LOCAL:

@@ -12,18 +12,23 @@ from ._generated.models import (
     LaunchRequest,
     LaunchRequestDomicileRequirement,
     Limits,
+    Money,
     OptimizerRequest,
     OwnerResourceRequest,
     RoleAssignment,
     RoutingConstraints,
     RunGuidance,
     RunInputs,
+    RunLimitChanges,
+    RunLimitUpdate,
 )
-from .errors import LaunchValidationError, local_problem
+from .errors import LaunchValidationError, check_upload_format, local_problem
 
 if TYPE_CHECKING:
     import builtins
     from collections.abc import Mapping
+
+    from pydantic import JsonValue
 
 DomicileRequirement: TypeAlias = Literal["us_only", "us_or_europe", "unrestricted"]
 
@@ -122,3 +127,74 @@ def launch_request(
                 else ""
             )
         ) from None
+
+
+def limit_update_request(
+    *,
+    expected_revision: int,
+    budget: str | Decimal | None = None,
+    wall_time_seconds: int | None = None,
+    maximum_tokens: int | None = None,
+    pause_retention_seconds: int | None = None,
+    resume: bool = False,
+    reason: str | None = None,
+) -> RunLimitUpdate:
+    """Validate and construct a typed RunLimitUpdate payload."""
+    if budget is not None:
+        if not isinstance(budget, (str, Decimal)):
+            raise ValueError("budget must be a positive decimal string or Decimal")
+        try:
+            amount = Decimal(budget)
+        except InvalidOperation:
+            raise ValueError("budget must be a positive decimal string or Decimal") from None
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError("budget must be a positive decimal string or Decimal")
+        maximum_charge = Money(amount=format(amount, "f"), currency="USD")
+    else:
+        maximum_charge = None
+    changes = RunLimitChanges(
+        maximum_charge=maximum_charge,
+        maximum_tokens=maximum_tokens,
+        wall_time_seconds=wall_time_seconds,
+        pause_retention_seconds=pause_retention_seconds,
+    )
+    if not changes.model_dump(exclude_none=True):
+        raise ValueError("at least one limit is required")
+    return RunLimitUpdate(
+        expected_revision=expected_revision, limits=changes, resume=resume, reason=reason
+    )
+
+
+def upload_text_body(*, name: str, media_type: str, content: str) -> dict[str, JsonValue]:
+    """Validate and build the inline uploadFile request body."""
+    return {"name": name, "media_type": check_upload_format(media_type), "content": content}
+
+
+def prepare_upload_body(
+    *, name: str, media_type: str, size_bytes: int, digest_sha256: str
+) -> dict[str, JsonValue]:
+    """Validate and build the createUpload request body."""
+    return {
+        "name": name,
+        "media_type": check_upload_format(media_type),
+        "size_bytes": size_bytes,
+        "digest_sha256": digest_sha256,
+    }
+
+
+def launch_choices_query(
+    *,
+    profile: str | None = None,
+    domicile_requirement: DomicileRequirement | None = None,
+    parallel_workers: int | None = None,
+    wall_time_seconds: int | None = None,
+    budget: str | Decimal | None = None,
+) -> dict[str, str | int | None]:
+    """Build query parameters for getLaunchChoices."""
+    return {
+        "profile": profile,
+        "domicile_requirement": domicile_requirement,
+        "parallel_workers": parallel_workers,
+        "wall_time_seconds": wall_time_seconds,
+        "maximum_charge": format(Decimal(budget), "f") if budget is not None else None,
+    }

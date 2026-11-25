@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
     from synth_ai.aclient import AsyncSynthClient
 
+__all__ = ["DESCRIPTION", "NAME", "SCHEMA", "failure", "grant_root", "upload"]
+
 NAME = "swarms_upload_directory"
 DESCRIPTION = (
     "Upload the explicitly granted local directory, retaining relative names and retry custody."
