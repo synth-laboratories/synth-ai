@@ -1,0 +1,21 @@
+# Canonical gitleaks configuration (SYN-5915 / SYN-5955).
+title = "synth-dev gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist synthetic test fixtures, placeholder variables, and SHA-256 digests"
+paths = [
+  '''^tests/''',
+  '''test_.*\.py$''',
+  '''_test\.go$''',
+  '''\.lock$''',
+  '''\.lock\.json$''',
+]
+regexes = [
+  '''\$\{[A-Z0-9_]+\}''',
+  '''REDACTED''',
+  '''example[-_]?token''',
+  '''dummy[-_]?secret''',
+]

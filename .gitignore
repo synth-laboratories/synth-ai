@@ -4,7 +4,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 dist/
-.env
+.env*
+!.env.example
+*.pem
+*.key
 
 # Owned local test scratch.
 /.tmp/

@@ -1,39 +1,75 @@
 {
-  "languages": {
-    "Python": {
-      "language_servers": [
-        "ty",
-        "ruff",
-        "!basedpyright",
-        "!pyright",
-        "..."
-      ],
-      "format_on_save": "on",
-      "formatter": [
-        { "code_action": "source.organizeImports.ruff" },
-        { "code_action": "source.fixAll.ruff" },
-        { "language_server": { "name": "ruff" } }
-      ]
-    }
-  },
+  "format_on_save": "on",
+  "formatter": "language_server",
+  "tab_size": 4,
+  "preferred_line_length": 100,
   "lsp": {
-    "ty": {
-      "binary": {
-        "path": ".venv/bin/ty",
-        "arguments": ["server"]
-      }
-    },
-    "ruff": {
-      "binary": {
-        "path": ".venv/bin/ruff",
-        "arguments": ["server"]
-      },
+    "rust-analyzer": {
       "initialization_options": {
-        "settings": {
-          "configurationPreference": "filesystemFirst",
-          "lineLength": 100
+        "check": {
+          "command": "clippy",
+          "extraArgs": ["--all-targets"]
+        },
+        "cargo": {
+          "features": "all"
         }
       }
+    },
+    "gopls": {
+      "initialization_options": {
+        "staticcheck": true,
+        "analyses": {
+          "unusedparams": true,
+          "shadow": true
+        }
+      }
+    },
+    "ty": {
+      "binary": {
+        "path": "uv",
+        "arguments": ["run", "ty", "server"]
+      }
+    }
+  },
+  "languages": {
+    "Python": {
+      "language_servers": ["ty", "ruff"],
+      "formatter": [
+        { "language_server": { "name": "ruff" } }
+      ],
+      "code_actions_on_format": {
+        "source.fixAll.ruff": true,
+        "source.organizeImports.ruff": true
+      }
+    },
+    "Rust": {
+      "language_servers": ["rust-analyzer"],
+      "preferred_line_length": 100
+    },
+    "Go": {
+      "language_servers": ["gopls"],
+      "tab_size": 4,
+      "hard_tabs": true
+    },
+    "TypeScript": {
+      "language_servers": ["vtsls", "oxlint"],
+      "formatter": {
+        "external": {
+          "command": "prettier",
+          "arguments": ["--stdin-filepath", "{buffer_path}"]
+        }
+      },
+      "tab_size": 2
+    },
+    "TSX": {
+      "language_servers": ["vtsls", "oxlint"],
+      "formatter": {
+        "external": {
+          "command": "prettier",
+          "arguments": ["--stdin-filepath", "{buffer_path}"]
+        }
+      },
+      "tab_size": 2
     }
   }
 }
