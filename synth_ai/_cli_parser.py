@@ -9,6 +9,7 @@ from typing_extensions import override
 
 from ._cli_surfaces import configure
 from ._generated.models import MessageKind
+from ._version import __version__
 from .environments import Environment
 
 if TYPE_CHECKING:
@@ -255,6 +256,7 @@ def _configure_run_operations(created: Mapping[str, argparse.ArgumentParser]) ->
 def parser(*, stdin_piped: bool = False) -> argparse.ArgumentParser:
     """Build the top-level CLI parser for all public customer commands."""
     root = Parser(prog="synth", epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
+    root.add_argument("-V", "--version", action="version", version=f"synth-ai {__version__}")
     root.add_argument("--base-url")
     root.add_argument("--env", dest="environment", type=Environment, choices=tuple(Environment))
     common = Parser(add_help=False)

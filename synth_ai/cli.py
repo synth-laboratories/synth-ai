@@ -434,6 +434,12 @@ def main(
     as_json = "--json" in raw
     try:
         args = parser(stdin_piped=_stdin_has_pipe()).parse_args(raw)
+    except SystemExit as exit_exc:
+        if exit_exc.code is None:
+            return EXIT_OK
+        if isinstance(exit_exc.code, int):
+            return exit_exc.code
+        return EXIT_CLIENT_ERROR
     except UsageError as error:
         if index_requested(raw):
             fail("index_not_available", INDEX_NOT_AVAILABLE, as_json)

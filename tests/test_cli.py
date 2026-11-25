@@ -142,6 +142,24 @@ def test_help_lists_exactly_the_task_verbs():
         assert removed not in cli.COMMANDS
 
 
+@pytest.mark.parametrize("flag", ["--version", "-V"])
+def test_version_flag_prints_package_version_and_exits_zero(flag, capsys):
+    from synth_ai import __version__
+
+    result = subprocess.run(
+        [sys.executable, "-m", "synth_ai.cli", flag], capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == f"synth-ai {__version__}"
+    assert result.stderr == ""
+
+    code = cli.main([flag])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert captured.out.strip() == f"synth-ai {__version__}"
+    assert captured.err == ""
+
+
 @pytest.mark.parametrize(
     ("argv", "oid", "human"),
     [
