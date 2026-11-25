@@ -1,0 +1,50 @@
+{
+  "schema": "synth.landmines.baseline.v1",
+  "repos": {
+    "synth-ai": {
+      "rules": {
+        "python-no-except-pass": {
+          "count": 1,
+          "files": {
+            "scripts/acceptance/journeys.py": 1
+          }
+        },
+        "test-no-fixed-sleep": {
+          "count": 18,
+          "files": {
+            "tests/acceptance/test_spend_watchdog.py": 1,
+            "tests/e2e/contract_server.py": 3,
+            "tests/test_client_process_restart.py": 1,
+            "tests/test_directory_sources.py": 2,
+            "tests/test_examples.py": 1,
+            "tests/test_file_sources.py": 3,
+            "tests/test_messages.py": 1,
+            "tests/test_observer.py": 3,
+            "tests/test_policy_boundaries.py": 1,
+            "tests/test_routing_lifecycle.py": 2
+          }
+        },
+        "universal-max-blob-bytes": {
+          "count": 1,
+          "files": {
+            "contracts/synth-v1.openapi.yaml": 1
+          }
+        },
+        "universal-max-file-lines": {
+          "count": 9,
+          "files": {
+            "scripts/acceptance/journeys.py": 1,
+            "scripts/acceptance/surfaces.py": 1,
+            "scripts/gen_contract.py": 1,
+            "synth_ai/_generated/models.py": 1,
+            "synth_ai/_generated/operations.py": 1,
+            "synth_ai/_sync.py": 1,
+            "synth_ai/cli.py": 1,
+            "synth_ai/swarms.py": 1,
+            "tests/test_cli.py": 1
+          }
+        }
+      }
+    }
+  }
+}

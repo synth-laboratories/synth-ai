@@ -1,6 +1,50 @@
 # Local gates replace CI until the prod merge. Install once per clone: lefthook install.
 # Fails closed: a parity finding, a stale contract pin, a lint/type violation, or a
 # missing .venv exits non-zero and blocks the push.
+pre-commit:
+  parallel: false
+  commands:
+    gitleaks-staged:
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks protect --staged --no-banner --redact
+        else
+          echo "gitleaks not installed; install via brew install gitleaks" >&2
+        fi
+    large-blobs:
+      run: |
+        python3 -c '
+        import pathlib, sys
+        limit = 250 * 1024
+        bad = [p for p in sys.argv[1:] if pathlib.Path(p).is_file() and pathlib.Path(p).stat().st_size > limit]
+        if bad:
+            print("BLOCKED >250 KiB blobs:", ", ".join(bad), file=sys.stderr)
+            sys.exit(1)
+        ' {staged_files}
+    landmines-staged:
+      run: |
+        set -eu
+        common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+        ws_root=""
+        if [ -n "$common_dir" ]; then
+          ws_root="$(dirname "$(dirname "$common_dir")")"
+        fi
+        tool=""
+        for cand in \
+          "./scripts/synth-landmines" \
+          "../synth-dev/scripts/synth-landmines" \
+          "../../synth-dev/scripts/synth-landmines" \
+          "${ws_root:+$ws_root/synth-dev/scripts/synth-landmines}" \
+          "$HOME/.synth-dev/bin/synth-landmines" \
+          "$(command -v synth-landmines 2>/dev/null || true)"; do
+          if [ -n "$cand" ] && [ -x "$cand" ]; then
+            tool="$cand"
+            break
+          fi
+        done
+        [ -n "$tool" ] || { echo "synth-landmines not found; gate failed closed" >&2; exit 1; }
+        exec "$tool" check --repo-root . --paths {staged_files}
+
 pre-push:
   parallel: false
   commands:
@@ -10,3 +54,26 @@ pre-push:
       run: PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py > /dev/null
     check:
       run: make check
+    synth-landmines:
+      run: |
+        set -eu
+        common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+        ws_root=""
+        if [ -n "$common_dir" ]; then
+          ws_root="$(dirname "$(dirname "$common_dir")")"
+        fi
+        tool=""
+        for cand in \
+          "./scripts/synth-landmines" \
+          "../synth-dev/scripts/synth-landmines" \
+          "../../synth-dev/scripts/synth-landmines" \
+          "${ws_root:+$ws_root/synth-dev/scripts/synth-landmines}" \
+          "$HOME/.synth-dev/bin/synth-landmines" \
+          "$(command -v synth-landmines 2>/dev/null || true)"; do
+          if [ -n "$cand" ] && [ -x "$cand" ]; then
+            tool="$cand"
+            break
+          fi
+        done
+        [ -n "$tool" ] || { echo "synth-landmines not found; gate failed closed" >&2; exit 1; }
+        exec "$tool" check --repo-root .
