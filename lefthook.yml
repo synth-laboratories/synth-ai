@@ -7,7 +7,7 @@ pre-commit:
     gitleaks-staged:
       run: |
         if command -v gitleaks >/dev/null 2>&1; then
-          gitleaks protect --staged --no-banner --redact
+          gitleaks protect --staged --no-banner --redact --config .gitleaks.toml
         else
           echo "gitleaks not installed; install via brew install gitleaks" >&2
         fi

@@ -19,3 +19,10 @@ regexes = [
   '''example[-_]?token''',
   '''dummy[-_]?secret''',
 ]
+
+[[rules]]
+id = "synth-env-secret-assignment"
+description = "Literal value assigned to an env name ending in a secret suffix"
+regex = '''(?m)^[ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_]*(?:AUTHORIZATION_KEY|SIGNING_KEY|SECRET_KEY|API_KEY|_TOKEN|_SECRET|_PASSWORD)[ \t]*=[ \t]*["']?([A-Za-z0-9+/_=.\-]{16,})["']?[ \t]*$'''
+secretGroup = 1
+path = '''(?i)(^|/)[^/]*\.env(\.[a-z0-9_-]+)?$'''
