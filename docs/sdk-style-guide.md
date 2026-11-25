@@ -74,7 +74,7 @@ This guide defines the engineering standards for `synth-ai` across the public Py
   - `[project.urls]` presence and `https://` scheme in both `pyproject.toml` and wheel `METADATA`.
   - Zero relative markdown links in both `README.md` and wheel `METADATA`.
   - PEP 561 `synth_ai/py.typed` marker.
-  - Size budgets (`< 150 KiB` wheel, `< 480 KiB` package source).
+  - Size budgets (`< 150 KiB` wheel, `< 580 KiB` package source).
   - Isolated fresh-venv installation for both `synth-ai` and `synth-ai[mcp]`.
 
 ## 8. Canonical Quality Gate & Local Zed LSP Setup

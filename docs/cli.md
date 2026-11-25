@@ -88,9 +88,12 @@ subject to the server's scopes and signed-in-session requirements.
 | Organization | `synth organization get`, `usage-summary`, `usage-records`, `usage-export --since TIME --until TIME`, `usage-export-status EXPORT`, `limits`, `accept-terms --version VERSION --accepted-at TIME` |
 | Billing | `synth billing balance`, `plans`, `history`, `statements`, `checkout --body PATH`, `checkout-status CHECKOUT`, `subscription`, `cancel-subscription`, `resume-subscription`, `preview-plan PLAN`, `change-plan --body PATH`, `payment-method`, `auto-reload`, `set-auto-reload --body PATH`, `spend-alerts`, `set-spend-alerts --body PATH` |
 | Plan requests | `synth plan request --use-case TEXT [--link URL ...]`, `synth plan requests`, `synth plan withdraw REQUEST`. The use case is sent to Synth for owner review and is never printed or logged; a denial cooldown refuses with `plan_request_cooldown` and prints the wait in seconds (`retry_after_seconds` in the `--json` error document) |
-| Run details | `synth inspect RUN --view program\|configuration\|sandboxes\|output\|wait-update`, `synth families` |
+| Run details | `synth inspect RUN --view program\|configuration\|sandboxes\|output\|wait-update\|review`, `synth families` |
 | Run labels | `synth labels RUN --body PATH` |
 | Pinned bytes | `synth content RUN OUTPUT --out PATH --revision REVISION --sha256 DIGEST` |
+| Artifacts | `synth artifacts create\|get\|update\|content\|list\|share\|revoke-share` |
+| Experiments | `synth experiments create\|list\|get\|revise` |
+| Research logs | `synth research-log init\|append\|search\|correct\|export` |
 
 `--body` reads a JSON file validated against the generated request type. Resource
 commands print the canonical response JSON; a nullable response prints `null`.
@@ -115,6 +118,7 @@ problem JSON under `--json`.
 | 2 | `wait` (or `run --wait`) reached its timeout; the run is still running |
 | 3 | The run finished `failed` or `cancelled` (`wait`, `run --wait`) |
 | 4 | Server refusal (typed problem from the API) |
+| 5 | The run paused (`wait`, `run --wait`) |
 
 The constants are `EXIT_*` in `synth_ai/cli.py`.
 

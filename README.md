@@ -75,9 +75,18 @@ its approval. Every run retains its exact resolved profile in `run.profile`.
 New configurations are published profiles; arbitrary actor overrides are not
 part of the public API.
 
-See [Swarms](https://github.com/synth-laboratories/synth-ai/blob/main/docs/swarms.md) for routing, lifecycle and transfer details.
+See [Swarms](https://github.com/synth-laboratories/synth-ai/blob/main/docs/swarms.md) for routing, lifecycle, `parallel_workers` (1..32), and transfer details.
 Version 0.29.0 replaces the public `program`, `method` and `profile_overrides`
 launch fields with `profile` and, for research profiles, `research_task`.
+
+Research notebooks, interactive artifacts, multi-arm experiments, and run review
+share the same typed OpenAPI 1.43.0 contract across SDK (`client.artifacts`,
+`client.experiments`, `client.research_logs`, `client.swarms.review`), CLI
+(`synth artifacts`, `synth experiments`, `synth research-log`,
+`synth inspect RUN --view review`), and MCP (`swarms_artifact_*`,
+`swarms_experiment_*`, `swarms_research_log_*`, `swarms_run_review`).
+Metered usage records preserve `index_searches` when reported by Core; `/v1/index`
+routes remain gated until Index launches (`index_not_available`).
 
 Since 0.31.0, the SDK uses strict, frozen records, named nested models, and enum values.
 Use `CompletionMilestone.FINISHED` for a fully settled wait, `run.finished` to

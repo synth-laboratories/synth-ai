@@ -86,7 +86,7 @@ ignore = [
     "ASYNC109",  # Public async API methods expose explicit `timeout` parameters.
     "S101",      # SynthStyle uses `assert` for production invariants and pytest assertions.
     "D100",      # Enforce docstring formatting without mandating docstrings on every symbol
-    "D101",      # (which would exceed the 480 KiB SDK source budget).
+    "D101",      # (which would exceed the 580 KiB SDK source budget).
     "D102",
     "D103",
     "D104",

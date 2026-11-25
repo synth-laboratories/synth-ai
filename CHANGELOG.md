@@ -1,9 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.42.0 — source candidate
+
+This checkout does not attest publication or installed acceptance. The exact Core
+revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
 
 Changes here describe the new Swarms product. Historical releases remain in Git history.
 
+- Contract 1.43.0 (Core `0a0d61d3`): Track B Research & Artifacts across SDK, CLI,
+  and MCP (83 MCP tools, 82 public OpenAPI operations):
+  - SDK: `client.artifacts` (`ArtifactsClient` / `AsyncArtifacts`),
+    `client.experiments` (`ExperimentsClient` / `AsyncExperiments`),
+    `client.research_logs` (`ResearchLogsClient` / `AsyncResearchLogs`), and
+    `client.swarms.review(run_id)`.
+  - CLI: `synth artifacts`, `synth experiments`, `synth research-log`, and
+    `synth inspect RUN --view review`.
+  - MCP: `swarms_artifact_*`, `swarms_experiment_*`, `swarms_research_log_*`,
+    and `swarms_run_review`.
+- Contract 1.41.0–1.42.0: `parallel_workers` supports `1..32` workers per run
+  and metered usage records surface `index_searches` when reported by Core
+  (`/v1/index` routes stay gated with `index_not_available` until launch).
 - Contract 1.40.0 (Core c17b5fd6): revoke your own MCP OAuth grant with an API key
   (SYN-5737): SDK `client.account.revoke_oauth_grant(grant_id)`, CLI
   `synth grants revoke GRANT`, MCP tool `account_oauth_grant_revoke` (`account:write`).
@@ -47,12 +63,6 @@ Changes here describe the new Swarms product. Historical releases remain in Git 
 - Contract 1.35.0: `account.redeem_promo`, `synth promo redeem` and the
   `account_promo_redeem` MCP tool redeem a promotional code (SYN-5752). A trial
   campaign's redemption carries `trial` (plan and fixed start/end).
-
-## 0.42.0 — source candidate
-
-This checkout does not attest publication or installed acceptance. The exact Core
-revision and digest are recorded in [contracts/SOURCE.toml](contracts/SOURCE.toml).
-
 - Typed synchronous and asynchronous Swarms clients, CLI and MCP tools share the
   public Core contract. Files and a message launch a run; result reads preserve
   its answer, exact charge, output references and canonical attempt tree.

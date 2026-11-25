@@ -1,7 +1,7 @@
 # Quickstart
 
 Upload a task, launch a run with a budget, wait for completion, then read its
-answer and usage. These examples target synth-ai 0.41.0 and OpenAPI 1.40.0.
+answer and usage. These examples target synth-ai 0.42.0 and OpenAPI 1.43.0.
 Save the task instructions in `task.md` before running the examples.
 
 Install with `pip install synth-ai` (`pip install "synth-ai[mcp]"` for MCP) and sign

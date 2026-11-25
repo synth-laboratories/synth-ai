@@ -147,11 +147,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Contract 1.25/1.26 (rollout views, per-role launch choices, allocation) brought
     # it to about 414 KiB: two operations' generated models, MCP tools and CLI views.
     # 0.41 public source docstrings and their generated sync copies add 44 KiB
-    # (469,361 total source bytes). Track B (SYN-5973, SYN-5974) adds typed
-    # Interactive Artifacts, Experiments, and Research Logs clients + MCP tool
-    # schemas (~24 KiB). Keep a 540 KiB source cap and the unchanged 150 KiB
-    # wheel cap; neither permits an accidental vendored dependency tree.
-    source_limit = 540 * 1024
+    # (469,361 total source bytes). Track B (SYN-5973, SYN-5974) + OpenAPI 1.43.0
+    # sync adds typed Interactive Artifacts, Experiments, Research Logs, and Run
+    # Review clients, CLI commands, and MCP dispatch (~102 KiB total, 571,104
+    # bytes). Keep a 580 KiB source cap and the unchanged 150 KiB wheel cap;
+    # neither permits an accidental vendored dependency tree.
+    source_limit = 580 * 1024
     require(
         source_bytes < source_limit,
         f"SDK source size {source_bytes} exceeds budget {source_limit} bytes",
