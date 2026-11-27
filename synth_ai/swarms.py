@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
-import math
 from contextlib import aclosing
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from ._event_stream import (
-    MESSAGE_EVENT_KINDS,
-    extract_message_event_id,
-    is_correlated_reply,
-    require_available_messages,
+    follow_run_messages,
+    iter_available_messages,
+    reraise_result_unavailable,
+    wait_for_correlated_reply,
 )
 from ._generated.models import (
     EventPage,
@@ -30,6 +28,9 @@ from ._generated.models import (
     RoutingCatalog,
     RoutingConstraints,
     RunAllocation,
+    RunApprovalDecisionReceipt,
+    RunApprovalDecisionRequest,
+    RunApprovalPage,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -41,9 +42,9 @@ from ._generated.models import (
     RunLimitUpdate,
     RunMessage,
     RunMessagePage,
-    RunMilestone,
     RunOutput,
     RunPage,
+    RunPreflightResponse,
     RunProfileCatalog,
     RunProgram,
     RunReport,
@@ -79,12 +80,7 @@ from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
 from ._validation import verify_sha256
-from .errors import (
-    ConflictError,
-    MessageReplyTimeoutError,
-    MessageReplyUnavailableError,
-    ResultUnavailableError,
-)
+from .errors import ConflictError
 
 if TYPE_CHECKING:
     import builtins
@@ -133,16 +129,10 @@ class AsyncSwarms:
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> AsyncGenerator[RunMessage, None]:
         """Traverse message pages without prefetch; see docs/protocols.md."""
-        async for item in paginate(
-            lambda position: self._fetch_available_messages(run_id, position, limit),
-            cursor=cursor,
+        async for item in iter_available_messages(
+            lambda position: self.messages(run_id, cursor=position, limit=limit), cursor=cursor
         ):
             yield item
-
-    async def _fetch_available_messages(
-        self, run_id: str, cursor: str | None, limit: int
-    ) -> RunMessagePage:
-        return require_available_messages(await self.messages(run_id, cursor=cursor, limit=limit))
 
     async def message(self, run_id: str, message_id: str) -> RunMessage:
         """Read one message; a retained body is typed BodyUnavailable."""
@@ -152,18 +142,13 @@ class AsyncSwarms:
 
     async def follow_messages(self, run_id: str) -> AsyncGenerator[RunMessage, None]:
         """Read history, then live message updates from one feed; see docs/protocols.md."""
-        checkpoint = StreamCheckpoint(run_id=run_id)
-        async with self._transport.subscribe_events(run_id, checkpoint) as events:
-            async for item in self.iter_messages(run_id):
-                yield item
-            async for event in events:
-                if isinstance(event, RunMilestone):
-                    if event.final:
-                        return
-                    continue
-                if event.kind not in MESSAGE_EVENT_KINDS:
-                    continue
-                yield await self.message(run_id, extract_message_event_id(event))
+        async for item in follow_run_messages(
+            self._transport,
+            run_id,
+            lambda: self.iter_messages(run_id),
+            lambda message_id: self.message(run_id, message_id),
+        ):
+            yield item
 
     async def wait_for_reply(
         self,
@@ -173,17 +158,9 @@ class AsyncSwarms:
         timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
     ) -> RunMessage:
         """Wait for a correlated posted reply without mutating the message."""
-        if not math.isfinite(timeout) or timeout <= 0:
-            raise ValueError("timeout must be finite and positive")
-        try:
-            async with asyncio.timeout(timeout):
-                async with aclosing(self.follow_messages(run_id)) as messages:
-                    async for message in messages:
-                        if is_correlated_reply(message, message_id):
-                            return message
-        except TimeoutError:
-            raise MessageReplyTimeoutError(run_id=run_id, message_id=message_id) from None
-        raise MessageReplyUnavailableError(run_id=run_id, message_id=message_id)
+        return await wait_for_correlated_reply(
+            self.follow_messages(run_id), run_id, message_id, timeout
+        )
 
     def prepare_launch(
         self,
@@ -284,6 +261,10 @@ class AsyncSwarms:
         return await self._transport.request(
             "createRun", RunSnapshot, body=request, idempotency_key=idempotency_key
         )
+
+    async def preflight_request(self, request: LaunchRequest) -> RunPreflightResponse:
+        """Dry-run launch admission preflight at zero cost without creating a run."""
+        return await self._transport.request("preflightRun", RunPreflightResponse, body=request)
 
     async def run(
         self,
@@ -576,6 +557,39 @@ class AsyncSwarms:
             query={"cursor": cursor, "limit": limit},
         )
 
+    async def approvals(
+        self,
+        run_id: str,
+        *,
+        status: str | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> RunApprovalPage:
+        """Read one cursor page of native approval waits and decisions for a run."""
+        return await self._transport.request(
+            "listRunApprovals",
+            RunApprovalPage,
+            path={"run_id": run_id},
+            query={"status": status, "cursor": cursor, "limit": limit},
+        )
+
+    async def decide_approval(
+        self,
+        run_id: str,
+        approval_id: str,
+        decision: RunApprovalDecisionRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> RunApprovalDecisionReceipt:
+        """Record an idempotent decision on a pending run approval."""
+        return await self._transport.request(
+            "decideRunApproval",
+            RunApprovalDecisionReceipt,
+            path={"run_id": run_id, "approval_id": approval_id},
+            body=decision,
+            idempotency_key=idempotency_key,
+        )
+
     async def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:
         """Cancel a run with an empty body (`422 control_body_must_be_empty`)."""
         return await self._transport.request(
@@ -691,12 +705,7 @@ class AsyncSwarms:
         try:
             return await self._transport.request("getRunResult", RunResult, path={"run_id": run_id})
         except ConflictError as refusal:
-            if refusal.code != "result_unavailable":
-                raise
-            snapshot = await self.get(run_id)
-            raise ResultUnavailableError(
-                "Run " + run_id + " has not finished; wait() for it first", snapshot=snapshot
-            ) from refusal
+            await reraise_result_unavailable(run_id, refusal, self.get)
 
     async def review(self, run_id: str) -> RunReviewSurface:
         """Read the consolidated run review surface (pacing, experiments, log, artifacts)."""

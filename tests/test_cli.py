@@ -83,7 +83,7 @@ class Api:
         self.events = []
 
     def __call__(self, request):
-        if request.method == "PUT":
+        if request.method == "PUT" and request.url.host != "api.example.test":
             return httpx.Response(200)
         oid = route(request)
         self.calls.append((oid, request))
@@ -588,3 +588,61 @@ def test_result_prints_an_objective_answer(api, capsys, contract):
     document = json.loads(out)
     assert document["answer"] == "nonce-6b98"
     assert document["objective_answer"]["objective_id"] == "codename"
+
+
+def test_billing_human_renderers_and_checkout_flags(api, capsys):
+    code, out, err = invoke(api, capsys, "billing", "balance")
+    assert code == cli.EXIT_OK, err
+    assert "available" in out and "weekly allowance" in out and "payg_credits" in out
+    assert not out.lstrip().startswith("{")
+
+    code, out, err = invoke(api, capsys, "billing", "plans")
+    assert code == cli.EXIT_OK, err
+    assert "PLAN" in out and "PACK" in out and "custom" in out
+    assert not out.lstrip().startswith("{")
+
+    code, out, err = invoke(api, capsys, "billing", "checkout", "--pack", "credits.25", "--json")
+    assert code == cli.EXIT_OK, err
+    oid, req = api.calls[-1]
+    assert oid == "createCheckout"
+    assert json.loads(req.content) == {"pack_id": "credits.25"}
+
+    code, out, err = invoke(api, capsys, "billing", "checkout", "--amount", "40.00", "--json")
+    assert code == cli.EXIT_OK, err
+    oid, req = api.calls[-1]
+    assert oid == "createCheckout"
+    assert json.loads(req.content) == {"credit": {"amount": "40.00", "currency": "USD"}}
+
+    code, out, err = invoke(
+        api, capsys, "billing", "change-plan", "--plan", "max.monthly", "--json"
+    )
+    assert code == cli.EXIT_OK, err
+    oid, req = api.calls[-1]
+    assert oid == "changeSubscriptionPlan"
+    assert json.loads(req.content) == {"plan_id": "max.monthly"}
+
+    code, out, err = invoke(api, capsys, "billing", "set-spend-alerts", "--clear", "--json")
+    assert code == cli.EXIT_OK, err
+    oid, req = api.calls[-1]
+    assert oid == "setSpendAlerts"
+    assert json.loads(req.content) == {"monthly_amount": None}
+
+
+def test_usage_accepts_date_and_page_flags(api, capsys):
+    code, out, err = invoke(
+        api, capsys, "usage", "--since", "2026-11-01T00:00:00Z", "--until", "2026-11-27T00:00:00Z"
+    )
+    assert code == cli.EXIT_OK, err
+    assert "weekly allowance" in out and "available" in out
+    oid, req = api.calls[-1]
+    assert oid == "getUsageSummary"
+    assert req.url.params["since"] == "2026-11-01T00:00:00Z"
+    assert req.url.params["until"] == "2026-11-27T00:00:00Z"
+
+
+def test_run_help_hides_deprecated_tokens_flag():
+    result = subprocess.run(
+        [sys.executable, "-m", "synth_ai.cli", "run", "--help"], capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert "--tokens" not in result.stdout

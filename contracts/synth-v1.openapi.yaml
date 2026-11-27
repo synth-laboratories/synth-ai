@@ -2,7 +2,7 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.43.0
+  version: 1.44.0
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
@@ -1581,6 +1581,82 @@ paths:
           $ref: '#/components/responses/Problem'
       x-synth-legacy-path: /api/v1/swarms/runs
       x-synth-mcp-name: swarms_run_launch
+  /v1/runs/preflight:
+    post:
+      tags:
+      - runs
+      operationId: preflightRun
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: Dry-run admission preflight for a prospective run launch at zero cost.
+      description: 'Validates launch request schema, organization quota and wallet balance,
+        program materialization, research grant binding, and downstream service capabilities
+        without creating a run, placing a billing hold, or spawning sandboxes.'
+      x-synth-status: implemented
+      x-synth-mcp-name: swarms_run_preflight
+      x-synth-source: core/internal/public/runs/preflight.go
+      x-synth-legacy-path: none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchRequest'
+      responses:
+        '200':
+          description: Dry-run admission preflight report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunPreflightResponse'
+              example:
+                schema_version: synth.run-preflight.v1
+                admissible: true
+                checks:
+                - name: request_schema
+                  status: pass
+                - name: wallet_balance
+                  status: pass
+                - name: program_materialization
+                  status: pass
+                refusals: []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/Problem'
+        '502':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}:
     get:
       tags:
@@ -2974,6 +3050,22 @@ paths:
                 settling:
                   count: 0
                   amount: {amount: '0.00', currency: USD}
+                funding:
+                  plan: free
+                  payg_credits_active: false
+                  ledger: {amount: '10.00', currency: USD}
+                  held: {amount: '0.00', currency: USD}
+                  headroom: {amount: '10.00', currency: USD}
+                  available: {amount: '10.00', currency: USD}
+                  purchased_credits: {amount: '0.00', currency: USD}
+                  promotional_credits: {amount: '0.00', currency: USD}
+                  operator_credits: {amount: '0.00', currency: USD}
+                  debt: {amount: '0.00', currency: USD}
+                  included_allowance:
+                    limit: {amount: '10.00', currency: USD}
+                    used: {amount: '0.00', currency: USD}
+                    remaining: {amount: '10.00', currency: USD}
+                    reset_at: '2026-11-08T00:00:00Z'
                 by_source:
                   runs:
                     charge: {amount: '0.00', currency: USD}
@@ -3149,6 +3241,7 @@ paths:
                 $ref: '#/components/schemas/LimitList'
               example:
                 plan: free
+                payg_credits_active: false
                 observed_at: '2026-11-04T00:00:00Z'
                 items:
                 - resource: swarm_run
@@ -3538,6 +3631,18 @@ paths:
               example:
                 policy_version: example
                 plans: []
+                credit_packs:
+                - pack_id: credits.10
+                  name: $10 Credits
+                  price: {amount: '10.00', currency: USD}
+                  checkout_available: true
+                custom_credit:
+                  min: {amount: '5.00', currency: USD}
+                  max: {amount: '10000.00', currency: USD}
+                  checkout_available: true
+                switchable_plans:
+                - standard.monthly
+                - max.monthly
                 price_checked_at: '2026-11-04T18:00:00Z'
           headers:
             X-Request-Id:
@@ -3591,7 +3696,7 @@ paths:
       x-synth-idempotency-key: false
       x-synth-status: implemented
       x-synth-source: core/internal/public/billing/http.go
-      summary: Wallet position of the caller's org in integer microcents (1 USD = 10^8).
+      summary: Wallet position and funding breakdown (weekly allowance, prepaid credits, holds, headroom) of the caller's org.
       responses:
         '200':
           description: Balance.
@@ -3601,18 +3706,43 @@ paths:
                 $ref: '#/components/schemas/Balance'
               example:
                 org_id: 00000000-0000-4000-8000-000000000001
+                plan: free
+                payg_credits_active: true
                 ledger:
-                  amount: '5.00'
+                  amount: '35.00'
                   currency: USD
                 held:
                   amount: '5.00'
                   currency: USD
                 headroom:
-                  amount: '5.00'
+                  amount: '30.00'
                   currency: USD
                 available:
-                  amount: '5.00'
+                  amount: '30.00'
                   currency: USD
+                purchased_credits:
+                  amount: '25.00'
+                  currency: USD
+                promotional_credits:
+                  amount: '0.00'
+                  currency: USD
+                operator_credits:
+                  amount: '0.00'
+                  currency: USD
+                debt:
+                  amount: '0.00'
+                  currency: USD
+                included_allowance:
+                  limit:
+                    amount: '10.00'
+                    currency: USD
+                  used:
+                    amount: '0.00'
+                    currency: USD
+                  remaining:
+                    amount: '10.00'
+                    currency: USD
+                  reset_at: '2026-11-11T00:00:00Z'
           headers:
             X-Request-Id:
               $ref: '#/components/headers/X-Request-Id'
@@ -5566,6 +5696,102 @@ paths:
                 has_more: false
         default:
           $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/approvals:
+    get:
+      tags:
+      - swarms
+      operationId: listRunApprovals
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      summary: List native approval waits and decisions for a run.
+      description: Returns keyset-paginated approval records from the run's authoritative state, optionally filtered by status.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5991
+      x-synth-mcp-name: swarms_run_approvals_list
+      x-synth-source: core/internal/public/runs/approvals.go
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/approvals
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [pending, approved, rejected, expired]
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: List approvals for a run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunApprovalPage'
+              example:
+                items: []
+                has_more: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/runs/{run_id}/approvals/{approval_id}/decide:
+    post:
+      tags:
+      - swarms
+      operationId: decideRunApproval
+      x-synth-scope: "swarms:control"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      summary: Approve or reject a pending run approval.
+      description: Records an idempotent, actor-attributed approval decision on a pending approval wait. Fails closed with 409 when the approval is already decided, expired, or at a mismatched revision.
+      x-synth-status: implemented
+      x-synth-owner: SYN-5991
+      x-synth-mcp-name: swarms_run_approval_decide
+      x-synth-source: core/internal/public/runs/approvals.go
+      x-synth-legacy-path: /api/v1/swarms/runs/{run_id}/approvals/{approval_id}/decision
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/RunId'
+      - name: approval_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: '^[a-zA-Z0-9._:-]+$'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunApprovalDecisionRequest'
+      responses:
+        '200':
+          description: Approval decision accepted or applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunApprovalDecisionReceipt'
+              example:
+                operation_id: apr_example
+                run_id: run_AAAAAAAAAAAAAAAAAAAAAA
+                approval_id: apr-1
+                decision: approve
+                status: approved
+                revision: 2
+                state: applied
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}/messages:
     post:
       tags:
@@ -6821,6 +7047,62 @@ components:
         Cache-Control:
           $ref: '#/components/headers/Cache-Control'
   schemas:
+    RunPreflightCheck:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - status
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - pass
+          - fail
+          - skipped
+        code:
+          type: string
+        detail:
+          type: string
+    RunPreflightRefusal:
+      type: object
+      additionalProperties: false
+      required:
+      - check
+      - code
+      properties:
+        check:
+          type: string
+        code:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    RunPreflightResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - schema_version
+      - admissible
+      - checks
+      - refusals
+      properties:
+        schema_version:
+          type: string
+          const: synth.run-preflight.v1
+        admissible:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunPreflightCheck'
+        refusals:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunPreflightRefusal'
     MessageId:
       type: string
       pattern: ^msg_[A-Za-z0-9_-]{22}$
@@ -7766,7 +8048,8 @@ components:
           type: integer
           minimum: 1
           maximum: 9223372036854775807
-          description: Run token cap. Omitted, derived from the budget.
+          deprecated: true
+          description: Deprecated. Recorded on the run for backwards compatibility, but Swarms does not enforce a hard token ceiling; bound spend with maximum_charge.
         pause_retention_seconds:
           type: integer
           minimum: 1
@@ -10922,11 +11205,49 @@ components:
         sha256: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
         encoding: utf8
         content: hello
+    CreditPack:
+      type: object
+      additionalProperties: false
+      required:
+      - pack_id
+      - name
+      - price
+      - checkout_available
+      properties:
+        pack_id:
+          type: string
+          examples:
+          - credits.10
+          - credits.25
+          - credits.100
+        name:
+          type: string
+        price:
+          $ref: '#/components/schemas/Money'
+        checkout_available:
+          type: boolean
+    CustomCreditBounds:
+      type: object
+      additionalProperties: false
+      required:
+      - min
+      - max
+      - checkout_available
+      properties:
+        min:
+          $ref: '#/components/schemas/Money'
+        max:
+          $ref: '#/components/schemas/Money'
+        checkout_available:
+          type: boolean
     PlanCatalog:
       type: object
       required:
       - policy_version
       - plans
+      - credit_packs
+      - custom_credit
+      - switchable_plans
       - price_checked_at
       properties:
         policy_version:
@@ -10938,18 +11259,58 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Plan'
-    Balance:
+        credit_packs:
+          type: array
+          description: Fixed-amount prepaid credit packs purchasable via POST /v1/billing/checkout.
+          items:
+            $ref: '#/components/schemas/CreditPack'
+        custom_credit:
+          $ref: '#/components/schemas/CustomCreditBounds'
+        switchable_plans:
+          type: array
+          description: Recurring plan IDs that active subscribers may switch between via POST /v1/billing/subscription/plan.
+          items:
+            type: string
+    IncludedAllowance:
       type: object
+      additionalProperties: false
       required:
-      - org_id
+      - limit
+      - used
+      - remaining
+      - reset_at
+      properties:
+        limit:
+          $ref: '#/components/schemas/Money'
+        used:
+          $ref: '#/components/schemas/Money'
+        remaining:
+          $ref: '#/components/schemas/Money'
+        reset_at:
+          type: string
+          format: date-time
+    FundingSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - plan
+      - payg_credits_active
       - ledger
       - held
       - headroom
       - available
+      - purchased_credits
+      - promotional_credits
+      - operator_credits
+      - debt
+      - included_allowance
       properties:
-        org_id:
+        plan:
           type: string
-          format: uuid
+          description: Effective billing plan for this organization.
+        payg_credits_active:
+          type: boolean
+          description: True when a Free organization holds active purchased credits and receives PAYG spend caps ($100/day, $500/week) instead of Free's $5/day cap.
         ledger:
           $ref: '#/components/schemas/Money'
         held:
@@ -10958,6 +11319,65 @@ components:
           $ref: '#/components/schemas/Money'
         available:
           $ref: '#/components/schemas/Money'
+        purchased_credits:
+          $ref: '#/components/schemas/Money'
+        promotional_credits:
+          $ref: '#/components/schemas/Money'
+        operator_credits:
+          $ref: '#/components/schemas/Money'
+        debt:
+          $ref: '#/components/schemas/Money'
+        included_allowance:
+          oneOf:
+          - $ref: '#/components/schemas/IncludedAllowance'
+          - type: 'null'
+          description: Current signup-anchored weekly plan allowance cycle, or null when the organization has no allowance cycle.
+    Balance:
+      type: object
+      required:
+      - org_id
+      - plan
+      - payg_credits_active
+      - ledger
+      - held
+      - headroom
+      - available
+      - purchased_credits
+      - promotional_credits
+      - operator_credits
+      - debt
+      - included_allowance
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        plan:
+          type: string
+          description: Effective billing plan for this organization.
+        payg_credits_active:
+          type: boolean
+          description: True when a Free organization holds active purchased credits and receives PAYG spend caps ($100/day, $500/week) instead of Free's $5/day cap.
+        ledger:
+          $ref: '#/components/schemas/Money'
+        held:
+          $ref: '#/components/schemas/Money'
+        headroom:
+          $ref: '#/components/schemas/Money'
+        available:
+          $ref: '#/components/schemas/Money'
+        purchased_credits:
+          $ref: '#/components/schemas/Money'
+        promotional_credits:
+          $ref: '#/components/schemas/Money'
+        operator_credits:
+          $ref: '#/components/schemas/Money'
+        debt:
+          $ref: '#/components/schemas/Money'
+        included_allowance:
+          oneOf:
+          - $ref: '#/components/schemas/IncludedAllowance'
+          - type: 'null'
+          description: Current signup-anchored weekly plan allowance cycle, or null when the organization has no allowance cycle.
     BillingHistoryEntry:
       type: object
       required:
@@ -11509,7 +11929,7 @@ components:
     UsageSummary:
       type: object
       additionalProperties: false
-      required: [since, until, observed_at, data_through, total, pending, settling, by_source, by_day, by_key]
+      required: [since, until, observed_at, data_through, total, pending, settling, funding, by_source, by_day, by_key]
       properties:
         since:
           type: string
@@ -11545,6 +11965,8 @@ components:
               minimum: 0
             amount:
               $ref: '#/components/schemas/Money'
+        funding:
+          $ref: '#/components/schemas/FundingSummary'
         by_source:
           type: object
           additionalProperties: false
@@ -11676,10 +12098,13 @@ components:
     LimitList:
       type: object
       additionalProperties: false
-      required: [plan, observed_at, items]
+      required: [plan, payg_credits_active, observed_at, items]
       properties:
         plan:
           type: string
+        payg_credits_active:
+          type: boolean
+          description: True when a Free organization holds active purchased credits and receives PAYG spend caps ($100/day, $500/week).
         observed_at:
           type: string
           format: date-time
@@ -12859,6 +13284,8 @@ components:
           type: integer
           minimum: 1
           maximum: 9007199254740991
+          deprecated: true
+          description: Deprecated. Recorded on the revision for backwards compatibility, but Swarms does not enforce a hard token ceiling; adjust maximum_charge instead.
         wall_time_seconds:
           type: integer
           minimum: 1
@@ -12965,6 +13392,164 @@ components:
       - execution_closed
       - accounting_final
       - cleanup_complete
+
+    RunApprovalActor:
+      type: object
+      additionalProperties: false
+      properties:
+        actor_id:
+          type: string
+          minLength: 1
+        actor_kind:
+          type: string
+          minLength: 1
+        source_id:
+          type: string
+      required:
+      - actor_id
+      - actor_kind
+
+    RunApprovalDecisionRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject, expire]
+        idempotency_key:
+          type: string
+          minLength: 1
+        operation_id:
+          type: string
+          minLength: 1
+        decided_by:
+          $ref: '#/components/schemas/RunApprovalActor'
+        decided_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+      required:
+      - decision
+      - idempotency_key
+      - operation_id
+      - decided_by
+      - decided_at
+
+    RunApproval:
+      type: object
+      additionalProperties: false
+      properties:
+        approval_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        action_kind:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+          minLength: 1
+        payload: {}
+        requested_by:
+          $ref: '#/components/schemas/RunApprovalActor'
+        requested_at:
+          type: string
+          format: date-time
+        timeout_ms:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        decision:
+          $ref: '#/components/schemas/RunApprovalDecisionRecord'
+      required:
+      - approval_id
+      - run_id
+      - action_kind
+      - summary
+      - requested_by
+      - requested_at
+      - timeout_ms
+      - expires_at
+      - revision
+      - status
+
+    RunApprovalPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunApproval'
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+      required:
+      - items
+      - has_more
+
+    RunApprovalDecisionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        reason:
+          type: string
+          maxLength: 1024
+        expected_revision:
+          type: integer
+          minimum: 1
+      required:
+      - decision
+
+    RunApprovalDecisionReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        operation_id:
+          type: string
+          minLength: 1
+        run_id:
+          $ref: '#/components/schemas/RunId'
+        approval_id:
+          type: string
+          minLength: 1
+        decision:
+          type: string
+          enum: [approve, reject]
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        revision:
+          type: integer
+          minimum: 0
+        state:
+          type: string
+          enum: [accepted, applied]
+        approval:
+          $ref: '#/components/schemas/RunApproval'
+      required:
+      - operation_id
+      - run_id
+      - approval_id
+      - decision
+      - status
+      - revision
+      - state
 
     ResearchExactReference:
       type: object

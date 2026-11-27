@@ -213,13 +213,24 @@ async def execute(
     ) as client:
         swarms = client.swarms
         command = str(args.command)
-        if command in _RESOURCE_COMMANDS or (
-            command == "billing" and args.resource_action is not None
+        if (
+            command in _RESOURCE_COMMANDS
+            or (command == "billing" and args.resource_action is not None)
+            or (command == "runs" and args.runs_action != "list")
         ):
             value = await execute_resource(client, args)
-            print(
-                "null" if value is None else value.model_dump_json(exclude_unset=True), flush=True
+            rendered = (
+                view.render_billing(args.resource_action, value)
+                if command == "billing" and not args.json
+                else None
             )
+            if rendered is not None:
+                print(rendered, flush=True)
+            else:
+                print(
+                    "null" if value is None else value.model_dump_json(exclude_unset=True),
+                    flush=True,
+                )
         elif command == "families":
             catalog = await swarms.families()
             if args.json:
@@ -234,7 +245,7 @@ async def execute(
             redeemed = await client.account.redeem_promo(
                 args.code, idempotency_key=args.idempotency_key
             )
-            print(redeemed.model_dump_json(), flush=True)
+            print(redeemed.model_dump_json(exclude_unset=True), flush=True)
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":
@@ -353,10 +364,20 @@ async def execute(
                         print(line, file=sys.stderr, flush=True)
         elif command == "usage":
             if args.run_id is None:
-                out.record(await client.account.usage_summary(), view.usage_summary)
+                out.record(
+                    await client.account.usage_summary(since=args.since, until=args.until),
+                    view.usage_summary,
+                )
             else:
                 out.record(
-                    await client.account.usage_records(run_id=args.run_id), view.usage_records
+                    await client.account.usage_records(
+                        since=args.since,
+                        until=args.until,
+                        run_id=args.run_id,
+                        cursor=args.cursor,
+                        limit=args.limit,
+                    ),
+                    view.usage_records,
                 )
         elif command == "billing":
             out.record(await client.billing.balance(), view.balance)

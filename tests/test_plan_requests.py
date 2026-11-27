@@ -18,6 +18,7 @@ from synth_ai.diagnostics import OperationDiagnostic
 from synth_ai.errors import (
     ConflictError,
     InvalidRequestError,
+    PlanRequestCooldownError,
     RateLimitedError,
     SwarmsAPIError,
     local_problem,
@@ -30,7 +31,13 @@ REQUEST_ID = "00000000-0000-4000-8000-000000000054"
 COOLDOWN_SECONDS = 1209600  # Core's 14-day denial cooldown.
 REFUSALS = [
     ("requestSpecialFree", "plan_request_pending_exists", 409, ConflictError, None),
-    ("requestSpecialFree", "plan_request_cooldown", 429, RateLimitedError, COOLDOWN_SECONDS),
+    (
+        "requestSpecialFree",
+        "plan_request_cooldown",
+        429,
+        PlanRequestCooldownError,
+        COOLDOWN_SECONDS,
+    ),
     ("requestSpecialFree", "plan_request_not_needed", 409, ConflictError, None),
     ("requestSpecialFree", "plan_request_too_large", 422, InvalidRequestError, None),
     ("withdrawPlanRequest", "plan_request_not_pending", 409, ConflictError, None),

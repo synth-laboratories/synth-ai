@@ -124,6 +124,15 @@ The specialized admission classes also inherit their HTTP-status class.
 | `limit_still_reached` | `LimitStillReachedError` | Raise the reached limit before resuming the run. |
 | `run_expired` | `RunExpiredError` | Collect existing outputs and launch a new run if you still need work. |
 | `spend_entitlement_exceeded` | `SpendEntitlementExceededError` | Check available spend and ask an organization admin to adjust the entitlement if needed. |
+| `run_budget_below_call_bound` | `RunBudgetBelowCallBoundError` | Raise `limits.maximum_charge` to at least `minimum_budget_micros` and relaunch with a new key. |
+| `insufficient_credits` | `InsufficientCreditsError` | Add prepaid credits or wait for weekly allowance reset, then retry with a new key. |
+| `budget_exceeded` | `InsufficientCreditsError` | Add prepaid credits or lower the requested budget, then retry with a new key. |
+| `launch_choice_unaffordable` | `LaunchChoiceUnaffordableError` | Raise `limits.maximum_charge` or select a lower-cost choice from `GET /v1/launch-choices`. |
+| `launch_menu_revision_stale` | `LaunchMenuRevisionStaleError` | Re-read `GET /v1/launch-choices` and resubmit with the fresh `menu_revision`. |
+| `subscription_change_payment_failed` | `SubscriptionChangePaymentFailedError` | Update the organization payment method and retry the subscription change. |
+| `billing_admin_required` | `BillingAdminRequiredError` | Have an organization admin perform this billing action. |
+| `browser_session_required` | `BrowserSessionRequiredError` | Complete this billing action from a signed-in browser session in the Console. |
+| `plan_request_cooldown` | `PlanRequestCooldownError` | Wait until the denial cooldown expires before submitting a new plan request. |
 
 ## Error guide
 

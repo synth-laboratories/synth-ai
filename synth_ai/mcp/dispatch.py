@@ -11,6 +11,7 @@ from pydantic import BaseModel, JsonValue, TypeAdapter
 from synth_ai._generated.models import (
     LaunchRequest,
     PromoRedeemRequest,
+    RunApprovalDecisionRequest,
     RunLabelsRequest,
     RunLimitUpdate,
     SendRunMessage,
@@ -49,6 +50,24 @@ async def dispatch(
         case "createRun":
             return await client.swarms.launch_request(
                 required(arguments, "body", LaunchRequest),
+                idempotency_key=optional(arguments, "idempotency_key", str),
+            )
+        case "preflightRun":
+            return await client.swarms.preflight_request(
+                required(arguments, "body", LaunchRequest),
+            )
+        case "listRunApprovals":
+            return await client.swarms.approvals(
+                required(arguments, "run_id", str),
+                status=optional(arguments, "status", str),
+                cursor=optional(arguments, "cursor", str),
+                limit=page_limit(arguments),
+            )
+        case "decideRunApproval":
+            return await client.swarms.decide_approval(
+                required(arguments, "run_id", str),
+                required(arguments, "approval_id", str),
+                required(arguments, "body", RunApprovalDecisionRequest),
                 idempotency_key=optional(arguments, "idempotency_key", str),
             )
         case "getRun":

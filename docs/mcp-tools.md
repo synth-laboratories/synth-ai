@@ -13,6 +13,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | account_api_key_rotate | rotateApiKey | account:write |
 | swarms_runs_list | listRuns | swarms:read |
 | swarms_run_launch | createRun | swarms:run |
+| swarms_run_preflight | preflightRun | swarms:read |
 | swarms_run_get | getRun | swarms:read |
 | swarms_run_events | listRunEvents | swarms:read |
 | swarms_run_wait | waitRun | swarms:read |
@@ -67,6 +68,8 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_run_limits | getRunLimits | swarms:read |
 | swarms_run_limits_update | updateRunLimits | swarms:run |
 | swarms_run_tasks | listRunTasks | swarms:read |
+| swarms_run_approvals_list | listRunApprovals | swarms:read |
+| swarms_run_approval_decide | decideRunApproval | swarms:control |
 | swarms_run_message_send | sendRunMessage | swarms:control |
 | swarms_run_messages | listRunMessages | swarms:read |
 | swarms_run_message | getRunMessage | swarms:read |

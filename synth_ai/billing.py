@@ -40,7 +40,7 @@ class AsyncBilling:
         self._transport = transport
 
     async def balance(self) -> Balance:
-        """Wallet position of the caller's org in integer microcents (1 USD = 10^8)."""
+        """Wallet position and funding breakdown (weekly plan allowance, prepaid credits, holds, headroom) as exact USD Money values."""
         return await self._transport.request("getBalance", Balance)
 
     async def plans(self) -> PlanCatalog:
@@ -115,7 +115,7 @@ class AsyncBilling:
     ) -> CheckoutSession:
         """Exactly one of `plan_id` (a purchasable recurring plan: `standard.monthly`, `max.monthly`),
         `pack_id` (a credit pack: `credits.10` $10, `credits.25` $25, `credits.100` $100; priced inline)
-        or `credit_cents` (500 to 1000000) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),
+        or `credit` (`Money` between `$5.00` and `$10000.00` USD) is set. Refusals: `checkout_request_invalid` (422), `credit_pack_unknown` (422),
         `plan_not_purchasable` (422), `malformed_request` (422), `subscription_already_active` (409, for a `plan_id` when the org holds a subscription Stripe has not ended: `active`, `past_due`, `incomplete`, `unpaid` or `paused`; one subscription per org), `config_missing` (503, names the variable), `stripe_price_missing` (503, names the lookup key),
         `stripe_checkout_failed` (502, `upstream_kind: stripe`).
         """

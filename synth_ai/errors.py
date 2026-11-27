@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "BillingAdminRequiredError",
+    "BrowserSessionRequiredError",
     "ClientClosedError",
     "ConflictError",
     "ContinueFromInputsUnavailableError",
@@ -30,8 +32,11 @@ __all__ = [
     "DirectoryUploadError",
     "ErrorKind",
     "ForbiddenError",
+    "InsufficientCreditsError",
     "InvalidRequestError",
     "LaunchBudgetBelowActorFloorError",
+    "LaunchChoiceUnaffordableError",
+    "LaunchMenuRevisionStaleError",
     "LaunchValidationError",
     "LimitAboveCeilingError",
     "LimitStillReachedError",
@@ -45,12 +50,14 @@ __all__ = [
     "OutputContentTooLargeError",
     "PaginationError",
     "PaymentRequiredError",
+    "PlanRequestCooldownError",
     "ProviderPolicyError",
     "ProviderPresetNotAllowedError",
     "RateLimitedError",
     "ResourceAdmissionError",
     "ResponseContractError",
     "ResultUnavailableError",
+    "RunBudgetBelowCallBoundError",
     "RunExpiredError",
     "RunFailedError",
     "RunHistoryUnavailableError",
@@ -61,6 +68,7 @@ __all__ = [
     "RunPausedError",
     "ServerError",
     "SpendEntitlementExceededError",
+    "SubscriptionChangePaymentFailedError",
     "SwarmsAPIError",
     "SynthError",
     "TransportFailureError",
@@ -456,6 +464,46 @@ class RunHistoryUnavailableError(RunObservationError):
     code = "run_history_unavailable"
 
 
+class RunBudgetBelowCallBoundError(InvalidRequestError):
+    code = "run_budget_below_call_bound"
+
+    @property
+    def minimum_budget_micros(self) -> int | None:
+        return self.problem.minimum_budget_micros
+
+    @property
+    def budget_floor(self) -> object:
+        return self.problem.budget_floor
+
+
+class InsufficientCreditsError(PaymentRequiredError):
+    code = "insufficient_credits"
+
+
+class LaunchChoiceUnaffordableError(PaymentRequiredError):
+    code = "launch_choice_unaffordable"
+
+
+class LaunchMenuRevisionStaleError(ConflictError):
+    code = "launch_menu_revision_stale"
+
+
+class SubscriptionChangePaymentFailedError(PaymentRequiredError):
+    code = "subscription_change_payment_failed"
+
+
+class BillingAdminRequiredError(ForbiddenError):
+    code = "billing_admin_required"
+
+
+class BrowserSessionRequiredError(ForbiddenError):
+    code = "browser_session_required"
+
+
+class PlanRequestCooldownError(RateLimitedError):
+    code = "plan_request_cooldown"
+
+
 _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
     400: InvalidRequestError,
     401: UnauthenticatedError,
@@ -487,6 +535,15 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "limit_still_reached": LimitStillReachedError,
     "run_expired": RunExpiredError,
     "spend_entitlement_exceeded": SpendEntitlementExceededError,
+    "run_budget_below_call_bound": RunBudgetBelowCallBoundError,
+    "insufficient_credits": InsufficientCreditsError,
+    "budget_exceeded": InsufficientCreditsError,
+    "launch_choice_unaffordable": LaunchChoiceUnaffordableError,
+    "launch_menu_revision_stale": LaunchMenuRevisionStaleError,
+    "subscription_change_payment_failed": SubscriptionChangePaymentFailedError,
+    "billing_admin_required": BillingAdminRequiredError,
+    "browser_session_required": BrowserSessionRequiredError,
+    "plan_request_cooldown": PlanRequestCooldownError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
     "upload_size_exceeded": UploadSizeExceededError,

@@ -47,6 +47,9 @@ from ._generated.models import (
     RoutingCatalog,
     RoutingConstraints,
     RunAllocation,
+    RunApprovalDecisionReceipt,
+    RunApprovalDecisionRequest,
+    RunApprovalPage,
     RunConfiguration,
     RunControlReceipt,
     RunEvent,
@@ -59,6 +62,7 @@ from ._generated.models import (
     RunMessagePage,
     RunOutput,
     RunPage,
+    RunPreflightResponse,
     RunProfileCatalog,
     RunProgram,
     RunReport,
@@ -234,6 +238,9 @@ class SwarmsClient:
         return self._runner.call(
             self._async.launch_request(request, idempotency_key=idempotency_key)
         )
+
+    def preflight_request(self, request: LaunchRequest) -> RunPreflightResponse:
+        return self._runner.call(self._async.preflight_request(request))
 
     def run(
         self,
@@ -462,6 +469,27 @@ class SwarmsClient:
 
     def tasks(self, run_id: str, *, cursor: str | None = None, limit: int = 20) -> RunTaskPage:
         return self._runner.call(self._async.tasks(run_id, cursor=cursor, limit=limit))
+
+    def approvals(
+        self, run_id: str, *, status: str | None = None, cursor: str | None = None, limit: int = 20
+    ) -> RunApprovalPage:
+        return self._runner.call(
+            self._async.approvals(run_id, status=status, cursor=cursor, limit=limit)
+        )
+
+    def decide_approval(
+        self,
+        run_id: str,
+        approval_id: str,
+        decision: RunApprovalDecisionRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> RunApprovalDecisionReceipt:
+        return self._runner.call(
+            self._async.decide_approval(
+                run_id, approval_id, decision, idempotency_key=idempotency_key
+            )
+        )
 
     def cancel(self, run_id: str, *, idempotency_key: str | None = None) -> RunSnapshot:
         return self._runner.call(self._async.cancel(run_id, idempotency_key=idempotency_key))

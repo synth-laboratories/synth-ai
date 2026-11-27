@@ -6,6 +6,9 @@ checkpoint before yield makes cancellation at generator suspension explicit.
 
 from __future__ import annotations
 
+import asyncio
+import math
+from contextlib import aclosing
 from typing import TYPE_CHECKING, cast
 
 from ._generated.models import (
@@ -19,18 +22,27 @@ from ._generated.models import (
     RunMilestone,
 )
 from ._limits import CHECKPOINT_MAX_EVENTS, CHECKPOINT_MAX_ID_LENGTH
+from ._pagination import paginate
 from ._stream import StreamCheckpoint, bounded_lines, frames
 from .errors import (
+    ConflictError,
+    MessageReplyTimeoutError,
+    MessageReplyUnavailableError,
     MessagingUnavailableError,
     ResponseContractError,
+    ResultUnavailableError,
     local_problem,
     raise_problem,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+    from typing import NoReturn
 
     import httpx
+
+    from ._generated.models import RunSnapshot
+    from ._transport import Transport
 
 MESSAGE_EVENT_KINDS = frozenset(
     {
@@ -69,6 +81,75 @@ def is_correlated_reply(message: RunMessage, message_id: str) -> bool:
         and message.state.kind == ManagerMessageState.POSTED
         and message.author != "customer"
     )
+
+
+async def iter_available_messages(
+    fetch_page: Callable[[str | None], Awaitable[RunMessagePage]],
+    *,
+    cursor: str | None = None,
+) -> AsyncGenerator[RunMessage, None]:
+    """Yield message pages while failing closed if Core reports messaging unavailable."""
+
+    async def _page(position: str | None) -> RunMessagePage:
+        return require_available_messages(await fetch_page(position))
+
+    async for item in paginate(_page, cursor=cursor):
+        yield item
+
+
+async def follow_run_messages(
+    transport: Transport,
+    run_id: str,
+    iter_history: Callable[[], AsyncGenerator[RunMessage, None]],
+    fetch_message: Callable[[str], Awaitable[RunMessage]],
+) -> AsyncGenerator[RunMessage, None]:
+    """Yield historical messages followed by live message events from one feed."""
+    checkpoint = StreamCheckpoint(run_id=run_id)
+    async with transport.subscribe_events(run_id, checkpoint) as events:
+        async for item in iter_history():
+            yield item
+        async for event in events:
+            if isinstance(event, RunMilestone):
+                if event.final:
+                    return
+                continue
+            if event.kind not in MESSAGE_EVENT_KINDS:
+                continue
+            yield await fetch_message(extract_message_event_id(event))
+
+
+async def wait_for_correlated_reply(
+    stream: AsyncGenerator[RunMessage, None],
+    run_id: str,
+    message_id: str,
+    timeout: float,
+) -> RunMessage:
+    """Wait for a non-customer posted reply correlated to `message_id`."""
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("timeout must be finite and positive")
+    try:
+        async with asyncio.timeout(timeout):
+            async with aclosing(stream) as messages:
+                async for message in messages:
+                    if is_correlated_reply(message, message_id):
+                        return message
+    except TimeoutError:
+        raise MessageReplyTimeoutError(run_id=run_id, message_id=message_id) from None
+    raise MessageReplyUnavailableError(run_id=run_id, message_id=message_id)
+
+
+async def reraise_result_unavailable(
+    run_id: str,
+    refusal: ConflictError,
+    fetch_snapshot: Callable[[str], Awaitable[RunSnapshot]],
+) -> NoReturn:
+    """Convert `result_unavailable` 409 conflicts into `ResultUnavailableError` with snapshot."""
+    if refusal.code != "result_unavailable":
+        raise refusal
+    snapshot = await fetch_snapshot(run_id)
+    raise ResultUnavailableError(
+        "Run " + run_id + " has not finished; wait() for it first", snapshot=snapshot
+    ) from refusal
 
 
 async def decode_events(

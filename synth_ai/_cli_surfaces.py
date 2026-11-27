@@ -12,10 +12,15 @@ from ._cli_research import configure_research, execute_research, write_output_by
 from ._generated.models import (
     AutoReloadRequest,
     CheckoutRequest,
+    CheckoutRequestPackId,
+    LaunchRequest,
     MintApiKeyRequest,
+    Money,
+    RunApprovalDecisionRequest,
     RunLabelsRequest,
     SetSpendAlertsRequest,
     SubscriptionChangeRequest,
+    SubscriptionChangeRequestPlanId,
     UpdateApiKeyRequest,
     UploadCreateRequest,
 )
@@ -93,16 +98,30 @@ def configure(
                 child.add_argument("--cause")
             if action == "statements":
                 child.add_argument("--months", type=int)
-            if action in {
-                "prepare",
-                "mint",
-                "update",
-                "checkout",
-                "change-plan",
-                "set-auto-reload",
-                "set-spend-alerts",
-            }:
+            if action in {"prepare", "mint", "update"}:
                 child.add_argument("--body", required=True, metavar="PATH")
+            if action in {"checkout", "change-plan", "set-auto-reload", "set-spend-alerts"}:
+                child.add_argument("--body", metavar="PATH")
+            if action == "checkout":
+                child.add_argument("--plan", dest="plan_id")
+                child.add_argument("--pack", dest="pack_id")
+                child.add_argument("--amount", help="custom credit amount in USD (e.g. 25.00)")
+            if action == "change-plan":
+                child.add_argument("--plan", dest="plan_id")
+            if action == "set-auto-reload":
+                mode = child.add_mutually_exclusive_group()
+                mode.add_argument(
+                    "--enable", dest="reload_enabled", action="store_true", default=None
+                )
+                mode.add_argument("--disable", dest="reload_enabled", action="store_false")
+                child.add_argument("--threshold", help="trigger balance in USD (e.g. 10.00)")
+                child.add_argument("--amount", help="reload amount in USD (e.g. 25.00)")
+                child.add_argument("--disclosure-version")
+            if action == "set-spend-alerts":
+                child.add_argument("--monthly-amount", help="monthly spend alert threshold in USD")
+                child.add_argument(
+                    "--clear", action="store_true", help="disable monthly spend alert"
+                )
             if action in _IDENTIFIER_ACTIONS and (
                 group != "organization" or action == "usage-export-status"
             ):
@@ -282,31 +301,80 @@ async def _execute_billing(client: AsyncSynthClient, args: argparse.Namespace) -
         case "spend-alerts":
             return await client.billing.spend_alerts()
         case "checkout":
-            checkout = await _parse_body(CheckoutRequest, args.body)
+            if args.body is not None:
+                if args.plan_id is not None or args.pack_id is not None or args.amount is not None:
+                    raise ValueError("pass either --body or --plan/--pack/--amount, not both")
+                checkout = await _parse_body(CheckoutRequest, args.body)
+                return await client.billing.checkout(
+                    plan_id=checkout.plan_id,
+                    pack_id=checkout.pack_id,
+                    credit=checkout.credit,
+                    idempotency_key=args.idempotency_key,
+                )
+            chosen = sum(x is not None for x in (args.plan_id, args.pack_id, args.amount))
+            if chosen != 1:
+                raise ValueError(
+                    "checkout requires --body PATH or exactly one of --plan, --pack, or --amount"
+                )
+            pack = CheckoutRequestPackId(args.pack_id) if args.pack_id is not None else None
+            credit = Money(amount=args.amount, currency="USD") if args.amount is not None else None
             return await client.billing.checkout(
-                plan_id=checkout.plan_id,
-                pack_id=checkout.pack_id,
-                credit=checkout.credit,
+                plan_id=args.plan_id,
+                pack_id=pack,
+                credit=credit,
                 idempotency_key=args.idempotency_key,
             )
         case "change-plan":
-            plan = await _parse_body(SubscriptionChangeRequest, args.body)
+            if args.body is not None:
+                if args.plan_id is not None:
+                    raise ValueError("pass either --body or --plan, not both")
+                plan = await _parse_body(SubscriptionChangeRequest, args.body)
+                plan_id = plan.plan_id
+            elif args.plan_id is not None:
+                plan_id = SubscriptionChangeRequestPlanId(args.plan_id)
+            else:
+                raise ValueError("change-plan requires --plan PLAN_ID or --body PATH")
             return await client.billing.change_subscription_plan(
-                plan.plan_id, idempotency_key=args.idempotency_key
+                plan_id, idempotency_key=args.idempotency_key
             )
         case "set-auto-reload":
-            reload = await _parse_body(AutoReloadRequest, args.body)
+            if args.body is not None:
+                reload = await _parse_body(AutoReloadRequest, args.body)
+                return await client.billing.set_auto_reload(
+                    enabled=reload.enabled,
+                    threshold=reload.threshold,
+                    amount=reload.amount,
+                    disclosure_version=reload.disclosure_version,
+                    idempotency_key=args.idempotency_key,
+                )
+            if args.reload_enabled is None:
+                raise ValueError("set-auto-reload requires --enable, --disable, or --body PATH")
+            threshold = (
+                Money(amount=args.threshold, currency="USD") if args.threshold is not None else None
+            )
+            amount = Money(amount=args.amount, currency="USD") if args.amount is not None else None
             return await client.billing.set_auto_reload(
-                enabled=reload.enabled,
-                threshold=reload.threshold,
-                amount=reload.amount,
-                disclosure_version=reload.disclosure_version,
+                enabled=args.reload_enabled,
+                threshold=threshold,
+                amount=amount,
+                disclosure_version=args.disclosure_version,
                 idempotency_key=args.idempotency_key,
             )
         case "set-spend-alerts":
-            alerts = await _parse_body(SetSpendAlertsRequest, args.body)
-            return await client.billing.set_spend_alerts_request(
-                alerts, idempotency_key=args.idempotency_key
+            if args.body is not None:
+                alerts = await _parse_body(SetSpendAlertsRequest, args.body)
+                return await client.billing.set_spend_alerts_request(
+                    alerts, idempotency_key=args.idempotency_key
+                )
+            if args.clear and args.monthly_amount is not None:
+                raise ValueError("pass either --monthly-amount or --clear, not both")
+            if not args.clear and args.monthly_amount is None:
+                raise ValueError(
+                    "set-spend-alerts requires --monthly-amount, --clear, or --body PATH"
+                )
+            monthly = None if args.clear else Money(amount=args.monthly_amount, currency="USD")
+            return await client.billing.set_spend_alerts(
+                monthly_amount=monthly, idempotency_key=args.idempotency_key
             )
         case _:
             raise ValueError("unknown billing action")
@@ -370,6 +438,25 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
             return await _execute_organization(client, args)
         case "billing":
             return await _execute_billing(client, args)
+        case "runs":
+            match args.runs_action:
+                case "preflight":
+                    launch = await _parse_body(LaunchRequest, args.body)
+                    return await client.swarms.preflight_request(launch)
+                case "approvals":
+                    return await client.swarms.approvals(
+                        args.run_id, status=args.status, cursor=args.cursor, limit=args.limit
+                    )
+                case "decide-approval":
+                    decision = await _parse_body(RunApprovalDecisionRequest, args.body)
+                    return await client.swarms.decide_approval(
+                        args.run_id,
+                        args.approval_id,
+                        decision,
+                        idempotency_key=args.idempotency_key,
+                    )
+                case _:
+                    raise ValueError("unknown runs action")
         case "artifacts" | "experiments" | "research-log":
             return await execute_research(client, args)
         case _:

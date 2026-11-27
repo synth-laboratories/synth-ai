@@ -13,7 +13,10 @@ from pydantic import BaseModel, ConfigDict
 
 from ._generated.models import (
     Account,
+    AutoReload,
     Balance,
+    BillingHistoryPage,
+    BillingStatementPage,
     EventPage,
     File,
     LaunchChoices,
@@ -22,6 +25,7 @@ from ._generated.models import (
     Money,
     OAuthGrantRevoked,
     OutputPage,
+    PlanCatalog,
     PlanRequest,
     PlanRequestList,
     RunAllocation,
@@ -39,6 +43,8 @@ from ._generated.models import (
     RunResult,
     RunSnapshot,
     RunTaskPage,
+    SpendAlerts,
+    Subscription,
     UsageRecordPage,
     UsageSummary,
 )
@@ -342,16 +348,34 @@ def result_json(value: RunResult) -> str:
 
 
 def usage_summary(value: UsageSummary) -> str:
-    return facts(
-        [
-            ("since", value.since),
-            ("until", value.until),
-            ("charge", money(value.total.charge)),
-            ("input tokens", value.total.input_tokens),
-            ("output tokens", value.total.output_tokens),
-            ("records", value.total.records),
-        ]
-    )
+    rows: list[tuple[str, object]] = [
+        ("since", value.since),
+        ("until", value.until),
+        ("charge", money(value.total.charge)),
+        ("pending", f"{money(value.pending.amount)} ({value.pending.count})"),
+        ("input tokens", value.total.input_tokens),
+        ("output tokens", value.total.output_tokens),
+        ("records", value.total.records),
+    ]
+    funding = getattr(value, "funding", None)
+    if funding is not None:
+        rows.extend(
+            [
+                ("plan", funding.plan),
+                ("available", money(funding.available)),
+                ("purchased credits", money(funding.purchased_credits)),
+                ("held", money(funding.held)),
+            ]
+        )
+        if funding.included_allowance is not None:
+            ia = funding.included_allowance
+            rows.append(
+                (
+                    "weekly allowance",
+                    f"{money(ia.remaining)} / {money(ia.limit)} remaining (resets {ia.reset_at})",
+                )
+            )
+    return facts(rows)
 
 
 def usage_records(value: UsageRecordPage) -> str:
@@ -365,18 +389,134 @@ def usage_records(value: UsageRecordPage) -> str:
 
 
 def balance(value: Balance) -> str:
+    rows: list[tuple[str, object]] = [
+        ("plan", value.plan),
+        ("available", money(value.available)),
+        ("purchased credits", money(value.purchased_credits)),
+        ("promotional credits", money(value.promotional_credits)),
+        ("held", money(value.held)),
+        ("headroom", money(value.headroom)),
+        ("ledger", money(value.ledger)),
+    ]
+    if value.payg_credits_active:
+        rows.insert(1, ("spend tier", "payg_credits ($100/day, $500/week)"))
+    if value.included_allowance is not None:
+        ia = value.included_allowance
+        rows.append(
+            (
+                "weekly allowance",
+                f"{money(ia.remaining)} / {money(ia.limit)} remaining (resets {ia.reset_at})",
+            )
+        )
+    return facts(rows)
+
+
+def plans(value: PlanCatalog) -> str:
+    plan_table = table(
+        ["PLAN", "NAME", "KIND", "PRICE", "WEEKLY INCLUDED", "CHECKOUT"],
+        [
+            [
+                p.plan_id,
+                p.name,
+                p.kind.value,
+                money(p.price),
+                money(p.weekly_included),
+                "ready" if p.checkout_available else p.price_state.value,
+            ]
+            for p in value.plans
+        ],
+    )
+    pack_rows = [
+        [pack.pack_id, pack.name, money(pack.price), "ready" if pack.checkout_available else "off"]
+        for pack in value.credit_packs
+    ]
+    parts = [plan_table]
+    if pack_rows:
+        parts.append(table(["PACK", "NAME", "PRICE", "CHECKOUT"], pack_rows))
+    parts.append(
+        facts(
+            [
+                ("custom credit min", money(value.custom_credit.min)),
+                ("custom credit max", money(value.custom_credit.max)),
+                ("switchable plans", ", ".join(value.switchable_plans) or "-"),
+            ]
+        )
+    )
+    return "\n\n".join(parts)
+
+
+def billing_history(value: BillingHistoryPage) -> str:
+    return table(
+        ["ENTRY", "CAUSE", "FUNDING", "DELTA", "HELD DELTA", "CREATED"],
+        [
+            [
+                e.entry_id,
+                e.cause.value if hasattr(e.cause, "value") else e.cause,
+                e.funding_class or "-",
+                money(e.delta),
+                money(e.held_delta),
+                e.created_at,
+            ]
+            for e in value.items
+        ],
+    )
+
+
+def billing_statements(value: BillingStatementPage) -> str:
+    return table(
+        ["MONTH", "OPENING", "PURCHASES", "ALLOWANCE", "CHARGES", "CLOSING"],
+        [
+            [
+                s.month,
+                money(s.opening_ledger),
+                money(s.purchases),
+                money(s.allowance),
+                money(s.charges),
+                money(s.closing_ledger),
+            ]
+            for s in value.items
+        ],
+    )
+
+
+def subscription(value: Subscription | None) -> str:
+    if value is None:
+        return facts([("subscription", "none")])
     return facts(
         [
-            ("available", money(value.available)),
-            ("ledger", money(value.ledger)),
-            ("held", money(value.held)),
-            ("headroom", money(value.headroom)),
+            ("plan", value.plan_id),
+            ("status", value.status.value if hasattr(value.status, "value") else value.status),
+            ("period end", value.current_period_end),
+            ("cancel at period end", value.cancel_at_period_end),
+            ("cancel at", value.cancel_at),
+        ]
+    )
+
+
+def auto_reload(value: AutoReload) -> str:
+    return facts(
+        [
+            ("enabled", value.enabled),
+            ("threshold", money(value.threshold)),
+            ("amount", money(value.amount)),
+        ]
+    )
+
+
+def spend_alerts(value: SpendAlerts) -> str:
+    return facts(
+        [
+            ("monthly amount", money(value.monthly_amount)),
+            ("last notified", value.last_notified),
         ]
     )
 
 
 def limits(value: LimitList) -> str:
-    return facts([("plan", value.plan)]) + (
+    header: list[tuple[str, object]] = [("plan", value.plan)]
+    if value.payg_credits_active:
+        header.append(("spend tier", "payg_credits"))
+    return facts(header) + (
         "\n\n"
         + table(
             ["RESOURCE", "METRIC", "WINDOW", "CURRENT", "CAP"],
@@ -414,15 +554,38 @@ def plan_requests(value: PlanRequestList) -> str:
 
 
 def account(value: Account) -> str:
-    return facts(
-        [
-            ("org", value.org.name),
-            ("org id", value.org.id),
-            ("plan", value.org.plan),
-            ("user", value.principal.user_id),
-            ("credential", value.principal.credential_kind.value),
-        ]
-    )
+    rows: list[tuple[str, object]] = [
+        ("org", value.org.name),
+        ("org id", value.org.id),
+        ("plan", value.org.plan),
+        ("access tier", value.org.access_tier),
+        ("user", value.principal.user_id),
+        ("credential", value.principal.credential_kind.value),
+    ]
+    if value.billing_attention is not None:
+        rows.append(("billing attention", value.billing_attention.kind))
+    if value.promotional_grants is not None and len(value.promotional_grants) > 0:
+        rows.append(("promotional grants", len(value.promotional_grants)))
+    return facts(rows)
+
+
+def render_billing(action: str, value: BaseModel | None) -> str | None:
+    """Format a billing resource response for human output, or return None to fall back to JSON."""
+    if action == "balance" and isinstance(value, Balance):
+        return balance(value)
+    if action == "plans" and isinstance(value, PlanCatalog):
+        return plans(value)
+    if action == "history" and isinstance(value, BillingHistoryPage):
+        return billing_history(value)
+    if action == "statements" and isinstance(value, BillingStatementPage):
+        return billing_statements(value)
+    if action == "subscription" and (value is None or isinstance(value, Subscription)):
+        return subscription(value)
+    if action == "auto-reload" and isinstance(value, AutoReload):
+        return auto_reload(value)
+    if action == "spend-alerts" and isinstance(value, SpendAlerts):
+        return spend_alerts(value)
+    return None
 
 
 def auth_status(value: AuthStatus) -> str:

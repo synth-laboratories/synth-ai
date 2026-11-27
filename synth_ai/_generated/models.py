@@ -390,6 +390,41 @@ class RunAllocationChoiceState(StrEnum):
     PLANNER_DECIDES = "planner_decides"
 
 
+class RunApprovalDecisionReceiptDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class RunApprovalDecisionReceiptState(StrEnum):
+    ACCEPTED = "accepted"
+    APPLIED = "applied"
+
+
+class RunApprovalDecisionReceiptStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class RunApprovalDecisionRecordDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+    EXPIRE = "expire"
+
+
+class RunApprovalDecisionRequestDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class RunApprovalStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
 class RunAttemptReviewDecision(StrEnum):
     COMMENT = "comment"
     APPROVED = "approved"
@@ -501,6 +536,12 @@ class RunPauseLimitScope(StrEnum):
 class RunPauseMode(StrEnum):
     COLD = "cold"
     WARM = "warm"
+
+
+class RunPreflightCheckStatus(StrEnum):
+    PASS = "pass"
+    FAIL = "fail"
+    SKIPPED = "skipped"
 
 
 class RunProblemSeverity(StrEnum):
@@ -1484,6 +1525,27 @@ class RunAllocationChoice(WireModel):
     option_id: str | None = None
 
 
+class RunApprovalActor(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    actor_id: Annotated[str, Field(min_length=1)]
+    actor_kind: Annotated[str, Field(min_length=1)]
+    source_id: str | None = None
+
+
+class RunApprovalDecisionRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    decision: Annotated[
+        RunApprovalDecisionRequestDecision,
+        BeforeValidator(enum_value(RunApprovalDecisionRequestDecision)),
+    ]
+    reason: Annotated[str, Field(max_length=1024)] | None = None
+    expected_revision: Annotated[int, Field(ge=1)] | None = None
+
+
 class RunBlocker(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -1642,6 +1704,26 @@ class RunPauseLimit(WireModel):
     unknown_reserved: Annotated[int, Field(ge=0)]
     revision: Annotated[int, Field(ge=0)]
     reason: str | None = None
+
+
+class RunPreflightCheck(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    name: str
+    status: Annotated[RunPreflightCheckStatus, BeforeValidator(enum_value(RunPreflightCheckStatus))]
+    code: str | None = None
+    detail: str | None = None
+
+
+class RunPreflightRefusal(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    check: str
+    code: str
+    status: int | None = None
+    detail: str | None = None
 
 
 class RunProblem(WireModel):
@@ -2084,17 +2166,6 @@ class AutoReloadRequest(WireModel):
     disclosure_version: str | None = None
 
 
-class Balance(WireModel):
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
-    )
-    org_id: str
-    ledger: Money
-    held: Money
-    headroom: Money
-    available: Money
-
-
 class BillingStatement(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2175,6 +2246,25 @@ class CorrectResearchLogEntryRequest(WireModel):
     artifact_ids: list[str] | None = None
 
 
+class CreditPack(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    pack_id: str
+    name: str
+    price: Money
+    checkout_available: bool
+
+
+class CustomCreditBounds(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    min: Money
+    max: Money
+    checkout_available: bool
+
+
 class FilePage(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2204,6 +2294,16 @@ class HostedArtifactRevision(WireModel):
         BeforeValidator(enum_value(HostedArtifactRevisionByteState)),
     ]
     provenance: ResearchExactReference
+
+
+class IncludedAllowance(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    limit: Money
+    used: Money
+    remaining: Money
+    reset_at: str
 
 
 class LaunchChoiceInference(WireModel):
@@ -2576,6 +2676,21 @@ class RunAllocationActorLaunch(WireModel):
     sandbox: RunAllocationChoice
 
 
+class RunApprovalDecisionRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    decision: Annotated[
+        RunApprovalDecisionRecordDecision,
+        BeforeValidator(enum_value(RunApprovalDecisionRecordDecision)),
+    ]
+    idempotency_key: Annotated[str, Field(min_length=1)]
+    operation_id: Annotated[str, Field(min_length=1)]
+    decided_by: RunApprovalActor
+    decided_at: str
+    reason: str | None = None
+
+
 class RunAttemptReview(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -2846,6 +2961,16 @@ class RunPause(WireModel):
     requested_at_ms: int
     drained_at_ms: int | None
     mode: Annotated[RunPauseMode, BeforeValidator(enum_value(RunPauseMode))]
+
+
+class RunPreflightResponse(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    schema_version: Literal["synth.run-preflight.v1"]
+    admissible: bool
+    checks: list[RunPreflightCheck]
+    refusals: list[RunPreflightRefusal]
 
 
 class RunProgram(WireModel):
@@ -3206,6 +3331,24 @@ class AutoReloadDisclosure(WireModel):
     limits: AutoReloadLimits
 
 
+class Balance(WireModel):
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    org_id: str
+    plan: str
+    payg_credits_active: bool
+    ledger: Money
+    held: Money
+    headroom: Money
+    available: Money
+    purchased_credits: Money
+    promotional_credits: Money
+    operator_credits: Money
+    debt: Money
+    included_allowance: IncludedAllowance | None
+
+
 class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
         extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3241,6 +3384,23 @@ class FamilyList(WireModel):
     topologies: list[TopologyCatalogEntry] | None = None
     families: list[Family]
     routing: RoutingCatalog | None = None
+
+
+class FundingSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    plan: str
+    payg_credits_active: bool
+    ledger: Money
+    held: Money
+    headroom: Money
+    available: Money
+    purchased_credits: Money
+    promotional_credits: Money
+    operator_credits: Money
+    debt: Money
+    included_allowance: IncludedAllowance | None
 
 
 class HostedArtifact(WireModel):
@@ -3283,6 +3443,7 @@ class LimitList(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     plan: str
+    payg_credits_active: bool
     observed_at: str
     items: list[LimitRow]
 
@@ -3306,6 +3467,9 @@ class PlanCatalog(WireModel):
     policy_version: str
     price_checked_at: str
     plans: list[Plan]
+    credit_packs: list[CreditPack]
+    custom_credit: CustomCreditBounds
+    switchable_plans: list[str]
 
 
 class ResearchLogEntryList(WireModel):
@@ -3359,6 +3523,24 @@ class RunAllocationActor(WireModel):
         BeforeValidator(enum_value(RunAllocationActorComputeMetering)),
     ]
     compute_charge: Money | None = None
+
+
+class RunApproval(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    approval_id: Annotated[str, Field(min_length=1, max_length=128)]
+    run_id: RunId
+    action_kind: Annotated[str, Field(min_length=1)]
+    summary: Annotated[str, Field(min_length=1)]
+    payload: JsonValue | None = None
+    requested_by: RunApprovalActor
+    requested_at: str
+    timeout_ms: Annotated[int, Field(ge=1)]
+    expires_at: str
+    revision: Annotated[int, Field(ge=1)]
+    status: Annotated[RunApprovalStatus, BeforeValidator(enum_value(RunApprovalStatus))]
+    decision: RunApprovalDecisionRecord | None = None
 
 
 class RunAttemptNode(WireModel):
@@ -3742,6 +3924,38 @@ class RunAllocation(WireModel):
     actors: list[RunAllocationActor]
 
 
+class RunApprovalDecisionReceipt(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    operation_id: Annotated[str, Field(min_length=1)]
+    run_id: RunId
+    approval_id: Annotated[str, Field(min_length=1)]
+    decision: Annotated[
+        RunApprovalDecisionReceiptDecision,
+        BeforeValidator(enum_value(RunApprovalDecisionReceiptDecision)),
+    ]
+    status: Annotated[
+        RunApprovalDecisionReceiptStatus,
+        BeforeValidator(enum_value(RunApprovalDecisionReceiptStatus)),
+    ]
+    revision: Annotated[int, Field(ge=0)]
+    state: Annotated[
+        RunApprovalDecisionReceiptState,
+        BeforeValidator(enum_value(RunApprovalDecisionReceiptState)),
+    ]
+    approval: RunApproval | None = None
+
+
+class RunApprovalPage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+    )
+    items: list[RunApproval]
+    next_cursor: str | None = None
+    has_more: bool
+
+
 class RunAttemptTreeAvailable(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
@@ -3937,6 +4151,7 @@ class UsageSummary(WireModel):
     total: UsageTotals
     pending: UsageSummaryPending
     settling: UsageSummarySettling
+    funding: FundingSummary
     by_source: UsageSummaryBySource
     by_day: list[UsageDayBucket]
     by_key: list[UsageKeyBucket]
@@ -4166,6 +4381,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalogRoute": RoutingCatalogRoute,
     "RunAllocationActorPlacementsItem": RunAllocationActorPlacementsItem,
     "RunAllocationChoice": RunAllocationChoice,
+    "RunApprovalActor": RunApprovalActor,
+    "RunApprovalDecisionRequest": RunApprovalDecisionRequest,
     "RunBlocker": RunBlocker,
     "RunComputeMeter": RunComputeMeter,
     "RunControlReceipt": RunControlReceipt,
@@ -4179,6 +4396,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLimitsProgressFunding": RunLimitsProgressFunding,
     "RunMilestone": RunMilestone,
     "RunPauseLimit": RunPauseLimit,
+    "RunPreflightCheck": RunPreflightCheck,
+    "RunPreflightRefusal": RunPreflightRefusal,
     "RunProblem": RunProblem,
     "RunProfilePin": RunProfilePin,
     "RunProgramProgram": RunProgramProgram,
@@ -4214,15 +4433,17 @@ MODELS: dict[str, type[BaseModel]] = {
     "AppendResearchLogEntryRequest": AppendResearchLogEntryRequest,
     "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
-    "Balance": Balance,
     "BillingStatement": BillingStatement,
     "ChargeUsage": ChargeUsage,
     "CheckoutAttempt": CheckoutAttempt,
     "CheckoutRequest": CheckoutRequest,
     "CheckoutSession": CheckoutSession,
     "CorrectResearchLogEntryRequest": CorrectResearchLogEntryRequest,
+    "CreditPack": CreditPack,
+    "CustomCreditBounds": CustomCreditBounds,
     "FilePage": FilePage,
     "HostedArtifactRevision": HostedArtifactRevision,
+    "IncludedAllowance": IncludedAllowance,
     "LaunchChoiceInference": LaunchChoiceInference,
     "LaunchChoiceSandboxOptionsItem": LaunchChoiceSandboxOptionsItem,
     "LaunchChoicesAffordability": LaunchChoicesAffordability,
@@ -4249,6 +4470,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunAllocationActorLaunch": RunAllocationActorLaunch,
+    "RunApprovalDecisionRecord": RunApprovalDecisionRecord,
     "RunAttemptReview": RunAttemptReview,
     "RunAttemptScore": RunAttemptScore,
     "RunAttemptTreeUnavailable": RunAttemptTreeUnavailable,
@@ -4263,6 +4485,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunModelUsage": RunModelUsage,
     "RunOutput": RunOutput,
     "RunPause": RunPause,
+    "RunPreflightResponse": RunPreflightResponse,
     "RunProgram": RunProgram,
     "RunProviderCompute": RunProviderCompute,
     "RunResearchNote": RunResearchNote,
@@ -4289,9 +4512,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "Account": Account,
     "ApiKeyPage": ApiKeyPage,
     "AutoReloadDisclosure": AutoReloadDisclosure,
+    "Balance": Balance,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
     "FamilyList": FamilyList,
+    "FundingSummary": FundingSummary,
     "HostedArtifact": HostedArtifact,
     "LaunchChoiceSandbox": LaunchChoiceSandbox,
     "LimitList": LimitList,
@@ -4301,6 +4526,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "ResearchTrialRecord": ResearchTrialRecord,
     "RoutingReadback": RoutingReadback,
     "RunAllocationActor": RunAllocationActor,
+    "RunApproval": RunApproval,
     "RunAttemptNode": RunAttemptNode,
     "RunLimitStatePayload": RunLimitStatePayload,
     "RunLimitUpdate": RunLimitUpdate,
@@ -4321,6 +4547,8 @@ MODELS: dict[str, type[BaseModel]] = {
     "LaunchRequest": LaunchRequest,
     "ResearchExperimentRecord": ResearchExperimentRecord,
     "RunAllocation": RunAllocation,
+    "RunApprovalDecisionReceipt": RunApprovalDecisionReceipt,
+    "RunApprovalPage": RunApprovalPage,
     "RunAttemptTreeAvailable": RunAttemptTreeAvailable,
     "RunMessage": RunMessage,
     "RunMessageEventPayload": RunMessageEventPayload,
