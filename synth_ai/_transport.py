@@ -270,14 +270,15 @@ class Transport:
             error.checkpoint = state
             raise error from cause
 
-    async def stream_events(
+    async def _stream_feed(
         self,
         run_id: str,
         *,
+        include_milestones: bool,
         last_event_id: str | None = None,
         checkpoint: StreamCheckpoint | None = None,
         timeout: float | None = None,
-    ) -> AsyncGenerator[RunEvent, None]:
+    ) -> AsyncGenerator[RunEvent | RunMilestone, None]:
         if timeout is not None and (
             type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0
         ):
@@ -297,11 +298,18 @@ class Transport:
                 cause: Exception | None = None
                 for attempt in range(attempts):
                     disconnected = False
+                    saw_final_milestone = False
                     try:
                         async with self.subscribe_events(run_id, state) as events:
                             async for item in events:
-                                # Milestones advance recovery without leaking into follow().
-                                if isinstance(item, RunEvent):
+                                if isinstance(item, RunMilestone):
+                                    if include_milestones:
+                                        yield item
+                                    if item.final:
+                                        saw_final_milestone = True
+                                        if include_milestones:
+                                            return
+                                else:
                                     yield item
                     except httpx.TransportError as error:
                         disconnected, cause = True, error
@@ -312,6 +320,8 @@ class Transport:
                             raise
                         disconnected, cause = True, refusal
                     if not disconnected:
+                        if saw_final_milestone:
+                            return
                         snapshot = await self.request(
                             "getRun", RunSnapshot, path={"run_id": run_id}
                         )
@@ -337,3 +347,44 @@ class Transport:
             error = TransportFailureError(local_problem("event_stream_timeout", "listRunEvents"))
             error.checkpoint = state
             raise error from cause
+
+    async def stream_events(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> AsyncGenerator[RunEvent, None]:
+        async with aclosing(
+            self._stream_feed(
+                run_id,
+                include_milestones=False,
+                last_event_id=last_event_id,
+                checkpoint=checkpoint,
+                timeout=timeout,
+            )
+        ) as items:
+            async for item in items:
+                if isinstance(item, RunEvent):
+                    yield item
+
+    async def stream_watch(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> AsyncGenerator[RunEvent | RunMilestone, None]:
+        async with aclosing(
+            self._stream_feed(
+                run_id,
+                include_milestones=True,
+                last_event_id=last_event_id,
+                checkpoint=checkpoint,
+                timeout=timeout,
+            )
+        ) as items:
+            async for item in items:
+                yield item

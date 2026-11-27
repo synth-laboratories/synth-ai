@@ -39,6 +39,7 @@ COMMANDS: dict[str, str] = {
     "run": "Launch a run",
     "status": "Run state",
     "wait": "Wait for a run to finish",
+    "watch": "Watch live run events, approvals, messages, and research updates",
     "logs": "Run events",
     "message": "Send a run message",
     "messages": "Run messages",
@@ -264,6 +265,19 @@ def _configure_run_operations(created: Mapping[str, argparse.ArgumentParser]) ->
     wait = created["wait"]
     wait.add_argument("run_id", metavar="RUN")
     wait.add_argument("--timeout", type=float, default=DEFAULT_WAIT_SECONDS)
+    watch = created["watch"]
+    watch.add_argument("run_id", metavar="RUN")
+    watch.add_argument(
+        "--after",
+        metavar="CURSOR",
+        help="resume after this SSE Last-Event-ID (or page cursor with --once)",
+    )
+    watch.add_argument(
+        "--once",
+        action="store_true",
+        help="print current retained events and milestones once without keeping the stream open",
+    )
+    watch.add_argument("--timeout", type=float, default=None, metavar="SECONDS")
     logs = created["logs"]
     logs.add_argument("run_id", metavar="RUN")
     logs.add_argument("-f", "--follow", action="store_true")

@@ -48,7 +48,7 @@ from synth_ai.errors import (
     local_problem,
 )
 
-from . import directory, skills
+from . import directory, events, skills
 from ._arguments import required
 from .dispatch import dispatch
 from .elicitation import client_supports_elicitation
@@ -209,6 +209,7 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
             GetTaskRequest,
             JSONRPCError,
             JSONRPCMessage,
+            JSONRPCNotification,
             JSONRPCRequest,
             JSONRPCResponse,
             Resource,
@@ -254,7 +255,10 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
                 experimental_capabilities=experimental_capabilities,
             )
             dumped = base.capabilities.model_dump(by_alias=True, mode="json", exclude_none=True)
-            dumped["extensions"] = dict(skills.EXTENSION_CAPABILITIES)
+            dumped["extensions"] = {
+                **skills.EXTENSION_CAPABILITIES,
+                **events.EXTENSION_CAPABILITIES,
+            }
             return InitializationOptions(
                 server_name=base.server_name,
                 server_version=base.server_version,
@@ -276,6 +280,43 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
             forwarded_send, forwarded_recv = anyio.create_memory_object_stream[
                 SessionMessage | Exception
             ](64)
+
+            async def _handle_events_poll(req: JSONRPCRequest) -> None:
+                raw_params = dict(req.params) if isinstance(req.params, dict) else None
+                reply: JSONRPCResponse | JSONRPCError
+                try:
+                    payload = await events.poll_events(client, raw_params)
+                    reply = JSONRPCResponse(jsonrpc="2.0", id=req.id, result=payload)
+                except events.EventError as error:
+                    reply = JSONRPCError(
+                        jsonrpc="2.0",
+                        id=req.id,
+                        error=ErrorData(code=error.code, message=error.message, data=error.data),
+                    )
+                await write_stream.send(SessionMessage(message=JSONRPCMessage(reply)))
+
+            async def _handle_events_stream(req: JSONRPCRequest) -> None:
+                raw_params = dict(req.params) if isinstance(req.params, dict) else None
+
+                async def _emit(event_params: dict[str, JsonValue]) -> None:
+                    note = JSONRPCNotification(
+                        jsonrpc="2.0",
+                        method="notifications/events/event",
+                        params=event_params,
+                    )
+                    await write_stream.send(SessionMessage(message=JSONRPCMessage(note)))
+
+                reply: JSONRPCResponse | JSONRPCError
+                try:
+                    payload = await events.stream_events(client, raw_params, _emit)
+                    reply = JSONRPCResponse(jsonrpc="2.0", id=req.id, result=payload)
+                except events.EventError as error:
+                    reply = JSONRPCError(
+                        jsonrpc="2.0",
+                        id=req.id,
+                        error=ErrorData(code=error.code, message=error.message, data=error.data),
+                    )
+                await write_stream.send(SessionMessage(message=JSONRPCMessage(reply)))
 
             async def _route_incoming() -> None:
                 async with read_stream, forwarded_send:
@@ -307,6 +348,21 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
                                 assert payload is not None
                                 reply = JSONRPCResponse(jsonrpc="2.0", id=root.id, result=payload)
                             await write_stream.send(SessionMessage(message=JSONRPCMessage(reply)))
+                            continue
+                        if root.method in events.EXTENSION_METHODS:
+                            if root.method == "events/list":
+                                list_reply = JSONRPCResponse(
+                                    jsonrpc="2.0",
+                                    id=root.id,
+                                    result=events.list_events_payload(),
+                                )
+                                await write_stream.send(
+                                    SessionMessage(message=JSONRPCMessage(list_reply))
+                                )
+                            elif root.method == "events/poll":
+                                task_group.start_soon(_handle_events_poll, root)
+                            else:
+                                task_group.start_soon(_handle_events_stream, root)
                             continue
                         if root.method == "resources/read":
                             raw_uri = (

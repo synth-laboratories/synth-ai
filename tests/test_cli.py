@@ -33,6 +33,7 @@ EXPECTED_COMMANDS = [
     "run",
     "status",
     "wait",
+    "watch",
     "logs",
     "message",
     "messages",

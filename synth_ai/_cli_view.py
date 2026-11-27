@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from ._cli_watch import milestones_from_snapshot as milestones_from_snapshot
+from ._cli_watch import watch_item as watch_item
 from ._generated.billing_plans import PAYG_DAILY_SPEND_USD, PAYG_WEEKLY_SPEND_USD
 from ._generated.models import (
     Account,

@@ -23,6 +23,7 @@ from ._generated.models import (
     RoleAssignment,
     RunGuidance,
     RunInputs,
+    RunMilestone,
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
@@ -31,6 +32,7 @@ from ._observer import validate_wait
 from ._protocol import CompletionMilestone
 from ._validation import message_text, validate_idempotency_key
 from .environments import resolve_base_url
+from .errors import TransportFailureError, WaitTimeoutError
 
 if TYPE_CHECKING:
     import argparse
@@ -339,6 +341,51 @@ async def follow(swarms: AsyncSwarms, run_id: str, as_json: bool) -> None:
         print(item.model_dump_json(exclude_unset=True) if as_json else view.event(item), flush=True)
         view.save_checkpoint(checkpoint)
     view.save_checkpoint(checkpoint)
+
+
+async def watch(
+    swarms: AsyncSwarms,
+    run_id: str,
+    *,
+    as_json: bool,
+    after: str | None = None,
+    once: bool = False,
+    timeout: float | None = None,
+) -> int:
+    """Watch unified run events and milestones in human or NDJSON streaming mode."""
+    if once:
+        page = await swarms.events(run_id, cursor=after, limit=100)
+        snap = await swarms.get(run_id)
+        for item in page.items:
+            print(
+                item.model_dump_json(exclude_unset=True) if as_json else view.watch_item(item),
+                flush=True,
+            )
+        for milestone in view.milestones_from_snapshot(snap):
+            print(
+                milestone.model_dump_json(exclude_unset=True)
+                if as_json
+                else view.watch_item(milestone),
+                flush=True,
+            )
+        return finished_code(snap)
+
+    final_state: str | None = None
+    try:
+        async for item in swarms.watch(run_id, last_event_id=after, timeout=timeout):
+            print(
+                item.model_dump_json(exclude_unset=True) if as_json else view.watch_item(item),
+                flush=True,
+            )
+            if isinstance(item, RunMilestone):
+                final_state = item.state
+    except TransportFailureError as error:
+        if error.problem.code == "event_stream_timeout":
+            raise WaitTimeoutError(f"watch timed out for run {run_id}") from error
+        raise
+    if final_state in UNSUCCESSFUL_STATES:
+        return EXIT_RUN_UNSUCCESSFUL
+    return EXIT_OK
 
 
 async def download(

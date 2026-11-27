@@ -6,12 +6,7 @@ from contextlib import aclosing
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from ._event_stream import (
-    follow_run_messages,
-    iter_available_messages,
-    reraise_result_unavailable,
-    wait_for_correlated_reply,
-)
+from . import _event_stream, _requests
 from ._generated.models import (
     EventPage,
     FamilyList,
@@ -42,6 +37,7 @@ from ._generated.models import (
     RunLimitUpdate,
     RunMessage,
     RunMessagePage,
+    RunMilestone,
     RunOutput,
     RunPage,
     RunPreflightResponse,
@@ -59,23 +55,13 @@ from ._generated.models import (
     Upload,
 )
 from ._generated.policy import MCP_OUTPUT_CONTENT_MAX_BYTES
-from ._generated.topologies import (
-    DEFAULT_RUN_PROFILE,
-    PROFILE_REQUIRES_RESEARCH_TASK,
-)
+from ._generated.topologies import DEFAULT_RUN_PROFILE, PROFILE_REQUIRES_RESEARCH_TASK
 from ._inline_content import inline_content
 from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT
 from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
-from ._requests import (
-    DomicileRequirement,
-    launch_choices_query,
-    launch_request,
-    limit_update_request,
-    prepare_upload_body,
-    upload_text_body,
-)
+from ._requests import DomicileRequirement
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
@@ -129,7 +115,7 @@ class AsyncSwarms:
         self, run_id: str, *, cursor: str | None = None, limit: int = 100
     ) -> AsyncGenerator[RunMessage, None]:
         """Traverse message pages without prefetch; see docs/protocols.md."""
-        async for item in iter_available_messages(
+        async for item in _event_stream.iter_available_messages(
             lambda position: self.messages(run_id, cursor=position, limit=limit), cursor=cursor
         ):
             yield item
@@ -142,7 +128,7 @@ class AsyncSwarms:
 
     async def follow_messages(self, run_id: str) -> AsyncGenerator[RunMessage, None]:
         """Read history, then live message updates from one feed; see docs/protocols.md."""
-        async for item in follow_run_messages(
+        async for item in _event_stream.follow_run_messages(
             self._transport,
             run_id,
             lambda: self.iter_messages(run_id),
@@ -158,7 +144,7 @@ class AsyncSwarms:
         timeout: float = MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT,
     ) -> RunMessage:
         """Wait for a correlated posted reply without mutating the message."""
-        return await wait_for_correlated_reply(
+        return await _event_stream.wait_for_correlated_reply(
             self.follow_messages(run_id), run_id, message_id, timeout
         )
 
@@ -185,7 +171,7 @@ class AsyncSwarms:
         continue_from: str | None = None,
     ) -> LaunchRequest:
         """Validate a launch before uploads; see docs/protocols.md."""
-        return launch_request(
+        return _requests.launch_request(
             message,
             budget=budget,
             domicile_requirement=domicile_requirement,
@@ -355,7 +341,7 @@ class AsyncSwarms:
         idempotency_key: str | None = None,
     ) -> File:
         """Upload UTF-8 content inline (up to 32 KiB)."""
-        body = upload_text_body(name=name, media_type=media_type, content=content)
+        body = _requests.upload_text_body(name=name, media_type=media_type, content=content)
         return await self._transport.request(
             "uploadFile", File, body=body, idempotency_key=idempotency_key
         )
@@ -370,11 +356,8 @@ class AsyncSwarms:
         idempotency_key: str | None = None,
     ) -> Upload:
         """Prepare an immutable file upload."""
-        body = prepare_upload_body(
-            name=name,
-            media_type=media_type,
-            size_bytes=size_bytes,
-            digest_sha256=digest_sha256,
+        body = _requests.prepare_upload_body(
+            name=name, media_type=media_type, size_bytes=size_bytes, digest_sha256=digest_sha256
         )
         return await self._transport.request(
             "createUpload", Upload, body=body, idempotency_key=idempotency_key
@@ -495,7 +478,7 @@ class AsyncSwarms:
         idempotency_key: str | None = None,
     ) -> RunLimitsProgress:
         """Change run limits against an expected revision (at least one limit required)."""
-        request = limit_update_request(
+        request = _requests.limit_update_request(
             expected_revision=expected_revision,
             budget=budget,
             wall_time_seconds=wall_time_seconds,
@@ -631,6 +614,23 @@ class AsyncSwarms:
             async for event in events:
                 yield event
 
+    async def watch(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> AsyncGenerator[RunEvent | RunMilestone, None]:
+        """Stream run events and lifecycle closure milestones, resuming from a cursor or checkpoint."""
+        async with aclosing(
+            self._transport.stream_watch(
+                run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+            )
+        ) as items:
+            async for item in items:
+                yield item
+
     async def outputs(
         self, run_id: str, *, cursor: str | None = None, limit: int = 20
     ) -> OutputPage:
@@ -705,7 +705,7 @@ class AsyncSwarms:
         try:
             return await self._transport.request("getRunResult", RunResult, path={"run_id": run_id})
         except ConflictError as refusal:
-            await reraise_result_unavailable(run_id, refusal, self.get)
+            await _event_stream.reraise_result_unavailable(run_id, refusal, self.get)
 
     async def review(self, run_id: str) -> RunReviewSurface:
         """Read the consolidated run review surface (pacing, experiments, log, artifacts)."""
@@ -734,7 +734,7 @@ class AsyncSwarms:
         budget: str | Decimal | None = None,
     ) -> LaunchChoices:
         """Return the per-role menu (and revision) admitted for these launch constraints."""
-        query = launch_choices_query(
+        query = _requests.launch_choices_query(
             profile=profile,
             domicile_requirement=domicile_requirement,
             parallel_workers=parallel_workers,

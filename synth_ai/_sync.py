@@ -68,6 +68,7 @@ from ._generated.models import (
     RunLimitUpdate,
     RunMessage,
     RunMessagePage,
+    RunMilestone,
     RunOutput,
     RunPage,
     RunPreflightResponse,
@@ -544,6 +545,20 @@ class SwarmsClient:
     ) -> Iterator[RunEvent]:
         return self._runner.iterate(
             self._async.follow(
+                run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
+            )
+        )
+
+    def watch(
+        self,
+        run_id: str,
+        *,
+        last_event_id: str | None = None,
+        checkpoint: StreamCheckpoint | None = None,
+        timeout: float | None = None,
+    ) -> Iterator[RunEvent | RunMilestone]:
+        return self._runner.iterate(
+            self._async.watch(
                 run_id, last_event_id=last_event_id, checkpoint=checkpoint, timeout=timeout
             )
         )

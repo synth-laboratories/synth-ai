@@ -97,7 +97,7 @@ async def test_mcp_skills_capabilities_discovery_and_digest_integrity():
 
         caps = init_replies[0]["result"]["capabilities"]
         assert "resources" in caps
-        assert caps["extensions"] == {"io.modelcontextprotocol/skills": {"directoryRead": True}}
+        assert caps["extensions"]["io.modelcontextprotocol/skills"] == {"directoryRead": True}
 
         listed_skills = init_replies[1]["result"]["skills"]
         assert {item["name"] for item in listed_skills} == {
@@ -229,7 +229,7 @@ async def test_stdio_subprocess_serves_skills_and_capabilities(tmp_path):
         async with ClientSession(reader, writer) as session:
             init = await session.initialize()
             caps = init.capabilities.model_dump(by_alias=True, mode="json", exclude_none=True)
-            assert caps["extensions"] == {"io.modelcontextprotocol/skills": {"directoryRead": True}}
+            assert caps["extensions"]["io.modelcontextprotocol/skills"] == {"directoryRead": True}
             resources = (await session.list_resources()).resources
             uris = {str(r.uri) for r in resources}
             assert "skill://swarms-launch/SKILL.md" in uris

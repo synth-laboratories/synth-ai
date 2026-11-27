@@ -88,6 +88,9 @@ from ._cli_run import (
 from ._cli_run import (
     show_device_code as show_device_code,
 )
+from ._cli_run import (
+    watch as watch,
+)
 from ._cli_surfaces import execute_resource
 from ._generated.models import MessageKind
 from ._generated.operations import CONTRACT_MAJOR, CONTRACT_VERSION
@@ -170,6 +173,7 @@ __all__ = [
     "run_auth",
     "show_device_code",
     "upgrade_hint",
+    "watch",
 ]
 
 
@@ -282,6 +286,15 @@ async def execute(
             final = await swarms.wait(args.run_id, timeout=args.timeout)
             out.record(final, view.snapshot)
             return finished_code(final)
+        elif command == "watch":
+            return await watch(
+                swarms,
+                args.run_id,
+                as_json=args.json,
+                after=args.after,
+                once=args.once,
+                timeout=args.timeout,
+            )
         elif command == "logs":
             if args.follow:
                 await follow(swarms, args.run_id, args.json)
