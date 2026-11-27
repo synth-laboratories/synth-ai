@@ -38,6 +38,7 @@ dev = [
     "build>=1.2",
     "twine>=6",
     "playwright>=1.56,<2",
+    "hypothesis>=6.100",
 ]
 
 [tool.hatch.build.targets.wheel]
