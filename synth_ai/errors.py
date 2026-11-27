@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ApiVersionUnsupportedError",
+    "ArtifactoryOriginRequiresHumanCredentialError",
+    "ArtifactoryPayloadError",
+    "ArtifactoryRevisionConflictError",
     "BillingAdminRequiredError",
     "BrowserSessionRequiredError",
     "ClientClosedError",
@@ -118,6 +121,12 @@ class ClientClosedError(SynthError, RuntimeError):
 class DataIntegrityError(SynthError, ValueError):
     kind = ErrorKind.INTEGRITY
     code = "content_integrity_failed"
+
+
+class ArtifactoryPayloadError(SynthError, ValueError):
+    """A Human Artifactory payload is the wrong type or does not match its category's schema."""
+
+    code = "artifactory_payload_invalid"
 
 
 class PaginationError(SynthError, ValueError):
@@ -509,6 +518,25 @@ class PlanRequestCooldownError(RateLimitedError):
     code = "plan_request_cooldown"
 
 
+class ArtifactoryOriginRequiresHumanCredentialError(ForbiddenError):
+    """origin=human (or revising a human record) needs a Console session or personal API key.
+
+    Automation keys, legacy keys and MCP OAuth grants are refused (403); write the
+    record with origin=agent instead, or sign in as the person who owns it.
+    """
+
+    code = "artifactory_origin_requires_human_credential"
+
+
+class ArtifactoryRevisionConflictError(ConflictError):
+    """expected_revision or expected_supersedes_digest no longer matches (409).
+
+    Another writer revised the record first; read it again and retry on the new revision.
+    """
+
+    code = "artifactory_revision_conflict"
+
+
 _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
     400: InvalidRequestError,
     401: UnauthenticatedError,
@@ -550,6 +578,8 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "billing_admin_required": BillingAdminRequiredError,
     "browser_session_required": BrowserSessionRequiredError,
     "plan_request_cooldown": PlanRequestCooldownError,
+    "artifactory_origin_requires_human_credential": ArtifactoryOriginRequiresHumanCredentialError,
+    "artifactory_revision_conflict": ArtifactoryRevisionConflictError,
     "api_version_unsupported": ApiVersionUnsupportedError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,

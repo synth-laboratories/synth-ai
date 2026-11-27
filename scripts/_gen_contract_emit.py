@@ -332,6 +332,32 @@ def _widen_mcp_catalog_enums(value: JsonValue, *, field: str | None = None) -> J
     return value
 
 
+# MCP body fields the server requires but the tool supplies when omitted (SYN-6067).
+# MCP OAuth grants are refused origin=human, so Artifactory writes default to agent.
+_MCP_BODY_DEFAULTS: dict[str, dict[str, str]] = {"createArtifactoryRecord": {"origin": "agent"}}
+
+
+def _apply_mcp_body_defaults(operation_id: str, body: JsonValue) -> JsonValue:
+    defaults = _MCP_BODY_DEFAULTS.get(operation_id)
+    if defaults is None or not isinstance(body, dict):
+        return body
+    properties = body.get("properties")
+    required = body.get("required")
+    if not isinstance(properties, dict) or not isinstance(required, list):
+        raise ValueError(operation_id + ": MCP body default needs an object schema")
+    updated_properties: dict[str, JsonValue] = dict(properties)
+    for field, value in defaults.items():
+        schema = properties.get(field)
+        if not isinstance(schema, dict) or field not in required:
+            raise ValueError(operation_id + ": MCP body default names an unknown field " + field)
+        updated_properties[field] = {**schema, "default": value}
+    return {
+        **body,
+        "properties": updated_properties,
+        "required": [name for name in required if name not in defaults],
+    }
+
+
 def _render_mcp_catalog(
     doc: JSONObject,
     root: Path,
@@ -378,8 +404,11 @@ def _render_mcp_catalog(
                     required.append(narrowed)
             if "requestBody" in operation:
                 body = operation.object("requestBody")
-                properties["body"] = _widen_mcp_catalog_enums(
-                    expand(body.object("content").object("application/json")["schema"])
+                properties["body"] = _apply_mcp_body_defaults(
+                    operation.text("operationId"),
+                    _widen_mcp_catalog_enums(
+                        expand(body.object("content").object("application/json")["schema"])
+                    ),
                 )
                 if body.flag("required"):
                     required.append("body")

@@ -58,6 +58,34 @@ class AppendResearchLogEntryRequestCategory(StrEnum):
     RATIONALE = "rationale"
 
 
+class ArtifactoryPreferenceAggregationMode(StrEnum):
+    WEIGHTED_SUM = "weighted_sum"
+    CONSTRAINED_ARGMAX = "constrained_argmax"
+    LEXICOGRAPHIC = "lexicographic"
+
+
+class ArtifactoryPreferenceObjectivesItemDirection(StrEnum):
+    MAXIMIZE = "maximize"
+    MINIMIZE = "minimize"
+
+
+class ArtifactoryRecordCategory(StrEnum):
+    PREFERENCE = "preference"
+    HYPOTHESIS = "hypothesis"
+    FINDING = "finding"
+
+
+class ArtifactoryRecordOrigin(StrEnum):
+    HUMAN = "human"
+    AGENT = "agent"
+
+
+class ArtifactoryRevisionAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
 class BillingHistoryEntryCause(StrEnum):
     GRANT = "grant"
     HOLD = "hold"
@@ -94,6 +122,23 @@ class CheckoutRequestPackId(StrEnum):
     CREDITS_10 = "credits.10"
     CREDITS_25 = "credits.25"
     CREDITS_100 = "credits.100"
+
+
+class CreateArtifactoryRecordRequestAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class CreateArtifactoryRecordRequestCategory(StrEnum):
+    PREFERENCE = "preference"
+    HYPOTHESIS = "hypothesis"
+    FINDING = "finding"
+
+
+class CreateArtifactoryRecordRequestOrigin(StrEnum):
+    HUMAN = "human"
+    AGENT = "agent"
 
 
 class CreateHostedArtifactRequestKind(StrEnum):
@@ -423,6 +468,12 @@ class ResolvedOptimizerReason(StrEnum):
 class ResolvedOptimizerTopology(StrEnum):
     SWARMS_V2 = "swarms_v2"
     FORK_FLUSH = "fork_flush"
+
+
+class ReviseArtifactoryRecordRequestAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
 
 
 class RunAllocationActorComputeMetering(StrEnum):
@@ -1053,6 +1104,91 @@ class ApiServerInfo(WireModel):
     environment: str
 
 
+class ArtifactoryPreferenceBudgets(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    hard_spend_cap_micros: int | None = None
+    soft_spend_warn_micros: int | None = None
+    per_intervention_cap_micros: int | None = None
+    gpu_spend_cap_micros: int | None = None
+    hard_wall_clock_ms: int | None = None
+    max_concurrent_interventions: int | None = None
+
+
+class ArtifactoryPreferenceHardConstraintsItem(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    constraint_id: str
+    sensor_id: str
+    comparator: str
+    threshold: float
+    missing_policy: str
+
+
+class ArtifactoryPreferenceObjectivesItem(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    sensor_id: str
+    direction: Annotated[
+        ArtifactoryPreferenceObjectivesItemDirection,
+        BeforeValidator(enum_value(ArtifactoryPreferenceObjectivesItemDirection)),
+    ]
+    weight: float
+    scale_normalization: float
+    priority_rank: int
+
+
+class ArtifactoryPreferenceRiskTolerance(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    risk_aversion_lambda: float | None = None
+    cvar_alpha: float | None = None
+    max_infeasibility_prob: float | None = None
+    commit_confidence: float | None = None
+    min_commit_delta: float | None = None
+    allow_unverified_gpu_escalation: bool | None = None
+
+
+class ArtifactoryReference(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    source: str
+    kind: str
+    record_id: str
+    revision: str
+    digest_sha256: str
+
+
 class AutoReloadCard(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1472,6 +1608,24 @@ class Money(WireModel):
     )
     amount: Annotated[str, Field(pattern="^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$")]
     currency: Literal["USD"]
+
+
+class NotebookSummary(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    notebook_id: str
+    artifact_count: int
+    experiment_count: int
+    log_entry_count: int
+    artifactory_count: int
+    has_research_log: bool
+    updated_at: str
 
 
 class OAuthGrantRevoked(WireModel):
@@ -2931,6 +3085,66 @@ class AppendResearchLogEntryRequest(WireModel):
     artifact_ids: list[str] | None = None
 
 
+class ArtifactoryFinding(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    schema_version: Literal["synth.decision.finding.v1"] | None = None
+    summary: str
+    dead_end: bool
+    obstruction_code: str | None = None
+    sources: Annotated[list[ArtifactoryReference], Field(min_length=1)]
+
+
+class ArtifactoryHypothesis(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    schema_version: Literal["synth.decision.hypothesis.v1"] | None = None
+    statement: str
+    rationale: str | None = None
+    expected_effect: str | None = None
+    target_lever_ids: list[str] | None = None
+    target_sensor_ids: list[str] | None = None
+    depends_on: list[ArtifactoryReference] | None = None
+
+
+class ArtifactoryPreference(WireModel):
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    schema_version: Literal["synth.decision.preference.v1"] | None = None
+    preference_id: str | None = None
+    revision: int | None = None
+    aggregation_mode: Annotated[
+        ArtifactoryPreferenceAggregationMode,
+        BeforeValidator(enum_value(ArtifactoryPreferenceAggregationMode)),
+    ]
+    objectives: list[ArtifactoryPreferenceObjectivesItem]
+    hard_constraints: list[ArtifactoryPreferenceHardConstraintsItem]
+    risk_tolerance: ArtifactoryPreferenceRiskTolerance
+    budgets: ArtifactoryPreferenceBudgets
+    artifactory_ref: ArtifactoryReference | None = None
+    author_kind: str | None = None
+    pinned: bool | None = None
+    supersedes_digest: str | None = None
+
+
 class AutoReloadLimits(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3317,6 +3531,20 @@ class MintedApiKey(WireModel):
     expires_at: str | None = None
     revoked_at: str | None = None
     key: Annotated[str, Field(pattern="^sk_(live|test)_[0-9a-f]{48}$")]
+
+
+class NotebookPage(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    items: list[NotebookSummary]
+    next_cursor: str | None = None
+    has_more: bool
 
 
 class ObjectiveAnswer(WireModel):
@@ -4584,6 +4812,32 @@ class ApiKeyPage(WireModel):
     items: list[ApiKey]
 
 
+class ArtifactoryRevision(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    revision: int
+    revision_id: str
+    digest_sha256: str
+    schema_version: str
+    author_kind: Annotated[
+        ArtifactoryRevisionAuthorKind, BeforeValidator(enum_value(ArtifactoryRevisionAuthorKind))
+    ]
+    pinned: bool
+    summary: str
+    preference: ArtifactoryPreference | None = None
+    hypothesis: ArtifactoryHypothesis | None = None
+    finding: ArtifactoryFinding | None = None
+    provenance: ArtifactoryReference
+    supersedes_digest: str | None = None
+    created_at: str
+
+
 class AutoReloadDisclosure(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -4658,6 +4912,39 @@ class BillingStatementPage(WireModel):
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
     items: list[BillingStatement]
+
+
+class CreateArtifactoryRecordRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    run_id: str | None = None
+    title: str
+    category: Annotated[
+        CreateArtifactoryRecordRequestCategory,
+        BeforeValidator(enum_value(CreateArtifactoryRecordRequestCategory)),
+    ]
+    origin: Annotated[
+        CreateArtifactoryRecordRequestOrigin,
+        BeforeValidator(enum_value(CreateArtifactoryRecordRequestOrigin)),
+    ]
+    author_kind: (
+        Annotated[
+            CreateArtifactoryRecordRequestAuthorKind,
+            BeforeValidator(enum_value(CreateArtifactoryRecordRequestAuthorKind)),
+        ]
+        | None
+    ) = None
+    pinned: bool | None = None
+    summary: str | None = None
+    preference: ArtifactoryPreference | None = None
+    hypothesis: ArtifactoryHypothesis | None = None
+    finding: ArtifactoryFinding | None = None
 
 
 class FamilyList(WireModel):
@@ -4823,6 +5110,32 @@ class ResearchTrialRecord(WireModel):
     deviations: list[str]
     artifact_ids: list[str]
     note_ids: list[str]
+
+
+class ReviseArtifactoryRecordRequest(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    title: str | None = None
+    author_kind: (
+        Annotated[
+            ReviseArtifactoryRecordRequestAuthorKind,
+            BeforeValidator(enum_value(ReviseArtifactoryRecordRequestAuthorKind)),
+        ]
+        | None
+    ) = None
+    pinned: bool | None = None
+    summary: str | None = None
+    expected_revision: int | None = None
+    expected_supersedes_digest: str | None = None
+    preference: ArtifactoryPreference | None = None
+    hypothesis: ArtifactoryHypothesis | None = None
+    finding: ArtifactoryFinding | None = None
 
 
 class RoutingReadback(WireModel):
@@ -5229,6 +5542,37 @@ class UsageSummaryBySource(WireModel):
     runs: UsageTotals
     sessions: UsageTotals
     unattributed: UsageTotals
+
+
+class ArtifactoryRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    record_id: str
+    notebook_id: str
+    run_id: str | None = None
+    title: str
+    category: Annotated[
+        ArtifactoryRecordCategory, BeforeValidator(enum_value(ArtifactoryRecordCategory))
+    ]
+    origin: Annotated[ArtifactoryRecordOrigin, BeforeValidator(enum_value(ArtifactoryRecordOrigin))]
+    pinned: bool
+    current_revision: int
+    current_digest_sha256: str
+    schema_version: str
+    preference: ArtifactoryPreference | None = None
+    hypothesis: ArtifactoryHypothesis | None = None
+    finding: ArtifactoryFinding | None = None
+    provenance: ArtifactoryReference
+    supersedes_digest: str | None = None
+    revisions: list[ArtifactoryRevision]
+    created_at: str
+    updated_at: str
 
 
 class AutoReload(WireModel):
@@ -5648,6 +5992,18 @@ class UsageSummary(WireModel):
     by_key: list[UsageKeyBucket]
 
 
+class ArtifactoryRecordList(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    items: list[ArtifactoryRecord]
+
+
 class ResearchExperimentList(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -5884,6 +6240,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "ApiContractInfo": ApiContractInfo,
     "ApiNegotiationInfo": ApiNegotiationInfo,
     "ApiServerInfo": ApiServerInfo,
+    "ArtifactoryPreferenceBudgets": ArtifactoryPreferenceBudgets,
+    "ArtifactoryPreferenceHardConstraintsItem": ArtifactoryPreferenceHardConstraintsItem,
+    "ArtifactoryPreferenceObjectivesItem": ArtifactoryPreferenceObjectivesItem,
+    "ArtifactoryPreferenceRiskTolerance": ArtifactoryPreferenceRiskTolerance,
+    "ArtifactoryReference": ArtifactoryReference,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "BodyAvailable": BodyAvailable,
@@ -5909,6 +6270,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MessageHistoryAvailable": MessageHistoryAvailable,
     "MessageHistoryUnavailable": MessageHistoryUnavailable,
     "Money": Money,
+    "NotebookSummary": NotebookSummary,
     "OAuthGrantRevoked": OAuthGrantRevoked,
     "ObjectiveAnswerAnswer": ObjectiveAnswerAnswer,
     "ObjectiveClaimedPayload": ObjectiveClaimedPayload,
@@ -5992,6 +6354,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "ApiKey": ApiKey,
     "ApiVersionInfo": ApiVersionInfo,
     "AppendResearchLogEntryRequest": AppendResearchLogEntryRequest,
+    "ArtifactoryFinding": ArtifactoryFinding,
+    "ArtifactoryHypothesis": ArtifactoryHypothesis,
+    "ArtifactoryPreference": ArtifactoryPreference,
     "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,
     "BillingStatement": BillingStatement,
@@ -6013,6 +6378,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "MessageDispositionRecord": MessageDispositionRecord,
     "MintApiKeyRequest": MintApiKeyRequest,
     "MintedApiKey": MintedApiKey,
+    "NotebookPage": NotebookPage,
     "ObjectiveAnswer": ObjectiveAnswer,
     "ObjectiveClaim": ObjectiveClaim,
     "ObjectiveMetricState": ObjectiveMetricState,
@@ -6075,10 +6441,12 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageTotals": UsageTotals,
     "Account": Account,
     "ApiKeyPage": ApiKeyPage,
+    "ArtifactoryRevision": ArtifactoryRevision,
     "AutoReloadDisclosure": AutoReloadDisclosure,
     "Balance": Balance,
     "BillingHistoryEntry": BillingHistoryEntry,
     "BillingStatementPage": BillingStatementPage,
+    "CreateArtifactoryRecordRequest": CreateArtifactoryRecordRequest,
     "FamilyList": FamilyList,
     "FundingSummary": FundingSummary,
     "HostedArtifact": HostedArtifact,
@@ -6088,6 +6456,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "PlanCatalog": PlanCatalog,
     "ResearchLogEntryList": ResearchLogEntryList,
     "ResearchTrialRecord": ResearchTrialRecord,
+    "ReviseArtifactoryRecordRequest": ReviseArtifactoryRecordRequest,
     "RoutingReadback": RoutingReadback,
     "RunAllocationActor": RunAllocationActor,
     "RunApproval": RunApproval,
@@ -6104,6 +6473,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunSelection": RunSelection,
     "UsageRecordPage": UsageRecordPage,
     "UsageSummaryBySource": UsageSummaryBySource,
+    "ArtifactoryRecord": ArtifactoryRecord,
     "AutoReload": AutoReload,
     "BillingHistoryPage": BillingHistoryPage,
     "HostedArtifactList": HostedArtifactList,
@@ -6120,6 +6490,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunReward": RunReward,
     "RunSnapshot": RunSnapshot,
     "UsageSummary": UsageSummary,
+    "ArtifactoryRecordList": ArtifactoryRecordList,
     "ResearchExperimentList": ResearchExperimentList,
     "RunEvent": RunEvent,
     "RunMessagePage": RunMessagePage,

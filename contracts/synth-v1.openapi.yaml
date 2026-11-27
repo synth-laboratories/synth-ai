@@ -6791,6 +6791,427 @@ paths:
                 entry_count: 1
         default:
           $ref: '#/components/responses/Problem'
+  /v1/notebooks:
+    get:
+      tags:
+      - runs
+      operationId: listNotebooks
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_notebooks_list
+      summary: List the notebooks in the caller's org, newest activity first.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Notebooks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookPage'
+              example:
+                items:
+                - notebook_id: default
+                  artifact_count: 2
+                  experiment_count: 1
+                  log_entry_count: 4
+                  artifactory_count: 1
+                  has_research_log: true
+                  updated_at: '2026-11-27T12:00:00Z'
+                has_more: false
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/artifactory:
+    post:
+      tags:
+      - runs
+      operationId: createArtifactoryRecord
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_artifactory_record_create
+      summary: Create a typed Human Artifactory record (preference, hypothesis, or finding) in a notebook.
+      description: origin=human (or author_kind=human) requires a Console session or a personal API key.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateArtifactoryRecordRequest'
+      responses:
+        '201':
+          description: Created record at revision 1.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactoryRecord'
+              example:
+                record_id: afrec_0123456789abcdef
+                notebook_id: default
+                run_id: 0b7f2c3e-1d4a-4c5b-9e6f-7a8b9c0d1e2f
+                title: Batch size above 64 does not help
+                category: hypothesis
+                origin: human
+                pinned: true
+                current_revision: 1
+                current_digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                schema_version: synth.decision.hypothesis.v1
+                hypothesis:
+                  schema_version: synth.decision.hypothesis.v1
+                  statement: Batch size above 64 does not improve reward per USD.
+                  target_lever_ids: [batch_size]
+                  target_sensor_ids: [rhodes.reward]
+                  depends_on: []
+                provenance:
+                  source: human_artifactory
+                  kind: hypothesis
+                  record_id: afrec_0123456789abcdef
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                revisions:
+                - revision: 1
+                  revision_id: afrev_0123456789abcdef
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  schema_version: synth.decision.hypothesis.v1
+                  author_kind: human
+                  pinned: true
+                  summary: Initial revision
+                  hypothesis:
+                    schema_version: synth.decision.hypothesis.v1
+                    statement: Batch size above 64 does not improve reward per USD.
+                    target_lever_ids: [batch_size]
+                    target_sensor_ids: [rhodes.reward]
+                    depends_on: []
+                  provenance:
+                    source: human_artifactory
+                    kind: hypothesis
+                    record_id: afrec_0123456789abcdef
+                    revision: '1'
+                    digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  created_at: '2026-11-27T12:00:00Z'
+                created_at: '2026-11-27T12:00:00Z'
+                updated_at: '2026-11-27T12:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      tags:
+      - runs
+      operationId: listArtifactoryRecords
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifactory_records_list
+      summary: List Human Artifactory records in a notebook.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [preference, hypothesis, finding]
+      - name: origin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [human, agent]
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: pinned
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: ['true']
+      responses:
+        '200':
+          description: Records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactoryRecordList'
+              example:
+                items: []
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/notebooks/{notebook_id}/artifactory/preference/effective:
+    get:
+      tags:
+      - runs
+      operationId: resolveEffectivePreference
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifactory_preference_resolve
+      summary: Resolve the preference that governs a notebook (or run); human-pinned preferences take precedence.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: notebook_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The effective preference record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactoryRecord'
+              example:
+                record_id: afrec_0123456789abcdef
+                notebook_id: default
+                run_id: 0b7f2c3e-1d4a-4c5b-9e6f-7a8b9c0d1e2f
+                title: Batch size above 64 does not help
+                category: hypothesis
+                origin: human
+                pinned: true
+                current_revision: 1
+                current_digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                schema_version: synth.decision.hypothesis.v1
+                hypothesis:
+                  schema_version: synth.decision.hypothesis.v1
+                  statement: Batch size above 64 does not improve reward per USD.
+                  target_lever_ids: [batch_size]
+                  target_sensor_ids: [rhodes.reward]
+                  depends_on: []
+                provenance:
+                  source: human_artifactory
+                  kind: hypothesis
+                  record_id: afrec_0123456789abcdef
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                revisions:
+                - revision: 1
+                  revision_id: afrev_0123456789abcdef
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  schema_version: synth.decision.hypothesis.v1
+                  author_kind: human
+                  pinned: true
+                  summary: Initial revision
+                  hypothesis:
+                    schema_version: synth.decision.hypothesis.v1
+                    statement: Batch size above 64 does not improve reward per USD.
+                    target_lever_ids: [batch_size]
+                    target_sensor_ids: [rhodes.reward]
+                    depends_on: []
+                  provenance:
+                    source: human_artifactory
+                    kind: hypothesis
+                    record_id: afrec_0123456789abcdef
+                    revision: '1'
+                    digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  created_at: '2026-11-27T12:00:00Z'
+                created_at: '2026-11-27T12:00:00Z'
+                updated_at: '2026-11-27T12:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifactory/{record_id}:
+    get:
+      tags:
+      - runs
+      operationId: getArtifactoryRecord
+      x-synth-scope: "swarms:read"
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: swarms_artifactory_record_get
+      summary: Read a Human Artifactory record with its revisions.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - name: record_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactoryRecord'
+              example:
+                record_id: afrec_0123456789abcdef
+                notebook_id: default
+                run_id: 0b7f2c3e-1d4a-4c5b-9e6f-7a8b9c0d1e2f
+                title: Batch size above 64 does not help
+                category: hypothesis
+                origin: human
+                pinned: true
+                current_revision: 1
+                current_digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                schema_version: synth.decision.hypothesis.v1
+                hypothesis:
+                  schema_version: synth.decision.hypothesis.v1
+                  statement: Batch size above 64 does not improve reward per USD.
+                  target_lever_ids: [batch_size]
+                  target_sensor_ids: [rhodes.reward]
+                  depends_on: []
+                provenance:
+                  source: human_artifactory
+                  kind: hypothesis
+                  record_id: afrec_0123456789abcdef
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                revisions:
+                - revision: 1
+                  revision_id: afrev_0123456789abcdef
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  schema_version: synth.decision.hypothesis.v1
+                  author_kind: human
+                  pinned: true
+                  summary: Initial revision
+                  hypothesis:
+                    schema_version: synth.decision.hypothesis.v1
+                    statement: Batch size above 64 does not improve reward per USD.
+                    target_lever_ids: [batch_size]
+                    target_sensor_ids: [rhodes.reward]
+                    depends_on: []
+                  provenance:
+                    source: human_artifactory
+                    kind: hypothesis
+                    record_id: afrec_0123456789abcdef
+                    revision: '1'
+                    digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  created_at: '2026-11-27T12:00:00Z'
+                created_at: '2026-11-27T12:00:00Z'
+                updated_at: '2026-11-27T12:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
+  /v1/artifactory/{record_id}/revisions:
+    post:
+      tags:
+      - runs
+      operationId: reviseArtifactoryRecord
+      x-synth-scope: "swarms:write"
+      x-synth-retry: "deduplicated"
+      x-synth-idempotency: "durable_key"
+      x-synth-idempotency-key: true
+      x-synth-mcp-name: swarms_artifactory_record_revise
+      summary: Append a revision to a Human Artifactory record (also how pinning changes).
+      description: Revising an origin=human record requires a Console session or a personal API key.
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/research/artifactory_http.go
+      x-synth-legacy-path: null
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: record_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviseArtifactoryRecordRequest'
+      responses:
+        '200':
+          description: Revised record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactoryRecord'
+              example:
+                record_id: afrec_0123456789abcdef
+                notebook_id: default
+                run_id: 0b7f2c3e-1d4a-4c5b-9e6f-7a8b9c0d1e2f
+                title: Batch size above 64 does not help
+                category: hypothesis
+                origin: human
+                pinned: true
+                current_revision: 1
+                current_digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                schema_version: synth.decision.hypothesis.v1
+                hypothesis:
+                  schema_version: synth.decision.hypothesis.v1
+                  statement: Batch size above 64 does not improve reward per USD.
+                  target_lever_ids: [batch_size]
+                  target_sensor_ids: [rhodes.reward]
+                  depends_on: []
+                provenance:
+                  source: human_artifactory
+                  kind: hypothesis
+                  record_id: afrec_0123456789abcdef
+                  revision: '1'
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                revisions:
+                - revision: 1
+                  revision_id: afrev_0123456789abcdef
+                  digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  schema_version: synth.decision.hypothesis.v1
+                  author_kind: human
+                  pinned: true
+                  summary: Initial revision
+                  hypothesis:
+                    schema_version: synth.decision.hypothesis.v1
+                    statement: Batch size above 64 does not improve reward per USD.
+                    target_lever_ids: [batch_size]
+                    target_sensor_ids: [rhodes.reward]
+                    depends_on: []
+                  provenance:
+                    source: human_artifactory
+                    kind: hypothesis
+                    record_id: afrec_0123456789abcdef
+                    revision: '1'
+                    digest_sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+                  created_at: '2026-11-27T12:00:00Z'
+                created_at: '2026-11-27T12:00:00Z'
+                updated_at: '2026-11-27T12:00:00Z'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/runs/{run_id}/review:
     get:
       tags:
@@ -13911,6 +14332,333 @@ components:
       - correction_of
       - artifact_ids
 
+    NotebookSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        notebook_id:
+          type: string
+        artifact_count:
+          type: integer
+        experiment_count:
+          type: integer
+        log_entry_count:
+          type: integer
+        artifactory_count:
+          type: integer
+        has_research_log:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+      required: [notebook_id, artifact_count, experiment_count, log_entry_count, artifactory_count, has_research_log, updated_at]
+    NotebookPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotebookSummary'
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+      required: [items, has_more]
+    ArtifactoryReference:
+      type: object
+      additionalProperties: false
+      properties:
+        source:
+          type: string
+        kind:
+          type: string
+        record_id:
+          type: string
+        revision:
+          type: string
+        digest_sha256:
+          type: string
+      required: [source, kind, record_id, revision, digest_sha256]
+    ArtifactoryPreference:
+      type: object
+      description: synth.decision.preference.v1. preference_id, revision, artifactory_ref, author_kind and pinned are bound by the server.
+      properties:
+        schema_version:
+          type: string
+          const: synth.decision.preference.v1
+        preference_id:
+          type: string
+        revision:
+          type: integer
+        aggregation_mode:
+          type: string
+          enum: [weighted_sum, constrained_argmax, lexicographic]
+        objectives:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              sensor_id:
+                type: string
+              direction:
+                type: string
+                enum: [maximize, minimize]
+              weight:
+                type: number
+              scale_normalization:
+                type: number
+              priority_rank:
+                type: integer
+            required: [sensor_id, direction, weight, scale_normalization, priority_rank]
+        hard_constraints:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              constraint_id:
+                type: string
+              sensor_id:
+                type: string
+              comparator:
+                type: string
+              threshold:
+                type: number
+              missing_policy:
+                type: string
+            required: [constraint_id, sensor_id, comparator, threshold, missing_policy]
+        risk_tolerance:
+          type: object
+          additionalProperties: false
+          properties:
+            risk_aversion_lambda:
+              type: number
+            cvar_alpha:
+              type: number
+            max_infeasibility_prob:
+              type: number
+            commit_confidence:
+              type: number
+            min_commit_delta:
+              type: number
+            allow_unverified_gpu_escalation:
+              type: boolean
+        budgets:
+          type: object
+          additionalProperties: false
+          properties:
+            hard_spend_cap_micros:
+              type: integer
+            soft_spend_warn_micros:
+              type: integer
+            per_intervention_cap_micros:
+              type: integer
+            gpu_spend_cap_micros:
+              type: integer
+            hard_wall_clock_ms:
+              type: integer
+            max_concurrent_interventions:
+              type: integer
+        artifactory_ref:
+          $ref: '#/components/schemas/ArtifactoryReference'
+        author_kind:
+          type: string
+        pinned:
+          type: boolean
+        supersedes_digest:
+          type: string
+      required: [aggregation_mode, objectives, hard_constraints, risk_tolerance, budgets]
+    ArtifactoryHypothesis:
+      type: object
+      additionalProperties: false
+      description: synth.decision.hypothesis.v1.
+      properties:
+        schema_version:
+          type: string
+          const: synth.decision.hypothesis.v1
+        statement:
+          type: string
+        rationale:
+          type: string
+        expected_effect:
+          type: string
+        target_lever_ids:
+          type: array
+          items:
+            type: string
+        target_sensor_ids:
+          type: array
+          items:
+            type: string
+        depends_on:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactoryReference'
+      required: [statement]
+    ArtifactoryFinding:
+      type: object
+      additionalProperties: false
+      description: synth.decision.finding.v1. A dead end records an obstruction that later runs should avoid.
+      properties:
+        schema_version:
+          type: string
+          const: synth.decision.finding.v1
+        summary:
+          type: string
+        dead_end:
+          type: boolean
+        obstruction_code:
+          type: string
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ArtifactoryReference'
+      required: [summary, dead_end, sources]
+    ArtifactoryRevision:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+        revision_id:
+          type: string
+        digest_sha256:
+          type: string
+        schema_version:
+          type: string
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        pinned:
+          type: boolean
+        summary:
+          type: string
+        preference:
+          $ref: '#/components/schemas/ArtifactoryPreference'
+        hypothesis:
+          $ref: '#/components/schemas/ArtifactoryHypothesis'
+        finding:
+          $ref: '#/components/schemas/ArtifactoryFinding'
+        provenance:
+          $ref: '#/components/schemas/ArtifactoryReference'
+        supersedes_digest:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [revision, revision_id, digest_sha256, schema_version, author_kind, pinned, summary, provenance, created_at]
+    ArtifactoryRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        record_id:
+          type: string
+        notebook_id:
+          type: string
+        run_id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+          enum: [preference, hypothesis, finding]
+        origin:
+          type: string
+          enum: [human, agent]
+        pinned:
+          type: boolean
+        current_revision:
+          type: integer
+        current_digest_sha256:
+          type: string
+        schema_version:
+          type: string
+        preference:
+          $ref: '#/components/schemas/ArtifactoryPreference'
+        hypothesis:
+          $ref: '#/components/schemas/ArtifactoryHypothesis'
+        finding:
+          $ref: '#/components/schemas/ArtifactoryFinding'
+        provenance:
+          $ref: '#/components/schemas/ArtifactoryReference'
+        supersedes_digest:
+          type: string
+        revisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactoryRevision'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [record_id, notebook_id, title, category, origin, pinned, current_revision, current_digest_sha256, schema_version, provenance, revisions, created_at, updated_at]
+    ArtifactoryRecordList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactoryRecord'
+      required: [items]
+    CreateArtifactoryRecordRequest:
+      type: object
+      additionalProperties: false
+      description: Exactly one of preference, hypothesis or finding, matching category. The notebook comes from the path.
+      properties:
+        run_id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+          enum: [preference, hypothesis, finding]
+        origin:
+          type: string
+          enum: [human, agent]
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        pinned:
+          type: boolean
+        summary:
+          type: string
+        preference:
+          $ref: '#/components/schemas/ArtifactoryPreference'
+        hypothesis:
+          $ref: '#/components/schemas/ArtifactoryHypothesis'
+        finding:
+          $ref: '#/components/schemas/ArtifactoryFinding'
+      required: [title, category, origin]
+    ReviseArtifactoryRecordRequest:
+      type: object
+      additionalProperties: false
+      description: Appends revision r+1. expected_revision or expected_supersedes_digest fence concurrent writers (409 artifactory_revision_conflict).
+      properties:
+        title:
+          type: string
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        pinned:
+          type: boolean
+        summary:
+          type: string
+        expected_revision:
+          type: integer
+        expected_supersedes_digest:
+          type: string
+        preference:
+          $ref: '#/components/schemas/ArtifactoryPreference'
+        hypothesis:
+          $ref: '#/components/schemas/ArtifactoryHypothesis'
+        finding:
+          $ref: '#/components/schemas/ArtifactoryFinding'
     ResearchExactReference:
       type: object
       additionalProperties: false

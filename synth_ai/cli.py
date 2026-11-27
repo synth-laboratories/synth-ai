@@ -12,6 +12,7 @@ import httpx
 from pydantic import BaseModel, TypeAdapter
 
 from . import _cli_view as view
+from ._cli_artifactory import ARTIFACTORY_COMMANDS, execute_artifactory, render_artifactory
 from ._cli_parser import (
     COMMANDS as COMMANDS,
 )
@@ -217,7 +218,11 @@ async def execute(
     ) as client:
         swarms = client.swarms
         command = str(args.command)
-        if (
+        if command in ARTIFACTORY_COMMANDS:
+            record = await execute_artifactory(client, args)
+            human = None if args.json else render_artifactory(record)
+            print(human or record.model_dump_json(exclude_unset=True), flush=True)
+        elif (
             command in _RESOURCE_COMMANDS
             or (command == "billing" and args.resource_action is not None)
             or (command == "runs" and args.runs_action != "list")

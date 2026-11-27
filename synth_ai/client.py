@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from ._blocking import Runner
 from ._sync import AccountClient, BillingClient, SwarmsClient
 from .aclient import AsyncSynthClient
+from .artifactory import ArtifactoryClient, NotebooksClient
 from .research import ArtifactsClient, ExperimentsClient, ResearchLogsClient
 
 if TYPE_CHECKING:
@@ -59,6 +60,8 @@ class SynthClient:
         self.artifacts = ArtifactsClient(self._runner, self._async.artifacts)
         self.experiments = ExperimentsClient(self._runner, self._async.experiments)
         self.research_logs = ResearchLogsClient(self._runner, self._async.research_logs)
+        self.notebooks = NotebooksClient(self._runner, self._async.notebooks)
+        self.artifactory = ArtifactoryClient(self._runner, self._async.artifactory)
 
     def version(self) -> ApiVersionInfo:
         """Return the server's SemVer, public API contract version, and compatibility bounds."""

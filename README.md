@@ -85,6 +85,10 @@ share the same typed OpenAPI 1.43.0 contract across SDK (`client.artifacts`,
 (`synth artifacts`, `synth experiments`, `synth research-log`,
 `synth inspect RUN --view review`), and MCP (`swarms_artifact_*`,
 `swarms_experiment_*`, `swarms_research_log_*`, `swarms_run_review`).
+Notebook discovery and the Human Artifactory (typed preferences, hypotheses and
+findings with revisions) are `client.notebooks` and `client.artifactory`,
+`synth notebooks` and `synth artifactory`, and `swarms_notebooks_list` and
+`swarms_artifactory_*`.
 Metered usage records preserve `index_searches` when reported by Core; `/v1/index`
 routes remain gated until Index launches (`index_not_available`).
 

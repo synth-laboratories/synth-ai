@@ -15,9 +15,9 @@ from synth_ai._generated.models import (
     UpdateHostedArtifactRequest,
 )
 from synth_ai.aclient import AsyncSynthClient
-from synth_ai.errors import ResponseContractError, local_problem
 
 from ._arguments import optional, required
+from .artifactory_dispatch import dispatch_artifactory
 
 __all__ = ["dispatch_research"]
 
@@ -156,6 +156,4 @@ async def dispatch_research(
         case "getRunReview":
             return await client.swarms.review(required(arguments, "run_id", str))
         case _:
-            raise ResponseContractError(
-                local_problem("mcp_operation_unbound", "mcp_dispatch", detail=operation)
-            )
+            return await dispatch_artifactory(client, operation, arguments)

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Contract 1.47.0 (synth-backend `3223ec2d`, 93 MCP tools): notebook discovery
+  and the Human Artifactory across SDK, CLI and MCP.
+  - SDK: `client.notebooks` (`list_notebooks`, `iter_notebooks`) and
+    `client.artifactory` (`create_record`, `list_records`, `resolve_preference`,
+    `get_record`, `revise_record`), sync and async, with typed
+    `ArtifactoryPreference`, `ArtifactoryHypothesis` and `ArtifactoryFinding`
+    payloads; the record category follows the payload type.
+  - CLI: `synth notebooks list` and `synth artifactory list|get|preference|create|revise`
+    with readable tables; `--file` payloads are validated before sending
+    (`ArtifactoryPayloadError`, `artifactory_payload_invalid`).
+  - MCP: `swarms_notebooks_list` and `swarms_artifactory_*`;
+    `swarms_artifactory_record_create` defaults `origin` to `agent`.
+  - Typed errors: `ArtifactoryOriginRequiresHumanCredentialError` (403) and
+    `ArtifactoryRevisionConflictError` (409).
 - Synth Style compliance and modularization across SDK (`synth_ai`), CLI, and MCP:
   split large CLI and helper modules below 800 lines, validate HTTP origins,
   idempotency keys, non-empty path IDs, and `--wait --timeout` before file uploads,

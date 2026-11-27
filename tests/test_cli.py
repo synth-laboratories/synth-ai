@@ -55,6 +55,8 @@ EXPECTED_COMMANDS = [
     "artifacts",
     "experiments",
     "research-log",
+    "notebooks",
+    "artifactory",
     "version",
 ]
 

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import BaseModel, RootModel, ValidationError
 
+from ._cli_artifactory import configure_artifactory
 from ._cli_research import configure_research, execute_research, write_output_bytes
 from ._generated.models import (
     AutoReloadRequest,
@@ -153,6 +154,7 @@ def configure(
     inspect.add_argument("--timeout-seconds", type=int, default=30)
     parsers["families"].set_defaults(resource_action="list")
     configure_research(parsers, common)
+    configure_artifactory(parsers, common)
 
 
 def _read_body_bytes(path: str) -> bytes:

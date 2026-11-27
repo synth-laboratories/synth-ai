@@ -5,10 +5,21 @@ from __future__ import annotations
 from ._transport import RetryPolicy
 from ._version import __version__
 from .aclient import AsyncSynthClient
+from .artifactory import (
+    ArtifactoryCategory,
+    ArtifactoryFinding,
+    ArtifactoryHypothesis,
+    ArtifactoryOrigin,
+    ArtifactoryPreference,
+    ArtifactoryRecord,
+    NotebookSummary,
+)
 from .client import SynthClient
 from .environments import Environment, EnvironmentProfile
 from .errors import (
     ApiVersionUnsupportedError,
+    ArtifactoryOriginRequiresHumanCredentialError,
+    ArtifactoryRevisionConflictError,
     BillingAdminRequiredError,
     BrowserSessionRequiredError,
     ContinueFromInputsUnavailableError,
@@ -77,6 +88,14 @@ __all__ = [
     "ArtifactRevision",
     "ArtifactShareGrant",
     "ArtifactShareScope",
+    "ArtifactoryCategory",
+    "ArtifactoryFinding",
+    "ArtifactoryHypothesis",
+    "ArtifactoryOrigin",
+    "ArtifactoryOriginRequiresHumanCredentialError",
+    "ArtifactoryPreference",
+    "ArtifactoryRecord",
+    "ArtifactoryRevisionConflictError",
     "AsyncSynthClient",
     "AuthorKind",
     "BillingAdminRequiredError",
@@ -103,6 +122,7 @@ __all__ = [
     "MessageReplyUnavailableError",
     "MessageTooLargeError",
     "MessagingUnavailableError",
+    "NotebookSummary",
     "Only",
     "OptimizerParams",
     "OptimizerPin",

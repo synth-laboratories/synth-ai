@@ -61,6 +61,8 @@ COMMANDS: dict[str, str] = {
     "artifacts": "Interactive artifacts",
     "experiments": "Multi-experiment plans",
     "research-log": "Project research log",
+    "notebooks": "Notebooks in your organization",
+    "artifactory": "Human Artifactory preferences, hypotheses and findings",
     "version": "Client and server version",
 }
 

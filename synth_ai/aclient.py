@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from ._generated.models import ApiVersionInfo
 from ._transport import RetryPolicy, Transport
 from .account import AsyncAccount
+from .artifactory import AsyncArtifactory, AsyncNotebooks
 from .auth import credentials
 from .billing import AsyncBilling
 from .environments import Environment, resolve_base_url
@@ -59,6 +60,8 @@ class AsyncSynthClient:
         self.artifacts = AsyncArtifacts(self._transport)
         self.experiments = AsyncExperiments(self._transport)
         self.research_logs = AsyncResearchLogs(self._transport)
+        self.notebooks = AsyncNotebooks(self._transport)
+        self.artifactory = AsyncArtifactory(self._transport)
 
     async def version(self) -> ApiVersionInfo:
         """Return the server's SemVer, public API contract version, and compatibility bounds."""

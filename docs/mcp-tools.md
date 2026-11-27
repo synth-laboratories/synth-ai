@@ -90,4 +90,10 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | swarms_research_log_search | searchResearchLog | swarms:read |
 | swarms_research_log_correct | correctResearchLogEntry | swarms:write |
 | swarms_research_log_export | exportResearchLog | swarms:read |
+| swarms_notebooks_list | listNotebooks | swarms:read |
+| swarms_artifactory_record_create | createArtifactoryRecord | swarms:write |
+| swarms_artifactory_records_list | listArtifactoryRecords | swarms:read |
+| swarms_artifactory_preference_resolve | resolveEffectivePreference | swarms:read |
+| swarms_artifactory_record_get | getArtifactoryRecord | swarms:read |
+| swarms_artifactory_record_revise | reviseArtifactoryRecord | swarms:write |
 | swarms_run_review | getRunReview | swarms:read |

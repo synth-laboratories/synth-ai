@@ -100,8 +100,8 @@ def test_generated_mcp_name_scope_and_argument_parity():
     hosted = json.loads((ROOT / "contracts/mcp-tools.json").read_text())
     by_name = {tool["name"]: tool for tool in TOOLS}
     assert (
-        len(by_name) == len(hosted["tools"]) == 87
-    )  # 1.45.0 adds getVersion (1.44.0 added preflightRun, listRunApprovals, decideRunApproval)
+        len(by_name) == len(hosted["tools"]) == 93
+    )  # 1.47.0 adds listNotebooks and five Human Artifactory operations; 1.45.0 added getVersion
     assert {
         "swarms_run_pause",
         "swarms_run_resume",

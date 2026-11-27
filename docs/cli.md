@@ -94,6 +94,15 @@ subject to the server's scopes and signed-in-session requirements.
 | Artifacts | `synth artifacts create\|get\|update\|content\|list\|share\|revoke-share` |
 | Experiments | `synth experiments create\|list\|get\|revise` |
 | Research logs | `synth research-log init\|append\|search\|correct\|export` |
+| Notebooks | `synth notebooks list [--limit N] [--cursor CURSOR]` |
+| Human Artifactory | `synth artifactory list --notebook-id NB [--category C] [--origin O] [--run-id RUN] [--pinned]`, `get RECORD`, `preference --notebook-id NB [--run-id RUN]`, `create --notebook-id NB --title T --category C --origin human\|agent --file PATH`, `revise RECORD [--category C --file PATH] [--pin\|--unpin] [--expected-revision N]` |
+
+`notebooks` and `artifactory` print readable tables unless `--json` is given.
+`artifactory create` and `revise` read the preference, hypothesis or finding
+JSON from `--file` and validate it against the `--category` schema before
+sending; a bad file is `artifactory_payload_invalid`. `--origin human` needs a
+Console session or a personal API key; other credentials are refused with
+`artifactory_origin_requires_human_credential`.
 
 `--body` reads a JSON file validated against the generated request type. Resource
 commands print the canonical response JSON; a nullable response prints `null`.

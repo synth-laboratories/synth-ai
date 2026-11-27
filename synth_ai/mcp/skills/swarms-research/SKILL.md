@@ -32,6 +32,14 @@ Store versioned reports, tables, plots, or structured deliverables linked to a n
 - Read content with integrity pinning: `swarms_artifact_content` (`artifact_id`, optional `revision_id`, `digest_sha256`).
 - Sharing: `swarms_artifact_share` (`artifact_id`, `body: {scope}`, `idempotency_key`) and `swarms_artifact_share_revoke` (`artifact_id`).
 
-## 4. Consolidated Run Review
+## 4. Notebooks and the Human Artifactory
+
+Find notebooks with `swarms_notebooks_list` (optional `limit`, `cursor`). A Human Artifactory record is a typed, revisioned decision input: a `preference` (objectives, constraints, risk, budgets), a `hypothesis` or a `finding`.
+- Create: `swarms_artifactory_record_create` (`notebook_id`, `body: {title, category, origin?, preference|hypothesis|finding, run_id?, pinned?, summary?}`, `idempotency_key`). `origin` defaults to `agent`; MCP grants are refused `origin=human` with `artifactory_origin_requires_human_credential`.
+- Read: `swarms_artifactory_records_list` (`notebook_id`, optional `category`, `origin`, `run_id`, `pinned`) and `swarms_artifactory_record_get` (`record_id`).
+- Governing preference: `swarms_artifactory_preference_resolve` (`notebook_id`, optional `run_id`); human-pinned preferences win.
+- Revise or pin: `swarms_artifactory_record_revise` (`record_id`, `body: {expected_revision?, pinned?, summary?, preference|hypothesis|finding?}`, `idempotency_key`). A stale `expected_revision` is `artifactory_revision_conflict`; read the record and retry. Revising an `origin=human` record needs a human credential.
+
+## 5. Consolidated Run Review
 
 Call `swarms_run_review` (`run_id`) to retrieve a unified view of `pacing`, `experiments`, `research_log`, and `artifacts` for a run.

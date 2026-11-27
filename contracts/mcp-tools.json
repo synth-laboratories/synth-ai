@@ -4249,6 +4249,852 @@
     },
     {
       "access": "scoped",
+      "description": "List the notebooks in the caller's org, newest activity first.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "swarms_notebooks_list",
+      "operationId": "listNotebooks",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Create a typed Human Artifactory record (preference, hypothesis, or finding) in a notebook.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "description": "Exactly one of preference, hypothesis or finding, matching category. The notebook comes from the path.",
+            "properties": {
+              "author_kind": {
+                "enum": [
+                  "human",
+                  "local_agent",
+                  "swarm_actor"
+                ],
+                "type": "string"
+              },
+              "category": {
+                "enum": [
+                  "preference",
+                  "hypothesis",
+                  "finding"
+                ],
+                "type": "string"
+              },
+              "finding": {
+                "additionalProperties": false,
+                "description": "synth.decision.finding.v1. A dead end records an obstruction that later runs should avoid.",
+                "properties": {
+                  "dead_end": {
+                    "type": "boolean"
+                  },
+                  "obstruction_code": {
+                    "type": "string"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.finding.v1",
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "digest_sha256": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "record_id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "kind",
+                        "record_id",
+                        "revision",
+                        "digest_sha256"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "summary",
+                  "dead_end",
+                  "sources"
+                ],
+                "type": "object"
+              },
+              "hypothesis": {
+                "additionalProperties": false,
+                "description": "synth.decision.hypothesis.v1.",
+                "properties": {
+                  "depends_on": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "digest_sha256": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "record_id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "kind",
+                        "record_id",
+                        "revision",
+                        "digest_sha256"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "expected_effect": {
+                    "type": "string"
+                  },
+                  "rationale": {
+                    "type": "string"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.hypothesis.v1",
+                    "type": "string"
+                  },
+                  "statement": {
+                    "type": "string"
+                  },
+                  "target_lever_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "target_sensor_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "statement"
+                ],
+                "type": "object"
+              },
+              "origin": {
+                "default": "agent",
+                "enum": [
+                  "human",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              "pinned": {
+                "type": "boolean"
+              },
+              "preference": {
+                "description": "synth.decision.preference.v1. preference_id, revision, artifactory_ref, author_kind and pinned are bound by the server.",
+                "properties": {
+                  "aggregation_mode": {
+                    "enum": [
+                      "weighted_sum",
+                      "constrained_argmax",
+                      "lexicographic"
+                    ],
+                    "type": "string"
+                  },
+                  "artifactory_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "digest_sha256": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "record_id": {
+                        "type": "string"
+                      },
+                      "revision": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "kind",
+                      "record_id",
+                      "revision",
+                      "digest_sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "author_kind": {
+                    "type": "string"
+                  },
+                  "budgets": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "gpu_spend_cap_micros": {
+                        "type": "integer"
+                      },
+                      "hard_spend_cap_micros": {
+                        "type": "integer"
+                      },
+                      "hard_wall_clock_ms": {
+                        "type": "integer"
+                      },
+                      "max_concurrent_interventions": {
+                        "type": "integer"
+                      },
+                      "per_intervention_cap_micros": {
+                        "type": "integer"
+                      },
+                      "soft_spend_warn_micros": {
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "hard_constraints": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "comparator": {
+                          "type": "string"
+                        },
+                        "constraint_id": {
+                          "type": "string"
+                        },
+                        "missing_policy": {
+                          "type": "string"
+                        },
+                        "sensor_id": {
+                          "type": "string"
+                        },
+                        "threshold": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "constraint_id",
+                        "sensor_id",
+                        "comparator",
+                        "threshold",
+                        "missing_policy"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "objectives": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "direction": {
+                          "enum": [
+                            "maximize",
+                            "minimize"
+                          ],
+                          "type": "string"
+                        },
+                        "priority_rank": {
+                          "type": "integer"
+                        },
+                        "scale_normalization": {
+                          "type": "number"
+                        },
+                        "sensor_id": {
+                          "type": "string"
+                        },
+                        "weight": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "sensor_id",
+                        "direction",
+                        "weight",
+                        "scale_normalization",
+                        "priority_rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  },
+                  "preference_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "risk_tolerance": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allow_unverified_gpu_escalation": {
+                        "type": "boolean"
+                      },
+                      "commit_confidence": {
+                        "type": "number"
+                      },
+                      "cvar_alpha": {
+                        "type": "number"
+                      },
+                      "max_infeasibility_prob": {
+                        "type": "number"
+                      },
+                      "min_commit_delta": {
+                        "type": "number"
+                      },
+                      "risk_aversion_lambda": {
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.preference.v1",
+                    "type": "string"
+                  },
+                  "supersedes_digest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "aggregation_mode",
+                  "objectives",
+                  "hard_constraints",
+                  "risk_tolerance",
+                  "budgets"
+                ],
+                "type": "object"
+              },
+              "run_id": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "category"
+            ],
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifactory_record_create",
+      "operationId": "createArtifactoryRecord",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
+      "description": "List Human Artifactory records in a notebook.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "preference",
+              "hypothesis",
+              "finding"
+            ],
+            "type": "string"
+          },
+          "notebook_id": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "human",
+              "agent"
+            ],
+            "type": "string"
+          },
+          "pinned": {
+            "enum": [
+              "true"
+            ],
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifactory_records_list",
+      "operationId": "listArtifactoryRecords",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Resolve the preference that governs a notebook (or run); human-pinned preferences take precedence.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "notebook_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifactory_preference_resolve",
+      "operationId": "resolveEffectivePreference",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Read a Human Artifactory record with its revisions.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifactory_record_get",
+      "operationId": "getArtifactoryRecord",
+      "scope": "swarms:read"
+    },
+    {
+      "access": "scoped",
+      "description": "Append a revision to a Human Artifactory record (also how pinning changes).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": false,
+            "description": "Appends revision r+1. expected_revision or expected_supersedes_digest fence concurrent writers (409 artifactory_revision_conflict).",
+            "properties": {
+              "author_kind": {
+                "enum": [
+                  "human",
+                  "local_agent",
+                  "swarm_actor"
+                ],
+                "type": "string"
+              },
+              "expected_revision": {
+                "type": "integer"
+              },
+              "expected_supersedes_digest": {
+                "type": "string"
+              },
+              "finding": {
+                "additionalProperties": false,
+                "description": "synth.decision.finding.v1. A dead end records an obstruction that later runs should avoid.",
+                "properties": {
+                  "dead_end": {
+                    "type": "boolean"
+                  },
+                  "obstruction_code": {
+                    "type": "string"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.finding.v1",
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "digest_sha256": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "record_id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "kind",
+                        "record_id",
+                        "revision",
+                        "digest_sha256"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "summary",
+                  "dead_end",
+                  "sources"
+                ],
+                "type": "object"
+              },
+              "hypothesis": {
+                "additionalProperties": false,
+                "description": "synth.decision.hypothesis.v1.",
+                "properties": {
+                  "depends_on": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "digest_sha256": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "record_id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "kind",
+                        "record_id",
+                        "revision",
+                        "digest_sha256"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "expected_effect": {
+                    "type": "string"
+                  },
+                  "rationale": {
+                    "type": "string"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.hypothesis.v1",
+                    "type": "string"
+                  },
+                  "statement": {
+                    "type": "string"
+                  },
+                  "target_lever_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "target_sensor_ids": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "statement"
+                ],
+                "type": "object"
+              },
+              "pinned": {
+                "type": "boolean"
+              },
+              "preference": {
+                "description": "synth.decision.preference.v1. preference_id, revision, artifactory_ref, author_kind and pinned are bound by the server.",
+                "properties": {
+                  "aggregation_mode": {
+                    "enum": [
+                      "weighted_sum",
+                      "constrained_argmax",
+                      "lexicographic"
+                    ],
+                    "type": "string"
+                  },
+                  "artifactory_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "digest_sha256": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "record_id": {
+                        "type": "string"
+                      },
+                      "revision": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "kind",
+                      "record_id",
+                      "revision",
+                      "digest_sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "author_kind": {
+                    "type": "string"
+                  },
+                  "budgets": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "gpu_spend_cap_micros": {
+                        "type": "integer"
+                      },
+                      "hard_spend_cap_micros": {
+                        "type": "integer"
+                      },
+                      "hard_wall_clock_ms": {
+                        "type": "integer"
+                      },
+                      "max_concurrent_interventions": {
+                        "type": "integer"
+                      },
+                      "per_intervention_cap_micros": {
+                        "type": "integer"
+                      },
+                      "soft_spend_warn_micros": {
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "hard_constraints": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "comparator": {
+                          "type": "string"
+                        },
+                        "constraint_id": {
+                          "type": "string"
+                        },
+                        "missing_policy": {
+                          "type": "string"
+                        },
+                        "sensor_id": {
+                          "type": "string"
+                        },
+                        "threshold": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "constraint_id",
+                        "sensor_id",
+                        "comparator",
+                        "threshold",
+                        "missing_policy"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "objectives": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "direction": {
+                          "enum": [
+                            "maximize",
+                            "minimize"
+                          ],
+                          "type": "string"
+                        },
+                        "priority_rank": {
+                          "type": "integer"
+                        },
+                        "scale_normalization": {
+                          "type": "number"
+                        },
+                        "sensor_id": {
+                          "type": "string"
+                        },
+                        "weight": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "sensor_id",
+                        "direction",
+                        "weight",
+                        "scale_normalization",
+                        "priority_rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  },
+                  "preference_id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "risk_tolerance": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allow_unverified_gpu_escalation": {
+                        "type": "boolean"
+                      },
+                      "commit_confidence": {
+                        "type": "number"
+                      },
+                      "cvar_alpha": {
+                        "type": "number"
+                      },
+                      "max_infeasibility_prob": {
+                        "type": "number"
+                      },
+                      "min_commit_delta": {
+                        "type": "number"
+                      },
+                      "risk_aversion_lambda": {
+                        "type": "number"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schema_version": {
+                    "const": "synth.decision.preference.v1",
+                    "type": "string"
+                  },
+                  "supersedes_digest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "aggregation_mode",
+                  "objectives",
+                  "hard_constraints",
+                  "risk_tolerance",
+                  "budgets"
+                ],
+                "type": "object"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "body",
+          "idempotency_key"
+        ],
+        "type": "object"
+      },
+      "name": "swarms_artifactory_record_revise",
+      "operationId": "reviseArtifactoryRecord",
+      "scope": "swarms:write"
+    },
+    {
+      "access": "scoped",
       "description": "Unified per-run review surface combining pacing, experiments, research log, and hosted artifacts.",
       "inputSchema": {
         "additionalProperties": false,

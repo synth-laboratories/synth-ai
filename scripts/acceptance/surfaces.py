@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Optional, Protocol, cast
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from synth_ai import SynthClient
+from synth_ai import ArtifactoryHypothesis, SynthClient
 from synth_ai.errors import SwarmsAPIError, SynthError
 from synth_ai.models import MessageKind, Money, OptimizerRequest, RunLimitUpdate
 
@@ -398,6 +398,29 @@ SDK_CALLS: Mapping[str, SdkCall] = {
         a.path["notebook_id"],
         a.path["entry_id"],
         str((a.body or {}).get("text", "")),
+        idempotency_key=a.idempotency_key,
+    ),
+    "listNotebooks": lambda c, a: c.notebooks.list_notebooks(
+        cursor=cast("Optional[str]", a.query.get("cursor"))
+    ),
+    "createArtifactoryRecord": lambda c, a: c.artifactory.create_record(
+        a.path["notebook_id"],
+        str((a.body or {}).get("title", "probe")),
+        ArtifactoryHypothesis.model_validate(
+            (a.body or {}).get("hypothesis") or {"statement": "Tenant-isolation probe."}
+        ),
+        idempotency_key=a.idempotency_key,
+    ),
+    "listArtifactoryRecords": lambda c, a: c.artifactory.list_records(
+        a.path["notebook_id"], run_id=cast("Optional[str]", a.query.get("run_id"))
+    ),
+    "resolveEffectivePreference": lambda c, a: c.artifactory.resolve_preference(
+        a.path["notebook_id"], run_id=cast("Optional[str]", a.query.get("run_id"))
+    ),
+    "getArtifactoryRecord": lambda c, a: c.artifactory.get_record(a.path["record_id"]),
+    "reviseArtifactoryRecord": lambda c, a: c.artifactory.revise_record(
+        a.path["record_id"],
+        summary=str((a.body or {}).get("summary", "Tenant-isolation probe.")),
         idempotency_key=a.idempotency_key,
     ),
     "exportResearchLog": lambda c, a: c.research_logs.export_log(

@@ -137,6 +137,19 @@ The specialized admission classes also inherit their HTTP-status class.
 | `plan_request_cooldown` | `PlanRequestCooldownError` | Wait until the denial cooldown expires before submitting a new plan request. |
 | `api_version_unsupported` | `ApiVersionUnsupportedError` | Check `GET /.well-known/synth-api` and align `synth-ai` with a supported API version. |
 
+## Human Artifactory codes
+
+| Code | HTTP | Error class | Next action |
+| --- | --- | --- | --- |
+| `artifactory_origin_requires_human_credential` | 403 | `ArtifactoryOriginRequiresHumanCredentialError` | Use a Console session or a personal API key, or write the record with `origin=agent`. |
+| `artifactory_revision_conflict` | 409 | `ArtifactoryRevisionConflictError` | Read the record again and retry with its current `revision` as `expected_revision`. |
+
+`origin=human` (or `author_kind=human`), and any revision of an `origin=human`
+record, needs a Console session or a personal API key. Automation keys, legacy
+keys and MCP OAuth grants get `artifactory_origin_requires_human_credential`.
+The MCP tool `swarms_artifactory_record_create` therefore defaults to
+`origin=agent`.
+
 ## Error guide
 
 One line per code: what it means, then what the caller should do.
@@ -249,6 +262,10 @@ with the same key, which never runs it twice.
 
 ### Local SDK errors
 
+- `artifactory_payload_invalid` (`ArtifactoryPayloadError`): a Human
+  Artifactory payload is not a preference, hypothesis or finding model, or a
+  `--file` does not validate against its `--category` schema. Fix the payload;
+  nothing was sent.
 - `wait_timeout` (`WaitTimeoutError`): the wait expired; the run keeps running.
   Wait again or check `status`.
 - `run_failed` (`RunFailedError`): the run finished `failed` (only with
