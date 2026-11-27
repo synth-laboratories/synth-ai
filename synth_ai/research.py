@@ -45,7 +45,15 @@ if TYPE_CHECKING:
 
     from pydantic import JsonValue
 
-    from ._blocking import Runner
+    from ._sync import (
+        ArtifactsClient as ArtifactsClient,
+    )
+    from ._sync import (
+        ExperimentsClient as ExperimentsClient,
+    )
+    from ._sync import (
+        ResearchLogsClient as ResearchLogsClient,
+    )
     from ._transport import Transport
 
 ArtifactKind = HostedArtifactKind
@@ -491,278 +499,18 @@ class AsyncResearchLogs:
         )
 
 
-class ArtifactsClient:
-    """Synchronous delegate for Hosted Interactive Artifacts (`SYN-5973`)."""
+def __getattr__(name: str) -> type[ArtifactsClient | ExperimentsClient | ResearchLogsClient]:
+    """Resolve generated synchronous research clients lazily to avoid import cycles."""
+    if name == "ArtifactsClient":
+        from ._sync import ArtifactsClient
 
-    def __init__(self, runner: Runner, inner: AsyncArtifacts) -> None:
-        self._runner = runner
-        self._inner = inner
+        return ArtifactsClient
+    if name == "ExperimentsClient":
+        from ._sync import ExperimentsClient
 
-    def create_artifact(
-        self,
-        notebook_id: str,
-        title: str,
-        kind: ArtifactKind | str,
-        content: str,
-        summary: str,
-        *,
-        origin: ArtifactOrigin | str = ArtifactOrigin.AGENT,
-        run_id: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> HostedArtifact:
-        """Create a versioned interactive artifact (`v1`) for a notebook or run."""
-        return self._runner.call(
-            self._inner.create_artifact(
-                notebook_id,
-                title,
-                kind,
-                content,
-                summary,
-                origin=origin,
-                run_id=run_id,
-                idempotency_key=idempotency_key,
-            )
-        )
+        return ExperimentsClient
+    if name == "ResearchLogsClient":
+        from ._sync import ResearchLogsClient
 
-    def update_artifact(
-        self,
-        artifact_id: str,
-        content: str,
-        summary: str,
-        *,
-        author_kind: AuthorKind | str | None = None,
-        idempotency_key: str | None = None,
-    ) -> HostedArtifact:
-        """Append a new immutable revision (`v2`, `v3`, ...) to an existing artifact."""
-        return self._runner.call(
-            self._inner.update_artifact(
-                artifact_id,
-                content,
-                summary,
-                author_kind=author_kind,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def list_artifacts(self, notebook_id: str, *, run_id: str | None = None) -> ArtifactList:
-        """List hosted interactive artifacts for a notebook, optionally filtered by run."""
-        return self._runner.call(self._inner.list_artifacts(notebook_id, run_id=run_id))
-
-    def get_artifact(self, artifact_id: str) -> HostedArtifact:
-        """Fetch an interactive artifact and its full revision history."""
-        return self._runner.call(self._inner.get_artifact(artifact_id))
-
-    def get_artifact_content(
-        self,
-        artifact_id: str,
-        *,
-        revision_id: str | None = None,
-        digest_sha256: str | None = None,
-    ) -> str:
-        """Fetch the verified UTF-8 source payload for an artifact revision."""
-        return self._runner.call(
-            self._inner.get_artifact_content(
-                artifact_id, revision_id=revision_id, digest_sha256=digest_sha256
-            )
-        )
-
-    def get_artifact_content_inline(
-        self,
-        artifact_id: str,
-        *,
-        revision_id: str | None = None,
-        digest_sha256: str | None = None,
-    ) -> McpOutputContent:
-        """Fetch an artifact revision payload as the contract's McpOutputContent."""
-        return self._runner.call(
-            self._inner.get_artifact_content_inline(
-                artifact_id, revision_id=revision_id, digest_sha256=digest_sha256
-            )
-        )
-
-    def share_artifact(
-        self,
-        artifact_id: str,
-        *,
-        scope: ArtifactShareScope | str = ArtifactShareScope.ORG,
-        idempotency_key: str | None = None,
-    ) -> ArtifactShareGrant:
-        """Mint or update an org/link-scoped share grant for an artifact."""
-        return self._runner.call(
-            self._inner.share_artifact(artifact_id, scope=scope, idempotency_key=idempotency_key)
-        )
-
-    def revoke_artifact_share(self, artifact_id: str) -> ArtifactShareGrant:
-        """Revoke the active share grant for an artifact."""
-        return self._runner.call(self._inner.revoke_artifact_share(artifact_id))
-
-
-class ExperimentsClient:
-    """Synchronous delegate for Multi-Experiment tracking (`SYN-5974`)."""
-
-    def __init__(self, runner: Runner, inner: AsyncExperiments) -> None:
-        self._runner = runner
-        self._inner = inner
-
-    def create_experiment(
-        self,
-        notebook_id: str,
-        run_id: str,
-        title: str,
-        specification: str,
-        arms: Sequence[str],
-        *,
-        hypothesis: str | None = None,
-        pinned_inputs: Sequence[str] = (),
-        stopping_criteria: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> ExperimentRecord:
-        """Create a versioned experiment plan with named comparison arms."""
-        return self._runner.call(
-            self._inner.create_experiment(
-                notebook_id,
-                run_id,
-                title,
-                specification,
-                arms,
-                hypothesis=hypothesis,
-                pinned_inputs=pinned_inputs,
-                stopping_criteria=stopping_criteria,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def revise_experiment(
-        self,
-        experiment_id: str,
-        *,
-        title: str | None = None,
-        specification: str | None = None,
-        hypothesis: str | None = None,
-        arms: Sequence[str] | None = None,
-        stopping_criteria: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> ExperimentRecord:
-        """Create a new immutable revision of an existing experiment plan."""
-        return self._runner.call(
-            self._inner.revise_experiment(
-                experiment_id,
-                title=title,
-                specification=specification,
-                hypothesis=hypothesis,
-                arms=arms,
-                stopping_criteria=stopping_criteria,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def get_experiment(self, experiment_id: str) -> ExperimentRecord:
-        """Read an experiment record and its associated trial scores."""
-        return self._runner.call(self._inner.get_experiment(experiment_id))
-
-    def list_experiments(self, notebook_id: str, *, run_id: str | None = None) -> ExperimentList:
-        """List experiments in a notebook, optionally filtered to one run."""
-        return self._runner.call(self._inner.list_experiments(notebook_id, run_id=run_id))
-
-
-class ResearchLogsClient:
-    """Synchronous delegate for append-only Notebook & Run Research Logs (`SYN-5974`)."""
-
-    def __init__(self, runner: Runner, inner: AsyncResearchLogs) -> None:
-        self._runner = runner
-        self._inner = inner
-
-    def create_log(
-        self,
-        notebook_id: str,
-        *,
-        title: str,
-        summary: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> ResearchLogSummary:
-        """Initialize or register a notebook research log."""
-        return self._runner.call(
-            self._inner.create_log(
-                notebook_id, title=title, summary=summary, idempotency_key=idempotency_key
-            )
-        )
-
-    def append_entry(
-        self,
-        notebook_id: str,
-        category: LogCategory | str,
-        text: str,
-        *,
-        run_id: str | None = None,
-        author_kind: AuthorKind | str = AuthorKind.LOCAL_AGENT,
-        author_label: str | None = None,
-        correction_of: str | None = None,
-        sources: Sequence[ExactReference] = (),
-        artifact_ids: Sequence[str] = (),
-        idempotency_key: str | None = None,
-    ) -> ResearchLogEntry:
-        """Append a structured research-log entry with optional exact citations."""
-        return self._runner.call(
-            self._inner.append_entry(
-                notebook_id,
-                category,
-                text,
-                run_id=run_id,
-                author_kind=author_kind,
-                author_label=author_label,
-                correction_of=correction_of,
-                sources=sources,
-                artifact_ids=artifact_ids,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def correct_entry(
-        self,
-        notebook_id: str,
-        entry_id: str,
-        text: str,
-        *,
-        run_id: str | None = None,
-        sources: Sequence[ExactReference] = (),
-        artifact_ids: Sequence[str] = (),
-        idempotency_key: str | None = None,
-    ) -> ResearchLogEntry:
-        """Append an explicit correction referencing a prior research-log entry."""
-        return self._runner.call(
-            self._inner.correct_entry(
-                notebook_id,
-                entry_id,
-                text,
-                run_id=run_id,
-                sources=sources,
-                artifact_ids=artifact_ids,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def search_entries(
-        self,
-        notebook_id: str,
-        *,
-        query: str | None = None,
-        category: LogCategory | str | None = None,
-        run_id: str | None = None,
-        author_kind: AuthorKind | str | None = None,
-    ) -> ResearchLogPage:
-        """Search notebook research-log entries by text, category, run, or author class."""
-        return self._runner.call(
-            self._inner.search_entries(
-                notebook_id,
-                query=query,
-                category=category,
-                run_id=run_id,
-                author_kind=author_kind,
-            )
-        )
-
-    def export_log(
-        self, notebook_id: str, *, run_id: str | None = None, fmt: str = "markdown"
-    ) -> ResearchLogExport:
-        """Export a notebook or run research log in markdown or JSON format."""
-        return self._runner.call(self._inner.export_log(notebook_id, run_id=run_id, fmt=fmt))
+        return ResearchLogsClient
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

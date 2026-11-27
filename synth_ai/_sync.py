@@ -28,6 +28,7 @@ from ._generated.models import (
     FamilyList,
     File,
     FilePage,
+    HostedArtifact,
     LaunchChoices,
     LaunchRequest,
     LimitList,
@@ -47,6 +48,9 @@ from ._generated.models import (
     PlanRequest,
     PlanRequestList,
     PromoRedemption,
+    ResearchLogEntry,
+    ResearchLogExport,
+    ResearchLogSummary,
     RoleAssignment,
     RoutingCatalog,
     RoutingConstraints,
@@ -103,6 +107,22 @@ from .artifactory import (
     AsyncNotebooks,
 )
 from .billing import AsyncBilling
+from .research import (
+    ArtifactKind,
+    ArtifactList,
+    ArtifactOrigin,
+    ArtifactShareGrant,
+    ArtifactShareScope,
+    AsyncArtifacts,
+    AsyncExperiments,
+    AsyncResearchLogs,
+    AuthorKind,
+    ExactReference,
+    ExperimentList,
+    ExperimentRecord,
+    LogCategory,
+    ResearchLogPage,
+)
 from .swarms import AsyncSwarms
 
 
@@ -1041,3 +1061,254 @@ class ArtifactoryClient:
 
 
 _copy_method_docs(ArtifactoryClient, AsyncArtifactory)
+
+
+class ArtifactsClient:
+    def __init__(self, runner: Runner, source: AsyncArtifacts) -> None:
+        self._runner = runner
+        self._async = source
+
+    def create_artifact(
+        self,
+        notebook_id: str,
+        title: str,
+        kind: ArtifactKind | str,
+        content: str,
+        summary: str,
+        *,
+        origin: ArtifactOrigin | str = ArtifactOrigin.AGENT,
+        run_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> HostedArtifact:
+        return self._runner.call(
+            self._async.create_artifact(
+                notebook_id,
+                title,
+                kind,
+                content,
+                summary,
+                origin=origin,
+                run_id=run_id,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def update_artifact(
+        self,
+        artifact_id: str,
+        content: str,
+        summary: str,
+        *,
+        author_kind: AuthorKind | str | None = None,
+        idempotency_key: str | None = None,
+    ) -> HostedArtifact:
+        return self._runner.call(
+            self._async.update_artifact(
+                artifact_id,
+                content,
+                summary,
+                author_kind=author_kind,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def list_artifacts(self, notebook_id: str, *, run_id: str | None = None) -> ArtifactList:
+        return self._runner.call(self._async.list_artifacts(notebook_id, run_id=run_id))
+
+    def get_artifact(self, artifact_id: str) -> HostedArtifact:
+        return self._runner.call(self._async.get_artifact(artifact_id))
+
+    def get_artifact_content(
+        self, artifact_id: str, *, revision_id: str | None = None, digest_sha256: str | None = None
+    ) -> str:
+        return self._runner.call(
+            self._async.get_artifact_content(
+                artifact_id, revision_id=revision_id, digest_sha256=digest_sha256
+            )
+        )
+
+    def get_artifact_content_inline(
+        self, artifact_id: str, *, revision_id: str | None = None, digest_sha256: str | None = None
+    ) -> McpOutputContent:
+        return self._runner.call(
+            self._async.get_artifact_content_inline(
+                artifact_id, revision_id=revision_id, digest_sha256=digest_sha256
+            )
+        )
+
+    def share_artifact(
+        self,
+        artifact_id: str,
+        *,
+        scope: ArtifactShareScope | str = ArtifactShareScope.ORG,
+        idempotency_key: str | None = None,
+    ) -> ArtifactShareGrant:
+        return self._runner.call(
+            self._async.share_artifact(artifact_id, scope=scope, idempotency_key=idempotency_key)
+        )
+
+    def revoke_artifact_share(self, artifact_id: str) -> ArtifactShareGrant:
+        return self._runner.call(self._async.revoke_artifact_share(artifact_id))
+
+
+_copy_method_docs(ArtifactsClient, AsyncArtifacts)
+
+
+class ExperimentsClient:
+    def __init__(self, runner: Runner, source: AsyncExperiments) -> None:
+        self._runner = runner
+        self._async = source
+
+    def create_experiment(
+        self,
+        notebook_id: str,
+        run_id: str,
+        title: str,
+        specification: str,
+        arms: Sequence[str],
+        *,
+        hypothesis: str | None = None,
+        pinned_inputs: Sequence[str] = (),
+        stopping_criteria: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ExperimentRecord:
+        return self._runner.call(
+            self._async.create_experiment(
+                notebook_id,
+                run_id,
+                title,
+                specification,
+                arms,
+                hypothesis=hypothesis,
+                pinned_inputs=pinned_inputs,
+                stopping_criteria=stopping_criteria,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def revise_experiment(
+        self,
+        experiment_id: str,
+        *,
+        title: str | None = None,
+        specification: str | None = None,
+        hypothesis: str | None = None,
+        arms: Sequence[str] | None = None,
+        stopping_criteria: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ExperimentRecord:
+        return self._runner.call(
+            self._async.revise_experiment(
+                experiment_id,
+                title=title,
+                specification=specification,
+                hypothesis=hypothesis,
+                arms=arms,
+                stopping_criteria=stopping_criteria,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def get_experiment(self, experiment_id: str) -> ExperimentRecord:
+        return self._runner.call(self._async.get_experiment(experiment_id))
+
+    def list_experiments(self, notebook_id: str, *, run_id: str | None = None) -> ExperimentList:
+        return self._runner.call(self._async.list_experiments(notebook_id, run_id=run_id))
+
+
+_copy_method_docs(ExperimentsClient, AsyncExperiments)
+
+
+class ResearchLogsClient:
+    def __init__(self, runner: Runner, source: AsyncResearchLogs) -> None:
+        self._runner = runner
+        self._async = source
+
+    def create_log(
+        self,
+        notebook_id: str,
+        *,
+        title: str,
+        summary: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ResearchLogSummary:
+        return self._runner.call(
+            self._async.create_log(
+                notebook_id, title=title, summary=summary, idempotency_key=idempotency_key
+            )
+        )
+
+    def append_entry(
+        self,
+        notebook_id: str,
+        category: LogCategory | str,
+        text: str,
+        *,
+        run_id: str | None = None,
+        author_kind: AuthorKind | str = AuthorKind.LOCAL_AGENT,
+        author_label: str | None = None,
+        correction_of: str | None = None,
+        sources: Sequence[ExactReference] = (),
+        artifact_ids: Sequence[str] = (),
+        idempotency_key: str | None = None,
+    ) -> ResearchLogEntry:
+        return self._runner.call(
+            self._async.append_entry(
+                notebook_id,
+                category,
+                text,
+                run_id=run_id,
+                author_kind=author_kind,
+                author_label=author_label,
+                correction_of=correction_of,
+                sources=sources,
+                artifact_ids=artifact_ids,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def correct_entry(
+        self,
+        notebook_id: str,
+        entry_id: str,
+        text: str,
+        *,
+        run_id: str | None = None,
+        sources: Sequence[ExactReference] = (),
+        artifact_ids: Sequence[str] = (),
+        idempotency_key: str | None = None,
+    ) -> ResearchLogEntry:
+        return self._runner.call(
+            self._async.correct_entry(
+                notebook_id,
+                entry_id,
+                text,
+                run_id=run_id,
+                sources=sources,
+                artifact_ids=artifact_ids,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def search_entries(
+        self,
+        notebook_id: str,
+        *,
+        query: str | None = None,
+        category: LogCategory | str | None = None,
+        run_id: str | None = None,
+        author_kind: AuthorKind | str | None = None,
+    ) -> ResearchLogPage:
+        return self._runner.call(
+            self._async.search_entries(
+                notebook_id, query=query, category=category, run_id=run_id, author_kind=author_kind
+            )
+        )
+
+    def export_log(
+        self, notebook_id: str, *, run_id: str | None = None, fmt: str = "markdown"
+    ) -> ResearchLogExport:
+        return self._runner.call(self._async.export_log(notebook_id, run_id=run_id, fmt=fmt))
+
+
+_copy_method_docs(ResearchLogsClient, AsyncResearchLogs)

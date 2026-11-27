@@ -152,7 +152,6 @@ def configure(
     )
     inspect.add_argument("--output-id")
     inspect.add_argument("--timeout-seconds", type=int, default=30)
-    parsers["families"].set_defaults(resource_action="list")
     configure_research(parsers, common)
     configure_artifactory(parsers, common)
 
@@ -393,8 +392,6 @@ async def execute_resource(client: AsyncSynthClient, args: argparse.Namespace) -
             )
             written = await asyncio.to_thread(write_output_bytes, args.out, content)
             return RootModel[str](written)
-        case "families":
-            return await client.swarms.families()
         case "inspect":
             return await _execute_inspect(client, args)
         case "files":

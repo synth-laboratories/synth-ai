@@ -24,8 +24,8 @@ from synth_ai.errors import (
     local_problem,
 )
 from synth_ai.mcp._arguments import validate_with
+from synth_ai.mcp.research_dispatch import dispatch_research
 from synth_ai.mcp.server import build_server
-from synth_ai.research_mcp import call_research_tool
 
 
 @pytest.mark.parametrize("timeout", ["0", "-5", "nan"])
@@ -285,12 +285,23 @@ async def test_mcp_argument_and_error_redaction_contracts():
     async with AsyncSynthClient(
         "fixture", base_url="http://127.0.0.1:9", http_client=http
     ) as client:
+        with pytest.raises(ValueError):
+            await dispatch_research(client, "getArtifact", {"artifact_id": "   "})
         with pytest.raises(InvalidRequestError) as res_exc:
-            await call_research_tool(client, "artifacts_get", {"artifact_id": "   "})
+            await dispatch_research(
+                client, "createArtifact", {"body": {"notebook_id": "BAD-SECRET-INPUT"}}
+            )
         assert res_exc.value.code == "tool_arguments_invalid"
+        assert "BAD-SECRET-INPUT" not in str(res_exc.value)
 
         server = build_server(client, upload_descriptor=None)
         async with create_connected_server_and_client_session(server) as session:
+            blank_result = await session.call_tool("swarms_artifact_get", {"artifact_id": "   "})
+            assert blank_result.isError
+            blank_text = blank_result.content[0]
+            assert isinstance(blank_text, TextContent)
+            assert json.loads(blank_text.text)["code"] == "invalid_arguments"
+
             result = await session.call_tool(
                 "swarms_run_output_content",
                 {

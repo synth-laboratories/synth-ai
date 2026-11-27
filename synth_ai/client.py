@@ -8,12 +8,14 @@ from ._blocking import Runner
 from ._sync import (
     AccountClient,
     ArtifactoryClient,
+    ArtifactsClient,
     BillingClient,
+    ExperimentsClient,
     NotebooksClient,
+    ResearchLogsClient,
     SwarmsClient,
 )
 from .aclient import AsyncSynthClient
-from .research import ArtifactsClient, ExperimentsClient, ResearchLogsClient
 
 if TYPE_CHECKING:
     from types import TracebackType

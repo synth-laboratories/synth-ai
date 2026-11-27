@@ -30,6 +30,22 @@ def generate() -> str:
         "from .artifactory import (ArtifactoryAuthorKind, ArtifactoryCategory, ArtifactoryOrigin,"
         " ArtifactoryPayload, AsyncArtifactory, AsyncNotebooks)",
         "from .billing import AsyncBilling",
+        "from .research import (",
+        "    ArtifactKind,",
+        "    ArtifactList,",
+        "    ArtifactOrigin,",
+        "    ArtifactShareGrant,",
+        "    ArtifactShareScope,",
+        "    AsyncArtifacts,",
+        "    AsyncExperiments,",
+        "    AsyncResearchLogs,",
+        "    AuthorKind,",
+        "    ExactReference,",
+        "    ExperimentList,",
+        "    ExperimentRecord,",
+        "    LogCategory,",
+        "    ResearchLogPage,",
+        ")",
         "from .swarms import AsyncSwarms",
         "",
         "def _copy_method_docs(delegate: type, source: type) -> None:",
@@ -39,7 +55,7 @@ def generate() -> str:
         "",
     ]
     model_imports = set()
-    for module in ["swarms", "account", "billing", "artifactory"]:
+    for module in ["swarms", "account", "billing", "artifactory", "research"]:
         tree = ast.parse((ROOT / "synth_ai" / f"{module}.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.ImportFrom) and node.module == "_generated.models":

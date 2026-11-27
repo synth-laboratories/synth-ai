@@ -26,9 +26,15 @@ from synth_ai import (
     cli,
 )
 from synth_ai.errors import ForbiddenError, InvalidRequestError, NotFoundError
+from synth_ai.mcp.research_dispatch import dispatch_research
 from synth_ai.mcp.server import call_tool
-from synth_ai.research import ReferenceSource
-from synth_ai.research_mcp import RESEARCH_MCP_TOOLS, call_research_tool
+from synth_ai.mcp.tools import TOOLS
+from synth_ai.research import (
+    ArtifactsClient,
+    ExperimentsClient,
+    ReferenceSource,
+    ResearchLogsClient,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -629,47 +635,94 @@ async def test_canonical_openapi_mcp_dispatch_for_track_b() -> None:
 
 
 async def test_research_mcp_catalog_and_dispatch() -> None:
-    assert len(RESEARCH_MCP_TOOLS) == 14
+    from synth_ai import _sync
+
+    assert ArtifactsClient is _sync.ArtifactsClient
+    assert ExperimentsClient is _sync.ExperimentsClient
+    assert ResearchLogsClient is _sync.ResearchLogsClient
+
+    expected_tools = {
+        "swarms_artifact_create",
+        "swarms_artifact_get",
+        "swarms_artifact_update",
+        "swarms_artifact_content",
+        "swarms_artifact_share",
+        "swarms_artifact_share_revoke",
+        "swarms_artifacts_list",
+        "swarms_experiment_create",
+        "swarms_experiments_list",
+        "swarms_experiment_get",
+        "swarms_experiment_revise",
+        "swarms_research_log_init",
+        "swarms_research_log_append",
+        "swarms_research_log_search",
+        "swarms_research_log_correct",
+        "swarms_research_log_export",
+        "swarms_run_review",
+    }
+    catalog_names = {tool["name"] for tool in TOOLS}
+    assert expected_tools.issubset(catalog_names)
+
     transport = _make_backend()
     async with httpx.AsyncClient(transport=transport) as http:
         async with AsyncSynthClient("sk_org_a", base_url=BASE_URL, http_client=http) as client:
-            created_json = await call_research_tool(
-                client,
-                "artifacts_create",
-                {
-                    "notebook_id": "nb_mcp",
-                    "title": "MCP Widget",
-                    "kind": "react",
-                    "content": "export default function App() { return null; }",
-                    "summary": "initial widget",
-                },
+            created = json.loads(
+                await call_tool(
+                    client,
+                    "swarms_artifact_create",
+                    {
+                        "idempotency_key": "idem_art_widget",
+                        "body": {
+                            "notebook_id": "nb_mcp",
+                            "title": "MCP Widget",
+                            "kind": "react",
+                            "content": "export default function App() { return null; }",
+                            "summary": "initial widget",
+                        },
+                    },
+                )
             )
-            created = json.loads(created_json)
             assert created["current_revision"] == 1
 
-            note_json = await call_research_tool(
-                client,
-                "research_log_append",
-                {
-                    "notebook_id": "nb_mcp",
-                    "category": "observation",
-                    "text": "Widget renders cleanly in opaque sandbox",
-                    "sources": [
-                        {
-                            "source": "artifact",
-                            "kind": "react",
-                            "record_id": created["artifact_id"],
-                            "revision": "1",
-                            "digest_sha256": "0" * 64,
-                        }
-                    ],
-                    "artifact_ids": [created["artifact_id"]],
-                },
+            note_payload = json.loads(
+                await call_tool(
+                    client,
+                    "swarms_research_log_append",
+                    {
+                        "notebook_id": "nb_mcp",
+                        "idempotency_key": "idem_log_obs",
+                        "body": {
+                            "category": "observation",
+                            "text": "Widget renders cleanly in opaque sandbox",
+                            "sources": [
+                                {
+                                    "source": "artifact",
+                                    "kind": "react",
+                                    "record_id": created["artifact_id"],
+                                    "revision": "1",
+                                    "digest_sha256": "0" * 64,
+                                }
+                            ],
+                            "artifact_ids": [created["artifact_id"]],
+                        },
+                    },
+                )
             )
-            note_payload = json.loads(note_json)
             assert note_payload["category"] == "observation"
             assert note_payload["sources"][0]["source"] == "artifact"
 
             with pytest.raises(InvalidRequestError) as refused:
-                await call_research_tool(client, "artifacts_create", {"notebook_id": "nb_mcp"})
+                await call_tool(
+                    client,
+                    "swarms_artifact_create",
+                    {"idempotency_key": "idem_bad", "body": {"notebook_id": "nb_mcp"}},
+                )
             assert refused.value.code == "tool_arguments_invalid"
+
+            with pytest.raises(InvalidRequestError) as dispatch_refused:
+                await dispatch_research(
+                    client,
+                    "createArtifact",
+                    {"idempotency_key": "idem_bad", "body": {"notebook_id": "nb_mcp"}},
+                )
+            assert dispatch_refused.value.code == "tool_arguments_invalid"
