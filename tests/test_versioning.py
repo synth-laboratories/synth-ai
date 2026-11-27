@@ -22,11 +22,22 @@ from synth_ai._warnings import reset_warning_cache
 from synth_ai.mcp.server import build_server
 
 
-def _version_payload(contract: dict[str, object]) -> dict[str, object]:
+def _raw_version_example(contract: dict[str, object]) -> dict[str, object]:
     paths = contract["paths"]
     assert isinstance(paths, dict)
     route = paths["/v1/version"]["get"]
-    return dict(route["responses"]["200"]["content"]["application/json"]["example"])
+    example = route["responses"]["200"]["content"]["application/json"]["example"]
+    payload = json.loads(json.dumps(example))
+    assert isinstance(payload, dict)
+    return {str(k): v for k, v in payload.items()}
+
+
+def _version_payload(contract: dict[str, object]) -> dict[str, object]:
+    payload = _raw_version_example(contract)
+    api_obj = payload["api"]
+    assert isinstance(api_obj, dict)
+    api_obj["version"] = CONTRACT_VERSION
+    return payload
 
 
 async def test_transport_sends_version_and_client_headers(contract: dict[str, object]) -> None:
@@ -176,16 +187,20 @@ def test_cli_version_local_and_server(
     }
     assert api.calls == []
 
+    raw_example = _raw_version_example(contract)
+    raw_api = raw_example["api"]
+    assert isinstance(raw_api, dict)
+    expected_example_version = str(raw_api["version"])
     code, out, err = invoke(api, capsys, "version", "--server")
     assert code == cli.EXIT_OK, err
-    assert "server" in out and CONTRACT_VERSION in out
+    assert "server" in out and expected_example_version in out
     assert api.calls[-1][0] == "getVersion"
 
     code, out, err = invoke(api, capsys, "version", "--server", "--json")
     assert code == cli.EXIT_OK, err
     server_doc = json.loads(out)
     assert server_doc["schema"] == "synth.api-discovery.v1"
-    assert server_doc["api"]["version"] == CONTRACT_VERSION
+    assert server_doc["api"]["version"] == expected_example_version
 
 
 async def test_stdio_mcp_server_reports_package_version(contract: dict[str, object]) -> None:

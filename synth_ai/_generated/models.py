@@ -342,6 +342,26 @@ class RefundDetailRefundCause(StrEnum):
     LAUNCH_FAILED = "launch_failed"
 
 
+class ResearchArtifactEventPayloadAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class ResearchArtifactEventPayloadKind(StrEnum):
+    HTML = "html"
+    REACT = "react"
+    SVG = "svg"
+    MERMAID = "mermaid"
+    MARKDOWN = "markdown"
+    CHART = "chart"
+
+
+class ResearchArtifactEventPayloadOrigin(StrEnum):
+    AGENT = "agent"
+    HUMAN = "human"
+
+
 class ResearchExactReferenceSource(StrEnum):
     RESEARCH = "research"
     ARTIFACT = "artifact"
@@ -371,6 +391,30 @@ class ResearchLogEntrySyncState(StrEnum):
     MISSING_EVIDENCE = "missing_evidence"
 
 
+class ResearchLogEventPayloadAuthorKind(StrEnum):
+    HUMAN = "human"
+    LOCAL_AGENT = "local_agent"
+    SWARM_ACTOR = "swarm_actor"
+
+
+class ResearchLogEventPayloadCategory(StrEnum):
+    HYPOTHESIS = "hypothesis"
+    ATTEMPT = "attempt"
+    OBSERVATION = "observation"
+    FAILURE = "failure"
+    DECISION = "decision"
+    CORRECTION = "correction"
+    PREFERENCE = "preference"
+    RATIONALE = "rationale"
+
+
+class ResearchLogEventPayloadSyncState(StrEnum):
+    SYNCED = "synced"
+    PENDING = "pending"
+    FAILED = "failed"
+    MISSING_EVIDENCE = "missing_evidence"
+
+
 class ResolvedOptimizerReason(StrEnum):
     ENVIRONMENT_DEFAULT = "environment_default"
     EXPLICIT_PIN = "explicit_pin"
@@ -395,6 +439,18 @@ class RunAllocationChoiceSource(StrEnum):
 class RunAllocationChoiceState(StrEnum):
     ASSIGNED = "assigned"
     PLANNER_DECIDES = "planner_decides"
+
+
+class RunApprovalDecidedPayloadDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class RunApprovalDecidedPayloadStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
 
 
 class RunApprovalDecisionReceiptDecision(StrEnum):
@@ -423,6 +479,13 @@ class RunApprovalDecisionRecordDecision(StrEnum):
 class RunApprovalDecisionRequestDecision(StrEnum):
     APPROVE = "approve"
     REJECT = "reject"
+
+
+class RunApprovalRequestedPayloadStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
 
 
 class RunApprovalStatus(StrEnum):
@@ -1722,6 +1785,36 @@ class RefundDetailRunUsage1(WireModel):
     compute: dict[str, dict[str, JsonValue]] | None = None
 
 
+class ResearchArtifactEventPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    artifact_id: Annotated[str, Field(min_length=1)]
+    notebook_id: Annotated[str, Field(min_length=1)]
+    title: Annotated[str, Field(min_length=1)]
+    kind: Annotated[
+        ResearchArtifactEventPayloadKind,
+        BeforeValidator(enum_value(ResearchArtifactEventPayloadKind)),
+    ]
+    origin: Annotated[
+        ResearchArtifactEventPayloadOrigin,
+        BeforeValidator(enum_value(ResearchArtifactEventPayloadOrigin)),
+    ]
+    revision: Annotated[int, Field(ge=1)]
+    revision_id: Annotated[str, Field(min_length=1)]
+    digest_sha256: Annotated[str, Field(min_length=1)]
+    author_kind: Annotated[
+        ResearchArtifactEventPayloadAuthorKind,
+        BeforeValidator(enum_value(ResearchArtifactEventPayloadAuthorKind)),
+    ]
+    summary: str
+
+
 class ResearchExactReference(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1738,6 +1831,51 @@ class ResearchExactReference(WireModel):
     record_id: str
     revision: str
     digest_sha256: str
+
+
+class ResearchExperimentEventPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    experiment_id: Annotated[str, Field(min_length=1)]
+    notebook_id: Annotated[str, Field(min_length=1)]
+    title: Annotated[str, Field(min_length=1)]
+    revision: Annotated[int, Field(ge=1)]
+    arms: list[str]
+    hypothesis: str | None
+
+
+class ResearchLogEventPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    entry_id: Annotated[str, Field(min_length=1)]
+    notebook_id: Annotated[str, Field(min_length=1)]
+    category: Annotated[
+        ResearchLogEventPayloadCategory,
+        BeforeValidator(enum_value(ResearchLogEventPayloadCategory)),
+    ]
+    author_kind: Annotated[
+        ResearchLogEventPayloadAuthorKind,
+        BeforeValidator(enum_value(ResearchLogEventPayloadAuthorKind)),
+    ]
+    author_label: Annotated[str, Field(min_length=1)]
+    sync_state: Annotated[
+        ResearchLogEventPayloadSyncState,
+        BeforeValidator(enum_value(ResearchLogEventPayloadSyncState)),
+    ]
+    correction_of: str | None
+    artifact_ids: list[str]
 
 
 class ResearchLogExport(WireModel):
@@ -1770,6 +1908,22 @@ class ResearchLogSummary(WireModel):
     summary: str | None
     entry_count: Annotated[int, Field(ge=0)]
     created_at: str
+
+
+class ResearchTrialEventPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    experiment_id: Annotated[str, Field(min_length=1)]
+    trial_id: Annotated[str, Field(min_length=1)]
+    arm: Annotated[str, Field(min_length=1)]
+    state: Annotated[str, Field(min_length=1)]
+    depth: Annotated[int, Field(ge=0)]
 
 
 class ResearchTrialMeasurement(WireModel):
@@ -1846,7 +2000,7 @@ class RoutingActor(WireModel):
     providers: list[str]
 
 
-class RoutingCatalogRoute(WireModel):
+class RoutingModelCapability(WireModel):
     model_config = ConfigDict(
         extra="forbid",
         populate_by_name=True,
@@ -1855,9 +2009,10 @@ class RoutingCatalogRoute(WireModel):
         frozen=True,
         allow_inf_nan=False,
     )
-    preset: str
     model: str
-    providers: list[str]
+    efforts: list[str]
+    context_window: Annotated[int, Field(ge=1)]
+    maximum_output_tokens: Annotated[int, Field(ge=1)]
 
 
 class RunAllocationActorPlacementsItem(WireModel):
@@ -2554,7 +2709,7 @@ class TermsAcceptanceRequest(WireModel):
     accepted_at: str
 
 
-class TopologyCatalogEntry(WireModel):
+class TopologyParamBounds(WireModel):
     model_config = ConfigDict(
         extra="forbid",
         populate_by_name=True,
@@ -2563,21 +2718,9 @@ class TopologyCatalogEntry(WireModel):
         frozen=True,
         allow_inf_nan=False,
     )
-    topology: Annotated[
-        TopologyCatalogEntryTopology | str,
-        BeforeValidator(open_enum_value(TopologyCatalogEntryTopology)),
-    ]
-    version: Annotated[int, Field(ge=1)]
-    label: Annotated[
-        TopologyCatalogEntryLabel, BeforeValidator(enum_value(TopologyCatalogEntryLabel))
-    ]
-    auto: bool
-    availability: Annotated[
-        TopologyCatalogEntryAvailability,
-        BeforeValidator(enum_value(TopologyCatalogEntryAvailability)),
-    ]
-    definition_digest: str | None = None
-    cause: str | None = None
+    min: int
+    max: int
+    default: int
 
 
 class UpdateHostedArtifactRequest(WireModel):
@@ -3487,8 +3630,7 @@ class RoutingCatalog(WireModel):
     )
     revision: str
     models: list[str]
-    providers: list[str]
-    routes: list[RoutingCatalogRoute]
+    capabilities: list[RoutingModelCapability]
 
 
 class RoutingConstraints(WireModel):
@@ -3517,6 +3659,31 @@ class RunAllocationActorLaunch(WireModel):
     sandbox: RunAllocationChoice
 
 
+class RunApprovalDecidedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    approval_id: Annotated[str, Field(min_length=1, max_length=128)]
+    decision: Annotated[
+        RunApprovalDecidedPayloadDecision,
+        BeforeValidator(enum_value(RunApprovalDecidedPayloadDecision)),
+    ]
+    status: Annotated[
+        RunApprovalDecidedPayloadStatus,
+        BeforeValidator(enum_value(RunApprovalDecidedPayloadStatus)),
+    ]
+    operation_id: Annotated[str, Field(min_length=1)]
+    decided_by: RunApprovalActor
+    decided_at: str
+    revision: Annotated[int, Field(ge=1)]
+    reason: Annotated[str, Field(max_length=1024)] | None = None
+
+
 class RunApprovalDecisionRecord(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3535,6 +3702,29 @@ class RunApprovalDecisionRecord(WireModel):
     decided_by: RunApprovalActor
     decided_at: str
     reason: str | None = None
+
+
+class RunApprovalRequestedPayload(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    approval_id: Annotated[str, Field(min_length=1, max_length=128)]
+    action_kind: Annotated[str, Field(min_length=1)]
+    summary: Annotated[str, Field(min_length=1)]
+    requested_by: RunApprovalActor
+    requested_at: str
+    timeout_ms: Annotated[int, Field(ge=1)]
+    expires_at: str
+    revision: Annotated[int, Field(ge=1)]
+    status: Annotated[
+        RunApprovalRequestedPayloadStatus,
+        BeforeValidator(enum_value(RunApprovalRequestedPayloadStatus)),
+    ]
 
 
 class RunAttemptReview(WireModel):
@@ -4199,6 +4389,33 @@ class SubscriptionChangePreview(WireModel):
     amount_due_now: Money
     credit_applied: Money
     new_period_end: str | None
+
+
+class TopologyCatalogEntry(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    topology: Annotated[
+        TopologyCatalogEntryTopology | str,
+        BeforeValidator(open_enum_value(TopologyCatalogEntryTopology)),
+    ]
+    version: Annotated[int, Field(ge=1)]
+    label: Annotated[
+        TopologyCatalogEntryLabel, BeforeValidator(enum_value(TopologyCatalogEntryLabel))
+    ]
+    auto: bool
+    availability: Annotated[
+        TopologyCatalogEntryAvailability,
+        BeforeValidator(enum_value(TopologyCatalogEntryAvailability)),
+    ]
+    definition_digest: str | None = None
+    cause: str | None = None
+    params: dict[str, TopologyParamBounds] | None = None
 
 
 class UpdateApiKeyRequest(WireModel):
@@ -4900,6 +5117,9 @@ class RunReportRollout(WireModel):
     error_stage: str | None = None
     reward: float | None = None
     refusal: str | None = None
+    rejected: Annotated[str, Field(max_length=120, pattern="^[a-z][a-z0-9_.-]{0,119}$")] | None = (
+        None
+    )
     duration_ms: int | None = None
     provider: str | None = None
     compute: RunCompute | None = None
@@ -5469,6 +5689,12 @@ class RunEvent(WireModel):
             | ActorParkedPayload
             | ActorUnparkedPayload
             | RunMessageEventPayload
+            | RunApprovalRequestedPayload
+            | RunApprovalDecidedPayload
+            | ResearchArtifactEventPayload
+            | ResearchExperimentEventPayload
+            | ResearchTrialEventPayload
+            | ResearchLogEventPayload
             | None,
             BeforeValidator(
                 event_payload(
@@ -5487,6 +5713,15 @@ class RunEvent(WireModel):
                         "run.message.disposed": RunMessageEventPayload,
                         "run.message.expired": RunMessageEventPayload,
                         "run.message.posted": RunMessageEventPayload,
+                        "approval.requested": RunApprovalRequestedPayload,
+                        "approval.decided": RunApprovalDecidedPayload,
+                        "research.artifact_published": ResearchArtifactEventPayload,
+                        "research.experiment_created": ResearchExperimentEventPayload,
+                        "research.experiment_revised": ResearchExperimentEventPayload,
+                        "research.trial_logged": ResearchTrialEventPayload,
+                        "research.hypothesis_created": ResearchLogEventPayload,
+                        "research.correction_recorded": ResearchLogEventPayload,
+                        "research.log_appended": ResearchLogEventPayload,
                     }
                 )
             ),
@@ -5692,14 +5927,18 @@ MODELS: dict[str, type[BaseModel]] = {
     "PromoRedeemRequest": PromoRedeemRequest,
     "PromoTrialGrant": PromoTrialGrant,
     "RefundDetailRunUsage1": RefundDetailRunUsage1,
+    "ResearchArtifactEventPayload": ResearchArtifactEventPayload,
     "ResearchExactReference": ResearchExactReference,
+    "ResearchExperimentEventPayload": ResearchExperimentEventPayload,
+    "ResearchLogEventPayload": ResearchLogEventPayload,
     "ResearchLogExport": ResearchLogExport,
     "ResearchLogSummary": ResearchLogSummary,
+    "ResearchTrialEventPayload": ResearchTrialEventPayload,
     "ResearchTrialMeasurement": ResearchTrialMeasurement,
     "ReviseResearchExperimentRequest": ReviseResearchExperimentRequest,
     "RoleAssignment": RoleAssignment,
     "RoutingActor": RoutingActor,
-    "RoutingCatalogRoute": RoutingCatalogRoute,
+    "RoutingModelCapability": RoutingModelCapability,
     "RunAllocationActorPlacementsItem": RunAllocationActorPlacementsItem,
     "RunAllocationChoice": RunAllocationChoice,
     "RunApprovalActor": RunApprovalActor,
@@ -5741,7 +5980,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SwarmsVariantVersion": SwarmsVariantVersion,
     "TermsAcceptance": TermsAcceptance,
     "TermsAcceptanceRequest": TermsAcceptanceRequest,
-    "TopologyCatalogEntry": TopologyCatalogEntry,
+    "TopologyParamBounds": TopologyParamBounds,
     "UpdateHostedArtifactRequest": UpdateHostedArtifactRequest,
     "UploadCreateRequest": UploadCreateRequest,
     "UploadFileRequest": UploadFileRequest,
@@ -5792,7 +6031,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "RoutingCatalog": RoutingCatalog,
     "RoutingConstraints": RoutingConstraints,
     "RunAllocationActorLaunch": RunAllocationActorLaunch,
+    "RunApprovalDecidedPayload": RunApprovalDecidedPayload,
     "RunApprovalDecisionRecord": RunApprovalDecisionRecord,
+    "RunApprovalRequestedPayload": RunApprovalRequestedPayload,
     "RunAttemptReview": RunAttemptReview,
     "RunAttemptScore": RunAttemptScore,
     "RunAttemptTreeUnavailable": RunAttemptTreeUnavailable,
@@ -5823,6 +6064,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "SetSpendAlertsRequest": SetSpendAlertsRequest,
     "SpendAlerts": SpendAlerts,
     "SubscriptionChangePreview": SubscriptionChangePreview,
+    "TopologyCatalogEntry": TopologyCatalogEntry,
     "UpdateApiKeyRequest": UpdateApiKeyRequest,
     "Upload": Upload,
     "UsageDayBucket": UsageDayBucket,

@@ -31,7 +31,7 @@ def _forbid_network(request: httpx.Request) -> httpx.Response:
         ("solve", {"budget": "-1.00"}),
         ("solve", {"budget": "not-a-number"}),
         ("solve", {"budget": "1.00", "domicile_requirement": "mars_only"}),
-        ("solve", {"budget": "1.00", "profile": "fork-flush"}),
+        ("solve", {"budget": "1.00", "profile": "fork-flush", "research_task": "task_1"}),
         ("solve", {"budget": "1.00", "profile": "swarms-v2", "research_task": "task_1"}),
         (
             "solve",

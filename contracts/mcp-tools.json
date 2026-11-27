@@ -313,7 +313,7 @@
     },
     {
       "access": "scoped",
-      "description": "Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush (fork_flush) is experimental, never the default, and not served in this release.",
+      "description": "Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush (fork_flush) is opt-in and never the default.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -605,7 +605,7 @@
                         "type": "object"
                       },
                       "topology": {
-                        "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental and never the default; not served in this release.",
+                        "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, opt-in and never the default.",
                         "minLength": 1,
                         "type": "string"
                       },
@@ -957,7 +957,7 @@
             "type": "object",
             "x-synth-default-profile": "swarms-v2",
             "x-synth-profile-requirements": {
-              "fork-flush": true,
+              "fork-flush": false,
               "swarms-v2": false
             }
           },
@@ -1271,7 +1271,7 @@
                         "type": "object"
                       },
                       "topology": {
-                        "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental and never the default; not served in this release.",
+                        "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, opt-in and never the default.",
                         "minLength": 1,
                         "type": "string"
                       },
@@ -1623,7 +1623,7 @@
             "type": "object",
             "x-synth-default-profile": "swarms-v2",
             "x-synth-profile-requirements": {
-              "fork-flush": true,
+              "fork-flush": false,
               "swarms-v2": false
             }
           }

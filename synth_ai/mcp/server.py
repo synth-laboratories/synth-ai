@@ -7,6 +7,8 @@ import asyncio
 import json
 from typing import TYPE_CHECKING
 
+from typing_extensions import override
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -16,14 +18,22 @@ if TYPE_CHECKING:
     from mcp.server.lowlevel.helper_types import ReadResourceContents
     from mcp.server.models import InitializationOptions
     from mcp.shared.message import SessionMessage
-    from mcp.types import CallToolResult, Resource, TextContent, Tool
+    from mcp.types import (
+        CallToolResult,
+        CreateTaskResult,
+        LoggingLevel,
+        Resource,
+        TaskMetadata,
+        TextContent,
+        Tool,
+    )
     from pydantic import AnyUrl
 
     from synth_ai._retry import RetryPolicy
 
 from pydantic import BaseModel, JsonValue, ValidationError
-from typing_extensions import override
 
+from synth_ai._limits import SERVER_WAIT_SECONDS_DEFAULT
 from synth_ai._validation import safe_validation_detail
 from synth_ai._version import __version__
 from synth_ai.aclient import AsyncSynthClient
@@ -39,7 +49,17 @@ from synth_ai.errors import (
 )
 
 from . import directory, skills
+from ._arguments import required
 from .dispatch import dispatch
+from .elicitation import client_supports_elicitation
+from .progress import wait_run_with_progress
+from .tasks import (
+    TASK_SUPPORTED_TOOLS,
+    call_tool_as_task,
+    cancel_task,
+    get_task,
+    get_task_result,
+)
 from .tools import TOOLS, ToolSchema
 
 __all__ = [
@@ -55,6 +75,20 @@ __all__ = [
 UPLOAD_OPERATIONS = frozenset({"uploadFile", "createUpload"})
 
 
+def resolve_and_validate(
+    name: str,
+    arguments: dict[str, JsonValue],
+) -> tuple[str, ToolSchema]:
+    tool = next((tool for tool in TOOLS if tool["name"] == name), None)
+    if tool is None:
+        raise ValueError("Unknown tool")
+    schema = tool["inputSchema"]
+    if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
+        raise ValueError("Tool arguments do not match the contract")
+    validate_arguments(tool["operationId"], schema, arguments)
+    return tool["operationId"], schema
+
+
 async def call_tool(
     client: AsyncSynthClient,
     name: str,
@@ -64,14 +98,8 @@ async def call_tool(
 ) -> str:
     if name == directory.NAME and upload_descriptor is not None:
         return await directory.upload(client, upload_descriptor, arguments)
-    tool = next((tool for tool in TOOLS if tool["name"] == name), None)
-    if tool is None:
-        raise ValueError("Unknown tool")
-    schema = tool["inputSchema"]
-    if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
-        raise ValueError("Tool arguments do not match the contract")
-    validate_arguments(tool["operationId"], schema, arguments)
-    result = await dispatch(client, tool["operationId"], arguments)
+    operation_id, _ = resolve_and_validate(name, arguments)
+    result = await dispatch(client, operation_id, arguments)
     if result is None:
         return "null"  # The public operation has no representation or a nullable result.
     if isinstance(result, BaseModel):
@@ -172,22 +200,49 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
         from mcp.shared.exceptions import McpError
         from mcp.shared.message import SessionMessage
         from mcp.types import (
+            CallToolRequest,
             CallToolResult,
+            CancelTaskRequest,
+            CreateTaskResult,
             ErrorData,
+            GetTaskPayloadRequest,
+            GetTaskRequest,
             JSONRPCError,
             JSONRPCMessage,
             JSONRPCRequest,
             JSONRPCResponse,
             Resource,
             ServerCapabilities,
+            ServerResult,
+            ServerTasksCapability,
+            ServerTasksRequestsCapability,
+            TasksCallCapability,
+            TasksCancelCapability,
+            TasksToolsCapability,
             TextContent,
             Tool,
+            ToolExecution,
         )
         from pydantic import AnyUrl
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
 
-    class _SkillsServer(Server):
+    class SynthMCPServer(Server):
+        @override
+        def get_capabilities(
+            self,
+            notification_options: NotificationOptions,
+            experimental_capabilities: dict[str, dict[str, object]],
+        ) -> ServerCapabilities:
+            capabilities = super().get_capabilities(notification_options, experimental_capabilities)
+            capabilities.tasks = ServerTasksCapability(
+                cancel=TasksCancelCapability(),
+                requests=ServerTasksRequestsCapability(
+                    tools=TasksToolsCapability(call=TasksCallCapability())
+                ),
+            )
+            return capabilities
+
         @override
         def create_initialization_options(
             self,
@@ -287,12 +342,23 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
                 )
                 task_group.cancel_scope.cancel()
 
-    server = _SkillsServer("synth", version=__version__)
+    server = SynthMCPServer("synth", version=__version__)
     catalog = skills.load_skills()
+    log_level_state: dict[str, LoggingLevel | None] = {"minimum": None}
+
+    async def set_logging_level(level: LoggingLevel) -> None:
+        log_level_state["minimum"] = level
 
     async def list_tools() -> list[Tool]:
         catalog_tools = [
-            Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
+            Tool(
+                name=t["name"],
+                description=t["description"],
+                inputSchema=t["inputSchema"],
+                execution=ToolExecution(taskSupport="optional")
+                if t["name"] in TASK_SUPPORTED_TOOLS
+                else None,
+            )
             for t in TOOLS
         ]
         if upload_descriptor is not None:
@@ -327,10 +393,41 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
         return [ReadResourceContents(content=entry.content, mime_type=entry.mime_type)]
 
     async def invoke(
-        name: str, arguments: dict[str, JsonValue]
-    ) -> list[TextContent] | CallToolResult:
+        name: str,
+        arguments: dict[str, JsonValue],
+        *,
+        task_meta: TaskMetadata | None = None,
+    ) -> list[TextContent] | CallToolResult | CreateTaskResult:
         try:
-            content = await call_tool(client, name, arguments, upload_descriptor=upload_descriptor)
+            ctx = server.request_context
+            if task_meta is not None:
+                resolve_and_validate(name, arguments)
+                return await call_tool_as_task(client, name, arguments, task_meta)
+
+            progress_token = ctx.meta.progressToken if ctx.meta is not None else None
+            if name == "swarms_run_wait" and (
+                progress_token is not None or client_supports_elicitation(ctx.session)
+            ):
+                resolve_and_validate(name, arguments)
+                wait_seconds = (
+                    required(arguments, "timeout_seconds", int)
+                    if "timeout_seconds" in arguments
+                    else SERVER_WAIT_SECONDS_DEFAULT
+                )
+                waited = await wait_run_with_progress(
+                    client,
+                    ctx.session,
+                    required(arguments, "run_id", str),
+                    timeout_seconds=wait_seconds,
+                    progress_token=progress_token,
+                    related_request_id=ctx.request_id,
+                    minimum_log_level=log_level_state["minimum"],
+                )
+                content = waited.model_dump_json(exclude_unset=True)
+            else:
+                content = await call_tool(
+                    client, name, arguments, upload_descriptor=upload_descriptor
+                )
         except (DirectoryUploadError, DirectoryUploadCancelledError) as error:
             return CallToolResult(
                 isError=True, content=[TextContent(type="text", text=directory.failure(error))]
@@ -363,11 +460,33 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
             )
         return [TextContent(type="text", text=content)]
 
+    async def handle_call_tool(req: CallToolRequest) -> ServerResult:
+        arguments: dict[str, JsonValue] = (
+            dict(req.params.arguments) if req.params.arguments is not None else {}
+        )
+        result = await invoke(req.params.name, arguments, task_meta=req.params.task)
+        if isinstance(result, (CallToolResult, CreateTaskResult)):
+            return ServerResult(result)
+        return ServerResult(CallToolResult(content=list(result), isError=False))
+
+    async def handle_get_task(req: GetTaskRequest) -> ServerResult:
+        return ServerResult(await get_task(client, req.params.taskId))
+
+    async def handle_get_task_result(req: GetTaskPayloadRequest) -> ServerResult:
+        return ServerResult(await get_task_result(client, req.params.taskId))
+
+    async def handle_cancel_task(req: CancelTaskRequest) -> ServerResult:
+        return ServerResult(await cancel_task(client, req.params.taskId))
+
+    server.set_logging_level()(set_logging_level)
     server.list_tools()(list_tools)
     server.list_resources()(list_resources)
     server.read_resource()(read_resource)
     # call_tool validates input itself so refusals are Problems, not schema text.
-    server.call_tool(validate_input=False)(invoke)
+    server.request_handlers[CallToolRequest] = handle_call_tool
+    server.request_handlers[GetTaskRequest] = handle_get_task
+    server.request_handlers[GetTaskPayloadRequest] = handle_get_task_result
+    server.request_handlers[CancelTaskRequest] = handle_cancel_task
     return server
 
 

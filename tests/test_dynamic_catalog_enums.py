@@ -73,7 +73,7 @@ def test_generated_catalog_matches_pinned_json():
     assert set(TOPOLOGY_PARAM_NAMES["fork_flush"]) == {"branches", "rounds", "exploit_bps"}
     assert TOPOLOGY_PARAM_BOUNDS["branches"] == (2, 32, 4)
     assert DEFAULT_RUN_PROFILE == "swarms-v2"
-    assert PROFILE_REQUIRES_RESEARCH_TASK == {"fork-flush": True, "swarms-v2": False}
+    assert PROFILE_REQUIRES_RESEARCH_TASK == {"fork-flush": False, "swarms-v2": False}
 
     assert tuple(pack["pack_id"] for pack in billing["credit_packs"]) == CREDIT_PACK_IDS
     assert tuple(plan["id"] for plan in billing["plans"] if plan["switchable"]) == SWITCHABLE_PLANS

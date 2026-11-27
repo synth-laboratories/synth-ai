@@ -44,12 +44,14 @@ async def test_named_profile_and_research_task_reach_launch(contract):
         ) as api:
             await api.swarms.launch("task", budget="1")
             await api.swarms.launch("task", budget="1", profile="swarms-v2")
+            await api.swarms.launch("task", budget="1", profile="fork-flush")
             await api.swarms.launch(
-                "task", budget="1", profile="fork-flush", research_task="published-task"
+                "task", budget="1", profile="research-custom", research_task="published-task"
             )
     assert "profile" not in calls[0]
     assert calls[1]["profile"] == "swarms-v2"
-    assert calls[2]["research_task"] == "published-task"
+    assert calls[2]["profile"] == "fork-flush"
+    assert calls[3]["research_task"] == "published-task"
     assert all(
         "program" not in call and "method" not in call and "profile_overrides" not in call
         for call in calls

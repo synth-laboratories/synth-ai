@@ -2,8 +2,8 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.45.0
-  x-synth-api-version: "1.45.0"
+  version: 1.47.0
+  x-synth-api-version: "1.47.0"
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
     Every /v1 response emits Synth-API-Version (this contract SemVer) and Synth-Server-Version.
@@ -1500,7 +1500,7 @@ paths:
       x-synth-idempotency: "durable_key"
       x-synth-idempotency-key: true
       summary: Launch a run. optimizer is Swarms (swarms_v2, the default) unless pinned; Fork-and-Flush
-        (fork_flush) is experimental, never the default, and not served in this release.
+        (fork_flush) is opt-in and never the default.
       description: 'Problem codes on 503: launch_refund_unavailable (The execution service refused the launch and the hold
         refund could not be persisted) and launch_release_unavailable (the hold was refunded but the prepared
         program release could not be persisted). In both cases the run is failed with accounting_final=false
@@ -1797,10 +1797,11 @@ paths:
       - name: Last-Event-ID
         in: header
         description: Id of the last received SSE frame, a nonnegative event sequence optionally followed
-          by `.<level>` of the last received milestone.
+          by `.<level>` of the last received milestone and/or `+<core_seq>` for Core-emitted
+          supplemental events.
         schema:
           type: string
-          pattern: ^[0-9]+(\.[1-3])?$
+          pattern: ^[0-9]+(\.[1-3])?(\+[0-9]+)?$
       responses:
         '200':
           description: One page of events.
@@ -8015,30 +8016,34 @@ components:
           - $ref: '#/components/schemas/Exclude'
       description: Unordered hard restrictions across every managed inference actor. Provider restrictions
         include intermediaries and serving hosts. Omission leaves assignment to Synth.
-    RoutingCatalogRoute:
+    RoutingModelCapability:
       type: object
       additionalProperties: false
       required:
-      - preset
       - model
-      - providers
+      - efforts
+      - context_window
+      - maximum_output_tokens
       properties:
-        preset:
-          type: string
         model:
           type: string
-        providers:
+        efforts:
           type: array
           items:
             type: string
+        context_window:
+          type: integer
+          minimum: 1
+        maximum_output_tokens:
+          type: integer
+          minimum: 1
     RoutingCatalog:
       type: object
       additionalProperties: false
       required:
       - revision
       - models
-      - providers
-      - routes
+      - capabilities
       properties:
         revision:
           type: string
@@ -8046,14 +8051,10 @@ components:
           type: array
           items:
             type: string
-        providers:
+        capabilities:
           type: array
           items:
-            type: string
-        routes:
-          type: array
-          items:
-            $ref: '#/components/schemas/RoutingCatalogRoute'
+            $ref: '#/components/schemas/RoutingModelCapability'
     RoutingActor:
       type: object
       additionalProperties: false
@@ -8184,6 +8185,17 @@ components:
             $ref: '#/components/schemas/Family'
         routing:
           $ref: '#/components/schemas/RoutingCatalog'
+    TopologyParamBounds:
+      type: object
+      additionalProperties: false
+      required: [min, max, default]
+      properties:
+        min:
+          type: integer
+        max:
+          type: integer
+        default:
+          type: integer
     TopologyCatalogEntry:
       type: object
       additionalProperties: false
@@ -8192,8 +8204,8 @@ components:
         topology:
           type: string
           enum: [swarms_v2, fork_flush]
-          description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
-            and never the default; not served in this release.
+          description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, opt-in
+            and never the default.
         version:
           type: integer
           minimum: 1
@@ -8209,6 +8221,10 @@ components:
           type: string
         cause:
           type: string
+        params:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TopologyParamBounds'
     OptimizerRequest:
       oneOf:
       - type: string
@@ -8220,8 +8236,8 @@ components:
           topology:
             type: string
             enum: [swarms_v2, fork_flush]
-            description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental
-              and never the default; not served in this release.
+            description: swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, opt-in
+              and never the default.
           version:
             type: integer
             minimum: 1
@@ -8291,7 +8307,7 @@ components:
     LaunchRequest:
       x-synth-profile-requirements:
         swarms-v2: false
-        fork-flush: true
+        fork-flush: false
       x-synth-default-profile: swarms-v2
       type: object
       additionalProperties: false
@@ -9312,6 +9328,24 @@ components:
             x-synth-event-kind: run.message.expired
           - $ref: '#/components/schemas/RunMessageEventPayload'
             x-synth-event-kind: run.message.posted
+          - $ref: '#/components/schemas/RunApprovalRequestedPayload'
+            x-synth-event-kind: approval.requested
+          - $ref: '#/components/schemas/RunApprovalDecidedPayload'
+            x-synth-event-kind: approval.decided
+          - $ref: '#/components/schemas/ResearchArtifactEventPayload'
+            x-synth-event-kind: research.artifact_published
+          - $ref: '#/components/schemas/ResearchExperimentEventPayload'
+            x-synth-event-kind: research.experiment_created
+          - $ref: '#/components/schemas/ResearchExperimentEventPayload'
+            x-synth-event-kind: research.experiment_revised
+          - $ref: '#/components/schemas/ResearchTrialEventPayload'
+            x-synth-event-kind: research.trial_logged
+          - $ref: '#/components/schemas/ResearchLogEventPayload'
+            x-synth-event-kind: research.hypothesis_created
+          - $ref: '#/components/schemas/ResearchLogEventPayload'
+            x-synth-event-kind: research.correction_recorded
+          - $ref: '#/components/schemas/ResearchLogEventPayload'
+            x-synth-event-kind: research.log_appended
           - type: 'null'
     RunGuidance:
       type: object
@@ -10149,6 +10183,12 @@ components:
         refusal:
           type: string
           description: Typed code of a rollout that was not scored, when it has one.
+        rejected:
+          type: string
+          maxLength: 120
+          pattern: '^[a-z][a-z0-9_.-]{0,119}$'
+          description: Typed candidate-rejection code recorded in the rollout response payload (for example candidate_compile_failed
+            or candidate_disallowed), when present.
         duration_ms:
           type: integer
           description: Present only when a start and an end were both recorded.
@@ -13642,6 +13682,234 @@ components:
       - status
       - revision
       - state
+
+    RunApprovalRequestedPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `approval.requested` (SYN-6057).
+      properties:
+        approval_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        action_kind:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+          minLength: 1
+        requested_by:
+          $ref: '#/components/schemas/RunApprovalActor'
+        requested_at:
+          type: string
+          format: date-time
+        timeout_ms:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+      required:
+      - approval_id
+      - action_kind
+      - summary
+      - requested_by
+      - requested_at
+      - timeout_ms
+      - expires_at
+      - revision
+      - status
+
+    RunApprovalDecidedPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `approval.decided` (SYN-6057).
+      properties:
+        approval_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        decision:
+          type: string
+          enum: [approve, reject]
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        operation_id:
+          type: string
+          minLength: 1
+        decided_by:
+          $ref: '#/components/schemas/RunApprovalActor'
+        decided_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          maxLength: 1024
+      required:
+      - approval_id
+      - decision
+      - status
+      - operation_id
+      - decided_by
+      - decided_at
+      - revision
+
+    ResearchArtifactEventPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `research.artifact_published` (SYN-6057).
+      properties:
+        artifact_id:
+          type: string
+          minLength: 1
+        notebook_id:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum: [html, react, svg, mermaid, markdown, chart]
+        origin:
+          type: string
+          enum: [agent, human]
+        revision:
+          type: integer
+          minimum: 1
+        revision_id:
+          type: string
+          minLength: 1
+        digest_sha256:
+          type: string
+          minLength: 1
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        summary:
+          type: string
+      required:
+      - artifact_id
+      - notebook_id
+      - title
+      - kind
+      - origin
+      - revision
+      - revision_id
+      - digest_sha256
+      - author_kind
+      - summary
+
+    ResearchExperimentEventPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `research.experiment_created` and `research.experiment_revised` (SYN-6057).
+      properties:
+        experiment_id:
+          type: string
+          minLength: 1
+        notebook_id:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          minLength: 1
+        revision:
+          type: integer
+          minimum: 1
+        arms:
+          type: array
+          items:
+            type: string
+        hypothesis:
+          type:
+          - string
+          - 'null'
+      required:
+      - experiment_id
+      - notebook_id
+      - title
+      - revision
+      - arms
+      - hypothesis
+
+    ResearchTrialEventPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `research.trial_logged` (SYN-6057).
+      properties:
+        experiment_id:
+          type: string
+          minLength: 1
+        trial_id:
+          type: string
+          minLength: 1
+        arm:
+          type: string
+          minLength: 1
+        state:
+          type: string
+          minLength: 1
+        depth:
+          type: integer
+          minimum: 0
+      required:
+      - experiment_id
+      - trial_id
+      - arm
+      - state
+      - depth
+
+    ResearchLogEventPayload:
+      type: object
+      additionalProperties: false
+      description: Typed RunEvent payload for `research.hypothesis_created`, `research.correction_recorded`, and `research.log_appended` (SYN-6057).
+      properties:
+        entry_id:
+          type: string
+          minLength: 1
+        notebook_id:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [hypothesis, attempt, observation, failure, decision, correction, preference, rationale]
+        author_kind:
+          type: string
+          enum: [human, local_agent, swarm_actor]
+        author_label:
+          type: string
+          minLength: 1
+        sync_state:
+          type: string
+          enum: [synced, pending, failed, missing_evidence]
+        correction_of:
+          type:
+          - string
+          - 'null'
+        artifact_ids:
+          type: array
+          items:
+            type: string
+      required:
+      - entry_id
+      - notebook_id
+      - category
+      - author_kind
+      - author_label
+      - sync_state
+      - correction_of
+      - artifact_ids
 
     ResearchExactReference:
       type: object

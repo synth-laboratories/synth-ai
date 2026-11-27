@@ -2,7 +2,7 @@
 from collections.abc import Sequence
 from typing import TypedDict
 
-CONTRACT_VERSION: str = "1.45.0"
+CONTRACT_VERSION: str = "1.47.0"
 CONTRACT_MAJOR: int = 1
 
 

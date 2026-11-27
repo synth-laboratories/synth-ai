@@ -49,7 +49,7 @@
       "availability": {
         "local": true,
         "staging": true,
-        "production": false
+        "production": true
       },
       "params": {
         "branches": {
@@ -148,19 +148,19 @@
       "id": "fork-flush",
       "revision": "1",
       "name": "Fork & Flush",
-      "description": "Approved research with isolated exploratory branches and a selected result.",
+      "description": "Exploratory parallel branches with periodic incumbent selection and budget-bounded rounds.",
       "topology_id": "fork_flush",
-      "requires_research_task": true,
-      "program_id": "research.fork_flush",
+      "requires_research_task": false,
+      "program_id": "fork_flush",
       "program_version": "1",
-      "family_id": "swarms.fork_flush",
-      "method_release": "research.fork_flush@1",
+      "family_id": "swarms.fork_flush_public",
+      "method_release": null,
       "default": false,
-      "deferred": true,
+      "deferred": false,
       "published": {
-        "local": false,
-        "staging": false,
-        "production": false
+        "local": true,
+        "staging": true,
+        "production": true
       }
     }
   ]
