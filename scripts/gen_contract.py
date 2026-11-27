@@ -19,6 +19,19 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "contracts/synth-v1.openapi.yaml"
+# Server-managed catalog enums decode known members into StrEnum and accept unknown
+# future strings without ResponseContractError (SYN-6038).
+OPEN_CATALOG_ENUMS = frozenset(
+    {
+        "CheckoutRequestPackId",
+        "OptimizerPinTopology",
+        "PromoTrialGrantPlanId",
+        "ResolvedOptimizerTopology",
+        "SandboxProfileGpuKind",
+        "SubscriptionChangeRequestPlanId",
+        "TopologyCatalogEntryTopology",
+    }
+)
 
 
 class JSONObject(dict[str, JsonValue]):
@@ -257,14 +270,18 @@ class _AnnotationFn(Protocol):
     def __call__(self, s: JSONObject, name: str = "") -> str: ...
 
 
+def _enum_annotation(name: str) -> str:
+    if name in OPEN_CATALOG_ENUMS:
+        return "Annotated[" + name + " | str, BeforeValidator(open_enum_value(" + name + "))]"
+    return "Annotated[" + name + ", BeforeValidator(enum_value(" + name + "))]"
+
+
 def _annotation_formatter(enums: dict[str, list[str]]) -> _AnnotationFn:
     def annotation(s: JSONObject, name: str = "") -> str:
         if "$ref" in s:
             reference = s.text("$ref").split("/")[-1]
             if reference in enums:
-                return (
-                    "Annotated[" + reference + ", BeforeValidator(enum_value(" + reference + "))]"
-                )
+                return _enum_annotation(reference)
             return reference
         refinements = s.object_array("allOf", optional=True)
         if refinements and "$ref" in refinements[0]:
@@ -300,7 +317,7 @@ def _annotation_formatter(enums: dict[str, list[str]]) -> _AnnotationFn:
                 and all(isinstance(value, str) for value in s.array("enum"))
             ):
                 enums[name] = s.strings("enum")
-                return "Annotated[" + name + ", BeforeValidator(enum_value(" + name + "))]"
+                return _enum_annotation(name)
             return "Literal[" + ", ".join(repr(v) for v in s.array("enum")) + "]"
         typ = s.get("type")
         if isinstance(typ, list):
@@ -383,7 +400,7 @@ def _render_models(
         "from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator",
         "from synth_ai._wire import WireModel",
         "from synth_ai._protocol import CompletionMilestone",
-        "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, strict_int, unique_items, utf8_max_bytes",
+        "from synth_ai._validation import budget_amount, enum_value, event_payload, message_text, no_nul, open_enum_value, strict_int, unique_items, utf8_max_bytes",
         "",
     ]
     preamble_length = len(lines)

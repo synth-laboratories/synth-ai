@@ -26,6 +26,22 @@ def enum_value(enum: type[E]) -> Callable[[object], E]:
     return validate
 
 
+def open_enum_value(enum: type[E]) -> Callable[[object], E | str]:
+    """Decode known StrEnum members while accepting forward-compatible server catalog strings."""
+
+    def validate(value: object) -> E | str:
+        if not isinstance(value, str):
+            raise ValueError("expected a string enum value")
+        if not value.strip() or any(c in value for c in _CONTROL_CHARS):
+            raise ValueError("expected a non-empty string without control characters")
+        try:
+            return enum(value)
+        except ValueError:
+            return value
+
+    return validate
+
+
 def utf8_max_bytes(maximum: int) -> Callable[[str], str]:
     def validate(value: str) -> str:
         if len(value.encode("utf-8")) > maximum:

@@ -5,7 +5,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
-.PHONY: help fmt check test clean test-e2e docs-check package-check
+.PHONY: help fmt check gen-check test clean test-e2e docs-check package-check
 
 help:
 	@printf '%s\n' \
@@ -18,7 +18,13 @@ help:
 fmt:
 	uv run --locked --extra mcp ruff format synth_ai scripts tests examples typing_tests
 
-check:
+gen-check:
+	uv run --locked --extra mcp python scripts/gen_contract.py --check
+	uv run --locked --extra mcp python scripts/gen_catalog.py --check
+	uv run --locked --extra mcp python scripts/gen_sync.py --check
+	uv run --locked --extra mcp python scripts/gen_file_limits.py --check
+
+check: gen-check
 	@if command -v gitleaks >/dev/null 2>&1 && [ -n "$$(git diff --cached --name-only)" ]; then \
 		gitleaks protect --staged --no-banner --redact; \
 	fi

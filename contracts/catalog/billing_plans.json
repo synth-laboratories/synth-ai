@@ -1,0 +1,206 @@
+{
+  "schema": "synth.billing-plans.v1",
+  "policy_version": "v023.20261014.weekly-signup",
+  "currency_units": {
+    "microcents_per_usd": 100000000,
+    "microcents_per_cent": 1000000,
+    "microcents_per_micro": 100
+  },
+  "constants": {
+    "unlimited": -1,
+    "minimum_swarm_concurrency": 10,
+    "max_override_lifetime_days": 365,
+    "promo_trial_max_days": 365,
+    "spend_resources": [
+      "agent_codex",
+      "sandbox",
+      "tinker",
+      "swarm_run"
+    ]
+  },
+  "plans": [
+    {
+      "id": "free_special",
+      "name": "Special Free",
+      "kind": "granted",
+      "price_cents": 0,
+      "interval": null,
+      "weekly_included_microcents": 20000000000,
+      "included_usage_limit_microcents": 20000000000,
+      "stripe_lookup_key": null,
+      "purchasable": false,
+      "switchable": false,
+      "trial_eligible": false,
+      "limits": {
+        "concurrent_runs": 25,
+        "concurrent_rollouts": 50,
+        "daily_spend_usd": 200,
+        "weekly_spend_usd": 400
+      },
+      "rhodes_job_caps": {}
+    },
+    {
+      "id": "free",
+      "name": "Free",
+      "kind": "free",
+      "price_cents": 0,
+      "interval": null,
+      "weekly_included_microcents": 1000000000,
+      "included_usage_limit_microcents": 1000000000,
+      "stripe_lookup_key": null,
+      "purchasable": false,
+      "switchable": false,
+      "trial_eligible": false,
+      "limits": {
+        "concurrent_runs": 10,
+        "concurrent_rollouts": 10,
+        "daily_spend_usd": 5,
+        "weekly_spend_usd": null
+      },
+      "rhodes_job_caps": {
+        "prompt_opt.max_concurrent": 10,
+        "prompt_opt.jobs_per_day": 200,
+        "research.jobs_per_day": 200,
+        "prompt_opt.rollouts_per_day": 2000
+      }
+    },
+    {
+      "id": "standard.monthly",
+      "name": "Standard",
+      "kind": "recurring",
+      "price_cents": 2000,
+      "interval": "month",
+      "weekly_included_microcents": 6000000000,
+      "included_usage_limit_microcents": 6000000000,
+      "stripe_lookup_key": "synth_standard_monthly",
+      "purchasable": true,
+      "switchable": true,
+      "trial_eligible": true,
+      "limits": {
+        "concurrent_runs": 10,
+        "concurrent_rollouts": 20,
+        "daily_spend_usd": 40,
+        "weekly_spend_usd": 150
+      },
+      "rhodes_job_caps": {}
+    },
+    {
+      "id": "max.monthly",
+      "name": "Max",
+      "kind": "recurring",
+      "price_cents": 20000,
+      "interval": "month",
+      "weekly_included_microcents": 30000000000,
+      "included_usage_limit_microcents": 30000000000,
+      "stripe_lookup_key": "synth_max_monthly",
+      "purchasable": true,
+      "switchable": true,
+      "trial_eligible": true,
+      "limits": {
+        "concurrent_runs": 50,
+        "concurrent_rollouts": 100,
+        "daily_spend_usd": 400,
+        "weekly_spend_usd": 1500
+      },
+      "rhodes_job_caps": {}
+    },
+    {
+      "id": "credits.custom",
+      "name": "Credits",
+      "kind": "credit_pack",
+      "price_cents": 1,
+      "interval": null,
+      "weekly_included_microcents": 0,
+      "included_usage_limit_microcents": 1000000000,
+      "stripe_lookup_key": null,
+      "purchasable": true,
+      "switchable": false,
+      "trial_eligible": false,
+      "limits": {
+        "concurrent_runs": 10,
+        "concurrent_rollouts": 10,
+        "daily_spend_usd": 100,
+        "weekly_spend_usd": 500
+      },
+      "rhodes_job_caps": {
+        "prompt_opt.max_concurrent": 10,
+        "prompt_opt.jobs_per_day": 200,
+        "research.jobs_per_day": 200,
+        "prompt_opt.rollouts_per_day": 2000
+      }
+    },
+    {
+      "id": "internal",
+      "name": "Synth Internal",
+      "kind": "internal",
+      "price_cents": 0,
+      "interval": null,
+      "weekly_included_microcents": 30000000000,
+      "included_usage_limit_microcents": 30000000000,
+      "stripe_lookup_key": null,
+      "purchasable": false,
+      "switchable": false,
+      "trial_eligible": false,
+      "limits": {
+        "concurrent_runs": -1,
+        "concurrent_rollouts": -1,
+        "daily_spend_usd": null,
+        "weekly_spend_usd": -1
+      },
+      "rhodes_job_caps": {}
+    }
+  ],
+  "payg_tier": {
+    "daily_spend_usd": 100,
+    "weekly_spend_usd": 500,
+    "concurrent_runs": 10,
+    "concurrent_rollouts": 10
+  },
+  "credit_packs": [
+    {
+      "pack_id": "credits.10",
+      "name": "$10 Credits",
+      "price_cents": 1000
+    },
+    {
+      "pack_id": "credits.25",
+      "name": "$25 Credits",
+      "price_cents": 2500
+    },
+    {
+      "pack_id": "credits.100",
+      "name": "$100 Credits",
+      "price_cents": 10000
+    }
+  ],
+  "custom_credit": {
+    "min_cents": 500,
+    "max_cents": 1000000
+  },
+  "auto_reload": {
+    "daily_cap": 3,
+    "monthly_ceiling_cents": 500000,
+    "min_threshold_cents": 500,
+    "max_threshold_cents": 100000,
+    "min_amount_cents": 1000,
+    "max_amount_cents": 100000
+  },
+  "spend_alerts": {
+    "max_monthly_microcents": 1000000000000000,
+    "thresholds_percent": [
+      50,
+      75,
+      90,
+      100
+    ]
+  },
+  "plan_requests": {
+    "body_bytes_max": 98304,
+    "use_case_bytes_max": 4096,
+    "links_max": 5,
+    "url_bytes_max": 2048,
+    "note_bytes_max": 1000,
+    "list_limit": 100,
+    "denial_cooldown_days": 14
+  }
+}

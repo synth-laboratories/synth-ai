@@ -177,11 +177,11 @@ def test_public_names_mark_experimental_and_never_default(contract):
     topologies = FamilyList.model_validate(raw).topologies
     assert topologies is not None
     swarms, fork = topologies
-    assert topology_name(swarms) == "Swarms (default)"
-    assert topology_name(fork) == "Fork-and-Flush (experimental, unavailable)"
+    assert topology_name(swarms) == "Swarms v2 (default)"
+    assert topology_name(fork) == "Fork & Flush (experimental, unavailable)"
     # A misconfigured catalog cannot promote an experimental topology to default.
     promoted = fork.model_copy(update={"auto": True, "availability": "served"})
-    assert topology_name(promoted) == "Fork-and-Flush (experimental)"
+    assert topology_name(promoted) == "Fork & Flush (experimental)"
 
 
 def test_cli_families_prints_public_names(api, capsys, contract):
@@ -209,7 +209,7 @@ def test_cli_families_prints_public_names(api, capsys, contract):
     assert code == EXIT_OK, err
     assert not out.lstrip().startswith("{")
     assert "TOPOLOGY" in out
-    assert "Fork-and-Flush (experimental, unavailable)" in out
+    assert "Fork & Flush (experimental, unavailable)" in out
     assert "FAMILY" in out
     assert "swarms.general" in out
     assert "General-purpose multi-agent swarm" in out
@@ -219,3 +219,72 @@ def test_cli_families_prints_public_names(api, capsys, contract):
     parsed = json.loads(out)
     assert parsed["topologies"][0]["topology"] == "fork_flush"
     assert parsed["families"][0]["id"] == "swarms.general"
+
+
+def test_cli_fork_flush_flags_and_guidance_reach_launch(api, capsys, tmp_path):
+    guidance_doc = [
+        {
+            "id": "proof",
+            "kind": "outcome",
+            "text": "Include verifiable evidence.",
+            "priority": "must",
+        }
+    ]
+    guidance_path = tmp_path / "guidance.json"
+    guidance_path.write_text(json.dumps(guidance_doc))
+    argv = [
+        "run",
+        "Goal",
+        "--budget",
+        "2.00",
+        "--optimizer",
+        "fork_flush@1",
+        "--branches",
+        "6",
+        "--rounds",
+        "4",
+        "--exploit-bps",
+        "2500",
+        "--guidance",
+        str(guidance_path),
+    ]
+    code, _, err = invoke(api, capsys, *argv)
+    assert code == EXIT_OK, err
+    launch = json.loads(next(r for oid, r in api.calls if oid == "createRun").content)
+    assert launch["optimizer"] == {
+        "topology": "fork_flush",
+        "version": 1,
+        "params": {"branches": 6, "rounds": 4, "exploit_bps": 2500},
+    }
+    assert launch["guidance"] == guidance_doc
+
+
+@pytest.mark.parametrize("optimizer", [[], ["--optimizer", "auto"], ["--optimizer", "swarms_v2@2"]])
+def test_cli_fork_flush_flags_require_fork_flush_pin(api, capsys, optimizer):
+    argv = ["run", "Goal", "--budget", "1.00", *optimizer, "--branches", "4"]
+    code, _, err = invoke(api, capsys, *argv)
+    assert code == EXIT_CLIENT_ERROR
+    assert "fork_flush@VERSION" in err
+    assert not any(oid == "createRun" for oid, _ in api.calls)
+
+
+@pytest.mark.parametrize("document", ["{}", "not json", json.dumps([{"id": "x"}])])
+def test_cli_refuses_bad_guidance_before_any_call(api, capsys, tmp_path, document):
+    guidance_path = tmp_path / "guidance.json"
+    guidance_path.write_text(document)
+    upload = tmp_path / "notes.md"
+    upload.write_bytes(b"# Notes\n")
+    argv = [
+        "run",
+        "Goal",
+        "--budget",
+        "1.00",
+        "--file",
+        str(upload),
+        "--guidance",
+        str(guidance_path),
+    ]
+    code, out, err = invoke(api, capsys, *argv)
+    assert code == EXIT_CLIENT_ERROR and out == "", err
+    assert err.startswith("client_error: --guidance ")
+    assert api.calls == []

@@ -22,6 +22,7 @@ from synth_ai._validation import (
     event_payload,
     message_text,
     no_nul,
+    open_enum_value,
     strict_int,
     unique_items,
     utf8_max_bytes,
@@ -1387,7 +1388,9 @@ class PromoTrialGrant(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     trial_id: str
-    plan_id: Annotated[PromoTrialGrantPlanId, BeforeValidator(enum_value(PromoTrialGrantPlanId))]
+    plan_id: Annotated[
+        PromoTrialGrantPlanId | str, BeforeValidator(open_enum_value(PromoTrialGrantPlanId))
+    ]
     starts_at: str
     ends_at: str
 
@@ -1893,7 +1896,10 @@ class SandboxProfile(WireModel):
     size_id: str
     domicile: Annotated[SandboxProfileDomicile, BeforeValidator(enum_value(SandboxProfileDomicile))]
     gpu_kind: (
-        Annotated[SandboxProfileGpuKind, BeforeValidator(enum_value(SandboxProfileGpuKind))] | None
+        Annotated[
+            SandboxProfileGpuKind | str, BeforeValidator(open_enum_value(SandboxProfileGpuKind))
+        ]
+        | None
     ) = None
     gpu_count: Annotated[int, Field(ge=1)] | None = None
 
@@ -1956,8 +1962,8 @@ class SubscriptionChangeRequest(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     plan_id: Annotated[
-        SubscriptionChangeRequestPlanId,
-        BeforeValidator(enum_value(SubscriptionChangeRequestPlanId)),
+        SubscriptionChangeRequestPlanId | str,
+        BeforeValidator(open_enum_value(SubscriptionChangeRequestPlanId)),
     ]
 
 
@@ -1992,7 +1998,8 @@ class TopologyCatalogEntry(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     topology: Annotated[
-        TopologyCatalogEntryTopology, BeforeValidator(enum_value(TopologyCatalogEntryTopology))
+        TopologyCatalogEntryTopology | str,
+        BeforeValidator(open_enum_value(TopologyCatalogEntryTopology)),
     ]
     version: Annotated[int, Field(ge=1)]
     label: Annotated[
@@ -2222,7 +2229,10 @@ class CheckoutRequest(WireModel):
     )
     plan_id: str | None = None
     pack_id: (
-        Annotated[CheckoutRequestPackId, BeforeValidator(enum_value(CheckoutRequestPackId))] | None
+        Annotated[
+            CheckoutRequestPackId | str, BeforeValidator(open_enum_value(CheckoutRequestPackId))
+        ]
+        | None
     ) = None
     credit: Money | None = None
 
@@ -2468,7 +2478,9 @@ class OptimizerPin(WireModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
-    topology: Annotated[OptimizerPinTopology, BeforeValidator(enum_value(OptimizerPinTopology))]
+    topology: Annotated[
+        OptimizerPinTopology | str, BeforeValidator(open_enum_value(OptimizerPinTopology))
+    ]
     version: Annotated[int, Field(ge=1)]
     params: OptimizerParams | None = None
 
@@ -2642,7 +2654,7 @@ class ResolvedOptimizer(WireModel):
         extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
     )
     topology: Annotated[
-        ResolvedOptimizerTopology, BeforeValidator(enum_value(ResolvedOptimizerTopology))
+        ResolvedOptimizerTopology | str, BeforeValidator(open_enum_value(ResolvedOptimizerTopology))
     ]
     version: Annotated[int, Field(ge=1)]
     params: OptimizerParams

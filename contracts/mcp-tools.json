@@ -606,10 +606,7 @@
                       },
                       "topology": {
                         "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental and never the default; not served in this release.",
-                        "enum": [
-                          "swarms_v2",
-                          "fork_flush"
-                        ],
+                        "minLength": 1,
                         "type": "string"
                       },
                       "version": {
@@ -1275,10 +1272,7 @@
                       },
                       "topology": {
                         "description": "swarms_v2 is Swarms, the default. fork_flush is Fork-and-Flush, experimental and never the default; not served in this release.",
-                        "enum": [
-                          "swarms_v2",
-                          "fork_flush"
-                        ],
+                        "minLength": 1,
                         "type": "string"
                       },
                       "version": {
@@ -2360,11 +2354,7 @@
                 "type": "object"
               },
               "pack_id": {
-                "enum": [
-                  "credits.10",
-                  "credits.25",
-                  "credits.100"
-                ],
+                "minLength": 1,
                 "type": "string"
               },
               "plan_id": {
@@ -2477,10 +2467,7 @@
             "additionalProperties": false,
             "properties": {
               "plan_id": {
-                "enum": [
-                  "standard.monthly",
-                  "max.monthly"
-                ],
+                "minLength": 1,
                 "type": "string"
               }
             },

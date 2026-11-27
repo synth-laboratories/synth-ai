@@ -190,9 +190,9 @@ print(run.routing)
 
 Lists are unordered hard constraints. Empty `only`, duplicates and unknown
 catalog choices are invalid; `exclude=[]` has no effect. Every intermediary and
-inference host must be allowed, so an OpenRouter route through Azure needs both
-names in `only`. `routing_catalog()` lists the current supported routes. Today
-those are direct OpenAI and OpenRouter through Azure, serving `gpt-6-luna`.
+inference host along a route must be allowed in `only`. Call
+`routing_catalog()` or `launch_choices()` to inspect the routes and models
+currently served for your organization.
 Infeasible choices return `routing_constraints_unsatisfiable` before funding.
 Readback retains the normalized request, policy/catalog revisions and the actual
 model, participants and profile digest for every actor, including workers.

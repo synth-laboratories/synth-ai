@@ -40,7 +40,7 @@ def _forbid_network(request: httpx.Request) -> httpx.Response:
                 "role_assignments": {"worker": RoleAssignment(inference_profile="luna-high")},
             },
         ),
-        ("solve", {"budget": "1.00", "optimizer": {"topology": "no_such_topology", "version": 1}}),
+        ("solve", {"budget": "1.00", "optimizer": {"topology": "swarms_v2", "version": 0}}),
     ],
 )
 async def test_all_contract_invalid_launches_raise_typed_synth_error(

@@ -12,7 +12,6 @@ from ._cli_research import configure_research, execute_research, write_output_by
 from ._generated.models import (
     AutoReloadRequest,
     CheckoutRequest,
-    CheckoutRequestPackId,
     LaunchRequest,
     MintApiKeyRequest,
     Money,
@@ -20,7 +19,6 @@ from ._generated.models import (
     RunLabelsRequest,
     SetSpendAlertsRequest,
     SubscriptionChangeRequest,
-    SubscriptionChangeRequestPlanId,
     UpdateApiKeyRequest,
     UploadCreateRequest,
 )
@@ -316,11 +314,10 @@ async def _execute_billing(client: AsyncSynthClient, args: argparse.Namespace) -
                 raise ValueError(
                     "checkout requires --body PATH or exactly one of --plan, --pack, or --amount"
                 )
-            pack = CheckoutRequestPackId(args.pack_id) if args.pack_id is not None else None
             credit = Money(amount=args.amount, currency="USD") if args.amount is not None else None
             return await client.billing.checkout(
                 plan_id=args.plan_id,
-                pack_id=pack,
+                pack_id=args.pack_id,
                 credit=credit,
                 idempotency_key=args.idempotency_key,
             )
@@ -329,9 +326,9 @@ async def _execute_billing(client: AsyncSynthClient, args: argparse.Namespace) -
                 if args.plan_id is not None:
                     raise ValueError("pass either --body or --plan, not both")
                 plan = await _parse_body(SubscriptionChangeRequest, args.body)
-                plan_id = plan.plan_id
+                plan_id = str(plan.plan_id)
             elif args.plan_id is not None:
-                plan_id = SubscriptionChangeRequestPlanId(args.plan_id)
+                plan_id = str(args.plan_id)
             else:
                 raise ValueError("change-plan requires --plan PLAN_ID or --body PATH")
             return await client.billing.change_subscription_plan(

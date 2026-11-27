@@ -1,0 +1,10 @@
+repository = "https://github.com/synth-laboratories/synth-backend"
+commit = "55199528c2b4e234d3951e44c414e66807263b99"
+
+[files.billing_plans]
+path = "contracts/catalog/billing_plans.json"
+sha256 = "e1f7414830dd6e68912ae91da278bed513017a8010cd45371f886e87483fd009"
+
+[files.topologies]
+path = "contracts/catalog/topologies.json"
+sha256 = "93141aecabb06fbf86607744325228df9d1fae7a59dc13b90c94fc7918e05437"

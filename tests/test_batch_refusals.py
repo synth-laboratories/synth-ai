@@ -15,7 +15,7 @@ from synth_ai.errors import InvalidRequestError
     ("message", "optimizer"),
     [
         ("x" * (MESSAGE_MAX_BYTES + 1), None),
-        ("safe", {"topology": "no_such_topology", "version": 1}),
+        ("safe", {"topology": "swarms_v2", "version": 0}),
     ],
 )
 async def test_invalid_launch_is_typed_before_network(message, optimizer):

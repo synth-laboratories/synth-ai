@@ -82,7 +82,7 @@ CLIENT_SIDE = {
 
 
 @pytest.mark.parametrize("surface", SURFACES)
-@pytest.mark.parametrize("step", [Step.OVERSIZE, Step.TOPOLOGY])
+@pytest.mark.parametrize("step", [Step.OVERSIZE])
 def test_contract_invalid_launch_never_reaches_core(tmp_path, surface, step):
     def responder(method, path, _):
         raise AssertionError("an invalid launch must not reach Core")
@@ -91,6 +91,18 @@ def test_contract_invalid_launch_never_reaches_core(tmp_path, surface, step):
     assert requests == []
     expected = CLIENT_SIDE[surface]
     assert (result.verdict, result.cause) == expected, result
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+def test_unknown_topology_reaches_core_and_surfaces_typed_refusal(tmp_path, surface):
+    """SYN-6038: server-managed topology names pass client validation; Core owns availability."""
+
+    def responder(method, path, _):
+        return 422, problem("optimizer_topology_unavailable", 422), {}
+
+    result, requests = run(surface, responder, tmp_path, Step.TOPOLOGY)
+    assert result.verdict == Verdict.PASS, result
+    assert [(method, path) for method, path, _ in requests] == [("POST", "/v1/runs")]
 
 
 @pytest.mark.parametrize("surface", SURFACES)

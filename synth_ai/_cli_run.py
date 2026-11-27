@@ -21,10 +21,12 @@ from ._generated.models import (
     OptimizerRequest,
     OwnerResourceRequest,
     RoleAssignment,
+    RunGuidance,
     RunInputs,
     RunSnapshot,
 )
 from ._generated.policy import MESSAGE_MAX_BYTES
+from ._generated.topologies import TOPOLOGY_PARAM_NAMES
 from ._observer import validate_wait
 from ._protocol import CompletionMilestone
 from ._validation import message_text, validate_idempotency_key
@@ -46,6 +48,17 @@ ASSIGN_FIELDS = {
     "option": "sandbox_option",
 }
 RESOURCES = TypeAdapter(list[OwnerResourceRequest])
+GUIDANCE = TypeAdapter(list[RunGuidance])
+_PARAM_FLAGS: dict[str, str] = {
+    "max_tasks": "--max-tasks",
+    "max_repairs_per_task": "--max-repairs-per-task",
+    "branches": "--branches",
+    "rounds": "--rounds",
+    "exploit_bps": "--exploit-bps",
+}
+_PARAM_OWNER: dict[str, str] = {
+    param: topology for topology, params in TOPOLOGY_PARAM_NAMES.items() for param in params
+}
 M = TypeVar("M", bound=BaseModel)
 
 
@@ -56,7 +69,13 @@ class RecordPrinter(Protocol):
 
 
 def parse_optimizer(
-    value: str | None, *, max_tasks: int | None = None, max_repairs_per_task: int | None = None
+    value: str | None,
+    *,
+    max_tasks: int | None = None,
+    max_repairs_per_task: int | None = None,
+    branches: int | None = None,
+    rounds: int | None = None,
+    exploit_bps: int | None = None,
 ) -> OptimizerRequest | None:
     """Parse the public optimizer selector; Core owns resolution and availability."""
     controls = {
@@ -64,22 +83,32 @@ def parse_optimizer(
         for name, number in (
             ("max_tasks", max_tasks),
             ("max_repairs_per_task", max_repairs_per_task),
+            ("branches", branches),
+            ("rounds", rounds),
+            ("exploit_bps", exploit_bps),
         )
         if number is not None
     }
+    owners = {owner for name in controls if (owner := _PARAM_OWNER.get(name)) is not None}
     if value is None or value == "auto":
         if controls:
-            raise UsageError(
-                "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
-            )
+            required = ", ".join(f"{owner}@VERSION" for owner in sorted(owners))
+            flags = " and ".join(_PARAM_FLAGS[name] for name in controls)
+            raise UsageError(f"{flags} need --optimizer {required}")
         return None if value is None else "auto"
     topology, separator, version = value.partition("@")
-    if separator == "" or not version.isascii() or not version.isdecimal():
+    if separator == "" or not topology.strip() or not version.isascii() or not version.isdecimal():
         raise UsageError("optimizer must be auto or TOPOLOGY@VERSION")
-    if controls and topology != "swarms_v2":
-        raise UsageError(
-            "--max-tasks and --max-repairs-per-task need --optimizer swarms_v2@VERSION"
-        )
+    if controls and topology in TOPOLOGY_PARAM_NAMES:
+        allowed = set(TOPOLOGY_PARAM_NAMES[topology])
+        mismatched = [name for name in controls if name not in allowed]
+        if mismatched:
+            required_owners = sorted(
+                {owner for name in mismatched if (owner := _PARAM_OWNER.get(name)) is not None}
+            )
+            required = ", ".join(f"{owner}@VERSION" for owner in required_owners)
+            flags = " and ".join(_PARAM_FLAGS[name] for name in mismatched)
+            raise UsageError(f"{flags} need --optimizer {required}")
     pin: dict[str, object] = {"topology": topology, "version": int(version)}
     if controls:
         pin["params"] = controls
@@ -89,6 +118,26 @@ def parse_optimizer(
         first = error.errors(include_input=False)[0]
         where = ".".join(str(part) for part in first["loc"])
         raise UsageError("--optimizer " + value + ": " + where + ": " + first["msg"]) from error
+
+
+def parse_guidance(path: str | None) -> list[RunGuidance] | None:
+    """Read the public run guidance array (the launch body's `guidance` array)."""
+    if path is None:
+        return None
+    try:
+        document = Path(path).read_bytes()
+    except OSError as error:
+        raise UsageError(
+            "--guidance file unreadable: " + path + ": " + error.__class__.__name__
+        ) from error
+    try:
+        return GUIDANCE.validate_json(document)
+    except ValidationError as error:
+        first = error.errors(include_input=False)[0]
+        where = ".".join(str(part) for part in first["loc"]) or "document"
+        raise UsageError(
+            "--guidance must be a JSON array of guidance items: " + where + ": " + first["msg"]
+        ) from error
 
 
 def parse_resources(path: str | None) -> list[OwnerResourceRequest] | None:
@@ -224,13 +273,16 @@ async def execute_run(
         labels=parse_labels(args.label),
         resources=parse_resources(args.resources),
         routing=None,
-        guidance=None,
+        guidance=parse_guidance(args.guidance),
         role_assignments=parse_role_assignments(args.assign, args.planner_decides),
         launch_menu_revision=args.menu_revision,
         optimizer=parse_optimizer(
             args.optimizer,
             max_tasks=args.max_tasks,
             max_repairs_per_task=args.max_repairs_per_task,
+            branches=args.branches,
+            rounds=args.rounds,
+            exploit_bps=args.exploit_bps,
         ),
         continue_from=args.continue_from,
     )

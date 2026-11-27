@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from ._generated.billing_plans import PAYG_DAILY_SPEND_USD, PAYG_WEEKLY_SPEND_USD
 from ._generated.models import (
     Account,
     AutoReload,
@@ -220,7 +221,7 @@ def promo_redemption(value: PromoRedemption) -> str:
         rows.append(
             (
                 "trial",
-                f"{value.trial.plan_id.value} ({value.trial.trial_id}, ends {value.trial.ends_at})",
+                f"{value.trial.plan_id!s} ({value.trial.trial_id}, ends {value.trial.ends_at})",
             )
         )
     return facts(rows)
@@ -457,7 +458,13 @@ def balance(value: Balance) -> str:
         ("ledger", money(value.ledger)),
     ]
     if value.payg_credits_active:
-        rows.insert(1, ("spend tier", "payg_credits ($100/day, $500/week)"))
+        rows.insert(
+            1,
+            (
+                "spend tier",
+                f"payg_credits (${PAYG_DAILY_SPEND_USD}/day, ${PAYG_WEEKLY_SPEND_USD}/week)",
+            ),
+        )
     if value.included_allowance is not None:
         ia = value.included_allowance
         rows.append(

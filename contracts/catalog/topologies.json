@@ -1,0 +1,167 @@
+{
+  "schema": "synth.topologies.v1",
+  "environments": [
+    "local",
+    "staging",
+    "production"
+  ],
+  "topologies": [
+    {
+      "id": "swarms_v2",
+      "version": 2,
+      "display_name": "Swarms v2",
+      "visibility": "public",
+      "label": "default",
+      "auto": true,
+      "family_id": "swarms.general",
+      "family_version": "1",
+      "availability": {
+        "local": true,
+        "staging": true,
+        "production": true
+      },
+      "params": {
+        "max_tasks": {
+          "type": "integer",
+          "min": 1,
+          "max": 4096,
+          "default": 4,
+          "choice_key": "maximum_tasks"
+        },
+        "max_repairs_per_task": {
+          "type": "integer",
+          "min": 0,
+          "max": 32,
+          "default": 2,
+          "choice_key": "maximum_repairs"
+        }
+      }
+    },
+    {
+      "id": "fork_flush",
+      "version": 1,
+      "display_name": "Fork & Flush",
+      "visibility": "public",
+      "label": "experimental",
+      "auto": false,
+      "family_id": "swarms.fork_flush_public",
+      "family_version": "1",
+      "availability": {
+        "local": true,
+        "staging": true,
+        "production": false
+      },
+      "params": {
+        "branches": {
+          "type": "integer",
+          "min": 2,
+          "max": 32,
+          "default": 4,
+          "choice_key": "branches"
+        },
+        "rounds": {
+          "type": "integer",
+          "min": 1,
+          "max": 16,
+          "default": 3,
+          "choice_key": "rounds"
+        },
+        "exploit_bps": {
+          "type": "integer",
+          "min": 1000,
+          "max": 6000,
+          "default": 3000,
+          "choice_key": "exploit_bps"
+        }
+      }
+    },
+    {
+      "id": "forgetting",
+      "version": 1,
+      "display_name": "Forgetting",
+      "visibility": "research",
+      "label": "research",
+      "auto": false,
+      "family_id": null,
+      "family_version": null,
+      "availability": {
+        "local": true,
+        "staging": true,
+        "production": false
+      },
+      "params": {}
+    },
+    {
+      "id": "mira",
+      "version": 1,
+      "display_name": "MIRA",
+      "visibility": "research",
+      "label": "research",
+      "auto": false,
+      "family_id": null,
+      "family_version": null,
+      "availability": {
+        "local": true,
+        "staging": true,
+        "production": false
+      },
+      "params": {}
+    },
+    {
+      "id": "scalemas",
+      "version": 1,
+      "display_name": "ScaleMAS",
+      "visibility": "research",
+      "label": "research",
+      "auto": false,
+      "family_id": null,
+      "family_version": null,
+      "availability": {
+        "local": true,
+        "staging": true,
+        "production": false
+      },
+      "params": {}
+    }
+  ],
+  "run_profiles": [
+    {
+      "id": "swarms-v2",
+      "revision": "1",
+      "name": "Swarms v2",
+      "description": "General-purpose planning, parallel work and review.",
+      "topology_id": "swarms_v2",
+      "requires_research_task": false,
+      "program_id": "swarms_v2",
+      "program_version": "2",
+      "family_id": "swarms.general",
+      "method_release": null,
+      "default": true,
+      "deferred": false,
+      "published": {
+        "local": true,
+        "staging": true,
+        "production": true
+      }
+    },
+    {
+      "id": "fork-flush",
+      "revision": "1",
+      "name": "Fork & Flush",
+      "description": "Approved research with isolated exploratory branches and a selected result.",
+      "topology_id": "fork_flush",
+      "requires_research_task": true,
+      "program_id": "research.fork_flush",
+      "program_version": "1",
+      "family_id": "swarms.fork_flush",
+      "method_release": "research.fork_flush@1",
+      "default": false,
+      "deferred": true,
+      "published": {
+        "local": false,
+        "staging": false,
+        "production": false
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ from typing_extensions import override
 
 from ._cli_surfaces import configure
 from ._generated.models import MessageKind
+from ._generated.topologies import TOPOLOGY_PARAM_BOUNDS
 from ._version import __version__
 from .environments import Environment
 
@@ -163,17 +164,40 @@ def _configure_run_launch(run: argparse.ArgumentParser, *, stdin_piped: bool) ->
     run.add_argument("--idempotency-key")
     run.add_argument("--profile")
     run.add_argument("--optimizer", metavar="auto|TOPOLOGY@VERSION")
+    max_tasks_lo, max_tasks_hi, _ = TOPOLOGY_PARAM_BOUNDS["max_tasks"]
+    max_repairs_lo, max_repairs_hi, _ = TOPOLOGY_PARAM_BOUNDS["max_repairs_per_task"]
+    branches_lo, branches_hi, _ = TOPOLOGY_PARAM_BOUNDS["branches"]
+    rounds_lo, rounds_hi, _ = TOPOLOGY_PARAM_BOUNDS["rounds"]
+    exploit_lo, exploit_hi, _ = TOPOLOGY_PARAM_BOUNDS["exploit_bps"]
     run.add_argument(
         "--max-tasks",
         type=int,
         metavar="N",
-        help="Swarms work-plan tasks, 1..4096, at least --parallel-workers (needs swarms_v2 pin)",
+        help=f"Swarms work-plan tasks, {max_tasks_lo}..{max_tasks_hi}, at least --parallel-workers (needs swarms_v2 pin)",
     )
     run.add_argument(
         "--max-repairs-per-task",
         type=int,
         metavar="N",
-        help="Swarms repairs per rejected task, 0..32 (needs swarms_v2 pin)",
+        help=f"Swarms repairs per rejected task, {max_repairs_lo}..{max_repairs_hi} (needs swarms_v2 pin)",
+    )
+    run.add_argument(
+        "--branches",
+        type=int,
+        metavar="N",
+        help=f"Fork & Flush branches per round, {branches_lo}..{branches_hi} (needs fork_flush pin)",
+    )
+    run.add_argument(
+        "--rounds",
+        type=int,
+        metavar="N",
+        help=f"Fork & Flush rounds, {rounds_lo}..{rounds_hi} (needs fork_flush pin)",
+    )
+    run.add_argument(
+        "--exploit-bps",
+        type=int,
+        metavar="N",
+        help=f"Fork & Flush incumbent budget share in bps, {exploit_lo}..{exploit_hi} (needs fork_flush pin)",
     )
     run.add_argument("--continue-from", metavar="RUN")
     run.add_argument("--research-task")
@@ -195,6 +219,11 @@ def _configure_run_launch(run: argparse.ArgumentParser, *, stdin_piped: bool) ->
         "--resources",
         metavar="PATH",
         help="JSON array of resource requests, sent as the launch's resources",
+    )
+    run.add_argument(
+        "--guidance",
+        metavar="PATH",
+        help="JSON array of run guidance items, sent as the launch's guidance",
     )
     run.add_argument(
         "--assign",

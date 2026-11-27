@@ -296,6 +296,34 @@ def _lift_all_schemas(
     return schemas
 
 
+_OPEN_MCP_CATALOG_FIELDS = frozenset({"pack_id", "plan_id", "topology"})
+
+
+def _widen_mcp_catalog_enums(value: JsonValue, *, field: str | None = None) -> JsonValue:
+    """Allow forward-compatible server catalog IDs in MCP request validation (SYN-6038)."""
+    if isinstance(value, list):
+        return [_widen_mcp_catalog_enums(item) for item in value]
+    if isinstance(value, dict):
+        updated: dict[str, JsonValue] = {}
+        for key, item in value.items():
+            if key == "properties" and isinstance(item, dict):
+                updated[key] = {
+                    prop: _widen_mcp_catalog_enums(prop_schema, field=prop)
+                    for prop, prop_schema in item.items()
+                }
+            else:
+                updated[key] = _widen_mcp_catalog_enums(item)
+        if (
+            field in _OPEN_MCP_CATALOG_FIELDS
+            and updated.get("type") == "string"
+            and "enum" in updated
+        ):
+            updated.pop("enum")
+            updated.setdefault("minLength", 1)
+        return updated
+    return value
+
+
 def _render_mcp_catalog(
     doc: JSONObject,
     root: Path,
@@ -342,8 +370,8 @@ def _render_mcp_catalog(
                     required.append(narrowed)
             if "requestBody" in operation:
                 body = operation.object("requestBody")
-                properties["body"] = expand(
-                    body.object("content").object("application/json")["schema"]
+                properties["body"] = _widen_mcp_catalog_enums(
+                    expand(body.object("content").object("application/json")["schema"])
                 )
                 if body.flag("required"):
                     required.append("body")

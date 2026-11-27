@@ -62,6 +62,7 @@ RELEASE_TEST_STEPS = tuple((f"release_tests:{Path(path).stem}", (path,)) for pat
 GENERATION_CHECKS = (
     ("surface_parity", ["scripts/check_surface_parity.py"]),
     ("gen_contract", ["scripts/gen_contract.py", "--check"]),
+    ("gen_catalog", ["scripts/gen_catalog.py", "--check"]),
     ("gen_sync", ["scripts/gen_sync.py", "--check"]),
     ("gen_file_limits", ["scripts/gen_file_limits.py", "--check"]),
 )

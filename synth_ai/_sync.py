@@ -818,7 +818,7 @@ class BillingClient:
         self,
         *,
         plan_id: str | None = None,
-        pack_id: CheckoutRequestPackId | None = None,
+        pack_id: CheckoutRequestPackId | str | None = None,
         credit: Money | None = None,
         idempotency_key: str | None = None,
     ) -> CheckoutSession:

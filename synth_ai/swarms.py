@@ -58,9 +58,9 @@ from ._generated.models import (
     SendRunMessage,
     Upload,
 )
-from ._generated.policy import (
+from ._generated.policy import MCP_OUTPUT_CONTENT_MAX_BYTES
+from ._generated.topologies import (
     DEFAULT_RUN_PROFILE,
-    MCP_OUTPUT_CONTENT_MAX_BYTES,
     PROFILE_REQUIRES_RESEARCH_TASK,
 )
 from ._inline_content import inline_content

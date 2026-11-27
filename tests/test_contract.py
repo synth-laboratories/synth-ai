@@ -25,7 +25,7 @@ def resolve(doc, value):
 
 
 def test_generated_drift():
-    for script in ["gen_contract.py", "gen_sync.py"]:
+    for script in ["gen_contract.py", "gen_catalog.py", "gen_sync.py", "gen_file_limits.py"]:
         subprocess.run([sys.executable, str(ROOT / "scripts" / script), "--check"], check=True)
 
 

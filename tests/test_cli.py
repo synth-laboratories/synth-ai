@@ -339,12 +339,12 @@ def test_run_refuses_bad_resources_before_any_call(api, capsys, tmp_path, docume
 
 
 @pytest.mark.parametrize("as_json", [False, True])
-def test_run_refuses_unknown_topology_in_one_line(api, capsys, tmp_path, as_json):
+def test_run_refuses_invalid_optimizer_in_one_line(api, capsys, tmp_path, as_json):
     """SYN-5666: the refusal detail is one line that names the field, not pydantic's dump."""
     upload = tmp_path / "notes.md"
     upload.write_bytes(b"# Notes\n")
     argv = ["run", "Goal", "--budget", "1.00", "--file", str(upload)]
-    argv += ["--optimizer", "no_such_topology@1", *(["--json"] if as_json else [])]
+    argv += ["--optimizer", "swarms_v2@0", *(["--json"] if as_json else [])]
     code, out, err = invoke(api, capsys, *argv)
     assert code == cli.EXIT_CLIENT_ERROR and out == "" and api.calls == [], err
     assert err.count("\n") == 1, err
@@ -356,7 +356,7 @@ def test_run_refuses_unknown_topology_in_one_line(api, capsys, tmp_path, as_json
         assert err.startswith("client_error: "), err
         detail = err.removeprefix("client_error: ")
     assert "\n" not in detail.strip() and "--optimizer" in detail, err
-    assert "topology" in detail and "no_such_topology" in detail, err
+    assert "version" in detail and "swarms_v2@0" in detail, err
 
 
 def test_run_refuses_unreadable_resources_file(api, capsys, tmp_path):

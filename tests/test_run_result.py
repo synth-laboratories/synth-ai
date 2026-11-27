@@ -5,7 +5,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from pydantic import ValidationError
 
 from synth_ai import AsyncSynthClient, SynthClient
 from synth_ai.errors import ConflictError, ResponseContractError, ResultUnavailableError
@@ -289,21 +288,21 @@ async def test_result_file_is_required_and_names_result_md(contract):
         await read(state, body(state, result_file=wrong_type), [])
 
 
-@pytest.mark.parametrize("topology", ["forgetting", "mira", "scalemas"])
-def test_public_optimizer_pin_refuses_research_topologies(topology):
-    with pytest.raises(ValidationError):
-        OptimizerPin.model_validate({"topology": topology, "version": 1})
+@pytest.mark.parametrize("topology", ["forgetting", "mira", "scalemas", "future_topology"])
+def test_optimizer_models_accept_forward_compatible_topologies(topology):
     assert {t.value for t in OptimizerPinTopology} == {"swarms_v2", "fork_flush"}
-    with pytest.raises(ValidationError):
-        ResolvedOptimizer.model_validate(
-            {
-                "topology": topology,
-                "version": 1,
-                "params": {},
-                "reason": "explicit_pin",
-                "definition_digest": "b" * 64,
-            }
-        )
+    pin = OptimizerPin.model_validate({"topology": topology, "version": 1})
+    assert pin.topology == topology
+    resolved = ResolvedOptimizer.model_validate(
+        {
+            "topology": topology,
+            "version": 1,
+            "params": {},
+            "reason": "explicit_pin",
+            "definition_digest": "b" * 64,
+        }
+    )
+    assert resolved.topology == topology
 
 
 def test_public_run_profiles_exclude_research_topologies():

@@ -61,6 +61,9 @@ from ._cli_run import (
     mutation_key as mutation_key,
 )
 from ._cli_run import (
+    parse_guidance as parse_guidance,
+)
+from ._cli_run import (
     parse_labels as parse_labels,
 )
 from ._cli_run import (
@@ -154,6 +157,7 @@ __all__ = [
     "index_requested",
     "main",
     "mutation_key",
+    "parse_guidance",
     "parse_labels",
     "parse_optimizer",
     "parse_resources",

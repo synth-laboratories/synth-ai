@@ -79,12 +79,13 @@ def test_cli_exposes_optimizer_selector():
     "pin",
     [
         {"topology": "swarms_v2", "version": 2, "params": {"width": 3}},
-        {"topology": "unknown", "version": 2},
+        {"topology": "", "version": 2},
+        {"topology": "bad\ntopology", "version": 2},
         {"topology": "swarms_v2", "version": True},
         {"topology": "swarms_v2", "version": 0},
     ],
 )
-def test_unknown_pins_and_nonempty_parameters_refuse(pin):
+def test_invalid_pins_and_unknown_parameters_refuse(pin):
     with pytest.raises(ValidationError):
         OptimizerPin.model_validate(pin)
 
