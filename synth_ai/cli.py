@@ -89,6 +89,7 @@ from ._cli_run import (
 )
 from ._cli_surfaces import execute_resource
 from ._generated.models import MessageKind
+from ._generated.operations import CONTRACT_MAJOR, CONTRACT_VERSION
 from ._version import __version__
 from .aclient import AsyncSynthClient
 from .errors import (
@@ -416,6 +417,31 @@ async def execute(
             out.record(
                 await client.account.revoke_oauth_grant(args.grant_id), view.oauth_grant_revoked
             )
+        elif command == "version":
+            if args.server:
+                out.record(await client.version(), view.server_version)
+            elif args.json:
+                print(
+                    json.dumps(
+                        {
+                            "client_version": __version__,
+                            "contract_version": CONTRACT_VERSION,
+                            "contract_major": CONTRACT_MAJOR,
+                        },
+                        separators=(",", ":"),
+                    ),
+                    flush=True,
+                )
+            else:
+                print(
+                    view.facts(
+                        [
+                            ("client", __version__),
+                            ("contract", f"{CONTRACT_VERSION} (major {CONTRACT_MAJOR})"),
+                        ]
+                    ),
+                    flush=True,
+                )
         else:
             raise UsageError("unknown command " + command)
     return EXIT_OK

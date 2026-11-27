@@ -2206,6 +2206,19 @@
     },
     {
       "access": "public",
+      "description": "Server SemVer, public API contract version, negotiation headers, and client compatibility bounds.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "account_version_get",
+      "operationId": "getVersion",
+      "scope": ""
+    },
+    {
+      "access": "public",
       "description": "The code-constant plan catalog (public) with each plan's live Stripe price state.",
       "inputSchema": {
         "additionalProperties": false,

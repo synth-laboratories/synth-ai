@@ -8,6 +8,7 @@ from .aclient import AsyncSynthClient
 from .client import SynthClient
 from .environments import Environment, EnvironmentProfile
 from .errors import (
+    ApiVersionUnsupportedError,
     BillingAdminRequiredError,
     BrowserSessionRequiredError,
     ContinueFromInputsUnavailableError,
@@ -37,6 +38,7 @@ from .errors import (
     UpgradeRequiredError,
 )
 from .models import (
+    ApiVersionInfo,
     CompletionMilestone,
     Exclude,
     LaunchRequest,
@@ -68,6 +70,8 @@ from .topologies import TOPOLOGY_NAMES, topology_name
 
 __all__ = [
     "TOPOLOGY_NAMES",
+    "ApiVersionInfo",
+    "ApiVersionUnsupportedError",
     "ArtifactKind",
     "ArtifactOrigin",
     "ArtifactRevision",

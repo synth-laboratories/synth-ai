@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._generated.models import ApiVersionInfo
 from ._transport import RetryPolicy, Transport
 from .account import AsyncAccount
 from .auth import credentials
@@ -58,6 +59,10 @@ class AsyncSynthClient:
         self.artifacts = AsyncArtifacts(self._transport)
         self.experiments = AsyncExperiments(self._transport)
         self.research_logs = AsyncResearchLogs(self._transport)
+
+    async def version(self) -> ApiVersionInfo:
+        """Return the server's SemVer, public API contract version, and compatibility bounds."""
+        return await self._transport.request("getVersion", ApiVersionInfo)
 
     async def close(self) -> None:
         """Close the client transport and owned network resources."""

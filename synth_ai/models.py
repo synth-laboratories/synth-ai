@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from ._generated.models import (
+    ApiBuildInfo,
+    ApiClientCompatibility,
+    ApiContractInfo,
+    ApiNegotiationInfo,
+    ApiServerInfo,
+    ApiVersionInfo,
     BodyAvailable,
     BodyUnavailable,
     Exclude,
@@ -78,6 +84,12 @@ from ._protocol import CompletionMilestone
 from ._stream import StreamCheckpoint, StreamCheckpointData
 
 __all__ = [
+    "ApiBuildInfo",
+    "ApiClientCompatibility",
+    "ApiContractInfo",
+    "ApiNegotiationInfo",
+    "ApiServerInfo",
+    "ApiVersionInfo",
     "BodyAvailable",
     "BodyUnavailable",
     "CompletionMilestone",

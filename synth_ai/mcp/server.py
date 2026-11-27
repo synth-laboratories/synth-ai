@@ -25,6 +25,7 @@ from pydantic import BaseModel, JsonValue, ValidationError
 from typing_extensions import override
 
 from synth_ai._validation import safe_validation_detail
+from synth_ai._version import __version__
 from synth_ai.aclient import AsyncSynthClient
 from synth_ai.environments import Environment
 from synth_ai.errors import (
@@ -286,7 +287,7 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
                 )
                 task_group.cancel_scope.cancel()
 
-    server = _SkillsServer("synth")
+    server = _SkillsServer("synth", version=__version__)
     catalog = skills.load_skills()
 
     async def list_tools() -> list[Tool]:

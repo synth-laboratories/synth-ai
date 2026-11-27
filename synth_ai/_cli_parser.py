@@ -61,6 +61,7 @@ COMMANDS: dict[str, str] = {
     "artifacts": "Interactive artifacts",
     "experiments": "Multi-experiment plans",
     "research-log": "Project research log",
+    "version": "Client and server version",
 }
 
 EPILOG = """exit codes:
@@ -148,6 +149,11 @@ def _configure_auth_and_account(
     plan.add_parser("withdraw", parents=[plan_common]).add_argument("request_id", metavar="REQUEST")
     grants = created["grants"].add_subparsers(dest="grants_action", required=True)
     grants.add_parser("revoke", parents=[plan_common]).add_argument("grant_id", metavar="GRANT")
+    created["version"].add_argument(
+        "--server",
+        action="store_true",
+        help="query GET /v1/version on the configured API server",
+    )
 
 
 def _configure_run_launch(run: argparse.ArgumentParser, *, stdin_piped: bool) -> None:

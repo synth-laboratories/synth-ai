@@ -22,6 +22,7 @@ from ._retry import (
     admission_wait,
 )
 from ._validation import require_non_empty, validate_idempotency_key
+from ._warnings import observe_version_warnings
 from .diagnostics import (
     DiagnosticPhase,
     OperationDiagnostic,
@@ -293,6 +294,7 @@ class OperationExecutor:
             await asyncio.sleep(delay)
             attempt += 1
         assert response is not None  # RetryPolicy guarantees at least one attempt.
+        observe_version_warnings(response, operation_id)
         try:
             raise_for_response(response)
         except UpstreamUnavailableError as error:

@@ -2,6 +2,9 @@
 from collections.abc import Sequence
 from typing import TypedDict
 
+CONTRACT_VERSION: str = "1.45.0"
+CONTRACT_MAJOR: int = 1
+
 
 class Operation(TypedDict):
     method: str
@@ -462,6 +465,15 @@ OPERATIONS: dict[str, Operation] = {
         response_model="UsageSummary",
         retry="safe_read",
         scope="account:usage:read",
+    ),
+    "getVersion": _operation(
+        auth=False,
+        idempotency="safe_read",
+        method="GET",
+        path="/v1/version",
+        response_model="ApiVersionInfo",
+        retry="safe_read",
+        scope="",
     ),
     "initResearchLog": _operation(
         idempotency="durable_key",

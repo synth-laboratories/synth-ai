@@ -35,6 +35,7 @@ Generated from the pinned public OpenAPI and hosted catalog.
 | account_plan_request_create | requestSpecialFree | account:write |
 | account_plan_requests_list | listPlanRequests | account:read |
 | account_plan_request_withdraw | withdrawPlanRequest | account:write |
+| account_version_get | getVersion |  |
 | account_billing_plans_list | listPlans |  |
 | account_billing_balance | getBalance | account:billing:read |
 | account_billing_history | listBillingHistory | account:billing:read |

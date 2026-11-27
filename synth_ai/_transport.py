@@ -16,7 +16,7 @@ from pydantic import BaseModel, JsonValue, RootModel, ValidationError
 from ._event_stream import decode_events, validate_stream_response
 from ._file_source import FileIO
 from ._generated.models import RunEvent, RunMilestone, RunSnapshot, UploadGrant
-from ._generated.operations import OPERATIONS
+from ._generated.operations import CONTRACT_MAJOR, CONTRACT_VERSION, OPERATIONS
 from ._http_errors import raise_stream_error
 from ._operations import OperationExecutor, OperationResult
 from ._retry import RetryPolicy as RetryPolicy
@@ -26,6 +26,7 @@ from ._stream import StreamCheckpoint
 from ._transfers import ArtifactTransfer
 from ._validation import require_non_empty, validate_http_origin
 from ._version import __version__
+from ._warnings import observe_version_warnings
 from .errors import (
     ClientClosedError,
     ResponseContractError,
@@ -50,6 +51,10 @@ if TYPE_CHECKING:
     from .diagnostics import DiagnosticHook
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _client_channel(version: str) -> str:
+    return "nightly" if ".dev" in version else "stable"
 
 
 class Transport:
@@ -98,6 +103,12 @@ class Transport:
         headers = {
             "Accept": "application/json",
             "User-Agent": "synth-ai/" + __version__,
+            "Synth-API-Version": CONTRACT_VERSION,
+            "Synth-API-Major": str(CONTRACT_MAJOR),
+            "X-Synth-Client": (
+                f"synth-ai/{__version__}; contract={CONTRACT_VERSION}; "
+                f"channel={_client_channel(__version__)}"
+            ),
             "X-Request-Id": str(uuid4()),
         }
         if auth:
@@ -247,6 +258,7 @@ class Transport:
             ) as response:
                 if not response.is_success:
                     await raise_stream_error(response)
+                observe_version_warnings(response, "listRunEvents")
                 validate_stream_response(response)
                 async with aclosing(decode_events(response, run_id, state)) as events:
                     yield events

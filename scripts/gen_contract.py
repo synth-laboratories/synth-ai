@@ -416,7 +416,7 @@ def _render_models(
                 "class " + n + "(WireModel):",
                 "    model_config = ConfigDict(extra="
                 + repr("forbid" if s.get("additionalProperties") is False else "allow")
-                + ", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False)",
+                + ", populate_by_name=True, serialize_by_alias=True, strict=True, frozen=True, allow_inf_nan=False)",
             ]
             for field, value in s.objects("properties").items():
                 name = field_name(field)

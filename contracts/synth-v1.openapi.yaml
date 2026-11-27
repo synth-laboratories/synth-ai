@@ -2,13 +2,19 @@ openapi: 3.1.0
 x-synth-launch-contract: 3
 info:
   title: Synth API
-  version: 1.44.0
+  version: 1.45.0
+  x-synth-api-version: "1.45.0"
   description: Versioned public product API. Internal authority routes and OAuth/MCP retain their own
     protocols. Source implementation and deployment qualification are tracked separately.
+    Every /v1 response emits Synth-API-Version (this contract SemVer) and Synth-Server-Version.
+    Clients may send optional Synth-API-Version or Synth-API-Major headers; unsupported or newer
+    requested versions are refused with 406 api_version_unsupported (retryable false).
+    Deprecated operations emit RFC 9745 Deprecation, RFC 8594 Sunset, and Link headers.
     Any /v1 operation refuses a synth-ai client older than the minimum supported version with
     426 client_upgrade_required (retryable false, minimum_version, client_version); the client is
-    identified by its User-Agent product token (synth-ai/<version>, or synth-ai-python/<version>
-    before 0.31). Other clients and unparseable versions are not affected.
+    identified by X-Synth-Client or User-Agent (synth-ai/<version>, or synth-ai-python/<version>
+    before 0.31) using PEP 440 version ordering. Clients in the grace window receive soft-warn
+    upgrade headers. Other clients and unparseable versions are not affected.
   license:
     name: Proprietary
     url: https://usesynth.ai/terms
@@ -3595,6 +3601,92 @@ paths:
         '404':
           $ref: '#/components/responses/ResourceNotFound'
       x-synth-source: core/internal/public/planrequests/http.go
+  /v1/version:
+    get:
+      tags:
+      - account
+      operationId: getVersion
+      x-synth-scope: ""
+      x-synth-retry: "safe_read"
+      x-synth-idempotency: "safe_read"
+      x-synth-idempotency-key: false
+      x-synth-mcp-name: account_version_get
+      x-synth-mcp-access: public
+      x-synth-mcp-domain: account
+      x-synth-status: implemented
+      x-synth-source: core/internal/public/version.go
+      x-synth-legacy-path: /v1/version
+      security: []
+      summary: Server SemVer, public API contract version, negotiation headers, and client compatibility bounds.
+      description: Unauthenticated discovery endpoint matching GET /.well-known/synth-api.
+      parameters: []
+      responses:
+        '200':
+          description: Server and public API version discovery document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiVersionInfo'
+              example:
+                schema: synth.api-discovery.v1
+                service: core-api
+                server:
+                  name: synth-swarms
+                  version: 0.43.0
+                  channel: stable
+                  environment: production
+                api:
+                  name: synth.public
+                  major: 1
+                  version: 1.45.0
+                  supported_majors:
+                  - 1
+                  supported_versions:
+                  - 1.45.0
+                  swarms_api_version: 1.0.1
+                client_compatibility:
+                  minimum_synth_ai_version: 0.41.0
+                  recommended_synth_ai_version: 0.42.0
+                negotiation:
+                  version_header: Synth-API-Version
+                  major_header: Synth-API-Major
+                  server_version_header: Synth-Server-Version
+                  client_header: X-Synth-Client
+                  discovery_path: /.well-known/synth-api
+                build:
+                  version: 0.43.0
+                  channel: stable
+                  build_time: '2026-11-27T00:00:00Z'
+                  commit: 0123456789abcdef
+                  revision: 0123456789abcdef
+                  source_sha256: unbuilt
+                  build_revision: 0123456789abcdef
+                  image_digest: unpinned
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            Synth-API-Version:
+              $ref: '#/components/headers/Synth-API-Version'
+            Synth-Server-Version:
+              $ref: '#/components/headers/Synth-Server-Version'
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+        '406':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
   /v1/billing/plans:
     get:
       tags:
@@ -14100,12 +14192,155 @@ components:
             $ref: '#/components/schemas/HostedArtifact'
       required: [pacing, experiments, research_log, artifacts]
 
+    ApiServerInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        channel:
+          type: string
+          enum:
+          - stable
+          - nightly
+          - dev
+        environment:
+          type: string
+      required: [name, version, channel, environment]
+
+    ApiContractInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        major:
+          type: integer
+          minimum: 1
+        version:
+          type: string
+        supported_majors:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+        supported_versions:
+          type: array
+          items:
+            type: string
+        swarms_api_version:
+          type: string
+      required: [name, major, version, supported_majors, supported_versions, swarms_api_version]
+
+    ApiClientCompatibility:
+      type: object
+      additionalProperties: false
+      properties:
+        minimum_synth_ai_version:
+          type: string
+        recommended_synth_ai_version:
+          type: string
+      required: [minimum_synth_ai_version, recommended_synth_ai_version]
+
+    ApiNegotiationInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        version_header:
+          type: string
+        major_header:
+          type: string
+        server_version_header:
+          type: string
+        client_header:
+          type: string
+        discovery_path:
+          type: string
+      required: [version_header, major_header, server_version_header, client_header, discovery_path]
+
+    ApiBuildInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+        channel:
+          type: string
+        build_time:
+          type: string
+        commit:
+          type: string
+        revision:
+          type: string
+        source_sha256:
+          type: string
+        build_revision:
+          type: string
+        image_digest:
+          type: string
+      required: [version, channel, build_time, commit, revision, source_sha256, build_revision, image_digest]
+
+    ApiVersionInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        schema:
+          type: string
+          const: synth.api-discovery.v1
+        service:
+          type: string
+        server:
+          $ref: '#/components/schemas/ApiServerInfo'
+        api:
+          $ref: '#/components/schemas/ApiContractInfo'
+        client_compatibility:
+          $ref: '#/components/schemas/ApiClientCompatibility'
+        negotiation:
+          $ref: '#/components/schemas/ApiNegotiationInfo'
+        build:
+          $ref: '#/components/schemas/ApiBuildInfo'
+      required: [schema, service, server, api, client_compatibility, negotiation, build]
+
   headers:
     Cache-Control:
       schema:
         type: string
         const: no-store
     X-Request-Id:
+      schema:
+        type: string
+    Synth-API-Version:
+      description: Public API contract SemVer served by this endpoint.
+      schema:
+        type: string
+    Synth-Server-Version:
+      description: Running Swarms Cloud server SemVer.
+      schema:
+        type: string
+    X-Swarms-API-Version:
+      description: Legacy Swarms surface version header retained for backwards compatibility.
+      schema:
+        type: string
+    Deprecation:
+      description: RFC 9745 deprecation timestamp in structured-field date syntax (@<unix_epoch>).
+      schema:
+        type: string
+    Sunset:
+      description: RFC 8594 planned removal date in HTTP IMF-fixdate format.
+      schema:
+        type: string
+    Link:
+      description: RFC 8288 link to deprecation or sunset migration documentation.
+      schema:
+        type: string
+    X-Synth-Client-Upgrade-Recommended:
+      description: Recommended synth-ai version emitted for clients inside the soft-warn grace window.
+      schema:
+        type: string
+    X-Synth-Client-Deprecation:
+      description: Human-readable client upgrade notice emitted for clients inside the soft-warn grace window.
       schema:
         type: string
     RateLimit-Limit:

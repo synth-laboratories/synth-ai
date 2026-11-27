@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "ApiVersionUnsupportedError",
     "BillingAdminRequiredError",
     "BrowserSessionRequiredError",
     "ClientClosedError",
@@ -254,6 +255,10 @@ class MessagingUnavailableError(UpstreamUnavailableError):
 
 class ServerError(SwarmsAPIError):
     pass
+
+
+class ApiVersionUnsupportedError(SwarmsAPIError):
+    """The server refused the requested Synth-API-Version or Synth-API-Major (406)."""
 
 
 class UpgradeRequiredError(SwarmsAPIError):
@@ -510,6 +515,7 @@ _BY_STATUS: dict[int, type[SwarmsAPIError]] = {
     402: PaymentRequiredError,
     403: ForbiddenError,
     404: NotFoundError,
+    406: ApiVersionUnsupportedError,
     409: ConflictError,
     410: NotFoundError,
     422: InvalidRequestError,
@@ -544,6 +550,7 @@ _BY_CODE: dict[str, type[SwarmsAPIError]] = {
     "billing_admin_required": BillingAdminRequiredError,
     "browser_session_required": BrowserSessionRequiredError,
     "plan_request_cooldown": PlanRequestCooldownError,
+    "api_version_unsupported": ApiVersionUnsupportedError,
     "client_upgrade_required": UpgradeRequiredError,
     "upload_format_unsupported": UploadFormatUnsupportedError,
     "upload_size_exceeded": UploadSizeExceededError,

@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from ._generated.billing_plans import PAYG_DAILY_SPEND_USD, PAYG_WEEKLY_SPEND_USD
 from ._generated.models import (
     Account,
+    ApiVersionInfo,
     AutoReload,
     Balance,
     BillingHistoryPage,
@@ -52,6 +53,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._stream import StreamCheckpoint, StreamCheckpointData
+from ._version import __version__
 from .topologies import topology_name
 
 if TYPE_CHECKING:
@@ -744,3 +746,24 @@ def run_limits(value: RunLimitsProgress) -> str:
     for actor in value.actors:
         rows(f"{actor.assignment}  {actor.state or 'unknown'}", actor.limits)
     return "\n".join(lines)
+
+
+def server_version(value: ApiVersionInfo) -> str:
+    return facts(
+        [
+            ("client", __version__),
+            (
+                "server",
+                f"{value.server.version} ({value.server.channel}, {value.server.environment})",
+            ),
+            ("api", f"{value.api.version} (major {value.api.major})"),
+            ("swarms api", value.api.swarms_api_version),
+            (
+                "client floor",
+                f"min {value.client_compatibility.minimum_synth_ai_version}, "
+                f"recommended {value.client_compatibility.recommended_synth_ai_version}",
+            ),
+            ("commit", value.build.commit),
+            ("image", value.build.image_digest),
+        ]
+    )

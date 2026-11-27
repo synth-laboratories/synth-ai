@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     import httpx
 
+    from ._generated.models import ApiVersionInfo
     from ._transport import RetryPolicy
     from .diagnostics import DiagnosticHook
     from .environments import Environment
@@ -58,6 +59,10 @@ class SynthClient:
         self.artifacts = ArtifactsClient(self._runner, self._async.artifacts)
         self.experiments = ExperimentsClient(self._runner, self._async.experiments)
         self.research_logs = ResearchLogsClient(self._runner, self._async.research_logs)
+
+    def version(self) -> ApiVersionInfo:
+        """Return the server's SemVer, public API contract version, and compatibility bounds."""
+        return self._runner.call(self._async.version())
 
     def close(self) -> None:
         """Close the client transport and owned network resources."""

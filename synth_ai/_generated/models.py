@@ -35,6 +35,12 @@ class ApiKeyPurpose(StrEnum):
     AUTOMATION = "automation"
 
 
+class ApiServerInfoChannel(StrEnum):
+    STABLE = "stable"
+    NIGHTLY = "nightly"
+    DEV = "dev"
+
+
 class AppendResearchLogEntryRequestAuthorKind(StrEnum):
     HUMAN = "human"
     LOCAL_AGENT = "local_agent"
@@ -864,7 +870,12 @@ class UsageRecordSessionKind(StrEnum):
 
 class AccountTerms(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     version: str
     accepted_at: str
@@ -872,7 +883,12 @@ class AccountTerms(WireModel):
 
 class ActorParkedPayload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     assignment: str | None
@@ -882,16 +898,106 @@ class ActorParkedPayload(WireModel):
 
 class ActorUnparkedPayload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     assignment: str | None
     at_ms: int
 
 
+class ApiBuildInfo(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    version: str
+    channel: str
+    build_time: str
+    commit: str
+    revision: str
+    source_sha256: str
+    build_revision: str
+    image_digest: str
+
+
+class ApiClientCompatibility(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    minimum_synth_ai_version: str
+    recommended_synth_ai_version: str
+
+
+class ApiContractInfo(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    name: str
+    major: Annotated[int, Field(ge=1)]
+    version: str
+    supported_majors: list[Annotated[int, Field(ge=1)]]
+    supported_versions: list[str]
+    swarms_api_version: str
+
+
+class ApiNegotiationInfo(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    version_header: str
+    major_header: str
+    server_version_header: str
+    client_header: str
+    discovery_path: str
+
+
+class ApiServerInfo(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    name: str
+    version: str
+    channel: Annotated[ApiServerInfoChannel, BeforeValidator(enum_value(ApiServerInfoChannel))]
+    environment: str
+
+
 class AutoReloadCard(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     brand: str
     last4: str
@@ -899,7 +1005,12 @@ class AutoReloadCard(WireModel):
 
 class BillingAttention(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: str
     since: str
@@ -907,7 +1018,12 @@ class BillingAttention(WireModel):
 
 class BodyAvailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Literal["available"]
     text: Annotated[str, Field(min_length=1, max_length=8192), AfterValidator(utf8_max_bytes(8192))]
@@ -915,7 +1031,12 @@ class BodyAvailable(WireModel):
 
 class BodyUnavailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Literal["unavailable"]
     reason: Literal["retention"]
@@ -923,7 +1044,12 @@ class BodyUnavailable(WireModel):
 
 class BudgetFloor(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     planner_spend_cap_micros: Annotated[int, Field(ge=0)]
     planner_call_bound_micros: Annotated[int, Field(ge=0)]
@@ -939,7 +1065,12 @@ class BudgetFloor(WireModel):
 
 class ChargeUsageUnits(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     input_tokens: Annotated[int, Field(ge=0)] | None = None
     cached_input_tokens: Annotated[int, Field(ge=0)] | None = None
@@ -955,7 +1086,12 @@ CheckoutId: TypeAlias = Annotated[str, Field(pattern="^chk_[A-Za-z0-9_-]{22}$")]
 
 class ControlRef(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     operation_id: str
     command: str
@@ -964,7 +1100,12 @@ class ControlRef(WireModel):
 
 class CreateHostedArtifactRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str
     run_id: str | None = None
@@ -986,7 +1127,12 @@ class CreateHostedArtifactRequest(WireModel):
 
 class CreateResearchExperimentRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str | None = None
     run_id: str
@@ -1003,7 +1149,12 @@ EvtId: TypeAlias = Annotated[str, Field(pattern="^evt_[A-Za-z0-9_-]{22}$")]
 
 class Exclude(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     exclude: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=128)]],
@@ -1014,7 +1165,12 @@ class Exclude(WireModel):
 
 class Family(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     version: str
@@ -1025,7 +1181,12 @@ class Family(WireModel):
 
 class File(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     file_id: str
     revision_id: str
@@ -1038,7 +1199,12 @@ class File(WireModel):
 
 class HostedArtifactShareGrant(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     share_id: str
     scope: Annotated[
@@ -1051,7 +1217,12 @@ class HostedArtifactShareGrant(WireModel):
 
 class InitResearchLogRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str | None = None
     title: str
@@ -1060,7 +1231,12 @@ class InitResearchLogRequest(WireModel):
 
 class InputFile(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     file_id: str
     revision_id: str
@@ -1072,7 +1248,12 @@ KeyId: TypeAlias = Annotated[str, Field(pattern="^key_[A-Za-z0-9_-]{22}$")]
 
 class LaunchBudget(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     amount: Annotated[
         str, Field(pattern="^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$"), AfterValidator(budget_amount)
@@ -1082,7 +1263,12 @@ class LaunchBudget(WireModel):
 
 class LaunchChoiceExclusion(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[
         LaunchChoiceExclusionKind, BeforeValidator(enum_value(LaunchChoiceExclusionKind))
@@ -1097,7 +1283,12 @@ class LaunchChoiceExclusion(WireModel):
 
 class LaunchChoiceRole(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     role: Annotated[LaunchChoiceRoleRole, BeforeValidator(enum_value(LaunchChoiceRoleRole))]
@@ -1108,7 +1299,12 @@ class LaunchChoiceRole(WireModel):
 
 class Limit(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     resource: str
     metric: str
@@ -1118,7 +1314,12 @@ class Limit(WireModel):
 
 class LimitMeter(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     dimension: str
     unit: str | None = None
@@ -1139,7 +1340,12 @@ class LimitMeter(WireModel):
 
 class LimitRowOverride(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     override_id: str
     reason: Annotated[LimitRowOverrideReason, BeforeValidator(enum_value(LimitRowOverrideReason))]
@@ -1148,7 +1354,12 @@ class LimitRowOverride(WireModel):
 
 class McpOutputContent(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     media_type: str
     byte_size: Annotated[int, Field(ge=0, le=262144)]
@@ -1161,14 +1372,24 @@ class McpOutputContent(WireModel):
 
 class MessageHistoryAvailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Literal["available"]
 
 
 class MessageHistoryUnavailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Literal["unavailable"]
     reason: Literal["messaging_unavailable"]
@@ -1179,7 +1400,12 @@ MessageId: TypeAlias = Annotated[str, Field(pattern="^msg_[A-Za-z0-9_-]{22}$")]
 
 class Money(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     amount: Annotated[str, Field(pattern="^-?(0|[1-9][0-9]*)(\\.[0-9]{1,12})?$")]
     currency: Literal["USD"]
@@ -1187,7 +1413,12 @@ class Money(WireModel):
 
 class OAuthGrantRevoked(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     grant_id: str
     status: Literal["revoked"]
@@ -1198,7 +1429,12 @@ class OAuthGrantRevoked(WireModel):
 
 class ObjectiveAnswerAnswer(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     text: str
     by: str | None = None
@@ -1208,7 +1444,12 @@ class ObjectiveAnswerAnswer(WireModel):
 
 class ObjectiveClaimedPayload(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     objective_id: str
     claim_id: str
@@ -1219,7 +1460,12 @@ class ObjectiveClaimedPayload(WireModel):
 
 class ObjectiveMetric(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: str
     direction: str
@@ -1229,7 +1475,12 @@ class ObjectiveMetric(WireModel):
 
 class ObjectiveProgressPayload(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     objective_id: str
     name: str
@@ -1246,7 +1497,12 @@ class ObjectiveProgressPayload(WireModel):
 
 class ObjectiveReceipt(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     authority: str
     kind: str
@@ -1257,7 +1513,12 @@ class ObjectiveReceipt(WireModel):
 
 class ObjectiveVerdict(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     decision: str
     by: str
@@ -1267,7 +1528,12 @@ class ObjectiveVerdict(WireModel):
 
 class Only(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     only: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=128)]],
@@ -1278,7 +1544,12 @@ class Only(WireModel):
 
 class OptimizerParams(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     max_tasks: Annotated[int, Field(ge=1, le=4096)] | None = None
     max_repairs_per_task: Annotated[int, Field(ge=0, le=32)] | None = None
@@ -1289,7 +1560,12 @@ class OptimizerParams(WireModel):
 
 class Org(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     clerk_org_id: str | None = None
@@ -1305,7 +1581,12 @@ OutId: TypeAlias = Annotated[str, Field(pattern="^out_[A-Za-z0-9_-]{22}$")]
 
 class Overload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     code: Annotated[OverloadCode, BeforeValidator(enum_value(OverloadCode))]
     service: Annotated[str, Field(min_length=1)]
@@ -1319,14 +1600,24 @@ OwnerResourceLimits: TypeAlias = dict[str, Annotated[int, Field(ge=0, le=9223372
 
 class PaymentMethodSession(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     url: str
 
 
 class PlanRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     request_id: str
     state: Annotated[PlanRequestState, BeforeValidator(enum_value(PlanRequestState))]
@@ -1341,7 +1632,12 @@ class PlanRequest(WireModel):
 
 class PoolSelection(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     pool_ids: (
         Annotated[
@@ -1355,7 +1651,12 @@ class PoolSelection(WireModel):
 
 class Principal(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     org_id: str
     user_id: str | None = None
@@ -1378,14 +1679,24 @@ class Principal(WireModel):
 
 class PromoRedeemRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     code: Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class PromoTrialGrant(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     trial_id: str
     plan_id: Annotated[
@@ -1397,7 +1708,12 @@ class PromoTrialGrant(WireModel):
 
 class RefundDetailRunUsage1(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     input_tokens: int | None = None
     cached_input_tokens: int | None = None
@@ -1408,7 +1724,12 @@ class RefundDetailRunUsage1(WireModel):
 
 class ResearchExactReference(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     source: Annotated[
         ResearchExactReferenceSource, BeforeValidator(enum_value(ResearchExactReferenceSource))
@@ -1421,7 +1742,12 @@ class ResearchExactReference(WireModel):
 
 class ResearchLogExport(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str
     run_id: str | None
@@ -1432,7 +1758,12 @@ class ResearchLogExport(WireModel):
 
 class ResearchLogSummary(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str
     title: str
@@ -1443,7 +1774,12 @@ class ResearchLogSummary(WireModel):
 
 class ResearchTrialMeasurement(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: str
     value: float | None
@@ -1453,7 +1789,12 @@ class ResearchTrialMeasurement(WireModel):
 
 class ReviseResearchExperimentRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     title: str | None = None
     specification: str | None = None
@@ -1464,7 +1805,12 @@ class ReviseResearchExperimentRequest(WireModel):
 
 class RoleAssignment(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     inference_profile: (
         Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")] | None
@@ -1485,7 +1831,12 @@ class RoleAssignment(WireModel):
 
 class RoutingActor(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     role: str
@@ -1497,7 +1848,12 @@ class RoutingActor(WireModel):
 
 class RoutingCatalogRoute(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     preset: str
     model: str
@@ -1506,7 +1862,12 @@ class RoutingCatalogRoute(WireModel):
 
 class RunAllocationActorPlacementsItem(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     assignment_generation: Annotated[int, Field(ge=0)]
     profile_id: str
@@ -1516,7 +1877,12 @@ class RunAllocationActorPlacementsItem(WireModel):
 
 class RunAllocationChoice(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     state: Annotated[
         RunAllocationChoiceState, BeforeValidator(enum_value(RunAllocationChoiceState))
@@ -1530,7 +1896,12 @@ class RunAllocationChoice(WireModel):
 
 class RunApprovalActor(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: Annotated[str, Field(min_length=1)]
     actor_kind: Annotated[str, Field(min_length=1)]
@@ -1539,7 +1910,12 @@ class RunApprovalActor(WireModel):
 
 class RunApprovalDecisionRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     decision: Annotated[
         RunApprovalDecisionRequestDecision,
@@ -1551,7 +1927,12 @@ class RunApprovalDecisionRequest(WireModel):
 
 class RunBlocker(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[RunBlockerKind, BeforeValidator(enum_value(RunBlockerKind))]
     id: Annotated[str, Field(max_length=256)]
@@ -1560,7 +1941,12 @@ class RunBlocker(WireModel):
 
 class RunComputeMeter(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: str
     unit: str
@@ -1569,7 +1955,12 @@ class RunComputeMeter(WireModel):
 
 class RunControlReceipt(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     operation_id: str
     resource_id: str
@@ -1583,7 +1974,12 @@ class RunControlReceipt(WireModel):
 
 class RunEvaluation(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     evaluation_id: str
     status: Annotated[RunEvaluationStatus, BeforeValidator(enum_value(RunEvaluationStatus))]
@@ -1596,7 +1992,12 @@ class RunEvaluation(WireModel):
 
 class RunGuidanceMetric(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: Annotated[
         str,
@@ -1616,7 +2017,12 @@ class RunGuidanceMetric(WireModel):
 
 class RunHorizonPacing(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     phase: Annotated[RunHorizonPacingPhase, BeforeValidator(enum_value(RunHorizonPacingPhase))]
     elapsed_seconds: int
@@ -1630,7 +2036,12 @@ RunId: TypeAlias = Annotated[str, Field(pattern="^run_[A-Za-z0-9_-]{22}$")]
 
 class RunInheritedArtifact(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[RunInheritedArtifactKind, BeforeValidator(enum_value(RunInheritedArtifactKind))]
     artifact_id: str
@@ -1639,7 +2050,12 @@ class RunInheritedArtifact(WireModel):
 
 class RunLabels(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     labels: dict[str, str]
     revision: Annotated[int, Field(ge=0)]
@@ -1647,7 +2063,12 @@ class RunLabels(WireModel):
 
 class RunLabelsRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     labels: dict[str, str]
     expected_revision: Annotated[int, Field(ge=1)]
@@ -1655,7 +2076,12 @@ class RunLabelsRequest(WireModel):
 
 class RunLimitWarningPayload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     revision: Annotated[int, Field(ge=0)]
     at_ms: int
@@ -1671,7 +2097,12 @@ class RunLimitWarningPayload(WireModel):
 
 class RunLimitsProgressFunding(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     held: str
     settled: str
@@ -1680,7 +2111,12 @@ class RunLimitsProgressFunding(WireModel):
 
 class RunMilestone(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     milestone: Annotated[RunMilestoneMilestone, BeforeValidator(enum_value(RunMilestoneMilestone))]
     run_id: str
@@ -1695,7 +2131,12 @@ class RunMilestone(WireModel):
 
 class RunPauseLimit(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     scope: Annotated[RunPauseLimitScope, BeforeValidator(enum_value(RunPauseLimitScope))]
     assignment: str | None
@@ -1711,7 +2152,12 @@ class RunPauseLimit(WireModel):
 
 class RunPreflightCheck(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: str
     status: Annotated[RunPreflightCheckStatus, BeforeValidator(enum_value(RunPreflightCheckStatus))]
@@ -1721,7 +2167,12 @@ class RunPreflightCheck(WireModel):
 
 class RunPreflightRefusal(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     check: str
     code: str
@@ -1731,7 +2182,12 @@ class RunPreflightRefusal(WireModel):
 
 class RunProblem(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str | None = None
     code: str
@@ -1766,7 +2222,12 @@ class RunProblem(WireModel):
 
 class RunProfilePin(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     revision: str
@@ -1779,7 +2240,12 @@ class RunProfilePin(WireModel):
 
 class RunProgramProgram(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     version: str
@@ -1787,7 +2253,12 @@ class RunProgramProgram(WireModel):
 
 class RunQueueStanding(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     position: Annotated[int, Field(ge=1)]
     ahead: Annotated[int, Field(ge=0)]
@@ -1797,7 +2268,12 @@ class RunQueueStanding(WireModel):
 
 class RunRecordReference(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     source: Annotated[
         RunRecordReferenceSource, BeforeValidator(enum_value(RunRecordReferenceSource))
@@ -1831,7 +2307,12 @@ class RunRecordReference(WireModel):
 
 class RunResultFileReference(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     revision_id: Annotated[str, Field(min_length=1)]
     digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
@@ -1841,7 +2322,12 @@ class RunResultFileReference(WireModel):
 
 class RunScoreMeasurement(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
     value: float | None
@@ -1851,7 +2337,12 @@ class RunScoreMeasurement(WireModel):
 
 class RunTask(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     task_id: str
     state: str
@@ -1859,7 +2350,12 @@ class RunTask(WireModel):
 
 class SandboxImage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[SandboxImageStatus, BeforeValidator(enum_value(SandboxImageStatus))]
     digest: Annotated[str, Field(pattern="^sha256:[0-9a-f]{64}$")] | None = None
@@ -1867,7 +2363,12 @@ class SandboxImage(WireModel):
 
 class SandboxMoment(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[SandboxMomentStatus, BeforeValidator(enum_value(SandboxMomentStatus))]
     at: str | None = None
@@ -1875,7 +2376,12 @@ class SandboxMoment(WireModel):
 
 class SandboxPerformance(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     size_id: str
     sample_count: Annotated[int, Field(ge=0)]
@@ -1888,7 +2394,12 @@ class SandboxPerformance(WireModel):
 
 class SandboxProfile(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     profile_id: Annotated[str, Field(pattern="^[a-z0-9]+(-[a-z0-9]+)*$")]
@@ -1906,7 +2417,12 @@ class SandboxProfile(WireModel):
 
 class SelectionFile(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     path: str
     sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
@@ -1914,7 +2430,12 @@ class SelectionFile(WireModel):
 
 class SelectionScore(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     numerator: Annotated[int, Field(ge=0)]
     denominator: Annotated[int, Field(ge=1)]
@@ -1922,7 +2443,12 @@ class SelectionScore(WireModel):
 
 class ShareHostedArtifactRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     scope: Annotated[
         ShareHostedArtifactRequestScope,
@@ -1932,7 +2458,12 @@ class ShareHostedArtifactRequest(WireModel):
 
 class SpecialFreeRequestInput(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     use_case: Annotated[str, Field(min_length=1)]
     links: list[str] | None = None
@@ -1940,7 +2471,12 @@ class SpecialFreeRequestInput(WireModel):
 
 class SpendAlertsLastNotified0(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     threshold: int
     at: str
@@ -1948,7 +2484,12 @@ class SpendAlertsLastNotified0(WireModel):
 
 class Subscription(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan_id: str
     status: str
@@ -1959,7 +2500,12 @@ class Subscription(WireModel):
 
 class SubscriptionChangeRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan_id: Annotated[
         SubscriptionChangeRequestPlanId | str,
@@ -1969,7 +2515,12 @@ class SubscriptionChangeRequest(WireModel):
 
 class SwarmsVariantVersion(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: Annotated[str, Field(min_length=1, max_length=128)]
     version: Annotated[str, Field(pattern="^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")]
@@ -1977,7 +2528,12 @@ class SwarmsVariantVersion(WireModel):
 
 class TermsAcceptance(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     version: str
     accepted_at: str
@@ -1987,7 +2543,12 @@ class TermsAcceptance(WireModel):
 
 class TermsAcceptanceRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     version: Annotated[str, Field(min_length=1, max_length=64)]
     accepted_at: str
@@ -1995,7 +2556,12 @@ class TermsAcceptanceRequest(WireModel):
 
 class TopologyCatalogEntry(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     topology: Annotated[
         TopologyCatalogEntryTopology | str,
@@ -2016,7 +2582,12 @@ class TopologyCatalogEntry(WireModel):
 
 class UpdateHostedArtifactRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     content: str
     summary: str
@@ -2031,7 +2602,12 @@ class UpdateHostedArtifactRequest(WireModel):
 
 class UploadCreateRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: Annotated[
         str,
@@ -2048,7 +2624,12 @@ class UploadCreateRequest(WireModel):
 
 class UploadFileRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     name: Annotated[
         str,
@@ -2064,7 +2645,12 @@ class UploadFileRequest(WireModel):
 
 class UploadGrant(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     url: str
     headers: dict[str, str]
@@ -2073,7 +2659,12 @@ class UploadGrant(WireModel):
 
 class UsageExport(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     export_id: str
     state: Annotated[UsageExportState, BeforeValidator(enum_value(UsageExportState))]
@@ -2083,7 +2674,12 @@ class UsageExport(WireModel):
 
 class UsageExportRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     since: str
     until: str
@@ -2092,7 +2688,12 @@ class UsageExportRequest(WireModel):
 
 class UsageMeter(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: str
     quantity: int
@@ -2101,7 +2702,12 @@ class UsageMeter(WireModel):
 
 class ActorLimitsProgress(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     assignment: str
     actor_id: str | None
@@ -2112,7 +2718,12 @@ class ActorLimitsProgress(WireModel):
 
 class ApiKey(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     key_id: KeyId
     prefix: str
@@ -2130,9 +2741,32 @@ class ApiKey(WireModel):
     revoked_at: str | None = None
 
 
+class ApiVersionInfo(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    schema_: Literal["synth.api-discovery.v1"] = Field(alias="schema")
+    service: str
+    server: ApiServerInfo
+    api: ApiContractInfo
+    client_compatibility: ApiClientCompatibility
+    negotiation: ApiNegotiationInfo
+    build: ApiBuildInfo
+
+
 class AppendResearchLogEntryRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     notebook_id: str | None = None
     run_id: str | None = None
@@ -2156,7 +2790,12 @@ class AppendResearchLogEntryRequest(WireModel):
 
 class AutoReloadLimits(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     max_amount: Money
     daily_count: Annotated[int, Field(ge=1)]
@@ -2165,7 +2804,12 @@ class AutoReloadLimits(WireModel):
 
 class AutoReloadRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     enabled: bool
     threshold: Money | None = None
@@ -2175,7 +2819,12 @@ class AutoReloadRequest(WireModel):
 
 class BillingStatement(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     month: Annotated[str, Field(pattern="^[0-9]{4}-[0-9]{2}$")]
     period_start: str
@@ -2199,7 +2848,12 @@ class BillingStatement(WireModel):
 
 class ChargeUsage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     kind: Annotated[ChargeUsageKind, BeforeValidator(enum_value(ChargeUsageKind))]
@@ -2210,7 +2864,12 @@ class ChargeUsage(WireModel):
 
 class CheckoutAttempt(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     checkout_id: CheckoutId
     state: Annotated[CheckoutAttemptState, BeforeValidator(enum_value(CheckoutAttemptState))]
@@ -2225,7 +2884,12 @@ class CheckoutAttempt(WireModel):
 
 class CheckoutRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan_id: str | None = None
     pack_id: (
@@ -2239,7 +2903,12 @@ class CheckoutRequest(WireModel):
 
 class CheckoutSession(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     checkout_id: CheckoutId
     session_id: str
@@ -2248,7 +2917,12 @@ class CheckoutSession(WireModel):
 
 class CorrectResearchLogEntryRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: str | None = None
     text: str
@@ -2258,7 +2932,12 @@ class CorrectResearchLogEntryRequest(WireModel):
 
 class CreditPack(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     pack_id: str
     name: str
@@ -2268,7 +2947,12 @@ class CreditPack(WireModel):
 
 class CustomCreditBounds(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     min: Money
     max: Money
@@ -2277,7 +2961,12 @@ class CustomCreditBounds(WireModel):
 
 class FilePage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[File]
     has_more: bool
@@ -2286,7 +2975,12 @@ class FilePage(WireModel):
 
 class HostedArtifactRevision(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     revision: Annotated[int, Field(ge=1)]
     revision_id: str
@@ -2308,7 +3002,12 @@ class HostedArtifactRevision(WireModel):
 
 class IncludedAllowance(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     limit: Money
     used: Money
@@ -2318,7 +3017,12 @@ class IncludedAllowance(WireModel):
 
 class LaunchChoiceInference(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     profile_id: str
     model: str
@@ -2334,7 +3038,12 @@ class LaunchChoiceInference(WireModel):
 
 class LaunchChoiceSandboxOptionsItem(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     option_id: Annotated[str, Field(pattern="^sbo1_[0-9a-f]{16}_[0-9a-f]{64}$")]
     hourly_price: Money
@@ -2342,7 +3051,12 @@ class LaunchChoiceSandboxOptionsItem(WireModel):
 
 class LaunchChoicesAffordability(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[
         LaunchChoicesAffordabilityStatus,
@@ -2354,7 +3068,12 @@ class LaunchChoicesAffordability(WireModel):
 
 class LimitRow(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     source: Annotated[LimitRowSource, BeforeValidator(enum_value(LimitRowSource))] | None = None
     override: LimitRowOverride | None = None
@@ -2368,7 +3087,12 @@ class LimitRow(WireModel):
 
 class Limits(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     maximum_charge: LaunchBudget
     parallel_workers: Annotated[int, Field(ge=1, le=32)] | None = None
@@ -2379,7 +3103,12 @@ class Limits(WireModel):
 
 class MessageDispositionRecord(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[MessageDisposition, BeforeValidator(enum_value(MessageDisposition))]
     reason_message_id: MessageId | None = None
@@ -2397,7 +3126,12 @@ class MessageDispositionRecord(WireModel):
 
 class MintApiKeyRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     purpose: (
         Annotated[MintApiKeyRequestPurpose, BeforeValidator(enum_value(MintApiKeyRequestPurpose))]
@@ -2418,7 +3152,12 @@ class MintApiKeyRequest(WireModel):
 
 class MintedApiKey(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     key_id: KeyId
     prefix: str
@@ -2439,7 +3178,12 @@ class MintedApiKey(WireModel):
 
 class ObjectiveAnswer(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     schema_version: Literal["synth.objective-answer.v1"]
     objective_id: str
@@ -2449,7 +3193,12 @@ class ObjectiveAnswer(WireModel):
 
 class ObjectiveClaim(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     kind: str
@@ -2462,7 +3211,12 @@ class ObjectiveClaim(WireModel):
 
 class ObjectiveMetricState(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     current: float | None
     best: float | None
@@ -2476,7 +3230,12 @@ class ObjectiveMetricState(WireModel):
 
 class OptimizerPin(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     topology: Annotated[
         OptimizerPinTopology | str, BeforeValidator(open_enum_value(OptimizerPinTopology))
@@ -2487,7 +3246,12 @@ class OptimizerPin(WireModel):
 
 class OwnerResourceRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plugin: Literal["pool", "index"]
     version: Annotated[Literal[1], BeforeValidator(strict_int)] | None = None
@@ -2511,7 +3275,12 @@ class OwnerResourceRequest(WireModel):
 
 class Plan(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan_id: str
     name: str
@@ -2527,7 +3296,12 @@ class Plan(WireModel):
 
 class PlanRequestList(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: Annotated[list[PlanRequest], Field(max_length=100)]
     limit: Annotated[int, Field(ge=1, le=100)]
@@ -2535,7 +3309,12 @@ class PlanRequestList(WireModel):
 
 class Problem(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     overload: Overload | None = None
     type: str
@@ -2567,7 +3346,12 @@ class Problem(WireModel):
 
 class PromoRedemption(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     redemption_id: str
     campaign_id: str
@@ -2581,7 +3365,12 @@ class PromoRedemption(WireModel):
 
 class PromotionalGrant(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     grant_id: str
     amount: Money
@@ -2591,7 +3380,12 @@ class PromotionalGrant(WireModel):
 
 class RefundDetail(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     refund_cause: Annotated[
         RefundDetailRefundCause, BeforeValidator(enum_value(RefundDetailRefundCause))
@@ -2605,7 +3399,12 @@ class RefundDetail(WireModel):
 
 class ResearchLogEntry(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     entry_id: str
     notebook_id: str
@@ -2631,7 +3430,12 @@ class ResearchLogEntry(WireModel):
 
 class ResearchTrialCharge(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     amount: Money
     final: bool
@@ -2639,7 +3443,12 @@ class ResearchTrialCharge(WireModel):
 
 class ResearchTrialScore(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     record: ResearchExactReference
     outcome: str
@@ -2651,7 +3460,12 @@ class ResearchTrialScore(WireModel):
 
 class ResolvedOptimizer(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     topology: Annotated[
         ResolvedOptimizerTopology | str, BeforeValidator(open_enum_value(ResolvedOptimizerTopology))
@@ -2664,7 +3478,12 @@ class ResolvedOptimizer(WireModel):
 
 class RoutingCatalog(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     revision: str
     models: list[str]
@@ -2674,7 +3493,12 @@ class RoutingCatalog(WireModel):
 
 class RoutingConstraints(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     providers: Only | Exclude | None = None
     models: Only | Exclude | None = None
@@ -2682,7 +3506,12 @@ class RoutingConstraints(WireModel):
 
 class RunAllocationActorLaunch(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     inference: RunAllocationChoice
     sandbox: RunAllocationChoice
@@ -2690,7 +3519,12 @@ class RunAllocationActorLaunch(WireModel):
 
 class RunApprovalDecisionRecord(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     decision: Annotated[
         RunApprovalDecisionRecordDecision,
@@ -2705,7 +3539,12 @@ class RunApprovalDecisionRecord(WireModel):
 
 class RunAttemptReview(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     record: RunRecordReference
     target: RunRecordReference
@@ -2733,7 +3572,12 @@ class RunAttemptReview(WireModel):
 
 class RunAttemptScore(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     record: RunRecordReference
     trial: RunRecordReference
@@ -2828,7 +3672,12 @@ class RunAttemptScore(WireModel):
 
 class RunAttemptTreeUnavailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     state: Literal["unavailable"]
     run_id: RunId
@@ -2841,7 +3690,12 @@ class RunAttemptTreeUnavailable(WireModel):
 
 class RunCharge(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     amount: Money
     final: bool
@@ -2849,7 +3703,12 @@ class RunCharge(WireModel):
 
 class RunCompute(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     charge: Money
     subsidized: Money
@@ -2858,7 +3717,12 @@ class RunCompute(WireModel):
 
 class RunConfiguration(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     configuration: dict[str, JsonValue]
@@ -2866,7 +3730,12 @@ class RunConfiguration(WireModel):
 
 class RunGuidance(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: Annotated[str, Field(pattern="^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$")]
     kind: Annotated[RunGuidanceKind, BeforeValidator(enum_value(RunGuidanceKind))]
@@ -2900,7 +3769,12 @@ class RunGuidance(WireModel):
 
 class RunIndexUsage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     searches: int
     source_reads: int
@@ -2909,14 +3783,24 @@ class RunIndexUsage(WireModel):
 
 class RunInputs(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     files: Annotated[list[InputFile], Field(max_length=10000)] | None = None
 
 
 class RunLimitChanges(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     maximum_charge: Money | None = None
     maximum_tokens: Annotated[int, Field(ge=1, le=9007199254740991)] | None = None
@@ -2926,7 +3810,12 @@ class RunLimitChanges(WireModel):
 
 class RunLineage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     parent_run_id: RunId
     inherited_artifacts: list[RunInheritedArtifact]
@@ -2937,7 +3826,12 @@ RunMessageBody: TypeAlias = BodyAvailable | BodyUnavailable
 
 class RunModelUsage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     provider: str
     model: str
@@ -2954,7 +3848,12 @@ class RunModelUsage(WireModel):
 
 class RunOutput(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     output_id: OutId
@@ -2965,7 +3864,12 @@ class RunOutput(WireModel):
 
 class RunPause(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     cause: Annotated[RunPauseCause, BeforeValidator(enum_value(RunPauseCause))]
     operation_id: str
@@ -2977,7 +3881,12 @@ class RunPause(WireModel):
 
 class RunPreflightResponse(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     schema_version: Literal["synth.run-preflight.v1"]
     admissible: bool
@@ -2987,14 +3896,24 @@ class RunPreflightResponse(WireModel):
 
 class RunProgram(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     program: RunProgramProgram
 
 
 class RunProviderCompute(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     charge: Money
     subsidized: Money
@@ -3005,7 +3924,12 @@ class RunProviderCompute(WireModel):
 
 class RunResearchNote(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     record: RunRecordReference
     log: RunRecordReference
@@ -3067,7 +3991,12 @@ class RunResearchNote(WireModel):
 
 class RunResultFile(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     output_id: OutId
@@ -3078,7 +4007,12 @@ class RunResultFile(WireModel):
 
 class RunRoleUsage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     role: Annotated[RunRoleUsageRole, BeforeValidator(enum_value(RunRoleUsageRole))]
     calls: Annotated[int, Field(ge=0)]
@@ -3094,7 +4028,12 @@ class RunRoleUsage(WireModel):
 
 class RunSandbox(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
@@ -3114,7 +4053,12 @@ class RunSandbox(WireModel):
 
 class RunSettlementSummary(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[
         RunSettlementSummaryStatus, BeforeValidator(enum_value(RunSettlementSummaryStatus))
@@ -3128,7 +4072,12 @@ class RunSettlementSummary(WireModel):
 
 class RunTaskPage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[RunTask]
     has_more: bool
@@ -3137,7 +4086,12 @@ class RunTaskPage(WireModel):
 
 class RunTimings(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     created_at: str
     closed: SandboxMoment
@@ -3148,7 +4102,12 @@ class RunTimings(WireModel):
 
 class RunUsage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     calls: Annotated[int, Field(ge=0)]
     failed_calls: Annotated[int, Field(ge=0)]
@@ -3163,7 +4122,12 @@ class RunUsage(WireModel):
 
 class SelectionCandidate(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     state: Annotated[SelectionCandidateState, BeforeValidator(enum_value(SelectionCandidateState))]
     commit_sha: Annotated[str, Field(pattern="^[0-9a-f]{40}$")]
@@ -3178,7 +4142,12 @@ class SelectionCandidate(WireModel):
 
 class SendRunMessage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[MessageKind, BeforeValidator(enum_value(MessageKind))]
     text: Annotated[
@@ -3191,7 +4160,12 @@ class SendRunMessage(WireModel):
 
 class SetSpendAlertsRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     enabled: bool | None = None
     monthly_amount: Money | None
@@ -3199,7 +4173,12 @@ class SetSpendAlertsRequest(WireModel):
 
 class SpendAlerts(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     enabled: bool
     monthly_amount: Money | None
@@ -3209,7 +4188,12 @@ class SpendAlerts(WireModel):
 
 class SubscriptionChangePreview(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan_id: str
     amount_due_now: Money
@@ -3219,7 +4203,12 @@ class SubscriptionChangePreview(WireModel):
 
 class UpdateApiKeyRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     scopes: Annotated[
         list[Annotated[Scope, BeforeValidator(enum_value(Scope))]],
@@ -3232,7 +4221,12 @@ class UpdateApiKeyRequest(WireModel):
 
 class Upload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     upload_id: str
     state: Annotated[UploadState, BeforeValidator(enum_value(UploadState))]
@@ -3242,7 +4236,12 @@ class Upload(WireModel):
 
 class UsageDayBucket(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     charge: Money
     input_tokens: Annotated[int, Field(ge=0)]
@@ -3253,7 +4252,12 @@ class UsageDayBucket(WireModel):
 
 class UsageKeyBucket(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     charge: Money
     input_tokens: Annotated[int, Field(ge=0)]
@@ -3264,7 +4268,12 @@ class UsageKeyBucket(WireModel):
 
 class UsageRecord(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     record_id: str
     run_id: RunId | None
@@ -3288,7 +4297,12 @@ class UsageRecord(WireModel):
 
 class UsageSummaryPending(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     count: Annotated[int, Field(ge=0)]
     amount: Money
@@ -3296,7 +4310,12 @@ class UsageSummaryPending(WireModel):
 
 class UsageSummarySettling(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     count: Annotated[int, Field(ge=0)]
     amount: Money
@@ -3304,7 +4323,12 @@ class UsageSummarySettling(WireModel):
 
 class UsageTotals(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     charge: Money
     input_tokens: Annotated[int, Field(ge=0)]
@@ -3314,7 +4338,12 @@ class UsageTotals(WireModel):
 
 class Account(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     org: Org
     principal: Principal
@@ -3326,7 +4355,12 @@ class Account(WireModel):
 
 class ApiKeyPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -3335,7 +4369,12 @@ class ApiKeyPage(WireModel):
 
 class AutoReloadDisclosure(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     version: str
     template: str
@@ -3345,7 +4384,12 @@ class AutoReloadDisclosure(WireModel):
 
 class Balance(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     org_id: str
     plan: str
@@ -3363,7 +4407,12 @@ class Balance(WireModel):
 
 class BillingHistoryEntry(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     entry_id: str
     cause: Annotated[
@@ -3382,7 +4431,12 @@ class BillingHistoryEntry(WireModel):
 
 class BillingStatementPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -3391,7 +4445,12 @@ class BillingStatementPage(WireModel):
 
 class FamilyList(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     topologies: list[TopologyCatalogEntry] | None = None
     families: list[Family]
@@ -3400,7 +4459,12 @@ class FamilyList(WireModel):
 
 class FundingSummary(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan: str
     payg_credits_active: bool
@@ -3417,7 +4481,12 @@ class FundingSummary(WireModel):
 
 class HostedArtifact(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     artifact_id: str
     run_id: str | None
@@ -3433,7 +4502,12 @@ class HostedArtifact(WireModel):
 
 class LaunchChoiceSandbox(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     profile_id: str
     size_id: str
@@ -3452,7 +4526,12 @@ class LaunchChoiceSandbox(WireModel):
 
 class LimitList(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     plan: str
     payg_credits_active: bool
@@ -3465,7 +4544,12 @@ OptimizerRequest: TypeAlias = Literal["auto"] | OptimizerPin
 
 class OutputPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -3474,7 +4558,12 @@ class OutputPage(WireModel):
 
 class PlanCatalog(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     policy_version: str
     price_checked_at: str
@@ -3486,14 +4575,24 @@ class PlanCatalog(WireModel):
 
 class ResearchLogEntryList(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[ResearchLogEntry]
 
 
 class ResearchTrialRecord(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     trial_id: str
     experiment_id: str
@@ -3511,7 +4610,12 @@ class ResearchTrialRecord(WireModel):
 
 class RoutingReadback(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     requested: RoutingConstraints | None
     catalog_revision: str
@@ -3522,7 +4626,12 @@ class RoutingReadback(WireModel):
 
 class RunAllocationActor(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     actor_id: str
     role: str
@@ -3539,7 +4648,12 @@ class RunAllocationActor(WireModel):
 
 class RunApproval(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     approval_id: Annotated[str, Field(min_length=1, max_length=128)]
     run_id: RunId
@@ -3557,7 +4671,12 @@ class RunApproval(WireModel):
 
 class RunAttemptNode(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     trial: RunRecordReference
     parent_trial: RunRecordReference | None
@@ -3635,7 +4754,12 @@ class RunAttemptNode(WireModel):
 
 class RunLimitStatePayload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     revision: Annotated[int, Field(ge=0)]
     at_ms: int
@@ -3644,7 +4768,12 @@ class RunLimitStatePayload(WireModel):
 
 class RunLimitUpdate(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     expected_revision: Annotated[int, Field(ge=0)]
     limits: RunLimitChanges
@@ -3654,7 +4783,12 @@ class RunLimitUpdate(WireModel):
 
 class RunLimitsProgress(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     operation_id: str | None = None
     schema_version: Literal["synth.limits-progress.v1"]
@@ -3676,7 +4810,12 @@ class RunLimitsProgress(WireModel):
 
 class RunMessageState(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     kind: Annotated[ManagerMessageState, BeforeValidator(enum_value(ManagerMessageState))]
     decision_step: Annotated[int, Field(ge=1, le=9223372036854775807)] | None = None
@@ -3701,7 +4840,12 @@ class RunMessageState(WireModel):
 
 class RunObjective(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     kind: str
@@ -3718,7 +4862,12 @@ class RunObjective(WireModel):
 
 class RunProfile(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     id: str
     revision: str
@@ -3733,7 +4882,12 @@ class RunProfile(WireModel):
 
 class RunReportRollout(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     rollout_id: str
     status: str
@@ -3753,7 +4907,12 @@ class RunReportRollout(WireModel):
 
 class RunReportSandbox(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     profile: SandboxProfile | None = None
     sandbox_id: Annotated[str, Field(pattern="^sbx_[A-Za-z0-9_-]{22}$")]
@@ -3790,7 +4949,12 @@ class RunReportSandbox(WireModel):
 
 class RunSandboxes(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     teardown: Annotated[RunSandboxesTeardown, BeforeValidator(enum_value(RunSandboxesTeardown))]
     items: list[RunSandbox]
@@ -3798,7 +4962,12 @@ class RunSandboxes(WireModel):
 
 class RunSelection(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[RunSelectionStatus, BeforeValidator(enum_value(RunSelectionStatus))]
     reason: Literal[
@@ -3816,7 +4985,12 @@ class RunSelection(WireModel):
 
 class UsageRecordPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -3825,7 +4999,12 @@ class UsageRecordPage(WireModel):
 
 class UsageSummaryBySource(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     runs: UsageTotals
     sessions: UsageTotals
@@ -3834,7 +5013,12 @@ class UsageSummaryBySource(WireModel):
 
 class AutoReload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     enabled: bool
     threshold: Money | None
@@ -3846,7 +5030,12 @@ class AutoReload(WireModel):
 
 class BillingHistoryPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -3855,14 +5044,24 @@ class BillingHistoryPage(WireModel):
 
 class HostedArtifactList(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[HostedArtifact]
 
 
 class LaunchChoices(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     menu_revision: Annotated[str, Field(pattern="^lcm1_[0-9a-f]{64}$")]
     run_profile: str
@@ -3879,7 +5078,12 @@ class LaunchChoices(WireModel):
 
 class LaunchRequest(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     continue_from: RunId | None = None
     optimizer: OptimizerRequest | None = None
@@ -3910,7 +5114,12 @@ class LaunchRequest(WireModel):
 
 class ResearchExperimentRecord(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     experiment_id: str
     notebook_id: str
@@ -3928,7 +5137,12 @@ class ResearchExperimentRecord(WireModel):
 
 class RunAllocation(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     menu_revision: str | None
@@ -3938,7 +5152,12 @@ class RunAllocation(WireModel):
 
 class RunApprovalDecisionReceipt(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     operation_id: Annotated[str, Field(min_length=1)]
     run_id: RunId
@@ -3961,7 +5180,12 @@ class RunApprovalDecisionReceipt(WireModel):
 
 class RunApprovalPage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[RunApproval]
     next_cursor: str | None = None
@@ -3970,7 +5194,12 @@ class RunApprovalPage(WireModel):
 
 class RunAttemptTreeAvailable(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     state: Literal["available"]
     run_id: RunId
@@ -4038,7 +5267,12 @@ class RunAttemptTreeAvailable(WireModel):
 
 class RunMessage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     message_id: MessageId
     run_id: RunId
@@ -4058,7 +5292,12 @@ class RunMessage(WireModel):
 
 class RunMessageEventPayload(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     message_id: MessageId
     state: RunMessageState
@@ -4068,7 +5307,12 @@ class RunMessageEventPayload(WireModel):
 
 class RunProfileCatalog(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     default_profile: str
     profiles: list[RunProfile]
@@ -4076,7 +5320,12 @@ class RunProfileCatalog(WireModel):
 
 class RunReward(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     status: Annotated[RunRewardStatus, BeforeValidator(enum_value(RunRewardStatus))]
     best: float | None = None
@@ -4085,7 +5334,12 @@ class RunReward(WireModel):
 
 class RunSnapshot(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     lineage: RunLineage | None = None
     optimizer: ResolvedOptimizer | None = None
@@ -4154,7 +5408,12 @@ class RunSnapshot(WireModel):
 
 class UsageSummary(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     since: str
     until: str
@@ -4171,7 +5430,12 @@ class UsageSummary(WireModel):
 
 class ResearchExperimentList(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: list[ResearchExperimentRecord]
 
@@ -4181,7 +5445,12 @@ RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
 
 class RunEvent(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     event_id: EvtId
     run_id: RunId
@@ -4228,7 +5497,12 @@ class RunEvent(WireModel):
 
 class RunMessagePage(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     items: Annotated[list[RunMessage], Field(max_length=100)]
     next_cursor: str | None
@@ -4238,7 +5512,12 @@ class RunMessagePage(WireModel):
 
 class RunPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -4247,7 +5526,12 @@ class RunPage(WireModel):
 
 class RunReport(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     lineage: RunLineage | None = None
     sandbox_performance: list[SandboxPerformance] | None = None
@@ -4277,7 +5561,12 @@ class RunReport(WireModel):
 
 class RunReviewSurface(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     pacing: RunHorizonPacing | None
     experiments: list[ResearchExperimentRecord]
@@ -4287,7 +5576,12 @@ class RunReviewSurface(WireModel):
 
 class RunWait(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     outcome: Annotated[RunWaitOutcome, BeforeValidator(enum_value(RunWaitOutcome))]
     run: RunSnapshot
@@ -4295,7 +5589,12 @@ class RunWait(WireModel):
 
 class EventPage(WireModel):
     model_config = ConfigDict(
-        extra="allow", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="allow",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     has_more: bool
     next_cursor: Annotated[str, Field(min_length=1)] | None = None
@@ -4305,7 +5604,12 @@ class EventPage(WireModel):
 
 class RunResult(WireModel):
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, strict=True, frozen=True, allow_inf_nan=False
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
     )
     run_id: RunId
     status: Annotated[RunResultStatus, BeforeValidator(enum_value(RunResultStatus))]
@@ -4340,6 +5644,11 @@ MODELS: dict[str, type[BaseModel]] = {
     "AccountTerms": AccountTerms,
     "ActorParkedPayload": ActorParkedPayload,
     "ActorUnparkedPayload": ActorUnparkedPayload,
+    "ApiBuildInfo": ApiBuildInfo,
+    "ApiClientCompatibility": ApiClientCompatibility,
+    "ApiContractInfo": ApiContractInfo,
+    "ApiNegotiationInfo": ApiNegotiationInfo,
+    "ApiServerInfo": ApiServerInfo,
     "AutoReloadCard": AutoReloadCard,
     "BillingAttention": BillingAttention,
     "BodyAvailable": BodyAvailable,
@@ -4442,6 +5751,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "UsageMeter": UsageMeter,
     "ActorLimitsProgress": ActorLimitsProgress,
     "ApiKey": ApiKey,
+    "ApiVersionInfo": ApiVersionInfo,
     "AppendResearchLogEntryRequest": AppendResearchLogEntryRequest,
     "AutoReloadLimits": AutoReloadLimits,
     "AutoReloadRequest": AutoReloadRequest,

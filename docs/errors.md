@@ -135,6 +135,7 @@ The specialized admission classes also inherit their HTTP-status class.
 | `billing_admin_required` | `BillingAdminRequiredError` | Have an organization admin perform this billing action. |
 | `browser_session_required` | `BrowserSessionRequiredError` | Complete this billing action from a signed-in browser session in the Console. |
 | `plan_request_cooldown` | `PlanRequestCooldownError` | Wait until the denial cooldown expires before submitting a new plan request. |
+| `api_version_unsupported` | `ApiVersionUnsupportedError` | Check `GET /.well-known/synth-api` and align `synth-ai` with a supported API version. |
 
 ## Error guide
 

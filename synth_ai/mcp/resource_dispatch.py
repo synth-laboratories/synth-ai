@@ -28,6 +28,8 @@ async def dispatch_resource(
     client: AsyncSynthClient, operation: str, arguments: Mapping[str, JsonValue]
 ) -> BaseModel | None:
     match operation:
+        case "getVersion":
+            return await client.version()
         case "acceptTerms":
             terms = required(arguments, "body", TermsAcceptanceRequest)
             return await client.account.accept_terms(
