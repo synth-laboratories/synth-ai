@@ -33,11 +33,10 @@ from ._pagination import paginate
 from .errors import ArtifactoryPayloadError
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Iterator
+    from collections.abc import AsyncGenerator
 
     from pydantic import JsonValue
 
-    from ._blocking import Runner
     from ._transport import Transport
 
 ArtifactoryCategory = ArtifactoryRecordCategory
@@ -50,7 +49,6 @@ __all__ = [
     "AggregationMode",
     "ArtifactoryAuthorKind",
     "ArtifactoryCategory",
-    "ArtifactoryClient",
     "ArtifactoryFinding",
     "ArtifactoryHypothesis",
     "ArtifactoryOrigin",
@@ -64,7 +62,6 @@ __all__ = [
     "AsyncNotebooks",
     "NotebookPage",
     "NotebookSummary",
-    "NotebooksClient",
     "payload_category",
 ]
 
@@ -223,116 +220,4 @@ class AsyncArtifactory:
             path={"record_id": record_id},
             body=body,
             idempotency_key=idempotency_key,
-        )
-
-
-class NotebooksClient:
-    """Synchronous delegate for discovering the notebooks in the caller's organization."""
-
-    def __init__(self, runner: Runner, inner: AsyncNotebooks) -> None:
-        self._runner = runner
-        self._inner = inner
-
-    def list_notebooks(self, *, limit: int = 20, cursor: str | None = None) -> NotebookPage:
-        """Read one page of the organization's notebooks, newest activity first."""
-        return self._runner.call(self._inner.list_notebooks(limit=limit, cursor=cursor))
-
-    def iter_notebooks(
-        self, *, limit: int = 20, cursor: str | None = None
-    ) -> Iterator[NotebookSummary]:
-        """Yield every notebook in the organization across cursor pages."""
-        return self._runner.iterate(self._inner.iter_notebooks(limit=limit, cursor=cursor))
-
-
-class ArtifactoryClient:
-    """Synchronous delegate for typed Human Artifactory records."""
-
-    def __init__(self, runner: Runner, inner: AsyncArtifactory) -> None:
-        self._runner = runner
-        self._inner = inner
-
-    def create_record(
-        self,
-        notebook_id: str,
-        title: str,
-        payload: ArtifactoryPayload,
-        *,
-        origin: ArtifactoryOrigin | str = ArtifactoryOrigin.AGENT,
-        run_id: str | None = None,
-        author_kind: ArtifactoryAuthorKind | str | None = None,
-        pinned: bool | None = None,
-        summary: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> ArtifactoryRecord:
-        """Create a record; the category follows the payload type (preference, hypothesis, finding)."""
-        return self._runner.call(
-            self._inner.create_record(
-                notebook_id,
-                title,
-                payload,
-                origin=origin,
-                run_id=run_id,
-                author_kind=author_kind,
-                pinned=pinned,
-                summary=summary,
-                idempotency_key=idempotency_key,
-            )
-        )
-
-    def list_records(
-        self,
-        notebook_id: str,
-        *,
-        category: ArtifactoryCategory | str | None = None,
-        origin: ArtifactoryOrigin | str | None = None,
-        run_id: str | None = None,
-        pinned_only: bool = False,
-    ) -> ArtifactoryRecordList:
-        """List a notebook's records, optionally filtered by category, origin, run or pinned."""
-        return self._runner.call(
-            self._inner.list_records(
-                notebook_id,
-                category=category,
-                origin=origin,
-                run_id=run_id,
-                pinned_only=pinned_only,
-            )
-        )
-
-    def resolve_preference(
-        self, notebook_id: str, *, run_id: str | None = None
-    ) -> ArtifactoryRecord:
-        """Resolve the preference that governs a notebook or run; human-pinned ones win."""
-        return self._runner.call(self._inner.resolve_preference(notebook_id, run_id=run_id))
-
-    def get_record(self, record_id: str) -> ArtifactoryRecord:
-        """Read a record with its full revision history."""
-        return self._runner.call(self._inner.get_record(record_id))
-
-    def revise_record(
-        self,
-        record_id: str,
-        *,
-        payload: ArtifactoryPayload | None = None,
-        title: str | None = None,
-        summary: str | None = None,
-        pinned: bool | None = None,
-        author_kind: ArtifactoryAuthorKind | str | None = None,
-        expected_revision: int | None = None,
-        expected_supersedes_digest: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> ArtifactoryRecord:
-        """Append revision r+1; pass expected_revision to fence out concurrent writers."""
-        return self._runner.call(
-            self._inner.revise_record(
-                record_id,
-                payload=payload,
-                title=title,
-                summary=summary,
-                pinned=pinned,
-                author_kind=author_kind,
-                expected_revision=expected_revision,
-                expected_supersedes_digest=expected_supersedes_digest,
-                idempotency_key=idempotency_key,
-            )
         )

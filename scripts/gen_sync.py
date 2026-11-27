@@ -27,6 +27,8 @@ def generate() -> str:
         "from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT",
         "from ._generated.models import RunResult",
         "from .account import AsyncAccount, AsyncApiKeys",
+        "from .artifactory import (ArtifactoryAuthorKind, ArtifactoryCategory, ArtifactoryOrigin,"
+        " ArtifactoryPayload, AsyncArtifactory, AsyncNotebooks)",
         "from .billing import AsyncBilling",
         "from .swarms import AsyncSwarms",
         "",
@@ -37,7 +39,7 @@ def generate() -> str:
         "",
     ]
     model_imports = set()
-    for module in ["swarms", "account", "billing"]:
+    for module in ["swarms", "account", "billing", "artifactory"]:
         tree = ast.parse((ROOT / "synth_ai" / f"{module}.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.ImportFrom) and node.module == "_generated.models":

@@ -5,9 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ._blocking import Runner
-from ._sync import AccountClient, BillingClient, SwarmsClient
+from ._sync import (
+    AccountClient,
+    ArtifactoryClient,
+    BillingClient,
+    NotebooksClient,
+    SwarmsClient,
+)
 from .aclient import AsyncSynthClient
-from .artifactory import ArtifactoryClient, NotebooksClient
 from .research import ArtifactsClient, ExperimentsClient, ResearchLogsClient
 
 if TYPE_CHECKING:

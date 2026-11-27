@@ -13,6 +13,8 @@ from ._generated.models import (
     Account,
     ApiKey,
     ApiKeyPage,
+    ArtifactoryRecord,
+    ArtifactoryRecordList,
     AutoReload,
     Balance,
     BillingHistoryEntry,
@@ -34,6 +36,8 @@ from ._generated.models import (
     MintApiKeyRequestPurpose,
     MintedApiKey,
     Money,
+    NotebookPage,
+    NotebookSummary,
     OAuthGrantRevoked,
     OptimizerRequest,
     OutputPage,
@@ -90,6 +94,14 @@ from ._protocol import CompletionMilestone
 from ._requests import DomicileRequirement
 from ._stream import StreamCheckpoint
 from .account import AsyncAccount, AsyncApiKeys
+from .artifactory import (
+    ArtifactoryAuthorKind,
+    ArtifactoryCategory,
+    ArtifactoryOrigin,
+    ArtifactoryPayload,
+    AsyncArtifactory,
+    AsyncNotebooks,
+)
 from .billing import AsyncBilling
 from .swarms import AsyncSwarms
 
@@ -922,3 +934,110 @@ class BillingClient:
 
 
 _copy_method_docs(BillingClient, AsyncBilling)
+
+
+class NotebooksClient:
+    def __init__(self, runner: Runner, source: AsyncNotebooks) -> None:
+        self._runner = runner
+        self._async = source
+
+    def list_notebooks(self, *, limit: int = 20, cursor: str | None = None) -> NotebookPage:
+        return self._runner.call(self._async.list_notebooks(limit=limit, cursor=cursor))
+
+    def iter_notebooks(
+        self, *, limit: int = 20, cursor: str | None = None
+    ) -> Iterator[NotebookSummary]:
+        return self._runner.iterate(self._async.iter_notebooks(limit=limit, cursor=cursor))
+
+
+_copy_method_docs(NotebooksClient, AsyncNotebooks)
+
+
+class ArtifactoryClient:
+    def __init__(self, runner: Runner, source: AsyncArtifactory) -> None:
+        self._runner = runner
+        self._async = source
+
+    def create_record(
+        self,
+        notebook_id: str,
+        title: str,
+        payload: ArtifactoryPayload,
+        *,
+        origin: ArtifactoryOrigin | str = ArtifactoryOrigin.AGENT,
+        run_id: str | None = None,
+        author_kind: ArtifactoryAuthorKind | str | None = None,
+        pinned: bool | None = None,
+        summary: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ArtifactoryRecord:
+        return self._runner.call(
+            self._async.create_record(
+                notebook_id,
+                title,
+                payload,
+                origin=origin,
+                run_id=run_id,
+                author_kind=author_kind,
+                pinned=pinned,
+                summary=summary,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def list_records(
+        self,
+        notebook_id: str,
+        *,
+        category: ArtifactoryCategory | str | None = None,
+        origin: ArtifactoryOrigin | str | None = None,
+        run_id: str | None = None,
+        pinned_only: bool = False,
+    ) -> ArtifactoryRecordList:
+        return self._runner.call(
+            self._async.list_records(
+                notebook_id,
+                category=category,
+                origin=origin,
+                run_id=run_id,
+                pinned_only=pinned_only,
+            )
+        )
+
+    def resolve_preference(
+        self, notebook_id: str, *, run_id: str | None = None
+    ) -> ArtifactoryRecord:
+        return self._runner.call(self._async.resolve_preference(notebook_id, run_id=run_id))
+
+    def get_record(self, record_id: str) -> ArtifactoryRecord:
+        return self._runner.call(self._async.get_record(record_id))
+
+    def revise_record(
+        self,
+        record_id: str,
+        *,
+        payload: ArtifactoryPayload | None = None,
+        title: str | None = None,
+        summary: str | None = None,
+        pinned: bool | None = None,
+        author_kind: ArtifactoryAuthorKind | str | None = None,
+        expected_revision: int | None = None,
+        expected_supersedes_digest: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ArtifactoryRecord:
+        return self._runner.call(
+            self._async.revise_record(
+                record_id,
+                payload=payload,
+                title=title,
+                summary=summary,
+                pinned=pinned,
+                author_kind=author_kind,
+                expected_revision=expected_revision,
+                expected_supersedes_digest=expected_supersedes_digest,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+
+_copy_method_docs(ArtifactoryClient, AsyncArtifactory)

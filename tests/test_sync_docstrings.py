@@ -2,11 +2,11 @@
 
 import inspect
 
-from synth_ai import _sync, account, billing, swarms
+from synth_ai import _sync, account, artifactory, billing, swarms
 
 
 def test_generated_delegates_preserve_public_method_documentation() -> None:
-    for module in (account, billing, swarms):
+    for module in (account, artifactory, billing, swarms):
         for name, source in vars(module).items():
             if not inspect.isclass(source) or not name.startswith("Async"):
                 continue
