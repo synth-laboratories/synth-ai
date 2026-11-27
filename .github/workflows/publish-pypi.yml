@@ -1,4 +1,4 @@
-name: Publish qualified SDK
+name: Publish qualified SDK to PyPI
 on:
   push:
     tags: ['v*']
@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       wheel_sha256: ${{ steps.bind.outputs.wheel_sha256 }}
+      pep440_version: ${{ steps.bind.outputs.pep440_version }}
+      release_channel: ${{ steps.bind.outputs.release_channel }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,7 +19,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.11'
-      - name: Bind the release tag to the qualified wheel
+      - run: uv sync --locked --extra mcp
+      - name: Bind the annotated release tag and validate SemVer/PEP 440 version alignment
         id: bind
         shell: bash
         run: |
@@ -29,20 +32,25 @@ jobs:
             echo "Release tag requires one Wheel-SHA256 trailer for the qualified wheel" >&2
             exit 1
           fi
+          parsed=$(uv run python scripts/release_version.py verify --tag "$GITHUB_REF_NAME")
+          pep440=$(printf '%s' "$parsed" | uv run python -c 'import json, sys; print(json.load(sys.stdin)["pep440_version"])')
+          channel=$(printf '%s' "$parsed" | uv run python -c 'import json, sys; print(json.load(sys.stdin)["channel"])')
           printf 'wheel_sha256=%s\n' "$expected" >> "$GITHUB_OUTPUT"
-      - run: uv sync --locked --extra mcp
-      - run: uv run python -c 'import os, synth_ai; assert os.environ["GITHUB_REF_NAME"] == "v" + synth_ai.__version__'
+          printf 'pep440_version=%s\n' "$pep440" >> "$GITHUB_OUTPUT"
+          printf 'release_channel=%s\n' "$channel" >> "$GITHUB_OUTPUT"
       - name: Reproduce the exact locally qualified wheel
         env:
           EXPECTED_WHEEL_SHA256: ${{ steps.bind.outputs.wheel_sha256 }}
+          EXPECTED_PEP440_VERSION: ${{ steps.bind.outputs.pep440_version }}
         shell: bash
         run: |
           set -euo pipefail
           uv build --wheel
           shopt -s nullglob
           files=(dist/*)
-          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == *.whl ]]; then
-            echo "Expected exactly one wheel in dist/" >&2
+          expected_wheel="dist/synth_ai-${EXPECTED_PEP440_VERSION}-py3-none-any.whl"
+          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == "$expected_wheel" ]]; then
+            echo "Expected exactly one wheel $expected_wheel in dist/, found: ${files[*]}" >&2
             exit 1
           fi
           printf '%s  %s\n' "$EXPECTED_WHEEL_SHA256" "${files[0]}" | sha256sum --check -
@@ -66,13 +74,15 @@ jobs:
       - name: Recheck the exact wheel before publishing
         env:
           EXPECTED_WHEEL_SHA256: ${{ needs.build.outputs.wheel_sha256 }}
+          EXPECTED_PEP440_VERSION: ${{ needs.build.outputs.pep440_version }}
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           files=(dist/*)
-          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == *.whl ]]; then
-            echo "Expected exactly one wheel in dist/" >&2
+          expected_wheel="dist/synth_ai-${EXPECTED_PEP440_VERSION}-py3-none-any.whl"
+          if ! [[ "${#files[@]}" == 1 && "${files[0]}" == "$expected_wheel" ]]; then
+            echo "Expected exactly one wheel $expected_wheel in dist/, found: ${files[*]}" >&2
             exit 1
           fi
           printf '%s  %s\n' "$EXPECTED_WHEEL_SHA256" "${files[0]}" | sha256sum --check -

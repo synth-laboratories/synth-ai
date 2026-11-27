@@ -48,20 +48,28 @@ Use the version in `pyproject.toml`; do not create its release tag before approv
 Never force-push history or replace an existing release artifact. Rollback means
 pinning a previous compatible package; a yank is not a service rollback.
 
-## Staging prerelease
+## Staging prerelease and nightly releases
 
-The 2026-11-16 train uses `0.41.0rc1`; planned stable is `0.41.0`.
 Verify PyPI and Git tags immediately before each publication; never reuse a
-version. The existing `publish-dev.yml` `v*` tag workflow supports PEP 440
-prereleases and asserts the exact tag equals `v` plus the package version.
-Tag `v0.41.0rc1` only after the local candidate gate. It uses the same protected
-`pypi` environment and trusted publisher as stable. Satisfy the configured
-GitHub environment review through the authorized owner identity; do not bypass
-it or use a separate token publisher. Install staging's exact prerelease with
-`pip install synth-ai==0.41.0rc1` and retain its package hashes and live receipts.
+version. `.github/workflows/publish-pypi.yml` is the sole PyPI-only GitHub Actions
+workflow and supports stable (`vX.Y.Z`), RC (`vX.Y.Z-rc.N` / `vX.Y.ZrcN`), and
+nightly (`vX.Y.Z-nightly.YYYYMMDD` / `vX.Y.Z.devYYYYMMDD`) annotated tags via
+`scripts/release_version.py`.
 
-After staging acceptance and production routes are live, change the version to
-`0.41.0`, regenerate the version module, rebuild and repeat the isolated wheel
-smoke. Candidate and stable have distinct artifact bytes and hashes. Promote
-source through dev → staging → main and publish/tag the qualified stable commit
-only at the stable gate. PyPI's default stable selection excludes the candidate.
+For a nightly cut targeting the next release `X.Y.Z`:
+1. Stamp `pyproject.toml` and `synth_ai/_version.py` to PEP 440 `X.Y.Z.devYYYYMMDD`:
+   `uv run python scripts/release_version.py stamp --tag vX.Y.Z-nightly.YYYYMMDD`
+2. Qualify the exact wheel locally with `scripts/qualify_release.py` on a standalone
+   Synth host and record its `Wheel-SHA256`.
+3. Create an annotated tag `vX.Y.Z-nightly.YYYYMMDD` (or `vX.Y.Z.devYYYYMMDD`)
+   carrying `Wheel-SHA256: <64-hex>` and push the tag. `publish-pypi.yml` verifies
+   the trailer and tag-to-PEP440 alignment (`X.Y.Z.devYYYYMMDD`), reproduces the
+   exact wheel bytes, and publishes through the protected `pypi` environment.
+4. PyPI's default `pip install synth-ai` excludes `.devYYYYMMDD` and `rcN` releases;
+   opt-in users install with `pip install --pre synth-ai` or an explicit `==` pin.
+
+After staging acceptance and production routes are live, stamp the stable version
+`X.Y.Z` (`scripts/release_version.py stamp --tag vX.Y.Z`), rebuild and repeat the
+isolated wheel smoke. Candidate/nightly and stable have distinct artifact bytes and
+hashes. Promote source through dev → staging → main and publish/tag the qualified
+stable commit only at the stable gate.

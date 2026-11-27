@@ -7,7 +7,7 @@ severity = "error"
 require_paths = ["contracts/file-limits.json", "contracts/FILE_LIMITS_SOURCE.toml", "scripts/gen_file_limits.py", "synth_ai/_generated/file_limits.py", ".venv/bin/python"]
 file_contains = [
   { path = "synth_ai/_limits.py", pattern = "UPLOAD_MAX_BYTES = FILE_MAX_BYTES" },
-  { path = ".github/workflows/ci.yml", pattern = "scripts/gen_file_limits.py --check" },
+  { path = "scripts/qualify_release.py", pattern = "scripts/gen_file_limits.py" },
 ]
 command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/gen_file_limits.py --check"
 command_timeout_seconds = 10
@@ -20,12 +20,12 @@ severity = "error"
 require_paths = ["synth_ai/py.typed", "tests/test_typed_protocols.py", "tests/test_standards_lint.py"]
 file_contains = [
   { path = "pyproject.toml", pattern = "[tool.ty.rules]" },
-  { path = ".github/workflows/ci.yml", pattern = "uv run ty check" },
+  { path = "Makefile", pattern = "ty check" },
   { path = "scripts/gen_contract.py", pattern = "strict=True, frozen=True" },
   { path = "scripts/gen_contract.py", pattern = "x-synth-event-kind" },
   { path = "tests/test_typed_protocols.py", pattern = "test_wrong_wall_time_type_is_rejected_before_any_request" },
   { path = "tests/test_standards_lint.py", pattern = "test_production_sdk_obeys_the_standards" },
-  { path = ".github/workflows/ci.yml", pattern = "uv run python scripts/lint_standards.py" },
+  { path = "Makefile", pattern = "python scripts/lint_standards.py" },
 ]
 remedy = "Restore the generated strict contract and ty CI checks; run the typed protocol regression suite and both generator drift checks."
 
@@ -77,7 +77,7 @@ description = "Every contract customer operation is reachable from the SDK, CLI 
 severity = "error"
 require_paths = ["scripts/check_surface_parity.py", "tests/test_surface_parity.py", ".venv/bin/python"]
 file_contains = [
-  { path = ".github/workflows/ci.yml", pattern = "scripts/check_surface_parity.py" },
+  { path = "scripts/qualify_release.py", pattern = "scripts/check_surface_parity.py" },
   { path = "lefthook.yml", pattern = "scripts/check_surface_parity.py" },
 ]
 command = "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/check_surface_parity.py"
