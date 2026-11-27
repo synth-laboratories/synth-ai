@@ -8,13 +8,21 @@ import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import httpx
-    from mcp.server import Server
-    from mcp.types import CallToolResult, TextContent, Tool
+    from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+    from mcp.server import NotificationOptions, Server
+    from mcp.server.lowlevel.helper_types import ReadResourceContents
+    from mcp.server.models import InitializationOptions
+    from mcp.shared.message import SessionMessage
+    from mcp.types import CallToolResult, Resource, TextContent, Tool
+    from pydantic import AnyUrl
 
     from synth_ai._retry import RetryPolicy
 
 from pydantic import BaseModel, JsonValue, ValidationError
+from typing_extensions import override
 
 from synth_ai._validation import safe_validation_detail
 from synth_ai.aclient import AsyncSynthClient
@@ -29,7 +37,7 @@ from synth_ai.errors import (
     local_problem,
 )
 
-from . import directory
+from . import directory, skills
 from .dispatch import dispatch
 from .tools import TOOLS, ToolSchema
 
@@ -156,26 +164,166 @@ def refusal(error: SwarmsAPIError) -> str:
 def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> Server:
     """The MCP server bound to an open client; the caller owns the client's lifetime."""
     try:
+        import anyio
         from mcp.server import Server
-        from mcp.types import CallToolResult, TextContent, Tool
+        from mcp.server.lowlevel.helper_types import ReadResourceContents
+        from mcp.server.models import InitializationOptions
+        from mcp.shared.exceptions import McpError
+        from mcp.shared.message import SessionMessage
+        from mcp.types import (
+            CallToolResult,
+            ErrorData,
+            JSONRPCError,
+            JSONRPCMessage,
+            JSONRPCRequest,
+            JSONRPCResponse,
+            Resource,
+            ServerCapabilities,
+            TextContent,
+            Tool,
+        )
+        from pydantic import AnyUrl
     except ImportError as error:
         raise RuntimeError("Install synth-ai[mcp] to run the MCP server") from error
-    server = Server("synth")
+
+    class _SkillsServer(Server):
+        @override
+        def create_initialization_options(
+            self,
+            notification_options: NotificationOptions | None = None,
+            experimental_capabilities: dict[str, dict[str, object]] | None = None,
+        ) -> InitializationOptions:
+            base = super().create_initialization_options(
+                notification_options=notification_options,
+                experimental_capabilities=experimental_capabilities,
+            )
+            dumped = base.capabilities.model_dump(by_alias=True, mode="json", exclude_none=True)
+            dumped["extensions"] = dict(skills.EXTENSION_CAPABILITIES)
+            return InitializationOptions(
+                server_name=base.server_name,
+                server_version=base.server_version,
+                capabilities=ServerCapabilities.model_validate(dumped),
+                instructions=base.instructions,
+                website_url=base.website_url,
+                icons=base.icons,
+            )
+
+        @override
+        async def run(
+            self,
+            read_stream: MemoryObjectReceiveStream[SessionMessage | Exception],
+            write_stream: MemoryObjectSendStream[SessionMessage],
+            initialization_options: InitializationOptions,
+            raise_exceptions: bool = False,
+            stateless: bool = False,
+        ) -> None:
+            forwarded_send, forwarded_recv = anyio.create_memory_object_stream[
+                SessionMessage | Exception
+            ](64)
+
+            async def _route_incoming() -> None:
+                async with read_stream, forwarded_send:
+                    async for message in read_stream:
+                        if not isinstance(message, SessionMessage):
+                            await forwarded_send.send(message)
+                            continue
+                        root = message.message.root
+                        if not isinstance(root, JSONRPCRequest):
+                            await forwarded_send.send(message)
+                            continue
+                        if root.method in skills.EXTENSION_METHODS:
+                            raw_params = (
+                                dict(root.params) if isinstance(root.params, dict) else None
+                            )
+                            payload, err = skills.dispatch_extension_request(
+                                root.method, raw_params
+                            )
+                            reply: JSONRPCResponse | JSONRPCError
+                            if err is not None:
+                                reply = JSONRPCError(
+                                    jsonrpc="2.0",
+                                    id=root.id,
+                                    error=ErrorData(
+                                        code=err.code, message=err.message, data=err.data
+                                    ),
+                                )
+                            else:
+                                assert payload is not None
+                                reply = JSONRPCResponse(jsonrpc="2.0", id=root.id, result=payload)
+                            await write_stream.send(SessionMessage(message=JSONRPCMessage(reply)))
+                            continue
+                        if root.method == "resources/read":
+                            raw_uri = (
+                                root.params.get("uri") if isinstance(root.params, dict) else None
+                            )
+                            if (
+                                not isinstance(raw_uri, str)
+                                or skills.parse_skill_uri(raw_uri, want_dir=False) is None
+                            ):
+                                err_reply = JSONRPCError(
+                                    jsonrpc="2.0",
+                                    id=root.id,
+                                    error=ErrorData(
+                                        code=skills.INVALID_PARAMS,
+                                        message="Invalid params: malformed or disallowed resource URI.",
+                                        data={"uri": raw_uri} if isinstance(raw_uri, str) else None,
+                                    ),
+                                )
+                                await write_stream.send(
+                                    SessionMessage(message=JSONRPCMessage(err_reply))
+                                )
+                                continue
+                        await forwarded_send.send(message)
+
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(_route_incoming)
+                await super().run(
+                    forwarded_recv,
+                    write_stream,
+                    initialization_options,
+                    raise_exceptions=raise_exceptions,
+                    stateless=stateless,
+                )
+                task_group.cancel_scope.cancel()
+
+    server = _SkillsServer("synth")
+    catalog = skills.load_skills()
 
     async def list_tools() -> list[Tool]:
-        catalog = [
+        catalog_tools = [
             Tool(name=t["name"], description=t["description"], inputSchema=t["inputSchema"])
             for t in TOOLS
         ]
         if upload_descriptor is not None:
-            catalog.append(
+            catalog_tools.append(
                 Tool(
                     name=directory.NAME,
                     description=directory.DESCRIPTION,
                     inputSchema=directory.SCHEMA,
                 )
             )
-        return catalog
+        return catalog_tools
+
+    async def list_resources() -> list[Resource]:
+        return [
+            Resource(
+                uri=AnyUrl(entry.uri),
+                name=entry.name,
+                description=entry.description,
+                mimeType=entry.mime_type,
+                size=entry.size,
+            )
+            for entry in catalog.resources
+        ]
+
+    async def read_resource(uri: AnyUrl) -> Iterable[ReadResourceContents]:
+        try:
+            entry = skills.read_resource_entry(str(uri))
+        except skills.SkillError as error:
+            raise McpError(
+                ErrorData(code=error.code, message=error.message, data=error.data)
+            ) from None
+        return [ReadResourceContents(content=entry.content, mime_type=entry.mime_type)]
 
     async def invoke(
         name: str, arguments: dict[str, JsonValue]
@@ -215,6 +363,8 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
         return [TextContent(type="text", text=content)]
 
     server.list_tools()(list_tools)
+    server.list_resources()(list_resources)
+    server.read_resource()(read_resource)
     # call_tool validates input itself so refusals are Problems, not schema text.
     server.call_tool(validate_input=False)(invoke)
     return server
