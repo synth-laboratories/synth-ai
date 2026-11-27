@@ -18,6 +18,7 @@ from ._generated.models import (
     BillingHistoryPage,
     BillingStatementPage,
     EventPage,
+    FamilyList,
     File,
     LaunchChoices,
     LimitList,
@@ -28,6 +29,7 @@ from ._generated.models import (
     PlanCatalog,
     PlanRequest,
     PlanRequestList,
+    PromoRedemption,
     RunAllocation,
     RunAllocationChoice,
     RunCharge,
@@ -49,6 +51,7 @@ from ._generated.models import (
     UsageSummary,
 )
 from ._stream import StreamCheckpoint, StreamCheckpointData
+from .topologies import topology_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -166,6 +169,61 @@ def profiles(value: RunProfileCatalog) -> str:
             for p in value.profiles
         ],
     )
+
+
+def families(value: FamilyList) -> str:
+    parts: list[str] = []
+    if value.topologies is not None and len(value.topologies) > 0:
+        parts.append(
+            table(
+                ["TOPOLOGY", "ID", "AVAILABILITY"],
+                [
+                    [
+                        topology_name(entry),
+                        f"{entry.topology}@{entry.version}",
+                        entry.availability.value,
+                    ]
+                    for entry in value.topologies
+                ],
+            )
+        )
+    if value.families:
+        parts.append(
+            table(
+                ["FAMILY", "VERSION", "BINDING", "ACTORS", "SUMMARY"],
+                [
+                    [
+                        family.id,
+                        family.version,
+                        family.research_binding,
+                        ", ".join(family.required_actor_types) or "-",
+                        family.summary,
+                    ]
+                    for family in value.families
+                ],
+            )
+        )
+    return "\n\n".join(parts) if parts else facts([("families", "none")])
+
+
+def promo_redemption(value: PromoRedemption) -> str:
+    rows: list[tuple[str, object]] = [
+        ("redemption", value.redemption_id),
+        ("campaign", value.campaign_id),
+        ("redeemed", value.redeemed_at),
+        ("replayed", "yes" if value.replayed else "no"),
+        ("grants", ", ".join(value.grant_ids) or "-"),
+    ]
+    if value.override_ids:
+        rows.append(("overrides", ", ".join(value.override_ids)))
+    if value.trial is not None:
+        rows.append(
+            (
+                "trial",
+                f"{value.trial.plan_id.value} ({value.trial.trial_id}, ends {value.trial.ends_at})",
+            )
+        )
+    return facts(rows)
 
 
 def files(value: Sequence[File]) -> str:

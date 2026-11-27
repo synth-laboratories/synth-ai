@@ -195,10 +195,27 @@ def test_cli_families_prints_public_names(api, capsys, contract):
             "availability": "unavailable",
         }
     ]
+    raw["families"] = [
+        {
+            "id": "swarms.general",
+            "version": "1",
+            "summary": "General-purpose multi-agent swarm",
+            "research_binding": "none",
+            "required_actor_types": ["planner", "worker", "reviewer"],
+        }
+    ]
     api.overrides["listFamilies"] = (200, raw)
     code, out, err = invoke(api, capsys, "families")
     assert code == EXIT_OK, err
+    assert not out.lstrip().startswith("{")
+    assert "TOPOLOGY" in out
     assert "Fork-and-Flush (experimental, unavailable)" in out
+    assert "FAMILY" in out
+    assert "swarms.general" in out
+    assert "General-purpose multi-agent swarm" in out
     code, out, err = invoke(api, capsys, "families", "--json")
     assert code == EXIT_OK, err
-    assert json.loads(out)["topologies"][0]["topology"] == "fork_flush"
+    assert len(out.strip().splitlines()) == 1
+    parsed = json.loads(out)
+    assert parsed["topologies"][0]["topology"] == "fork_flush"
+    assert parsed["families"][0]["id"] == "swarms.general"

@@ -100,7 +100,6 @@ from .errors import (
     UploadTransferError,
     WaitTimeoutError,
 )
-from .topologies import topology_name
 
 if TYPE_CHECKING:
     import argparse
@@ -232,20 +231,12 @@ async def execute(
                     flush=True,
                 )
         elif command == "families":
-            catalog = await swarms.families()
-            if args.json:
-                print(catalog.model_dump_json(exclude_unset=True), flush=True)
-            else:
-                for entry in catalog.topologies or []:
-                    print(
-                        f"{topology_name(entry)}\t{entry.topology}@{entry.version}\t{entry.availability}",
-                        flush=True,
-                    )
+            out.record(await swarms.families(), view.families)
         elif command == "promo":
-            redeemed = await client.account.redeem_promo(
-                args.code, idempotency_key=args.idempotency_key
+            out.record(
+                await client.account.redeem_promo(args.code, idempotency_key=args.idempotency_key),
+                view.promo_redemption,
             )
-            print(redeemed.model_dump_json(exclude_unset=True), flush=True)
         elif command == "whoami":
             out.record(await client.account.get(), view.account)
         elif command == "profiles":

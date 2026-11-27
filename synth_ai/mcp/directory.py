@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from synth_ai._validation import validate_idempotency_key
 from synth_ai.errors import (
     DirectoryUploadCancelledError,
     DirectoryUploadError,
@@ -30,7 +31,7 @@ DESCRIPTION = (
 )
 SCHEMA = {
     "type": "object",
-    "properties": {"idempotency_key": {"type": "string", "minLength": 1, "maxLength": 255}},
+    "properties": {"idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128}},
     "required": ["idempotency_key"],
     "additionalProperties": False,
 }
@@ -59,15 +60,19 @@ def grant_root(root: str | None) -> Generator[int | None]:
 
 async def upload(client: AsyncSynthClient, descriptor: int, arguments: dict[str, JsonValue]) -> str:
     key = arguments.get("idempotency_key")
-    if (
-        set(arguments) != {"idempotency_key"}
-        or not isinstance(key, str)
-        or not key.strip()
-        or len(key.encode("utf-8")) > 255
-    ):
+    if set(arguments) != {"idempotency_key"} or not isinstance(key, str):
         raise InvalidRequestError(local_problem("tool_arguments_invalid", "mcp_input", status=422))
-    files = await client.swarms.upload_directory(descriptor, idempotency_key=key)
-    return json.dumps({"idempotency_key": key, "files": [f.model_dump(mode="json") for f in files]})
+    try:
+        validated_key = validate_idempotency_key(key)
+    except ValueError as error:
+        raise InvalidRequestError(
+            local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=str(error))
+        ) from None
+    assert validated_key is not None
+    files = await client.swarms.upload_directory(descriptor, idempotency_key=validated_key)
+    return json.dumps(
+        {"idempotency_key": validated_key, "files": [f.model_dump(mode="json") for f in files]}
+    )
 
 
 def failure(error: DirectoryUploadError | DirectoryUploadCancelledError) -> str:

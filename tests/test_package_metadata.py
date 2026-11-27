@@ -94,3 +94,9 @@ def test_checkout_pyproject_has_required_project_urls() -> None:
 
 def test_checkout_readme_has_no_relative_markdown_links() -> None:
     check_readme_links((ROOT / "README.md").read_text())
+
+
+def test_checkout_pyproject_mcp_extra_includes_jsonschema() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    mcp_deps = pyproject["project"]["optional-dependencies"]["mcp"]
+    assert any(dep.startswith("jsonschema") for dep in mcp_deps), mcp_deps

@@ -14,8 +14,9 @@ if TYPE_CHECKING:
 
     from synth_ai._retry import RetryPolicy
 
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, JsonValue, ValidationError
 
+from synth_ai._validation import safe_validation_detail
 from synth_ai.aclient import AsyncSynthClient
 from synth_ai.environments import Environment
 from synth_ai.errors import (
@@ -133,6 +134,12 @@ async def _serve(
             await server.run(reader, writer, server.create_initialization_options())
 
 
+def _invalid_arguments_detail(error: ValueError) -> str:
+    raw = safe_validation_detail(error) if isinstance(error, ValidationError) else str(error)
+    detail = " ".join(raw.split())
+    return detail[:256] if detail else "invalid arguments"
+
+
 def refusal(error: SwarmsAPIError) -> str:
     """The tool error text: the Problem, plus `retry_after_seconds` like the CLI's JSON.
 
@@ -193,6 +200,17 @@ def build_server(client: AsyncSynthClient, *, upload_descriptor: int | None) -> 
                         text=json.dumps({"code": error.code, "detail": detail}),
                     )
                 ],
+            )
+        except ValueError as error:
+            problem = local_problem(
+                "invalid_arguments",
+                "mcp_input",
+                status=422,
+                detail=_invalid_arguments_detail(error),
+            )
+            return CallToolResult(
+                isError=True,
+                content=[TextContent(type="text", text=problem.model_dump_json())],
             )
         return [TextContent(type="text", text=content)]
 

@@ -62,11 +62,18 @@ async def test_no_ambient_directory_tool(tmp_path):
     [
         {},
         {"idempotency_key": " "},
-        {"idempotency_key": "é" * 128},
+        {"idempotency_key": "a" * 129},
+        {"idempotency_key": "é" * 65},
+        {"idempotency_key": "bad\nkey"},
+        {"idempotency_key": "bad\rkey"},
+        {"idempotency_key": "bad\0key"},
         {"idempotency_key": "batch", "directory": "../secret"},
     ],
 )
 async def test_local_tool_rejects_invalid_inputs_before_upload(arguments):
+    properties = directory.SCHEMA["properties"]
+    assert isinstance(properties, dict)
+    assert properties["idempotency_key"]["maxLength"] == 128
     client = AsyncMock()
     with pytest.raises(InvalidRequestError):
         await call_tool(client, directory.NAME, arguments, upload_descriptor=10)

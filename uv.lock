@@ -1424,6 +1424,7 @@ dependencies = [
 
 [package.optional-dependencies]
 mcp = [
+    { name = "jsonschema" },
     { name = "mcp" },
 ]
 
@@ -1444,6 +1445,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "jsonschema", marker = "extra == 'mcp'", specifier = ">=4" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.30,<2" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "typing-extensions", specifier = ">=4.12" },

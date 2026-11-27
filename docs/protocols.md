@@ -382,9 +382,11 @@ catalog entry labeled `unavailable` does not become runnable in the SDK.
 `FamilyList.topologies` is typed, including availability, label, version and
 cause. `RunSnapshot.optimizer` carries the immutable admitted topology, numeric
 version, parameters, selection reason and definition digest. A requested pin is
-separate from this resolved admission receipt. Current parameters are a closed
-empty object; extra tuning fields refuse locally. Pin models, resolved receipts
-and catalog types are exported from `synth_ai.models`.
+separate from this resolved admission receipt. `OptimizerParams` is a closed
+model accepting the contract's typed tuning fields (`max_tasks`,
+`max_repairs_per_task`, `branches`, `rounds`, `exploit_bps`); unknown fields
+refuse locally. Pin models, resolved receipts and catalog types are exported
+from `synth_ai.models`.
 
 The event page method reads JSON; `follow()` owns SSE subscriptions and the
 checkpoint/milestone behavior described above. Report breakdowns sum to settled

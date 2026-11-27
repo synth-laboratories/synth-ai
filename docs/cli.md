@@ -12,7 +12,7 @@ For the 0.31 grouped commands, see the [0.31 to 0.32 migration](cli-migration-0.
 | Discover | `synth profiles [--research-task T]` | `RunProfileCatalog` |
 | | `synth choices [--profile P] [--domicile D] [--parallel-workers N] [--wall SECONDS] [--budget 2.00]` | `LaunchChoices` |
 | Inputs | `synth upload PATH...` | array of `File` |
-| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..3600)] [--parallel-workers N (1..32)] [--label k=v ...] [--assign ACTOR.inference\|sandbox\|option=ID ... --menu-revision R] [--planner-decides ACTOR.inference\|sandbox ...] [--idempotency-key KEY] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
+| Launch | `synth run "goal" --budget 2.00 [--profile P] [--research-task T] [--file PATH ...] [--wall SECONDS (1..86400)] [--parallel-workers N (1..32)] [--label k=v ...] [--assign ACTOR.inference\|sandbox\|option=ID ... --menu-revision R] [--planner-decides ACTOR.inference\|sandbox ...] [--idempotency-key KEY] [--wait [--timeout S]]` | `RunSnapshot` (final snapshot with `--wait`; human output ends with the answer text when there is one, then the charge line) |
 | Watch | `synth status RUN` | `RunSnapshot` |
 | | `synth wait RUN [--timeout S]` | `RunSnapshot` |
 | | `synth logs RUN [-f] [--limit N] [--cursor C]` | `EventPage`; with `-f`, one `RunEvent` per line |

@@ -98,13 +98,15 @@ is a local observation timeout and leaves the run and message unchanged.
 | `upload_size_exceeded` | 422 | `UploadSizeExceededError` | Split or shrink the file to at most 16 MiB. |
 
 `upload_format_unsupported` (an `InvalidRequestError`): the media type is not
-an accepted upload format. Accepted formats are `text/plain`, `text/markdown`
-and `application/json` (`supported_formats` on the error). The SDK raises it
-before any request from `upload_file`, `upload_text`, `prepare_upload` and the
-stdio MCP upload tool (as an `isError` Problem), and maps the server's own 422
-to the same class. The CLI prints it like any refusal and exits 4. Convert the
-file to one of the accepted formats. Any other invalid stdio MCP tool input is
-`tool_arguments_invalid` (422, `InvalidRequestError`).
+an accepted upload format. Media types must match Core's bounded ASCII
+`type/subtype` grammar without whitespace (at most 255 bytes,
+`maximum_media_type_bytes` on the error); binary media types are accepted. The
+SDK raises it before any request from `upload_file`, `upload_text`,
+`prepare_upload` and the stdio MCP upload tool (as an `isError` Problem), and
+maps the server's own 422 to the same class. The CLI prints it like any refusal
+and exits 4. Supply a valid ASCII `type/subtype` media type. Other stdio MCP
+schema refusals return `tool_arguments_invalid` (422, `InvalidRequestError`),
+and client-side argument validation failures return `invalid_arguments` (422).
 
 `upload_size_exceeded` (an `InvalidRequestError`): the file is larger than one
 upload accepts, 16,777,216 bytes (`maximum_size_bytes` on the error). The SDK

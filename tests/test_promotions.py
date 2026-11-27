@@ -46,5 +46,54 @@ async def test_promotions_sdk_cli_mcp_share_contract_and_key(contract, capsys, m
             ]
         )
         assert await cli.execute(args, http) == 0
-    assert observed == ["same", "same", "same"]
-    assert json.loads(capsys.readouterr().out)["campaign_id"] == response["campaign_id"]
+        human = capsys.readouterr().out
+        assert not human.lstrip().startswith("{")
+        assert response["redemption_id"] in human
+        assert response["campaign_id"] in human
+        json_args = cli.parser().parse_args(
+            [
+                "--base-url",
+                "https://example.test",
+                "promo",
+                "redeem",
+                "CODE",
+                "--idempotency-key",
+                "same",
+                "--json",
+            ]
+        )
+        assert await cli.execute(json_args, http) == 0
+        raw_json = capsys.readouterr().out
+    assert observed == ["same", "same", "same", "same"]
+    assert len(raw_json.strip().splitlines()) == 1
+    assert json.loads(raw_json)["campaign_id"] == response["campaign_id"]
+
+
+def test_promo_redemption_human_view_renders_overrides_and_trial():
+    from synth_ai import _cli_view as view
+    from synth_ai._generated.models import PromoRedemption
+
+    redemption = PromoRedemption.model_validate(
+        {
+            "redemption_id": "prd_AAAAAAAAAAAAAAAAAAAAAA",
+            "campaign_id": "camp_launch",
+            "org_id": "org_1",
+            "redeemed_at": "2026-11-27T18:00:00Z",
+            "grant_ids": ["grt_1", "grt_2"],
+            "override_ids": ["ovr_1"],
+            "trial": {
+                "trial_id": "trl_1",
+                "plan_id": "standard.monthly",
+                "starts_at": "2026-11-27T18:00:00Z",
+                "ends_at": "2026-12-27T18:00:00Z",
+            },
+            "replayed": True,
+        }
+    )
+    rendered = view.promo_redemption(redemption)
+    assert "prd_AAAAAAAAAAAAAAAAAAAAAA" in rendered
+    assert "camp_launch" in rendered
+    assert "replayed" in rendered and "yes" in rendered
+    assert "grt_1, grt_2" in rendered
+    assert "ovr_1" in rendered
+    assert "standard.monthly (trl_1, ends 2026-12-27T18:00:00Z)" in rendered

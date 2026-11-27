@@ -78,3 +78,90 @@ async def test_server_over_injected_client_launches_queued_run(contract):
     assert [(r.method, r.url.path, r.headers.get("Idempotency-Key")) for r in seen] == [
         ("POST", "/v1/runs", "fixture-mcp-queued")
     ]
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    [
+        ("unknown_tool", {}),
+        ("swarms_run_cancel", {"run_id": RUN, "idempotency_key": "   "}),
+        ("swarms_run_cancel", {"run_id": RUN, "idempotency_key": "bad\nkey"}),
+        ("swarms_run_cancel", {"run_id": RUN, "idempotency_key": "é" * 65}),
+        ("swarms_run_get", {"run_id": RUN, "unexpected": "secret-value"}),
+    ],
+)
+async def test_server_invoke_converts_value_error_to_problem(tool_name, arguments):
+    pytest.importorskip("mcp")
+    from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
+
+    from synth_ai.mcp.server import build_server
+
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(500)
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    async with AsyncSynthClient(
+        "fixture", base_url="http://127.0.0.1:9", http_client=http
+    ) as client:
+        server = build_server(client, upload_descriptor=None)
+        async with create_connected_server_and_client_session(server) as session:
+            result = await session.call_tool(tool_name, arguments)
+    assert result.isError
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    problem = json.loads(content.text)
+    assert problem["code"] == "invalid_arguments"
+    assert problem["status"] == 422
+    assert problem["stage"] == "mcp_input"
+    assert problem["outcome"] == "not_accepted"
+    assert "\n" not in problem["detail"]
+    assert "secret-value" not in problem["detail"]
+    assert seen == []
+
+
+@pytest.mark.parametrize(
+    "bad_key",
+    [
+        "a" * 129,
+        "é" * 65,
+        "bad\nkey",
+        "bad\rkey",
+        "bad\0key",
+        "   ",
+    ],
+)
+async def test_server_invoke_directory_upload_rejects_bad_idempotency_key(bad_key):
+    pytest.importorskip("mcp")
+    from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
+
+    from synth_ai.mcp import directory
+    from synth_ai.mcp.server import build_server
+
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(500)
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    async with AsyncSynthClient(
+        "fixture", base_url="http://127.0.0.1:9", http_client=http
+    ) as client:
+        server = build_server(client, upload_descriptor=10)
+        async with create_connected_server_and_client_session(server) as session:
+            result = await session.call_tool(directory.NAME, {"idempotency_key": bad_key})
+    assert result.isError
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    problem = json.loads(content.text)
+    assert problem["code"] == "tool_arguments_invalid"
+    assert problem["status"] == 422
+    assert problem["stage"] == "mcp_input"
+    assert "128" in problem["detail"]
+    assert "\n" not in problem["detail"]
+    assert seen == []

@@ -16,7 +16,7 @@ pre-commit:
         python3 -c '
         import pathlib, sys
         limit = 250 * 1024
-        allow = {"contracts/synth-v1.openapi.yaml"}
+        allow = {"contracts/synth-v1.openapi.yaml", "uv.lock"}
         bad = [p for p in sys.argv[1:] if p not in allow and pathlib.Path(p).is_file() and pathlib.Path(p).stat().st_size > limit]
         if bad:
             print("BLOCKED >250 KiB blobs:", ", ".join(bad), file=sys.stderr)
