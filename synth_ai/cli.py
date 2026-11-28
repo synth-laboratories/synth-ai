@@ -330,7 +330,13 @@ async def execute(
                 )
         elif command in {"ls", "runs"}:
             out.record(
-                await swarms.list(limit=args.limit, cursor=args.cursor, state=args.state), view.runs
+                await swarms.list(
+                    limit=args.limit,
+                    cursor=args.cursor,
+                    state=args.state,
+                    created_after=args.created_after,
+                ),
+                view.runs,
             )
         elif command == "pause":
             out.record(

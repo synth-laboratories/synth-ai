@@ -610,3 +610,97 @@ async def test_stdio_mcp_wait_degrades_gracefully_without_elicitation(
     assert isinstance(content, TextContent)
     assert json.loads(content.text)["outcome"] == "terminal"
     assert any(msg and "Approval requested (apr-8)" in msg for _, _, msg in progress_updates)
+
+
+async def test_stdio_mcp_wait_streams_run_milestone_progress_notifications(
+    contract: dict[str, object],
+) -> None:
+    pytest.importorskip("mcp")
+    from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
+
+    from synth_ai.mcp.server import build_server
+
+    progress_updates: list[tuple[float, float | None, str | None]] = []
+    milestones = [
+        (
+            "1.1",
+            {
+                "milestone": "execution_closed",
+                "run_id": RUN_ID,
+                "state": "completed",
+                "execution_closed": True,
+                "accounting_final": False,
+                "cleanup_complete": False,
+                "result_available": False,
+                "failure": None,
+                "final": False,
+            },
+        ),
+        (
+            "1.2",
+            {
+                "milestone": "accounting_final",
+                "run_id": RUN_ID,
+                "state": "completed",
+                "execution_closed": True,
+                "accounting_final": True,
+                "cleanup_complete": False,
+                "result_available": True,
+                "failure": None,
+                "final": False,
+            },
+        ),
+        (
+            "1.3",
+            {
+                "milestone": "cleanup_complete",
+                "run_id": RUN_ID,
+                "state": "completed",
+                "execution_closed": True,
+                "accounting_final": True,
+                "cleanup_complete": True,
+                "result_available": True,
+                "failure": None,
+                "final": True,
+            },
+        ),
+    ]
+    sse_body = "".join(
+        f"id: {frame_id}\nevent: milestone\ndata: {json.dumps(frame)}\n\n"
+        for frame_id, frame in milestones
+    )
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == f"/v1/runs/{RUN_ID}/events":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "text/event-stream"},
+                content=sse_body.encode("utf-8"),
+            )
+        if request.method == "GET" and request.url.path == f"/v1/runs/{RUN_ID}":
+            return httpx.Response(200, json=_run_snapshot_example(contract, state="completed"))
+        return httpx.Response(404, json={"code": "not_found", "detail": "not found"})
+
+    async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+        progress_updates.append((progress, total, message))
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    async with AsyncSynthClient(
+        "fixture", base_url="http://127.0.0.1:9", http_client=http
+    ) as client:
+        server = build_server(client, upload_descriptor=None)
+        async with create_connected_server_and_client_session(server) as session:
+            result = await session.call_tool(
+                "swarms_run_wait",
+                {"run_id": RUN_ID, "timeout_seconds": 5},
+                progress_callback=on_progress,
+            )
+
+    assert not result.isError
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    assert json.loads(content.text)["outcome"] == "terminal"
+    assert (1.0, 3.0, "Milestone execution_closed (state=completed)") in progress_updates
+    assert (2.0, 3.0, "Milestone accounting_final (state=completed)") in progress_updates
+    assert (3.0, 3.0, "Milestone cleanup_complete (state=completed)") in progress_updates

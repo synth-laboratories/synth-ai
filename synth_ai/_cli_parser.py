@@ -109,6 +109,7 @@ def _configure_auth_and_account(
     runs_list.add_argument("--limit", type=int, default=20)
     runs_list.add_argument("--cursor")
     runs_list.add_argument("--state")
+    runs_list.add_argument("--created-after", metavar="TIMESTAMP")
     runs_preflight = runs.add_parser("preflight", parents=[common])
     runs_preflight.add_argument("--body", required=True, metavar="PATH")
     runs_approvals = runs.add_parser("approvals", parents=[common])
@@ -304,6 +305,7 @@ def _configure_run_operations(created: Mapping[str, argparse.ArgumentParser]) ->
     ls.add_argument("--limit", type=int, default=20)
     ls.add_argument("--cursor")
     ls.add_argument("--state")
+    ls.add_argument("--created-after", metavar="TIMESTAMP")
     download = created["download"]
     download.add_argument("run_id", metavar="RUN")
     download.add_argument("output_id", nargs="?", metavar="OUTPUT")

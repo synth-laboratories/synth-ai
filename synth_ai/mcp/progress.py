@@ -136,7 +136,7 @@ async def wait_run_with_progress(
 
     try:
         async with asyncio.timeout(float(timeout_seconds)):
-            async with aclosing(client.swarms.follow(run_id)) as stream:
+            async with aclosing(client.swarms.watch(run_id)) as stream:
                 async for item in stream:
                     step += 1
                     progress, total, message, level = format_event_progress(item, step)
@@ -151,7 +151,8 @@ async def wait_run_with_progress(
                         related_request_id=related_request_id,
                     )
                     if (
-                        isinstance(item.payload, RunApprovalRequestedPayload)
+                        isinstance(item, RunEvent)
+                        and isinstance(item.payload, RunApprovalRequestedPayload)
                         and str(item.payload.status) == "pending"
                         and can_elicit
                     ):

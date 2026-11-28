@@ -368,6 +368,13 @@ async def watch(
                 else view.watch_item(milestone),
                 flush=True,
             )
+        if (
+            not as_json
+            and page.has_more
+            and page.next_cursor is not None
+            and page.next_cursor != ""
+        ):
+            print(f"next cursor  {page.next_cursor}", flush=True)
         return finished_code(snap)
 
     final_state: str | None = None

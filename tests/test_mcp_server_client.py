@@ -165,3 +165,55 @@ async def test_server_invoke_directory_upload_rejects_bad_idempotency_key(bad_ke
     assert "128" in problem["detail"]
     assert "\n" not in problem["detail"]
     assert seen == []
+
+
+async def test_server_invoke_reports_field_level_argument_diagnostics():
+    pytest.importorskip("mcp")
+    from mcp.shared.memory import create_connected_server_and_client_session
+    from mcp.types import TextContent
+
+    from synth_ai.mcp.server import build_server
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    async with AsyncSynthClient(
+        "fixture", base_url="http://127.0.0.1:9", http_client=http
+    ) as client:
+        server = build_server(client, upload_descriptor=None)
+        async with create_connected_server_and_client_session(server) as session:
+            missing_res = await session.call_tool("swarms_run_get", {})
+            unexpected_res = await session.call_tool(
+                "swarms_run_get", {"run_id": RUN, "bogus_key": "secret-val"}
+            )
+            nested_res = await session.call_tool(
+                "swarms_run_launch",
+                {
+                    "idempotency_key": "k1",
+                    "body": {
+                        "message": "task",
+                        "limits": {
+                            "maximum_charge": {"amount": "1.00", "currency": "USD"},
+                            "wall_time_seconds": "not-an-int",
+                        },
+                    },
+                },
+            )
+
+    missing_content = missing_res.content[0]
+    assert missing_res.isError and isinstance(missing_content, TextContent)
+    missing_problem = json.loads(missing_content.text)
+    assert "missing required argument(s): run_id" in missing_problem["detail"]
+
+    unexpected_content = unexpected_res.content[0]
+    assert unexpected_res.isError and isinstance(unexpected_content, TextContent)
+    unexpected_problem = json.loads(unexpected_content.text)
+    assert "unexpected argument(s): bogus_key" in unexpected_problem["detail"]
+    assert "secret-val" not in unexpected_problem["detail"]
+
+    nested_content = nested_res.content[0]
+    assert nested_res.isError and isinstance(nested_content, TextContent)
+    nested_problem = json.loads(nested_content.text)
+    assert nested_problem["code"] == "tool_arguments_invalid"
+    assert "$.body.limits.wall_time_seconds:" in nested_problem["detail"]

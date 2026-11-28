@@ -78,6 +78,7 @@ from .research import (
     ResearchLogExport,
     TrialRecord,
 )
+from .swarms import role_assignments_from_choices
 from .topologies import TOPOLOGY_NAMES, topology_name
 
 __all__ = [
@@ -151,5 +152,6 @@ __all__ = [
     "TrialRecord",
     "UpgradeRequiredError",
     "__version__",
+    "role_assignments_from_choices",
     "topology_name",
 ]

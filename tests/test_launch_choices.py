@@ -7,11 +7,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from synth_ai import AsyncSynthClient
+from synth_ai import AsyncSynthClient, role_assignments_from_choices
 from synth_ai._cli_view import allocation, launch_choices
 from synth_ai._generated.models import LaunchChoices, RoleAssignment, RunAllocation
 from synth_ai.cli import parse_role_assignments
+from synth_ai.errors import LaunchValidationError
 from synth_ai.mcp.tools import TOOLS
+from synth_ai.swarms import role_assignments_from_choices as swarms_role_assignments_from_choices
 
 REVISION = "lcm1_" + "a" * 64
 OPTION = "sbo1_0123456789abcdef_" + "b" * 64
@@ -180,3 +182,144 @@ def test_mcp_exposes_choices_allocation_and_launch_fields():
     launch = next(t for t in TOOLS if t["operationId"] == "createRun")
     text = json.dumps(launch)
     assert "role_assignments" in text and "launch_menu_revision" in text
+
+
+def test_launch_choices_view_renders_sandbox_options_and_gpu_specs(contract):
+    raw = example(contract, "/v1/launch-choices")
+    raw["sandbox_profiles"].append(
+        {
+            "profile_id": "gpu-h100-us",
+            "size_id": "1x-h100",
+            "domicile": "us",
+            "gpu_kind": "H100",
+            "gpu_count": 2,
+            "cpu_millis": 8000,
+            "memory_bytes": 32 * (1 << 30),
+            "disk_bytes": 100 * (1 << 30),
+            "hourly_price": {"amount": "4.50", "currency": "USD"},
+            "option_required": True,
+            "options": [
+                {
+                    "option_id": OPTION,
+                    "hourly_price": {"amount": "4.50", "currency": "USD"},
+                }
+            ],
+        }
+    )
+    choices = LaunchChoices.model_validate(raw)
+    rendered = launch_choices(choices)
+    assert "GPU" in rendered
+    assert "2x H100" in rendered
+    assert "OPTION" in rendered
+    assert OPTION in rendered
+    assert "4.50 USD" in rendered
+
+
+@pytest.mark.parametrize("bad_budget", ["not-a-number", "0", "-5", "NaN", "Infinity", 10])
+async def test_launch_choices_rejects_invalid_budget_without_leaking_decimal_error(bad_budget):
+    def handle(_):
+        pytest.fail("request sent")
+
+    with pytest.raises(LaunchValidationError) as caught:
+        await call(handle, lambda api: api.swarms.launch_choices(budget=bad_budget))
+    assert isinstance(caught.value, ValueError)
+
+
+def test_role_assignments_from_choices_helper(contract):
+    assert role_assignments_from_choices is swarms_role_assignments_from_choices
+    option_two = "sbo1_fedcba9876543210_" + "c" * 64
+    raw = example(contract, "/v1/launch-choices")
+    raw["sandbox_profiles"].extend(
+        [
+            {
+                "profile_id": "gpu-single-opt",
+                "size_id": "1x-h100",
+                "domicile": "us",
+                "gpu_kind": "H100",
+                "gpu_count": 1,
+                "cpu_millis": 8000,
+                "memory_bytes": 32 * (1 << 30),
+                "disk_bytes": 100 * (1 << 30),
+                "hourly_price": {"amount": "3.00", "currency": "USD"},
+                "option_required": True,
+                "options": [
+                    {"option_id": OPTION, "hourly_price": {"amount": "3.00", "currency": "USD"}}
+                ],
+            },
+            {
+                "profile_id": "gpu-multi-opt",
+                "size_id": "2x-h100",
+                "domicile": "us",
+                "gpu_kind": "H100",
+                "gpu_count": 2,
+                "cpu_millis": 16000,
+                "memory_bytes": 64 * (1 << 30),
+                "disk_bytes": 200 * (1 << 30),
+                "hourly_price": {"amount": "6.00", "currency": "USD"},
+                "option_required": True,
+                "options": [
+                    {"option_id": OPTION, "hourly_price": {"amount": "6.00", "currency": "USD"}},
+                    {
+                        "option_id": option_two,
+                        "hourly_price": {"amount": "6.50", "currency": "USD"},
+                    },
+                ],
+            },
+        ]
+    )
+    choices = LaunchChoices.model_validate(raw)
+
+    # Auto-selects the unique required sandbox_option and targets specified roles.
+    assigned = role_assignments_from_choices(
+        choices,
+        sandbox_profile="gpu-single-opt",
+        inference_profile="luna-low",
+        roles=["worker"],
+    )
+    assert assigned == {
+        "worker": RoleAssignment(
+            inference_profile="luna-low",
+            sandbox_profile="gpu-single-opt",
+            sandbox_option=OPTION,
+        )
+    }
+
+    # Infers sandbox_profile from unique sandbox_option across all roles by default.
+    inferred = role_assignments_from_choices(choices, sandbox_option=option_two)
+    assert set(inferred) == {r.actor_id for r in choices.roles}
+    assert inferred["worker"] == RoleAssignment(
+        sandbox_profile="gpu-multi-opt",
+        sandbox_option=option_two,
+    )
+
+    # Ambiguous multi-option sandbox_profile requires explicit sandbox_option.
+    with pytest.raises(ValueError, match="requires sandbox_option"):
+        role_assignments_from_choices(choices, sandbox_profile="gpu-multi-opt")
+
+    # Unknown role, inference profile, sandbox profile, or empty selection raise ValueError.
+    with pytest.raises(ValueError, match="unknown role"):
+        role_assignments_from_choices(choices, inference_profile="luna-low", roles=["bogus"])
+    with pytest.raises(ValueError, match="unknown inference_profile"):
+        role_assignments_from_choices(choices, inference_profile="no-such-model")
+    with pytest.raises(ValueError, match="unknown sandbox_profile"):
+        role_assignments_from_choices(choices, sandbox_profile="no-such-box")
+    with pytest.raises(ValueError, match="at least one"):
+        role_assignments_from_choices(choices)
+
+
+async def test_launch_validation_error_includes_field_path_and_reason():
+    def handle(_):
+        pytest.fail("request sent")
+
+    with pytest.raises(LaunchValidationError) as caught:
+        await call(
+            handle,
+            lambda api: api.swarms.launch(
+                "task",
+                budget="5",
+                launch_menu_revision="bad-revision",
+            ),
+        )
+    detail = caught.value.problem.detail
+    assert "launch_menu_revision" in detail
+    assert "pattern" in detail or "match" in detail

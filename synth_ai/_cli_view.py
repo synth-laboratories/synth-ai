@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-import json
-import os
-import re
-import tempfile
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from ._cli_checkpoint import checkpoint_path as checkpoint_path
+from ._cli_checkpoint import load_checkpoint as load_checkpoint
+from ._cli_checkpoint import save_checkpoint as save_checkpoint
+from ._cli_checkpoint import state_dir as state_dir
+from ._cli_table import facts as facts
+from ._cli_table import money as money
+from ._cli_table import table as table
+from ._cli_table import with_next_cursor as _with_next_cursor
 from ._cli_watch import milestones_from_snapshot as milestones_from_snapshot
 from ._cli_watch import watch_item as watch_item
 from ._generated.billing_plans import PAYG_DAILY_SPEND_USD, PAYG_WEEKLY_SPEND_USD
@@ -27,7 +30,6 @@ from ._generated.models import (
     LaunchChoices,
     LimitList,
     LimitMeter,
-    Money,
     OAuthGrantRevoked,
     OutputPage,
     PlanCatalog,
@@ -54,7 +56,6 @@ from ._generated.models import (
     UsageRecordPage,
     UsageSummary,
 )
-from ._stream import StreamCheckpoint, StreamCheckpointData
 from ._version import __version__
 from .topologies import topology_name
 
@@ -71,25 +72,6 @@ class SavedOutput(BaseModel):
 
     output: RunOutput
     path: str
-
-
-def money(value: Money | None) -> str:
-    return "-" if value is None else value.amount + " " + value.currency
-
-
-def facts(rows: Sequence[tuple[str, object]]) -> str:
-    width = max(len(label) for label, _ in rows)
-    return "\n".join(
-        label.ljust(width) + "  " + ("-" if value is None else str(value)) for label, value in rows
-    )
-
-
-def table(header: Sequence[str], rows: Sequence[Sequence[object]]) -> str:
-    cells = [list(header), *[["-" if c is None else str(c) for c in row] for row in rows]]
-    widths = [max(len(row[i]) for row in cells) for i in range(len(header))]
-    return "\n".join(
-        "  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip() for row in cells
-    )
 
 
 def snapshot(value: RunSnapshot) -> str:
@@ -133,30 +115,51 @@ def message(value: RunMessage) -> str:
 def messages(value: RunMessagePage) -> str:
     if value.availability.kind == "unavailable":
         return value.availability.reason
-    return "\n".join(message(item) for item in value.items)
+    return _with_next_cursor(
+        "\n".join(message(item) for item in value.items),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
+    )
 
 
 def events(value: EventPage) -> str:
-    return "\n".join(event(item) for item in value.items)
+    return _with_next_cursor(
+        "\n".join(event(item) for item in value.items),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
+    )
 
 
 def runs(value: RunPage) -> str:
-    return table(
-        ["RUN", "STATE", "PROFILE", "CREATED"],
-        [
-            [r.run_id, r.state, r.profile.id if r.profile is not None else None, r.created_at]
-            for r in value.items
-        ],
+    return _with_next_cursor(
+        table(
+            ["RUN", "STATE", "PROFILE", "CREATED"],
+            [
+                [r.run_id, r.state, r.profile.id if r.profile is not None else None, r.created_at]
+                for r in value.items
+            ],
+        ),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
     )
 
 
 def tasks(value: RunTaskPage) -> str:
-    return table(["TASK", "STATE"], [[t.task_id, t.state] for t in value.items])
+    return _with_next_cursor(
+        table(["TASK", "STATE"], [[t.task_id, t.state] for t in value.items]),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
+    )
 
 
 def outputs(value: OutputPage) -> str:
-    return table(
-        ["OUTPUT", "STATE", "FILENAME"], [[o.output_id, o.state, o.filename] for o in value.items]
+    return _with_next_cursor(
+        table(
+            ["OUTPUT", "STATE", "FILENAME"],
+            [[o.output_id, o.state, o.filename] for o in value.items],
+        ),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
     )
 
 
@@ -275,19 +278,51 @@ def launch_choices(value: LaunchChoices) -> str:
             for p in value.inference_profiles
         ],
     )
-    text += "\n\n" + table(
-        ["SANDBOX", "SIZE", "DOMICILE", "HOURLY", "OPTIONS"],
-        [
+    has_gpu = any(s.gpu_kind is not None or s.gpu_count is not None for s in value.sandbox_profiles)
+    sandbox_header = [
+        "SANDBOX",
+        "SIZE",
+        "DOMICILE",
+        *(["GPU"] if has_gpu else []),
+        "HOURLY",
+        "OPTIONS",
+    ]
+    sandbox_rows: list[list[object]] = []
+    for s in value.sandbox_profiles:
+        row: list[object] = [s.profile_id, s.size_id, s.domicile.value]
+        if has_gpu:
+            if s.gpu_kind is not None and s.gpu_count is not None:
+                gpu_spec: str | None = f"{s.gpu_count}x {s.gpu_kind}"
+            elif s.gpu_kind is not None:
+                gpu_spec = s.gpu_kind
+            elif s.gpu_count is not None:
+                gpu_spec = f"{s.gpu_count}x"
+            else:
+                gpu_spec = None
+            row.append(gpu_spec)
+        row.extend(
             [
-                s.profile_id,
-                s.size_id,
-                s.domicile.value,
                 money(s.hourly_price),
                 ("choose one of " if s.option_required else "") + str(len(s.options)),
             ]
-            for s in value.sandbox_profiles
-        ],
-    )
+        )
+        sandbox_rows.append(row)
+    text += "\n\n" + table(sandbox_header, sandbox_rows)
+    option_rows = [
+        [
+            s.profile_id,
+            opt.option_id,
+            money(opt.hourly_price),
+            "yes" if s.option_required else "no",
+        ]
+        for s in value.sandbox_profiles
+        for opt in s.options
+    ]
+    if option_rows:
+        text += "\n\n" + table(
+            ["SANDBOX", "OPTION", "HOURLY", "REQUIRED"],
+            option_rows,
+        )
     if value.exclusions:
         text += "\n\n" + table(
             ["EXCLUDED", "KIND", "OPTION", "CAUSE"],
@@ -414,12 +449,25 @@ def usage_summary(value: UsageSummary) -> str:
     rows: list[tuple[str, object]] = [
         ("since", value.since),
         ("until", value.until),
-        ("charge", money(value.total.charge)),
-        ("pending", f"{money(value.pending.amount)} ({value.pending.count})"),
-        ("input tokens", value.total.input_tokens),
-        ("output tokens", value.total.output_tokens),
-        ("records", value.total.records),
     ]
+    if value.data_through is not None:
+        rows.append(("data through", value.data_through))
+    rows.extend(
+        [
+            ("charge", money(value.total.charge)),
+            ("pending", f"{money(value.pending.amount)} ({value.pending.count})"),
+        ]
+    )
+    settling = getattr(value, "settling", None)
+    if settling is not None:
+        rows.append(("settling", f"{money(settling.amount)} ({settling.count})"))
+    rows.extend(
+        [
+            ("input tokens", value.total.input_tokens),
+            ("output tokens", value.total.output_tokens),
+            ("records", value.total.records),
+        ]
+    )
     funding = getattr(value, "funding", None)
     if funding is not None:
         rows.extend(
@@ -442,12 +490,23 @@ def usage_summary(value: UsageSummary) -> str:
 
 
 def usage_records(value: UsageRecordPage) -> str:
-    return table(
-        ["RECORD", "KIND", "MODEL", "INPUT", "OUTPUT", "CHARGE"],
-        [
-            [r.record_id, r.kind.value, r.preset, r.input_tokens, r.output_tokens, money(r.charge)]
-            for r in value.items
-        ],
+    return _with_next_cursor(
+        table(
+            ["RECORD", "KIND", "MODEL", "INPUT", "OUTPUT", "CHARGE"],
+            [
+                [
+                    r.record_id,
+                    r.kind.value,
+                    r.preset,
+                    r.input_tokens,
+                    r.output_tokens,
+                    money(r.charge),
+                ]
+                for r in value.items
+            ],
+        ),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
     )
 
 
@@ -457,6 +516,8 @@ def balance(value: Balance) -> str:
         ("available", money(value.available)),
         ("purchased credits", money(value.purchased_credits)),
         ("promotional credits", money(value.promotional_credits)),
+        ("operator credits", money(value.operator_credits)),
+        ("debt", money(value.debt)),
         ("held", money(value.held)),
         ("headroom", money(value.headroom)),
         ("ledger", money(value.ledger)),
@@ -515,36 +576,44 @@ def plans(value: PlanCatalog) -> str:
 
 
 def billing_history(value: BillingHistoryPage) -> str:
-    return table(
-        ["ENTRY", "CAUSE", "FUNDING", "DELTA", "HELD DELTA", "CREATED"],
-        [
+    return _with_next_cursor(
+        table(
+            ["ENTRY", "CAUSE", "FUNDING", "DELTA", "HELD DELTA", "CREATED"],
             [
-                e.entry_id,
-                e.cause.value if hasattr(e.cause, "value") else e.cause,
-                e.funding_class or "-",
-                money(e.delta),
-                money(e.held_delta),
-                e.created_at,
-            ]
-            for e in value.items
-        ],
+                [
+                    e.entry_id,
+                    e.cause.value if hasattr(e.cause, "value") else e.cause,
+                    e.funding_class or "-",
+                    money(e.delta),
+                    money(e.held_delta),
+                    e.created_at,
+                ]
+                for e in value.items
+            ],
+        ),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
     )
 
 
 def billing_statements(value: BillingStatementPage) -> str:
-    return table(
-        ["MONTH", "OPENING", "PURCHASES", "ALLOWANCE", "CHARGES", "CLOSING"],
-        [
+    return _with_next_cursor(
+        table(
+            ["MONTH", "OPENING", "PURCHASES", "ALLOWANCE", "CHARGES", "CLOSING"],
             [
-                s.month,
-                money(s.opening_ledger),
-                money(s.purchases),
-                money(s.allowance),
-                money(s.charges),
-                money(s.closing_ledger),
-            ]
-            for s in value.items
-        ],
+                [
+                    s.month,
+                    money(s.opening_ledger),
+                    money(s.purchases),
+                    money(s.allowance),
+                    money(s.charges),
+                    money(s.closing_ledger),
+                ]
+                for s in value.items
+            ],
+        ),
+        has_more=value.has_more,
+        next_cursor=value.next_cursor,
     )
 
 
@@ -588,8 +657,8 @@ def limits(value: LimitList) -> str:
     return facts(header) + (
         "\n\n"
         + table(
-            ["RESOURCE", "METRIC", "WINDOW", "CURRENT", "CAP"],
-            [[i.resource, i.metric, i.window, i.current, i.cap] for i in value.items],
+            ["RESOURCE", "METRIC", "WINDOW", "CURRENT", "CAP", "RESET AT"],
+            [[i.resource, i.metric, i.window, i.current, i.cap, i.reset_at] for i in value.items],
         )
         if value.items
         else ""
@@ -665,54 +734,6 @@ def auth_status(value: AuthStatus) -> str:
             ("source", value.source.value),
         ]
     )
-
-
-_SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-
-
-def state_dir() -> Path:
-    configured = os.getenv("SYNTH_STATE_DIR")
-    return (
-        Path(configured).expanduser()
-        if configured is not None and configured != ""
-        else Path.home() / ".config" / "synth"
-    )
-
-
-def checkpoint_path(run_id: str) -> Path:
-    if not _SAFE_RUN_ID.fullmatch(run_id):
-        raise ValueError("run id cannot name a checkpoint file")
-    return state_dir() / "streams" / (run_id + ".json")
-
-
-def load_checkpoint(run_id: str) -> StreamCheckpoint:
-    path = checkpoint_path(run_id)
-    if not path.exists():
-        return StreamCheckpoint(run_id=run_id)
-    if path.stat().st_mode & 0o077:
-        raise ValueError("checkpoint file must have permissions 0600")
-    checkpoint = StreamCheckpoint.from_data(
-        StreamCheckpointData.model_validate_json(path.read_bytes())
-    )
-    checkpoint.bind(run_id)
-    return checkpoint
-
-
-def save_checkpoint(checkpoint: StreamCheckpoint) -> None:
-    if checkpoint.run_id is None:
-        raise ValueError("checkpoint is not bound to a run")
-    path = checkpoint_path(checkpoint.run_id)
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(prefix=".checkpoint-", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w") as stream:
-            json.dump(checkpoint.to_dict(), stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(name, path)
-    finally:
-        if os.path.exists(name):
-            os.unlink(name)
 
 
 def run_limits(value: RunLimitsProgress) -> str:

@@ -61,7 +61,7 @@ from ._limits import MESSAGE_REPLY_TIMEOUT_SECONDS_DEFAULT
 from ._observer import RunObserver, validate_wait
 from ._pagination import paginate
 from ._protocol import CompletionMilestone
-from ._requests import DomicileRequirement
+from ._requests import DomicileRequirement, role_assignments_from_choices
 from ._stream import StreamCheckpoint
 from ._transport import Transport
 from ._uploads import ArtifactUploads
@@ -73,7 +73,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
     from decimal import Decimal
 
-__all__ = ["AsyncSwarms"]
+__all__ = ["AsyncSwarms", "role_assignments_from_choices"]
 
 
 class AsyncSwarms:

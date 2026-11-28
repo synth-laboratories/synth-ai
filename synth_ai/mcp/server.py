@@ -83,8 +83,15 @@ def resolve_and_validate(
     if tool is None:
         raise ValueError("Unknown tool")
     schema = tool["inputSchema"]
-    if set(arguments) - set(schema["properties"]) or set(schema["required"]) - set(arguments):
-        raise ValueError("Tool arguments do not match the contract")
+    unexpected = sorted(set(arguments) - set(schema["properties"]))
+    missing = sorted(set(schema["required"]) - set(arguments))
+    if unexpected or missing:
+        parts: list[str] = []
+        if missing:
+            parts.append("missing required argument(s): " + ", ".join(missing))
+        if unexpected:
+            parts.append("unexpected argument(s): " + ", ".join(unexpected))
+        raise ValueError("; ".join(parts))
     validate_arguments(tool["operationId"], schema, arguments)
     return tool["operationId"], schema
 
@@ -124,8 +131,9 @@ def validate_arguments(
         check_upload_format(media_type if isinstance(media_type, str) else None)
     error = next(iter(Draft202012Validator(schema).iter_errors(arguments)), None)
     if error is not None:
+        detail = f"{error.json_path}: {error.message}" if error.json_path != "$" else error.message
         raise InvalidRequestError(
-            local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=error.message)
+            local_problem("tool_arguments_invalid", "mcp_input", status=422, detail=detail)
         )
 
 
