@@ -193,13 +193,34 @@ class AsyncArtifacts:
             idempotency_key=idempotency_key,
         )
 
-    async def list_artifacts(self, notebook_id: str, *, run_id: str | None = None) -> ArtifactList:
-        """List hosted interactive artifacts for a notebook, optionally filtered by run."""
+    async def list_artifacts(
+        self,
+        notebook_id: str,
+        *,
+        run_id: str | None = None,
+        kind: ArtifactKind | str | None = None,
+        origin: ArtifactOrigin | str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> ArtifactList:
+        """Read one page of a notebook's hosted artifacts, newest first.
+
+        Filter by run, kind, origin or `q` (case-insensitive literal text; `%` and `_`
+        match literally). Pass the page's `next_cursor` as `cursor` while `has_more`.
+        """
         return await self._transport.request(
             "listNotebookArtifacts",
             HostedArtifactList,
             path={"notebook_id": notebook_id},
-            query={"run_id": run_id},
+            query={
+                "run_id": run_id,
+                "kind": ArtifactKind(kind).value if kind is not None else None,
+                "origin": ArtifactOrigin(origin).value if origin is not None else None,
+                "q": q,
+                "limit": limit,
+                "cursor": cursor,
+            },
         )
 
     async def get_artifact(self, artifact_id: str) -> HostedArtifact:
@@ -362,14 +383,24 @@ class AsyncExperiments:
         )
 
     async def list_experiments(
-        self, notebook_id: str, *, run_id: str | None = None
+        self,
+        notebook_id: str,
+        *,
+        run_id: str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
     ) -> ExperimentList:
-        """List experiments in a notebook, optionally filtered to one run."""
+        """Read one page of a notebook's experiments, newest first.
+
+        Filter by run or `q` (case-insensitive literal match on title, specification or
+        hypothesis; `%` and `_` match literally). Pass `next_cursor` as `cursor` while `has_more`.
+        """
         return await self._transport.request(
             "listNotebookExperiments",
             ResearchExperimentList,
             path={"notebook_id": notebook_id},
-            query={"run_id": run_id},
+            query={"run_id": run_id, "q": q, "limit": limit, "cursor": cursor},
         )
 
 
@@ -471,17 +502,27 @@ class AsyncResearchLogs:
         category: LogCategory | str | None = None,
         run_id: str | None = None,
         author_kind: AuthorKind | str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
     ) -> ResearchLogPage:
-        """Search notebook research-log entries by text, category, run, or author class."""
+        """Read one page of research-log entries in log order, filtered by text, category, run or author.
+
+        `q` is an alias of `query`; when both are set they must be equal. Text matches
+        literally (`%` and `_` included). Pass `next_cursor` as `cursor` while `has_more`.
+        """
         return await self._transport.request(
             "searchResearchLog",
             ResearchLogEntryList,
             path={"notebook_id": notebook_id},
             query={
                 "query": query,
+                "q": q,
                 "category": LogCategory(category).value if category is not None else None,
                 "run_id": run_id,
                 "author_kind": AuthorKind(author_kind).value if author_kind is not None else None,
+                "limit": limit,
+                "cursor": cursor,
             },
         )
 

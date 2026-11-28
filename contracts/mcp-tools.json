@@ -3730,11 +3730,41 @@
     },
     {
       "access": "scoped",
-      "description": "List hosted artifacts in a notebook, optionally filtered by run.",
+      "description": "List hosted artifacts in a notebook, newest first, with cursor paging and filters.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "html",
+              "react",
+              "svg",
+              "mermaid",
+              "markdown",
+              "chart"
+            ],
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
           "notebook_id": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "agent",
+              "human"
+            ],
+            "type": "string"
+          },
+          "q": {
             "type": "string"
           },
           "run_id": {
@@ -3826,11 +3856,23 @@
     },
     {
       "access": "scoped",
-      "description": "List experiments in a notebook, optionally filtered by run.",
+      "description": "List experiments in a notebook, newest first, with cursor paging and filters.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
           "notebook_id": {
+            "type": "string"
+          },
+          "q": {
             "type": "string"
           },
           "run_id": {
@@ -4099,7 +4141,7 @@
     },
     {
       "access": "scoped",
-      "description": "Search and filter notebook research log entries.",
+      "description": "Search and filter notebook research log entries in log order, with cursor paging.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -4109,7 +4151,19 @@
           "category": {
             "type": "string"
           },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
           "notebook_id": {
+            "type": "string"
+          },
+          "q": {
             "type": "string"
           },
           "query": {

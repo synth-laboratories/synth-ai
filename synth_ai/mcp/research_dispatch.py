@@ -70,6 +70,11 @@ async def dispatch_research(
             return await client.artifacts.list_artifacts(
                 required(arguments, "notebook_id", str),
                 run_id=optional(arguments, "run_id", str),
+                kind=optional(arguments, "kind", str),
+                origin=optional(arguments, "origin", str),
+                q=optional(arguments, "q", str),
+                limit=optional(arguments, "limit", int),
+                cursor=optional(arguments, "cursor", str),
             )
         case "createExperiment":
             body = required(arguments, "body", CreateResearchExperimentRequest)
@@ -88,6 +93,9 @@ async def dispatch_research(
             return await client.experiments.list_experiments(
                 required(arguments, "notebook_id", str),
                 run_id=optional(arguments, "run_id", str),
+                q=optional(arguments, "q", str),
+                limit=optional(arguments, "limit", int),
+                cursor=optional(arguments, "cursor", str),
             )
         case "getExperiment":
             return await client.experiments.get_experiment(
@@ -135,6 +143,9 @@ async def dispatch_research(
                 category=optional(arguments, "category", str),
                 run_id=optional(arguments, "run_id", str),
                 author_kind=optional(arguments, "author_kind", str),
+                q=optional(arguments, "q", str),
+                limit=optional(arguments, "limit", int),
+                cursor=optional(arguments, "cursor", str),
             )
         case "correctResearchLogEntry":
             body = required(arguments, "body", CorrectResearchLogEntryRequest)

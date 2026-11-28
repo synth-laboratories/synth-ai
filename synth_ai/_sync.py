@@ -1127,8 +1127,28 @@ class ArtifactsClient:
             )
         )
 
-    def list_artifacts(self, notebook_id: str, *, run_id: str | None = None) -> ArtifactList:
-        return self._runner.call(self._async.list_artifacts(notebook_id, run_id=run_id))
+    def list_artifacts(
+        self,
+        notebook_id: str,
+        *,
+        run_id: str | None = None,
+        kind: ArtifactKind | str | None = None,
+        origin: ArtifactOrigin | str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> ArtifactList:
+        return self._runner.call(
+            self._async.list_artifacts(
+                notebook_id,
+                run_id=run_id,
+                kind=kind,
+                origin=origin,
+                q=q,
+                limit=limit,
+                cursor=cursor,
+            )
+        )
 
     def get_artifact(self, artifact_id: str) -> HostedArtifact:
         return self._runner.call(self._async.get_artifact(artifact_id))
@@ -1227,8 +1247,20 @@ class ExperimentsClient:
     def get_experiment(self, experiment_id: str) -> ExperimentRecord:
         return self._runner.call(self._async.get_experiment(experiment_id))
 
-    def list_experiments(self, notebook_id: str, *, run_id: str | None = None) -> ExperimentList:
-        return self._runner.call(self._async.list_experiments(notebook_id, run_id=run_id))
+    def list_experiments(
+        self,
+        notebook_id: str,
+        *,
+        run_id: str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> ExperimentList:
+        return self._runner.call(
+            self._async.list_experiments(
+                notebook_id, run_id=run_id, q=q, limit=limit, cursor=cursor
+            )
+        )
 
 
 _copy_method_docs(ExperimentsClient, AsyncExperiments)
@@ -1313,10 +1345,20 @@ class ResearchLogsClient:
         category: LogCategory | str | None = None,
         run_id: str | None = None,
         author_kind: AuthorKind | str | None = None,
+        q: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
     ) -> ResearchLogPage:
         return self._runner.call(
             self._async.search_entries(
-                notebook_id, query=query, category=category, run_id=run_id, author_kind=author_kind
+                notebook_id,
+                query=query,
+                category=category,
+                run_id=run_id,
+                author_kind=author_kind,
+                q=q,
+                limit=limit,
+                cursor=cursor,
             )
         )
 

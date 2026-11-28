@@ -211,7 +211,7 @@ def _make_backend() -> httpx.MockTransport:
                 if item["notebook_id"] == notebook_id
                 and (run_id is None or item["run_id"] == run_id)
             ]
-            return httpx.Response(200, json={"items": items})
+            return httpx.Response(200, json={"items": items, "has_more": False})
 
         if method == "POST" and path.startswith("/v1/notebooks/") and path.endswith("/experiments"):
             notebook_id = path.split("/")[3]
@@ -271,7 +271,7 @@ def _make_backend() -> httpx.MockTransport:
                 if item["notebook_id"] == notebook_id
                 and (run_id is None or item["run_id"] == run_id)
             ]
-            return httpx.Response(200, json={"items": items})
+            return httpx.Response(200, json={"items": items, "has_more": False})
 
         if (
             method == "POST"
@@ -371,7 +371,7 @@ def _make_backend() -> httpx.MockTransport:
                 and (category is None or item["category"] == category)
                 and (query is None or query.lower() in str(item["text"]).lower())
             ]
-            return httpx.Response(200, json={"items": items})
+            return httpx.Response(200, json={"items": items, "has_more": False})
 
         if method == "GET" and path.startswith("/v1/runs/") and path.endswith("/review"):
             run_id = path.split("/")[3]

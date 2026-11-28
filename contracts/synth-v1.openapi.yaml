@@ -6320,7 +6320,7 @@ paths:
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
       x-synth-mcp-name: swarms_artifacts_list
-      summary: List hosted artifacts in a notebook, optionally filtered by run.
+      summary: List hosted artifacts in a notebook, newest first, with cursor paging and filters.
       x-synth-status: implemented
       x-synth-source: core/internal/public/research/http.go
       x-synth-legacy-path: null
@@ -6331,6 +6331,37 @@ paths:
         schema:
           type: string
       - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [html, react, svg, mermaid, markdown, chart]
+      - name: origin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [agent, human]
+      - name: q
+        in: query
+        required: false
+        description: Case-insensitive literal text match.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
         in: query
         required: false
         schema:
@@ -6347,6 +6378,7 @@ paths:
                 $ref: '#/components/schemas/HostedArtifactList'
               example:
                 items: []
+                has_more: false
         default:
           $ref: '#/components/responses/Problem'
   /v1/notebooks/{notebook_id}/experiments:
@@ -6414,7 +6446,7 @@ paths:
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
       x-synth-mcp-name: swarms_experiments_list
-      summary: List experiments in a notebook, optionally filtered by run.
+      summary: List experiments in a notebook, newest first, with cursor paging and filters.
       x-synth-status: implemented
       x-synth-source: core/internal/public/research/http.go
       x-synth-legacy-path: null
@@ -6429,6 +6461,25 @@ paths:
         required: false
         schema:
           type: string
+      - name: q
+        in: query
+        required: false
+        description: Case-insensitive literal match on title, specification or hypothesis.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: Notebook experiments.
@@ -6438,6 +6489,7 @@ paths:
                 $ref: '#/components/schemas/ResearchExperimentList'
               example:
                 items: []
+                has_more: false
         default:
           $ref: '#/components/responses/Problem'
   /v1/experiments/{experiment_id}:
@@ -6646,7 +6698,7 @@ paths:
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
       x-synth-mcp-name: swarms_research_log_search
-      summary: Search and filter notebook research log entries.
+      summary: Search and filter notebook research log entries in log order, with cursor paging.
       x-synth-status: implemented
       x-synth-source: core/internal/public/research/http.go
       x-synth-legacy-path: null
@@ -6676,6 +6728,25 @@ paths:
         required: false
         schema:
           type: string
+      - name: q
+        in: query
+        required: false
+        description: Alias of query; when both are set they must be equal.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: Matching research log entries.
@@ -6685,6 +6756,7 @@ paths:
                 $ref: '#/components/schemas/ResearchLogEntryList'
               example:
                 items: []
+                has_more: false
         default:
           $ref: '#/components/responses/Problem'
   /v1/notebooks/{notebook_id}/research-log/{entry_id}/corrections:
@@ -7883,6 +7955,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RunInheritedArtifact'
+    RunNotebookInheritance:
+      type: object
+      additionalProperties: false
+      description: What a research_task run inherited from its notebook at launch, by exact reference.
+        Present on single-run reads once the run is prepared, and only when the notebook had an effective
+        preference or a dead-end finding. Absent on general runs.
+      required:
+      - notebook_id
+      - preference
+      - dead_end_findings
+      properties:
+        notebook_id:
+          type: string
+          description: The notebook the records were read from (GET /v1/notebooks/{notebook_id}/artifactory).
+        preference:
+          description: The effective preference at launch, or null when the notebook had none.
+          oneOf:
+          - $ref: '#/components/schemas/RunInheritedRecord'
+          - type: 'null'
+        dead_end_findings:
+          type: array
+          maxItems: 32
+          description: Findings with dead_end true at launch, pinned first, then newest first.
+          items:
+            $ref: '#/components/schemas/RunInheritedRecord'
+    RunInheritedRecord:
+      type: object
+      additionalProperties: false
+      required:
+      - record_id
+      - revision
+      - digest_sha256
+      properties:
+        record_id:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
     RunInheritedArtifact:
       type: object
       additionalProperties: false
@@ -9307,6 +9420,8 @@ components:
       properties:
         lineage:
           $ref: '#/components/schemas/RunLineage'
+        notebook_inheritance:
+          $ref: '#/components/schemas/RunNotebookInheritance'
         optimizer:
           $ref: '#/components/schemas/ResolvedOptimizer'
         pause:
@@ -14780,7 +14895,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HostedArtifact'
-      required: [items]
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+      required: [items, has_more]
     CreateHostedArtifactRequest:
       type: object
       additionalProperties: false
@@ -14974,7 +15093,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResearchExperimentRecord'
-      required: [items]
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+      required: [items, has_more]
     CreateResearchExperimentRequest:
       type: object
       additionalProperties: false
@@ -15096,7 +15219,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResearchLogEntry'
-      required: [items]
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+      required: [items, has_more]
     ResearchLogExport:
       type: object
       additionalProperties: false

@@ -2357,6 +2357,20 @@ class RunInheritedArtifact(WireModel):
     digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
 
 
+class RunInheritedRecord(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    record_id: str
+    revision: Annotated[int, Field(ge=1)]
+    digest_sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
+
+
 class RunLabels(WireModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -4264,6 +4278,20 @@ class RunModelUsage(WireModel):
     model_time_ms: Annotated[int, Field(ge=0)]
 
 
+class RunNotebookInheritance(WireModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        serialize_by_alias=True,
+        strict=True,
+        frozen=True,
+        allow_inf_nan=False,
+    )
+    notebook_id: str
+    preference: RunInheritedRecord | None
+    dead_end_findings: Annotated[list[RunInheritedRecord], Field(max_length=32)]
+
+
 class RunOutput(WireModel):
     model_config = ConfigDict(
         extra="allow",
@@ -5087,6 +5115,8 @@ class ResearchLogEntryList(WireModel):
         allow_inf_nan=False,
     )
     items: list[ResearchLogEntry]
+    next_cursor: str | None = None
+    has_more: bool
 
 
 class ResearchTrialRecord(WireModel):
@@ -5616,6 +5646,8 @@ class HostedArtifactList(WireModel):
         allow_inf_nan=False,
     )
     items: list[HostedArtifact]
+    next_cursor: str | None = None
+    has_more: bool
 
 
 class LaunchChoices(WireModel):
@@ -5906,6 +5938,7 @@ class RunSnapshot(WireModel):
         allow_inf_nan=False,
     )
     lineage: RunLineage | None = None
+    notebook_inheritance: RunNotebookInheritance | None = None
     optimizer: ResolvedOptimizer | None = None
     pause: RunPause | None = None
     limits_revision: Annotated[int, Field(ge=0)] | None = None
@@ -6014,6 +6047,8 @@ class ResearchExperimentList(WireModel):
         allow_inf_nan=False,
     )
     items: list[ResearchExperimentRecord]
+    next_cursor: str | None = None
+    has_more: bool
 
 
 RunAttemptTree: TypeAlias = RunAttemptTreeAvailable | RunAttemptTreeUnavailable
@@ -6312,6 +6347,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunGuidanceMetric": RunGuidanceMetric,
     "RunHorizonPacing": RunHorizonPacing,
     "RunInheritedArtifact": RunInheritedArtifact,
+    "RunInheritedRecord": RunInheritedRecord,
     "RunLabels": RunLabels,
     "RunLabelsRequest": RunLabelsRequest,
     "RunLimitWarningPayload": RunLimitWarningPayload,
@@ -6412,6 +6448,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "RunLimitChanges": RunLimitChanges,
     "RunLineage": RunLineage,
     "RunModelUsage": RunModelUsage,
+    "RunNotebookInheritance": RunNotebookInheritance,
     "RunOutput": RunOutput,
     "RunPause": RunPause,
     "RunPreflightResponse": RunPreflightResponse,

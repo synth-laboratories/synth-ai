@@ -34,6 +34,12 @@ def write_output_bytes(path: str, content: bytes) -> str:
     return str(destination)
 
 
+def add_page_arguments(parser: argparse.ArgumentParser) -> None:
+    """Register `--limit` (1-100; server default 20) and `--cursor` on a list subcommand."""
+    parser.add_argument("--limit", type=int)
+    parser.add_argument("--cursor")
+
+
 def configure_research(
     parsers: Mapping[str, argparse.ArgumentParser], common: argparse.ArgumentParser
 ) -> None:
@@ -42,6 +48,10 @@ def configure_research(
     art_list = art.add_parser("list", parents=[common])
     art_list.add_argument("--notebook-id", required=True)
     art_list.add_argument("--run-id")
+    art_list.add_argument("--kind", choices=[k.value for k in ArtifactKind])
+    art_list.add_argument("--origin", choices=[o.value for o in ArtifactOrigin])
+    art_list.add_argument("--q", metavar="TEXT")
+    add_page_arguments(art_list)
     art.add_parser("get", parents=[common]).add_argument("artifact_id")
     art_content = art.add_parser("content", parents=[common])
     art_content.add_argument("artifact_id")
@@ -72,6 +82,8 @@ def configure_research(
     exp_list = exp.add_parser("list", parents=[common])
     exp_list.add_argument("--notebook-id", required=True)
     exp_list.add_argument("--run-id")
+    exp_list.add_argument("--q", metavar="TEXT")
+    add_page_arguments(exp_list)
     exp.add_parser("get", parents=[common]).add_argument("experiment_id")
     exp_create = exp.add_parser("create", parents=[common])
     exp_create.add_argument("--notebook-id", required=True)
@@ -115,8 +127,11 @@ def configure_research(
     log_search = log.add_parser("search", parents=[common])
     log_search.add_argument("--notebook-id", required=True)
     log_search.add_argument("--query")
+    log_search.add_argument("--q", metavar="TEXT")
     log_search.add_argument("--category", choices=[c.value for c in LogCategory])
     log_search.add_argument("--run-id")
+    log_search.add_argument("--author-kind", choices=[a.value for a in AuthorKind])
+    add_page_arguments(log_search)
     log_export = log.add_parser("export", parents=[common])
     log_export.add_argument("--notebook-id", required=True)
     log_export.add_argument("--run-id")
@@ -126,7 +141,15 @@ def configure_research(
 async def _execute_artifacts(client: AsyncSynthClient, args: argparse.Namespace) -> BaseModel:
     match args.resource_action:
         case "list":
-            return await client.artifacts.list_artifacts(args.notebook_id, run_id=args.run_id)
+            return await client.artifacts.list_artifacts(
+                args.notebook_id,
+                run_id=args.run_id,
+                kind=args.kind,
+                origin=args.origin,
+                q=args.q,
+                limit=args.limit,
+                cursor=args.cursor,
+            )
         case "get":
             return await client.artifacts.get_artifact(args.artifact_id)
         case "content":
@@ -169,7 +192,13 @@ async def _execute_artifacts(client: AsyncSynthClient, args: argparse.Namespace)
 async def _execute_experiments(client: AsyncSynthClient, args: argparse.Namespace) -> BaseModel:
     match args.resource_action:
         case "list":
-            return await client.experiments.list_experiments(args.notebook_id, run_id=args.run_id)
+            return await client.experiments.list_experiments(
+                args.notebook_id,
+                run_id=args.run_id,
+                q=args.q,
+                limit=args.limit,
+                cursor=args.cursor,
+            )
         case "get":
             return await client.experiments.get_experiment(args.experiment_id)
         case "create":
@@ -229,6 +258,10 @@ async def _execute_research_log(client: AsyncSynthClient, args: argparse.Namespa
                 query=args.query,
                 category=args.category,
                 run_id=args.run_id,
+                author_kind=args.author_kind,
+                q=args.q,
+                limit=args.limit,
+                cursor=args.cursor,
             )
         case "export":
             return await client.research_logs.export_log(

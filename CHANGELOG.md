@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Contract 1.47.0 (synth-backend `958f195b`): cursor paging and filters on
+  notebook artifact, experiment and research-log lists (SYN-6066), and run
+  readback `notebook_inheritance` (SYN-6068).
+  - SDK: `artifacts.list_artifacts` gains keyword-only `kind`, `origin`, `q`,
+    `limit` and `cursor`; `experiments.list_experiments` gains `q`, `limit` and
+    `cursor`; `research_logs.search_entries` gains `q` (alias of `query`),
+    `limit` and `cursor`. Pages carry `next_cursor` and `has_more`. Text
+    filters match literally, including `%` and `_`. The server now returns at
+    most 20 items per page by default (max 100).
+  - CLI: `synth artifacts list --kind --origin --q`, `synth experiments list --q`
+    and `synth research-log search --q --author-kind`, each with `--limit` and
+    `--cursor`.
+  - MCP: `swarms_artifacts_list`, `swarms_experiments_list` and
+    `swarms_research_log_search` forward the new arguments.
+  - Models: `RunSnapshot.notebook_inheritance` (`RunNotebookInheritance`,
+    `RunInheritedRecord`).
 - Contract 1.47.0 (synth-backend `3223ec2d`, 93 MCP tools): notebook discovery
   and the Human Artifactory across SDK, CLI and MCP.
   - SDK: `client.notebooks` (`list_notebooks`, `iter_notebooks`) and
