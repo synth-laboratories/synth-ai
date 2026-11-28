@@ -166,6 +166,8 @@ def matrix_ids():
         "experiment_id": "exp_" + "F" * 22,
         "notebook_id": "nb_" + "F" * 22,
         "entry_id": "log_" + "F" * 22,
+        "record_id": "rec_" + "F" * 22,
+        "approval_id": "apr_" + "F" * 22,
     }
 
 

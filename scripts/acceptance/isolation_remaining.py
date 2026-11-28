@@ -28,7 +28,7 @@ STAGING_ORIGIN = "https://core-api-staging-staging-acef.up.railway.app"
 DRIVERS = (SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO)
 RELEASE = "1.40.0"
 WHEEL_SHA256 = "eda387ddb890af9c1bf09cd6ecfaad939dc2f94f6936b70e19c94b9f0a9bea93"
-CONTRACT_SHA256 = "121bc078ec8cde848542e75badfc94b77aa30c4caba44f122ff4430c4fb645e4"
+CONTRACT_SHA256 = "b0ec9fda963f6612c4756c89d4260b78f6e6e07af8d1649d5c4c6dedf994500c"
 RETAINED_SHA256 = "29d0e58df8b5635ed698a11a5b5ac5c2f1c3c9a1b724231fa441b86724dbd331"
 GUARDED_MUTATIONS = {
     "updateApiKey": "key",

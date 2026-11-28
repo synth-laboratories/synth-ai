@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional, Protocol, cast
 from pydantic import BaseModel, JsonValue, ValidationError
 
 from synth_ai import ArtifactoryHypothesis, SynthClient
+from synth_ai._generated.models import RunApprovalDecisionRequest
 from synth_ai.errors import SwarmsAPIError, SynthError
 from synth_ai.models import MessageKind, Money, OptimizerRequest, RunLimitUpdate
 
@@ -315,6 +316,18 @@ SDK_CALLS: Mapping[str, SdkCall] = {
         a.path["upload_id"], idempotency_key=a.idempotency_key
     ),
     "getRunAllocation": lambda c, a: c.swarms.allocation(run_id(a)),
+    "listRunApprovals": lambda c, a: c.swarms.approvals(
+        run_id(a),
+        status=cast("Optional[str]", a.query.get("status")),
+        cursor=cast("Optional[str]", a.query.get("cursor")),
+        limit=cast("int", a.query.get("limit", 20)),
+    ),
+    "decideRunApproval": lambda c, a: c.swarms.decide_approval(
+        run_id(a),
+        a.path["approval_id"],
+        RunApprovalDecisionRequest.model_validate(a.body or {"decision": "reject"}),
+        idempotency_key=a.idempotency_key,
+    ),
     "getRunConfiguration": lambda c, a: c.swarms.configuration(run_id(a)),
     "getRunProgram": lambda c, a: c.swarms.program(run_id(a)),
     "getRunSandboxes": lambda c, a: c.swarms.sandboxes(run_id(a)),

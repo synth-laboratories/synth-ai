@@ -66,6 +66,7 @@ from ._journeys_common import (
 )
 from ._journeys_common import (
     ID_PARAMETERS,
+    MATRIX_BODIES,
     RELEASES_WITHOUT_MESSAGE_ROUTES,
     REQUIRED_MESSAGE_OPERATIONS,
     ROOT,
@@ -325,29 +326,6 @@ def absent_like(foreign: str) -> str:
         return str(uuid.uuid4())
     except ValueError:
         return "absent" + secrets.token_hex(8)
-
-
-MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
-    "updateRunLimits": {"expected_revision": 0, "limits": {"wall_time_seconds": 60}},
-    "sendRunMessage": {"kind": "guidance", "text": "Tenant-isolation fixture probe."},
-    "updateRunLabels": {"expected_revision": 1, "labels": {}},
-    "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
-    "updateArtifact": {"content": "<p>probe</p>", "summary": "Tenant-isolation fixture probe."},
-    "shareArtifact": {"scope": "org"},
-    "createExperiment": {
-        "run_id": "run_" + "F" * 22,
-        "title": "Tenant-isolation probe",
-        "specification": "Tenant-isolation fixture probe.",
-        "arms": ["baseline"],
-    },
-    "reviseExperiment": {"title": "Tenant-isolation revised probe"},
-    "initResearchLog": {"title": "Tenant-isolation probe log"},
-    "appendResearchLogEntry": {
-        "category": "observation",
-        "text": "Tenant-isolation fixture probe.",
-    },
-    "correctResearchLogEntry": {"text": "Tenant-isolation correction probe."},
-}
 
 
 # Mutations whose cell also needs org A's own call as the positive control: org B's 404

@@ -61,6 +61,39 @@ ID_PARAMETERS = frozenset(
     }
 )
 
+MATRIX_BODIES: Mapping[str, Mapping[str, JsonValue]] = {
+    "updateRunLimits": {"expected_revision": 0, "limits": {"wall_time_seconds": 60}},
+    "sendRunMessage": {"kind": "guidance", "text": "Tenant-isolation fixture probe."},
+    "updateRunLabels": {"expected_revision": 1, "labels": {}},
+    "updateApiKey": {"expected_version": 1, "scopes": ["account:read"]},
+    "updateArtifact": {"content": "<p>probe</p>", "summary": "Tenant-isolation fixture probe."},
+    "shareArtifact": {"scope": "org"},
+    "createExperiment": {
+        "run_id": "run_" + "F" * 22,
+        "title": "Tenant-isolation probe",
+        "specification": "Tenant-isolation fixture probe.",
+        "arms": ["baseline"],
+    },
+    "reviseExperiment": {"title": "Tenant-isolation revised probe"},
+    "initResearchLog": {"title": "Tenant-isolation probe log"},
+    "appendResearchLogEntry": {
+        "category": "observation",
+        "text": "Tenant-isolation fixture probe.",
+    },
+    "correctResearchLogEntry": {"text": "Tenant-isolation correction probe."},
+    "decideRunApproval": {
+        "decision": "reject",
+        "reason": "Tenant-isolation fixture probe.",
+    },
+    "createArtifactoryRecord": {
+        "title": "Tenant-isolation probe",
+        "category": "hypothesis",
+        "origin": "agent",
+        "hypothesis": {"statement": "Tenant-isolation fixture probe."},
+    },
+    "reviseArtifactoryRecord": {"summary": "Tenant-isolation fixture probe."},
+}
+
 
 class Verdict(StrEnum):
     PASS = "Pass"  # noqa: S105

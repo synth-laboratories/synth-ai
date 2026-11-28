@@ -248,7 +248,8 @@ def test_real_stdio_child_reads_same_models_as_sdk(contract, tmp_path):
     assert unknown.is_error
     with pytest.raises(AdapterError) as failure:
         raise classify_failure(Tool.GET, unknown, run_id=RUN)
-    assert failure.value.code == MCPRefusal.TOOL_FAILED
+    assert failure.value.code == MCPRefusal.TOOL_REFUSED
+    assert failure.value.cause == "problem=invalid_arguments status=422"
     # SDK 4 reads + MCP child 4 reads, all against the fixture origin.
     assert len(requests) == 8
 
