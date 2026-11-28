@@ -4141,7 +4141,7 @@
     },
     {
       "access": "scoped",
-      "description": "Search and filter notebook research log entries in log order, with cursor paging.",
+      "description": "Search and filter notebook research log entries, oldest first by default or newest first with order=desc, with cursor paging.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -4161,6 +4161,14 @@
             "type": "integer"
           },
           "notebook_id": {
+            "type": "string"
+          },
+          "order": {
+            "default": "asc",
+            "enum": [
+              "asc",
+              "desc"
+            ],
             "type": "string"
           },
           "q": {

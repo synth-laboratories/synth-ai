@@ -44,6 +44,7 @@ def generate() -> str:
         "    ExperimentList,",
         "    ExperimentRecord,",
         "    LogCategory,",
+        "    LogOrder,",
         "    ResearchLogPage,",
         ")",
         "from .swarms import AsyncSwarms",

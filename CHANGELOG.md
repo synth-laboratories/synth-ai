@@ -6,6 +6,12 @@
   synth-backend `5519d228`: no `research_task`, family `swarms.fork_flush_public`,
   published on local, staging and production; it stays opt-in and never the
   default.
+- Contract 1.47.0 (synth-backend `1eb0bcb9`): optional research-log page order
+  (SYN-6066). `research_logs.search_entries(order=...)` takes `LogOrder.ASC`
+  (log order, oldest first; the server default) or `LogOrder.DESC` (newest
+  first); CLI `synth research-log search --order asc|desc`; MCP
+  `swarms_research_log_search` forwards `order`. A cursor is bound to its
+  order; replaying it under another is `cursor_order_mismatch` (400).
 - Contract 1.47.0 (synth-backend `958f195b`): cursor paging and filters on
   notebook artifact, experiment and research-log lists (SYN-6066), and run
   readback `notebook_inheritance` (SYN-6068).

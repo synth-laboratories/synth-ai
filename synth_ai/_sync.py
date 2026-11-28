@@ -122,6 +122,7 @@ from .research import (
     ExperimentList,
     ExperimentRecord,
     LogCategory,
+    LogOrder,
     ResearchLogPage,
 )
 from .swarms import AsyncSwarms
@@ -1348,6 +1349,7 @@ class ResearchLogsClient:
         q: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
+        order: LogOrder | str | None = None,
     ) -> ResearchLogPage:
         return self._runner.call(
             self._async.search_entries(
@@ -1359,6 +1361,7 @@ class ResearchLogsClient:
                 q=q,
                 limit=limit,
                 cursor=cursor,
+                order=order,
             )
         )
 

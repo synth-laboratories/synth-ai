@@ -6698,7 +6698,7 @@ paths:
       x-synth-idempotency: "safe_read"
       x-synth-idempotency-key: false
       x-synth-mcp-name: swarms_research_log_search
-      summary: Search and filter notebook research log entries in log order, with cursor paging.
+      summary: Search and filter notebook research log entries, oldest first by default or newest first with order=desc, with cursor paging.
       x-synth-status: implemented
       x-synth-source: core/internal/public/research/http.go
       x-synth-legacy-path: null
@@ -6747,6 +6747,18 @@ paths:
         required: false
         schema:
           type: string
+      - name: order
+        in: query
+        required: false
+        description: >-
+          asc is log order (recorded_at, then entry_id), oldest first; desc is newest first.
+          A cursor is bound to the order of the page that issued it; replaying it with a
+          different order is refused with cursor_order_mismatch (400). Any other value is
+          research_log_order_invalid (422).
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: asc
       responses:
         '200':
           description: Matching research log entries.

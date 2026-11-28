@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, RootModel
 
-from .research import ArtifactKind, ArtifactOrigin, ArtifactShareScope, AuthorKind, LogCategory
+from .research import (
+    ArtifactKind,
+    ArtifactOrigin,
+    ArtifactShareScope,
+    AuthorKind,
+    LogCategory,
+    LogOrder,
+)
 
 if TYPE_CHECKING:
     import argparse
@@ -131,6 +138,7 @@ def configure_research(
     log_search.add_argument("--category", choices=[c.value for c in LogCategory])
     log_search.add_argument("--run-id")
     log_search.add_argument("--author-kind", choices=[a.value for a in AuthorKind])
+    log_search.add_argument("--order", choices=[o.value for o in LogOrder])
     add_page_arguments(log_search)
     log_export = log.add_parser("export", parents=[common])
     log_export.add_argument("--notebook-id", required=True)
@@ -262,6 +270,7 @@ async def _execute_research_log(client: AsyncSynthClient, args: argparse.Namespa
                 q=args.q,
                 limit=args.limit,
                 cursor=args.cursor,
+                order=args.order,
             )
         case "export":
             return await client.research_logs.export_log(

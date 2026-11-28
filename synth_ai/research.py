@@ -95,6 +95,7 @@ __all__ = [
     "ExperimentsClient",
     "HostedArtifact",
     "LogCategory",
+    "LogOrder",
     "LogSyncState",
     "ReferenceSource",
     "ResearchLogEntry",
@@ -110,6 +111,13 @@ __all__ = [
     "TrialState",
     "TrialVerification",
 ]
+
+
+class LogOrder(StrEnum):
+    """Research-log page direction: `asc` is log order (oldest first, the default), `desc` newest first."""
+
+    ASC = "asc"
+    DESC = "desc"
 
 
 class TrialOutcome(StrEnum):
@@ -505,11 +513,15 @@ class AsyncResearchLogs:
         q: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
+        order: LogOrder | str | None = None,
     ) -> ResearchLogPage:
-        """Read one page of research-log entries in log order, filtered by text, category, run or author.
+        """Read one page of research-log entries, filtered by text, category, run or author.
 
-        `q` is an alias of `query`; when both are set they must be equal. Text matches
-        literally (`%` and `_` included). Pass `next_cursor` as `cursor` while `has_more`.
+        `order` is `asc` (log order, oldest first; the server default) or `desc` (newest
+        first). `q` is an alias of `query`; when both are set they must be equal. Text
+        matches literally (`%` and `_` included). Pass `next_cursor` as `cursor` while
+        `has_more`, with the same `order`: a cursor from another order is refused
+        (`cursor_order_mismatch`).
         """
         return await self._transport.request(
             "searchResearchLog",
@@ -523,6 +535,7 @@ class AsyncResearchLogs:
                 "author_kind": AuthorKind(author_kind).value if author_kind is not None else None,
                 "limit": limit,
                 "cursor": cursor,
+                "order": LogOrder(order).value if order is not None else None,
             },
         )
 

@@ -11,7 +11,7 @@ import json
 import httpx
 import pytest
 
-from synth_ai import AsyncSynthClient, SynthClient, cli
+from synth_ai import AsyncSynthClient, LogOrder, SynthClient, cli
 from synth_ai.mcp.server import call_tool
 
 BASE_URL = "https://paging.example.test"
@@ -43,6 +43,7 @@ LOG_QUERY = {
     "author_kind": "human",
     "limit": "9",
     "cursor": "cur_1",
+    "order": "desc",
 }
 
 
@@ -73,9 +74,11 @@ async def test_async_sdk_forwards_paging_and_filters() -> None:
             author_kind="human",
             limit=9,
             cursor="cur_1",
+            order=LogOrder.DESC,
         )
         # Omitted arguments stay off the wire so the server default page applies.
         await client.artifacts.list_artifacts("nb_1")
+        await client.research_logs.search_entries("nb_1")
     for page in (artifacts, experiments, entries):
         assert page.has_more is True
         assert page.next_cursor == NEXT
@@ -84,6 +87,7 @@ async def test_async_sdk_forwards_paging_and_filters() -> None:
         ("/v1/notebooks/nb_1/experiments", EXPERIMENT_QUERY),
         ("/v1/notebooks/nb_1/research-log", LOG_QUERY),
         ("/v1/notebooks/nb_1/artifacts", {}),
+        ("/v1/notebooks/nb_1/research-log", {}),
     ]
 
 
@@ -94,6 +98,17 @@ def test_sync_sdk_forwards_paging() -> None:
         page = client.experiments.list_experiments("nb_1", limit=3, cursor="cur_1")
     assert (page.next_cursor, page.has_more) == (NEXT, True)
     assert seen == [("/v1/notebooks/nb_1/experiments", {"limit": "3", "cursor": "cur_1"})]
+
+
+def test_sync_sdk_log_order_and_refusal() -> None:
+    seen: list[tuple[str, dict[str, str]]] = []
+    http = httpx.AsyncClient(transport=_recording_backend(seen))
+    with SynthClient("sk_org_a", base_url=BASE_URL, http_client=http) as client:
+        client.research_logs.search_entries("nb_1", order="asc", limit=2)
+        with pytest.raises(ValueError, match="newest"):
+            client.research_logs.search_entries("nb_1", order="newest")
+    # The refused order never reaches the wire.
+    assert seen == [("/v1/notebooks/nb_1/research-log", {"limit": "2", "order": "asc"})]
 
 
 @pytest.mark.parametrize(
@@ -157,6 +172,8 @@ def test_sync_sdk_forwards_paging() -> None:
                 "9",
                 "--cursor",
                 "cur_1",
+                "--order",
+                "desc",
             ],
             ("/v1/notebooks/nb_1/research-log", LOG_QUERY),
         ),
@@ -212,6 +229,7 @@ def test_cli_list_flags_forward_paging_and_filters(
                 "author_kind": "human",
                 "limit": 9,
                 "cursor": "cur_1",
+                "order": "desc",
             },
             ("/v1/notebooks/nb_1/research-log", LOG_QUERY),
         ),

@@ -146,6 +146,7 @@ async def dispatch_research(
                 q=optional(arguments, "q", str),
                 limit=optional(arguments, "limit", int),
                 cursor=optional(arguments, "cursor", str),
+                order=optional(arguments, "order", str),
             )
         case "correctResearchLogEntry":
             body = required(arguments, "body", CorrectResearchLogEntryRequest)
