@@ -115,7 +115,7 @@ and exact actor profile digests; catalog updates never relabel historical runs.
 | Swarms v2 | `swarms_v2` | Default. Profile `swarms-v2`. |
 | Fork & Flush | `fork_flush` | Experimental. Opt-in only, never the default. Profile `fork-flush` is a general profile (family `swarms.fork_flush_public`, no `research_task`), published on local, staging and production. |
 
-`optimizer="auto"` (or omitting it) lets Core resolve the default, Swarms.
+`optimizer="auto"` (or omitting it) lets Core resolve the default, Swarms v2.
 `client.swarms.families()`, `synth families`, the MCP catalog and the Console
 read the same catalog. `synth_ai.topology_name(entry)` and `synth families`
 print the public name with its treatment, for example `Swarms v2 (default)` and
