@@ -112,14 +112,15 @@ and exact actor profile digests; catalog updates never relabel historical runs.
 
 | Public name | Machine ID | Treatment |
 | --- | --- | --- |
-| Swarms | `swarms_v2` | Default. The only topology served in this release. |
-| Fork-and-Flush | `fork_flush` | Experimental. Opt-in only, never the default; not served yet, so a pin is refused with `optimizer_topology_unavailable`. |
+| Swarms v2 | `swarms_v2` | Default. Profile `swarms-v2`. |
+| Fork & Flush | `fork_flush` | Experimental. Opt-in only, never the default. Profile `fork-flush` is a general profile (family `swarms.fork_flush_public`, no `research_task`), published on local, staging and production. |
 
 `optimizer="auto"` (or omitting it) lets Core resolve the default, Swarms.
 `client.swarms.families()`, `synth families`, the MCP catalog and the Console
 read the same catalog. `synth_ai.topology_name(entry)` and `synth families`
-print the public name with its treatment, for example `Swarms (default)` and
-`Fork-and-Flush (experimental, unavailable)`. An experimental topology is never
+print the public name with its treatment, for example `Swarms v2 (default)` and
+`Fork & Flush (experimental)`; `unavailable` is added when the catalog reports
+the topology as not served. An experimental topology is never
 shown as the default, whatever the catalog's `auto` flag says.
 
 ### Swarms controls

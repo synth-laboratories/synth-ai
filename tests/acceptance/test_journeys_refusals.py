@@ -25,6 +25,7 @@ from scripts.acceptance.journeys import (
     matrix_operations,
 )
 from scripts.acceptance.surfaces import CLI_ARGV, SDK_CALLS, Call, SurfaceName
+from synth_ai._generated.topologies import TOPOLOGY_DISPLAY_NAMES
 
 pytestmark = pytest.mark.acceptance
 
@@ -49,12 +50,19 @@ def test_capabilities_name_only_contract_operations(contract):
 
 @pytest.mark.parametrize("surface", SURFACES)
 def test_whitelist_refusal_is_typed_and_launch_not_accepted(tmp_path, surface):
-    def responder(method, path, _):
+    pins = []
+
+    def responder(method, path, request):
+        pins.append((request["body"] or {}).get("optimizer"))
         return 403, problem("optimizer_topology_not_allowed", 403), {}
 
     result, requests = run(surface, responder, tmp_path, Step.SKU_REFUSAL)
     assert result.verdict == Verdict.PASS, result
     assert [(method, path) for method, path, _ in requests] == [("POST", "/v1/runs")]
+    # The probe must pin a topology no environment admits: every catalog topology, public
+    # fork_flush included (backend 5519d228), is published somewhere and would launch.
+    assert [pin["topology"] for pin in pins] == ["off_whitelist_probe"]
+    assert "off_whitelist_probe" not in TOPOLOGY_DISPLAY_NAMES
 
 
 @pytest.mark.parametrize("surface", SURFACES)

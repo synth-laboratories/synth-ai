@@ -370,13 +370,17 @@ def raise_four(context: JourneyContext) -> StepReceipt:
     )
 
 
+OFF_WHITELIST_TOPOLOGY = "off_whitelist_probe"
+
+
 def sku_refusal(context: JourneyContext) -> StepReceipt:
     from ._journeys_common import launch_body
 
-    # Reachable whitelist refusal on a cached slot: fork_flush is a public
-    # topology the release environment does not admit (run_profile_deferred).
+    # Reachable whitelist refusal in every environment: Core admits only its catalog's
+    # topologies per environment, and both public topologies (swarms_v2, fork_flush) are
+    # published everywhere since backend 5519d228, so the probe pins an off-catalog ID.
     body = launch_body(
-        "SYN-5695 whitelist probe", optimizer={"topology": "fork_flush", "version": 1}
+        "SYN-5695 whitelist probe", optimizer={"topology": OFF_WHITELIST_TOPOLOGY, "version": 1}
     )
     return probe_launch(
         context, Step.SKU_REFUSAL, body, frozenset({"optimizer_topology_not_allowed"})

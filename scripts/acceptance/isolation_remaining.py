@@ -28,7 +28,10 @@ STAGING_ORIGIN = "https://core-api-staging-staging-acef.up.railway.app"
 DRIVERS = (SurfaceName.SDK, SurfaceName.CLI, SurfaceName.MCP_STDIO)
 RELEASE = "1.40.0"
 WHEEL_SHA256 = "eda387ddb890af9c1bf09cd6ecfaad939dc2f94f6936b70e19c94b9f0a9bea93"
-CONTRACT_SHA256 = "b0ec9fda963f6612c4756c89d4260b78f6e6e07af8d1649d5c4c6dedf994500c"
+# Frozen with RELEASE: the OpenAPI 1.40.0 bytes from Core c17b5fd6 (SYN-5737). This runner
+# replays the 1.40.0 cells, so later contract pins in contracts/SOURCE.toml never move it.
+CONTRACT_COMMIT = "c17b5fd65734e2ccb40b31693dd79f5c7e040432"
+CONTRACT_SHA256 = "ff38f7768406b46234da7a4e4944a512901eb979bbfd96303bad6f0966370738"
 RETAINED_SHA256 = "29d0e58df8b5635ed698a11a5b5ac5c2f1c3c9a1b724231fa441b86724dbd331"
 GUARDED_MUTATIONS = {
     "updateApiKey": "key",

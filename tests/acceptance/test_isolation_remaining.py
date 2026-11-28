@@ -79,14 +79,16 @@ def test_remaining_owner_state_change_halts_other_drivers(monkeypatch, tmp_path)
     assert cells[1]["result"] == "pending:owned_fixture"
 
 
-def test_remaining_cells_pin_the_current_contract():
-    import tomllib
-
+def test_remaining_cells_pin_the_frozen_1_40_contract():
     from scripts.acceptance import isolation_remaining as remaining
 
-    source = tomllib.loads((Path(__file__).parents[2] / "contracts/SOURCE.toml").read_text())
-    assert source["sha256"] == remaining.CONTRACT_SHA256
+    # The runner replays 1.40.0 cells: its contract pin and RELEASE move together, never
+    # with contracts/SOURCE.toml (a SOURCE pin with a 1.40.0 version check always blocked).
     assert remaining.RELEASE == "1.40.0"
+    assert remaining.CONTRACT_COMMIT == "c17b5fd65734e2ccb40b31693dd79f5c7e040432"
+    assert remaining.CONTRACT_SHA256 == (
+        "ff38f7768406b46234da7a4e4944a512901eb979bbfd96303bad6f0966370738"
+    )
     # Run messages shipped after the retained 1.35.1 receipt: they are open cells now.
     cell = remaining.Cell(remaining.SurfaceName.SDK, "sendRunMessage", "not_in_release:1.35.1")
     assert cell.disposition == "pending:owned_fixture"

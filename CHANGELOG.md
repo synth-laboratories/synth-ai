@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fork & Flush (`fork_flush`, profile `fork-flush`) is a general profile since
+  synth-backend `5519d228`: no `research_task`, family `swarms.fork_flush_public`,
+  published on local, staging and production; it stays opt-in and never the
+  default. `docs/swarms.md` no longer calls it unserved, and the acceptance
+  whitelist probe (`off_whitelist_sku_refusal`) pins an off-catalog topology
+  instead of `fork_flush`, which would now launch.
 - Contract 1.47.0 (synth-backend `958f195b`): cursor paging and filters on
   notebook artifact, experiment and research-log lists (SYN-6066), and run
   readback `notebook_inheritance` (SYN-6068).
